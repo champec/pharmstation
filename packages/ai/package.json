@@ -1,0 +1,15 @@
+{
+  "name": "@pharmstation/ai",
+  "version": "0.1.0",
+  "private": true,
+  "description": "AI integration package with OCR, prescription scanning, chatbot, and reconciliation features",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "lint": "eslint src --ext .ts,.tsx",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {},
+  "devDependencies": {}
+}
