@@ -1,0 +1,41 @@
+{
+  "name": "pharmstation",
+  "version": "0.1.0",
+  "private": true,
+  "description": "PharmStation - Your Digital Pharmacy Workstation",
+  "scripts": {
+    "dev": "turbo dev",
+    "build": "turbo build",
+    "lint": "turbo lint",
+    "clean": "turbo clean",
+    "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md}\"",
+    "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,json,md}\""
+  },
+  "packageManager": "pnpm@9.15.0",
+  "engines": {
+    "node": ">=20.0.0",
+    "pnpm": ">=9.0.0"
+  },
+  "keywords": [
+    "pharmacy",
+    "compliance",
+    "cd-register",
+    "rp-log",
+    "pharmacy-management",
+    "uk-pharmacy",
+    "gphc",
+    "controlled-drugs"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/champec/pharmstation.git"
+  },
+  "author": "PharmStation Team",
+  "license": "SEE LICENSE IN LICENSE",
+  "devDependencies": {},
+  "workspaces": [
+    "apps/*",
+    "packages/*",
+    "tooling/*"
+  ]
+}

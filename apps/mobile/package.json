@@ -1,0 +1,16 @@
+{
+  "name": "@pharmstation/mobile",
+  "version": "0.1.0",
+  "private": true,
+  "description": "PharmStation mobile application - React Native app for iOS and Android",
+  "scripts": {
+    "android": "react-native run-android",
+    "ios": "react-native run-ios",
+    "start": "react-native start",
+    "test": "jest",
+    "lint": "eslint .",
+    "clean": "rm -rf node_modules ios/Pods ios/build android/build android/app/build"
+  },
+  "dependencies": {},
+  "devDependencies": {}
+}

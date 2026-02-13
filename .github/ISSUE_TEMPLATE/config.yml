@@ -1,0 +1,11 @@
+blank_issues_enabled: true
+contact_links:
+  - name: 📚 Documentation
+    url: https://github.com/champec/pharmstation/tree/main/documentation
+    about: Browse the comprehensive PharmStation documentation
+  - name: 💬 Discussions
+    url: https://github.com/champec/pharmstation/discussions
+    about: Ask questions and discuss features with the community
+  - name: 🔒 Security Issue
+    url: https://github.com/champec/pharmstation/security/advisories/new
+    about: Report a security vulnerability (private)

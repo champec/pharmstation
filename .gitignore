@@ -1,0 +1,100 @@
+# Node
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+.pnpm-store/
+
+# Environment Variables
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+.env*.local
+
+# Next.js
+.next/
+out/
+*.tsbuildinfo
+next-env.d.ts
+
+# Turbo
+.turbo/
+
+# Build outputs
+dist/
+build/
+*.local
+
+# Testing
+coverage/
+.nyc_output/
+*.lcov
+
+# Tauri
+target/
+WixTools/
+apps/desktop/src-tauri/target/
+
+# React Native
+apps/mobile/.expo/
+apps/mobile/android/app/build/
+apps/mobile/android/build/
+apps/mobile/ios/build/
+apps/mobile/ios/Pods/
+apps/mobile/ios/*.xcworkspace
+apps/mobile/metro.config.js.bak
+
+# Supabase
+.branches/
+supabase/.temp/
+
+# IDEs
+.vscode/
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# OS
+Thumbs.db
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# Logs
+logs/
+*.log
+
+# Database
+*.sqlite
+*.sqlite-journal
+*.db
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# Package manager
+.pnp.*
+.yarn/
+
+# Dependencies lock files (keep only pnpm-lock.yaml)
+package-lock.json
+yarn.lock
+
+# TypeScript
+*.tsbuildinfo
+
+# Rust
+Cargo.lock
