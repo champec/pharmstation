@@ -4,7 +4,7 @@
   "private": true,
   "description": "PharmStation - Your Digital Pharmacy Workstation",
   "scripts": {
-    "dev": "turbo dev",
+    "dev": "turbo dev --filter=@pharmstation/web",
     "build": "turbo build",
     "lint": "turbo lint",
     "clean": "turbo clean",
@@ -32,7 +32,9 @@
   },
   "author": "PharmStation Team",
   "license": "SEE LICENSE IN LICENSE",
-  "devDependencies": {},
+  "devDependencies": {
+    "turbo": "^2.8.7"
+  },
   "workspaces": [
     "apps/*",
     "packages/*",

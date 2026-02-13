@@ -1,0 +1,167 @@
+// ============================================
+// RegisterTable — Reusable TanStack Table wrapper
+// Used for CD Register, RP Log, Returns
+// ============================================
+
+import { useState } from 'react'
+import {
+  useReactTable,
+  getCoreRowModel,
+  getSortedRowModel,
+  getFilteredRowModel,
+  getPaginationRowModel,
+  flexRender,
+  type ColumnDef,
+  type SortingState,
+  type ColumnFiltersState,
+} from '@tanstack/react-table'
+
+interface RegisterTableProps<T> {
+  data: T[]
+  columns: ColumnDef<T, unknown>[]
+  loading?: boolean
+  emptyMessage?: string
+  pageSize?: number
+  globalFilter?: string
+  onGlobalFilterChange?: (value: string) => void
+}
+
+export function RegisterTable<T>({
+  data,
+  columns,
+  loading = false,
+  emptyMessage = 'No entries found.',
+  pageSize = 50,
+  globalFilter,
+  onGlobalFilterChange,
+}: RegisterTableProps<T>) {
+  const [sorting, setSorting] = useState<SortingState>([])
+  const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
+
+  const table = useReactTable({
+    data,
+    columns,
+    state: {
+      sorting,
+      columnFilters,
+      globalFilter,
+    },
+    onSortingChange: setSorting,
+    onColumnFiltersChange: setColumnFilters,
+    onGlobalFilterChange,
+    getCoreRowModel: getCoreRowModel(),
+    getSortedRowModel: getSortedRowModel(),
+    getFilteredRowModel: getFilteredRowModel(),
+    getPaginationRowModel: getPaginationRowModel(),
+    initialState: {
+      pagination: { pageSize },
+    },
+  })
+
+  if (loading) {
+    return (
+      <div className="register-table-loading">
+        <div className="loading-spinner" />
+        <p>Loading entries...</p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="register-table-wrapper">
+      <div className="register-table-scroll">
+        <table className="register-table">
+          <thead>
+            {table.getHeaderGroups().map((headerGroup) => (
+              <tr key={headerGroup.id}>
+                {headerGroup.headers.map((header) => (
+                  <th
+                    key={header.id}
+                    className={header.column.getCanSort() ? 'sortable' : ''}
+                    onClick={header.column.getToggleSortingHandler()}
+                    style={{ width: header.getSize() !== 150 ? header.getSize() : undefined }}
+                  >
+                    <div className="th-content">
+                      {header.isPlaceholder
+                        ? null
+                        : flexRender(header.column.columnDef.header, header.getContext())}
+                      {header.column.getIsSorted() === 'asc' && ' ▲'}
+                      {header.column.getIsSorted() === 'desc' && ' ▼'}
+                    </div>
+                  </th>
+                ))}
+              </tr>
+            ))}
+          </thead>
+
+          <tbody>
+            {table.getRowModel().rows.length === 0 ? (
+              <tr>
+                <td colSpan={columns.length} className="empty-row">
+                  {emptyMessage}
+                </td>
+              </tr>
+            ) : (
+              table.getRowModel().rows.map((row) => (
+                <tr key={row.id} className={row.index % 2 === 0 ? 'even' : 'odd'}>
+                  {row.getVisibleCells().map((cell) => (
+                    <td key={cell.id}>
+                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                    </td>
+                  ))}
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Pagination */}
+      {table.getPageCount() > 1 && (
+        <div className="register-table-pagination">
+          <div className="pagination-info">
+            Showing {table.getState().pagination.pageIndex * pageSize + 1}–
+            {Math.min(
+              (table.getState().pagination.pageIndex + 1) * pageSize,
+              table.getFilteredRowModel().rows.length,
+            )}{' '}
+            of {table.getFilteredRowModel().rows.length} entries
+          </div>
+          <div className="pagination-controls">
+            <button
+              className="ps-btn ps-btn-ghost"
+              onClick={() => table.firstPage()}
+              disabled={!table.getCanPreviousPage()}
+            >
+              ⏮
+            </button>
+            <button
+              className="ps-btn ps-btn-ghost"
+              onClick={() => table.previousPage()}
+              disabled={!table.getCanPreviousPage()}
+            >
+              ◀
+            </button>
+            <span className="pagination-page">
+              Page {table.getState().pagination.pageIndex + 1} of {table.getPageCount()}
+            </span>
+            <button
+              className="ps-btn ps-btn-ghost"
+              onClick={() => table.nextPage()}
+              disabled={!table.getCanNextPage()}
+            >
+              ▶
+            </button>
+            <button
+              className="ps-btn ps-btn-ghost"
+              onClick={() => table.lastPage()}
+              disabled={!table.getCanNextPage()}
+            >
+              ⏭
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}

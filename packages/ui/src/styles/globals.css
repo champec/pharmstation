@@ -1,0 +1,273 @@
+/* ============================================
+   PharmStation Design Tokens
+   Based on branding/colors.json
+   ============================================ */
+
+:root {
+  /* Primary */
+  --ps-deep-blue: #257BB4;
+  --ps-sky-blue: #378FC2;
+  --ps-cloud-blue: #9FCADE;
+  --ps-electric-cyan: #04B0FF;
+
+  /* Neutrals */
+  --ps-midnight: #1A1A2E;
+  --ps-slate: #4A4A6A;
+  --ps-mist: #B0B0C0;
+  --ps-off-white: #E5F2F7;
+  --ps-white: #FFFFFF;
+
+  /* Status */
+  --ps-success: #22C55E;
+  --ps-warning: #F59E0B;
+  --ps-error: #EF4444;
+  --ps-info: #3B82F6;
+
+  /* Spacing */
+  --ps-space-xs: 4px;
+  --ps-space-sm: 8px;
+  --ps-space-md: 16px;
+  --ps-space-lg: 24px;
+  --ps-space-xl: 32px;
+  --ps-space-2xl: 48px;
+
+  /* Typography */
+  --ps-font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --ps-font-mono: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+  --ps-font-xs: 0.75rem;
+  --ps-font-sm: 0.875rem;
+  --ps-font-base: 1rem;
+  --ps-font-lg: 1.125rem;
+  --ps-font-xl: 1.25rem;
+  --ps-font-2xl: 1.5rem;
+  --ps-font-3xl: 1.875rem;
+
+  /* Border Radius */
+  --ps-radius-sm: 4px;
+  --ps-radius-md: 6px;
+  --ps-radius-lg: 8px;
+  --ps-radius-xl: 12px;
+  --ps-radius-full: 9999px;
+
+  /* Shadows */
+  --ps-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+  --ps-shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  --ps-shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+  --ps-shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+
+  /* Layout */
+  --ps-sidenav-expanded: 240px;
+  --ps-sidenav-icons: 64px;
+  --ps-topnav-height: 56px;
+  --ps-right-panel-width: 400px;
+
+  /* Transitions */
+  --ps-transition-fast: 150ms ease;
+  --ps-transition-normal: 250ms ease;
+  --ps-transition-slow: 350ms ease;
+}
+
+/* ============================================
+   Global Reset & Base
+   ============================================ */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  font-size: 16px;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  font-family: var(--ps-font-family);
+  color: var(--ps-midnight);
+  background: var(--ps-off-white);
+  line-height: 1.5;
+  min-height: 100vh;
+}
+
+#root {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+a {
+  color: var(--ps-deep-blue);
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
+/* ============================================
+   Utility Classes
+   ============================================ */
+
+.ps-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--ps-space-sm);
+  padding: var(--ps-space-sm) var(--ps-space-md);
+  border: none;
+  border-radius: var(--ps-radius-md);
+  font-family: var(--ps-font-family);
+  font-size: var(--ps-font-sm);
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--ps-transition-fast);
+  white-space: nowrap;
+}
+
+.ps-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.ps-btn-primary {
+  background: var(--ps-deep-blue);
+  color: var(--ps-white);
+}
+
+.ps-btn-primary:hover:not(:disabled) {
+  background: var(--ps-sky-blue);
+}
+
+.ps-btn-secondary {
+  background: var(--ps-off-white);
+  color: var(--ps-deep-blue);
+  border: 1px solid var(--ps-cloud-blue);
+}
+
+.ps-btn-secondary:hover:not(:disabled) {
+  background: var(--ps-cloud-blue);
+  color: var(--ps-white);
+}
+
+.ps-btn-ghost {
+  background: transparent;
+  color: var(--ps-slate);
+}
+
+.ps-btn-ghost:hover:not(:disabled) {
+  background: var(--ps-off-white);
+}
+
+.ps-btn-danger {
+  background: var(--ps-error);
+  color: var(--ps-white);
+}
+
+.ps-btn-danger:hover:not(:disabled) {
+  background: #DC2626;
+}
+
+/* Input */
+.ps-input {
+  width: 100%;
+  padding: var(--ps-space-sm) var(--ps-space-md);
+  border: 1px solid var(--ps-cloud-blue);
+  border-radius: var(--ps-radius-md);
+  font-family: var(--ps-font-family);
+  font-size: var(--ps-font-sm);
+  color: var(--ps-midnight);
+  background: var(--ps-white);
+  transition: border-color var(--ps-transition-fast), box-shadow var(--ps-transition-fast);
+}
+
+.ps-input:focus {
+  outline: none;
+  border-color: var(--ps-electric-cyan);
+  box-shadow: 0 0 0 3px rgba(4, 176, 255, 0.1);
+}
+
+.ps-input::placeholder {
+  color: var(--ps-mist);
+}
+
+select.ps-input {
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%234A4A6A' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  padding-right: 36px;
+}
+
+textarea.ps-input {
+  min-height: 60px;
+}
+
+/* Card */
+.ps-card {
+  background: var(--ps-white);
+  border-radius: var(--ps-radius-lg);
+  border: 1px solid var(--ps-off-white);
+  box-shadow: var(--ps-shadow-sm);
+}
+
+/* Badge */
+.ps-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: var(--ps-radius-full);
+  font-size: var(--ps-font-xs);
+  font-weight: 600;
+}
+
+.ps-badge-blue {
+  background: rgba(37, 123, 180, 0.1);
+  color: var(--ps-deep-blue);
+}
+
+.ps-badge-green {
+  background: rgba(34, 197, 94, 0.1);
+  color: var(--ps-success);
+}
+
+.ps-badge-amber {
+  background: rgba(245, 158, 11, 0.1);
+  color: var(--ps-warning);
+}
+
+.ps-badge-red {
+  background: rgba(239, 68, 68, 0.1);
+  color: var(--ps-error);
+}
+
+/* ============================================
+   Print Styles
+   ============================================ */
+
+@media print {
+  .ps-no-print {
+    display: none !important;
+  }
+
+  .ps-print-only {
+    display: block !important;
+  }
+
+  body {
+    background: white;
+  }
+
+  @page {
+    margin: 15mm;
+  }
+}
+
+@media screen {
+  .ps-print-only {
+    display: none !important;
+  }
+}

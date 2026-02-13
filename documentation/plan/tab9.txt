@@ -1,0 +1,171 @@
+## PharmStation — Tab 9: Implementation Summary & Supabase Setup
+
+This tab documents everything built during the initial implementation session,
+decisions made beyond the original plan, and how to test the system.
+
+---
+
+### Supabase Project
+
+- Project ref: xsqwpmqfbirqdncoephf
+- URL: https://xsqwpmqfbirqdncoephf.supabase.co
+- Region: London (LHR)
+- The DB already contained tables from a previous project (CDR drug data)
+- All new PharmStation tables use the `ps_` prefix to avoid conflicts
+- Existing table `cdr_drugs_unique` (957 CD Schedule 2 drugs) is referenced, not copied
+
+---
+
+### Auth Architecture — Single auth.users, Two Account Types
+
+Supabase has one `auth.users` table. We differentiate account types using
+`raw_user_meta_data->>'account_type'`:
+
+- `"organisation"` — pharmacy account (long-lived, stays logged in)
+- `"user"` — staff account (switches when staff change shifts)
+
+A database trigger `ps_handle_new_auth_user()` fires AFTER INSERT on `auth.users`.
+It reads the `account_type` from metadata and creates the correct profile row:
+
+- Organisation accounts → `ps_organisations` row (name, GPhC number, address from metadata)
+- User accounts → `ps_user_profiles` row (name, email, GPhC number, default role from metadata)
+
+This means signup automatically creates the right profile — no manual step needed.
+
+### Dual Supabase Client
+
+Two `createClient()` instances with different localStorage keys:
+
+| Client | Storage Key | Purpose |
+|--------|------------|---------|
+| orgClient | `ps-org-session` | Pharmacy session, long-lived, scopes data |
+| userClient | `ps-user-session` | Staff session, switches on shift change |
+
+Both are real Supabase Auth sessions. All writes go through `userClient` so
+`auth.uid()` in RLS policies = the actual person making the entry.
+
+### Login Flow
+
+1. Pharmacy login (orgClient) → email + password → fetches `ps_organisations` row
+2. Staff login (userClient) → email + password → fetches `ps_user_profiles` + `ps_organisation_members`
+3. Dashboard loads only after both sessions are established
+4. "Switch User" signs out userClient only, org stays logged in
+5. Staff emails are saved to localStorage for quick re-login
+
+### Auth State Management
+
+The `onAuthStateChange` listener only handles SIGNED_OUT events.
+SIGNED_IN is handled inside `orgLogin`/`userLogin` functions to avoid a race
+condition where the router redirects before profile data is fetched.
+
+---
+
+### Database Schema (ps_ tables)
+
+All created via direct SQL execution in the live database.
+Migration files saved in `supabase/migrations/`.
+
+#### Core Tables
+- `ps_organisations` — pharmacy entities, FK to auth.users via auth_user_id
+- `ps_user_profiles` — staff profiles, PK = auth.users.id
+- `ps_organisation_members` — join table (role, permissions JSONB, status)
+- `ps_active_sessions` — terminal/session tracking
+
+#### Register Tables
+- `ps_register_ledgers` — one per drug per org (CD) or one per org (RP/Returns)
+  - References `cdr_drugs_unique(id)` for drug data
+  - Tracks `current_balance`, `entry_count`, `lock_version`
+- `ps_register_entries` — unified table for all register types
+  - Immutable (UPDATE/DELETE triggers raise exceptions)
+  - CD fields, RP fields, Returns fields all in one table
+  - `entry_type`: normal or correction (corrections reference the original)
+  - `source`: manual or ai_scan
+
+#### Supporting Tables
+- `ps_entry_annotations` — immutable notes on entries
+- `ps_known_contacts` — auto-learned patients/prescribers with search_key
+- `ps_audit_log` — automatic audit trail via trigger
+
+#### Functions & Triggers
+- `ps_make_register_entry()` — the ONLY way to insert entries
+  - Row-level locking (FOR UPDATE on ledger)
+  - Optimistic lock version check
+  - Auto-calculates running balance
+  - Type-specific validation (CD needs transaction_type, RP needs pharmacist, etc.)
+- `ps_prevent_entry_mutation()` — blocks UPDATE/DELETE on entries and annotations
+- `ps_learn_contacts_from_entry()` — auto-creates/updates known_contacts on entry insert
+- `ps_audit_trigger()` — logs all entry inserts to audit_log
+- `ps_handle_new_auth_user()` — auto-creates profile on auth signup
+
+#### RLS Policies
+- All ps_ tables have RLS enabled
+- User profiles: own profile always visible + org co-members visible
+- Organisations: visible to members OR to the org auth account itself
+- Members: own memberships always visible (prevents circular RLS)
+- Ledgers/entries: visible to active org members
+- Audit log: owners/managers only
+
+---
+
+### Test Accounts
+
+| Account | Email | Password | Type |
+|---------|-------|----------|------|
+| Pharmacy | testpharmacy@pharmstation.dev | TestPharmacy123! | Organisation |
+| Staff | testuser@pharmstation.dev | TestUser123! | User (pharmacist) |
+
+- Org: "PharmStation Test Pharmacy" (GPhC: 1234567, 123 High Street, London SW1A 1AA)
+- User: "John Smith" (pharmacist, GPhC: 2087654)
+- Membership: John Smith is an active pharmacist at the test pharmacy
+
+**Important**: Test accounts were created via direct SQL INSERT into auth.users.
+The `auth.identities` rows were also inserted manually (required for email/password login).
+Some text columns needed to be set to empty strings (not NULL) for GoTrue compatibility.
+
+---
+
+### Frontend Architecture
+
+#### Monorepo Packages
+- `@pharmstation/types` — shared TypeScript interfaces for all entities
+- `@pharmstation/supabase-client` — dual client setup + auth helpers
+- `@pharmstation/core` — Zustand stores (auth, UI, register)
+- `@pharmstation/ui` — CSS design tokens + global styles
+- `@pharmstation/web` — Vite + React 19 app
+
+#### Web App Structure
+- Vite 6 + React 19 + React Router v7
+- Auth pages: OrgLoginPage → UserLoginPage (two-step flow)
+- DashboardLayout: SideNav (3 modes) + TopNav + RightPanel overlay
+- DashboardPage: module card grid
+- CDRegisterPage: drug class accordion → drug card grid → navigate to ledger
+- CDLedgerPage: TanStack Table v8 with entries + "Add Entry" modal
+- CDEntryForm: React Hook Form + Zod validation + contact autocomplete
+- RPLogPage, ReturnsPage, SettingsPage: stub pages
+
+#### CSS Design Tokens
+- PharmStation brand: Deep Blue #257BB4, Sky Blue #378FC2, Cloud Blue #9FCADE, Electric Cyan #04B0FF
+- Neutrals: Midnight #1A1A2E, Slate #4A4A6A, Mist #B0B0C0, Off-White #E5F2F7
+- Utility classes: .ps-btn-*, .ps-input, .ps-card, .ps-badge-*
+- Print styles: @media print with .ps-no-print / .ps-print-only
+
+#### Running the App
+```
+pnpm run dev                            # from root (turbo, web only)
+pnpm --filter @pharmstation/web dev     # direct
+cd apps/web && npx vite                 # manual
+```
+Default port: 3000 (falls back to 3001+ if occupied)
+
+---
+
+### Key Decisions Made Beyond Original Plan
+
+1. `ps_` prefix on all tables (coexist with legacy CDR tables)
+2. Single auth.users with account_type metadata (not separate auth tables)
+3. Database trigger for auto-profile creation (not application-side)
+4. Direct RLS "own memberships" policy to prevent circular dependency
+5. SIGNED_IN auth events not used in listener (race condition fix)
+6. Turbo dev filtered to web only (desktop/mobile not ready)
+7. Contact autocomplete via search_key generated column (trigram-like search)
+8. Ledger auto-creation when user first opens a drug's register
