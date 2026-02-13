@@ -1,0 +1,144 @@
+
+
+## PharmStation — Final Scope
+
+### Tech Stack
+
+| Layer | Choice |
+|-------|--------|
+| Frontend | React 19 + Vite |
+| State | Zustand |
+| Routing | React Router v7 (nested layouts) |
+| Tables | TanStack Table v8 |
+| Forms | React Hook Form |
+| Styling | CSS Modules + global CSS variables |
+| Backend | Supabase (Postgres, Auth, Storage, Edge Functions, Realtime) |
+| Desktop | Tauri v2 |
+| Mobile | React Native (latest stable) |
+| Monorepo | pnpm + Turborepo |
+
+### Auth — Dual Client
+
+- `orgClient` (storageKey: `ps-org-session`) — long-lived, pharmacy stays logged in
+- `userClient` (storageKey: `ps-user-session`) — staff switches with email + password
+- Both are real Supabase Auth accounts
+- Org login: credentials + geolocation + 2FA
+- Writes go through `userClient` so `auth.uid()` = the actual person
+- Orgs created by PharmStation admin, handed to pharmacy owner
+
+### Registers — Immutable Append-Only
+
+- Single `register_entries` table for all types (CD, RP, Returns, Private CD, POM)
+- `register_ledgers` table — one per drug per org (CD) or one per org (RP/Returns)
+- No UPDATE, no DELETE — ever
+- Corrections are new entries referencing the original with a reason
+- `make_register_entry()` Postgres function handles all writes
+- Row-level locking (`FOR UPDATE`) prevents concurrent balance conflicts
+- Optimistic lock version prevents stale submissions
+- Clients cannot insert directly — only through the function
+- `entry_annotations` — append-only notes on entries, also immutable
+- `known_contacts` — auto-learns patients/prescribers from entries
+- `register_audit_log` — triggered automatically, inaccessible to clients
+
+### State Management (Zustand)
+
+- `authStore` — org session, user session, login/logout/switch
+- `uiStore` — side nav state, right panel open/content
+- `registerStore` — active ledger, draft entry, lock version, last used values
+
+### Layout
+
+```
+┌──────────────────────────────────────────────────────────┐
+│ TOP NAV: Logo | User | Pharmacy | Settings | Logout [≡]  │
+├────────┬───────────────────────────────────┬─────────────┤
+│ LEFT   │ MAIN CONTENT                     │ RIGHT PANEL │
+│ NAV    │                                  │             │
+│        │ Breadcrumbs (in content area)    │ Overlays    │
+│ Pushes │ Page title                       │ content     │
+│ content│ Page content                     │ with shadow │
+│        │                                  │             │
+│ 3 modes│                                  │ Fixed %     │
+│        │                                  │ width       │
+└────────┴───────────────────────────────────┴─────────────┘
+```
+
+**Left nav** — pushes content, part of layout flow
+- **Expanded**: icons + labels, content reflows
+- **Icons only**: narrow, hover temporarily expands, mouse leave collapses back
+- **Hidden**: gone, content takes full width, toggle in top nav brings it back
+
+**Right panel** — overlays content, shadow backdrop
+- Triggered by action buttons (e.g. "Sign In RP", "+ New Entry")
+- Contains forms, variable content per context
+- Fixed percentage of screen width
+
+### Side Nav Menu
+
+```
+📊 Dashboard
+
+▼ Registers
+  💊 CD Register
+  👤 RP Log
+  ↩ Returns
+  🔒 Private CD
+
+▼ Logs
+  🌡 Fridge
+  📅 Date Checking
+  🧹 Cleaning
+  👥 Guest
+
+▼ Utilities
+  📋 SOPs
+  📌 Handover Notes
+  ⚠ Near Miss / Incidents
+
+────────
+⚙ Settings
+```
+
+### Dashboard (Homepage)
+
+- Module cards (quick links to each section)
+- Current RP on duty (with quick sign in/out)
+- Today's CD entries count
+- Pending tasks (handover notes assigned to you)
+- Recent activity feed
+- Balance alerts (low stock, mismatches)
+
+### CD Register Page
+
+- Search bar at top to filter drug classes
+- Accordion sections grouped by drug class (from DB — Morphine, Oxycodone, Fentanyl, etc.)
+- Inside each accordion: grid of brands (Zomorph, Morphgesic, etc.) with strengths
+- Search within each accordion to filter brands/strengths
+- Click a specific drug → opens TanStack table for that ledger
+- Breadcrumb: Dashboard > Registers > CD > Morphine Sulfate 10mg/5ml
+
+### RP Log Page
+
+- TanStack table with pagination
+- Inline entry directly in table OR click button to open right panel form
+- Both routes submit the same way
+
+### All Register Tables
+
+- Inline draft row for new entries (tab through cells, Ctrl+Enter to submit)
+- "From Previous" dropdown on supplier/invoice fields (localStorage)
+- Contact autocomplete for patient/prescriber
+- Accordion expandable rows (notes, annotations, correction chain, evidence)
+- Inline annotation input (appears below row, Enter to save, Esc to cancel)
+- Filter bar (by type, patient, prescriber, corrections only, referenced rows)
+- Reference icons linking correction chains
+- Evidence attachment indicators (invoice scan, prescription scan)
+- Balance preview on draft row
+- Pagination (20 per page)
+
+### Platforms
+
+- **Web + Desktop (Tauri)**: full admin dashboard layout described above
+- **Mobile (React Native)**: streamlined, designed separately after web is complete
+- **Updates**: Vercel for web, Tauri built-in updater for desktop, APK from website for mobile initially
+

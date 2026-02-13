@@ -1,0 +1,503 @@
+
+
+This is excellent brainstorming — you've got a really clear mental model of how this should work. Let me organize everything you've said, fill in the gaps, and propose a complete auth/user flow architecture. I'll also push back or suggest improvements where I think it's warranted.
+
+---
+
+## 🏗️ Complete Architecture & Auth Design
+
+### Tech Stack (Confirmed)
+
+| Layer | Technology | Notes |
+|-------|-----------|-------|
+| **Frontend (Web)** | React 19 + Vite | Fast dev, latest features |
+| **Frontend (Desktop)** | Tauri v2 | Wraps web frontend + Rust backend for offline |
+| **Frontend (Mobile)** | React Native (latest stable) | Expo recommended for faster dev |
+| **Backend** | Supabase | Auth, Postgres, Realtime, Storage, Edge Functions |
+| **Hosting (Web)** | Vercel | Auto-deploy from repo |
+| **AI** | Edge Functions → LLM APIs | Invoice/prescription processing |
+| **Storage** | Supabase Storage (S3 buckets) | Invoice images, prescription scans, attachments |
+
+---
+
+## 🔐 Authorization Architecture
+
+### The Two-Layer Login Model
+
+This is your key differentiator for security. Think of it like a hospital badge system:
+
+```
+┌─────────────────────────────────────────────────────┐
+│                    LAYER 1                           │
+│              Organisation Login                      │
+│                                                     │
+│  "Which pharmacy are you at?"                       │
+│                                                     │
+│  • Organisation code/ID                             │
+│  • 2FA via pharmacy's dedicated device              │
+│  • Geolocation check (is user at pharmacy?)         │
+│  • Opens the "station" — you're in the pharmacy     │
+│                                                     │
+├─────────────────────────────────────────────────────┤
+│                    LAYER 2                           │
+│                 User Login                           │
+│                                                     │
+│  "Who are you?"                                     │
+│                                                     │
+│  • Personal credentials OR short PIN (4-6 digit)    │
+│  • Role-based access loads                          │
+│  • Audit trail begins (everything tagged to user)   │
+│  • Quick switch between users (shared computer)     │
+│                                                     │
+└─────────────────────────────────────────────────────┘
+```
+
+### Why This Works
+
+- **Shared computers** — pharmacies have 1-2 PCs shared by 5+ staff. The org stays logged in, users switch with PINs
+- **Security** — even if someone gets a PIN, they can't use it outside the pharmacy (geolocation + 2FA device)
+- **Audit trail** — every action is tagged to a specific user within a specific organisation session
+- **Locums** — they have their own account, get granted access to an org, and use the same flow
+
+---
+
+## 👥 Entity Model
+
+### Organisations (Pharmacies)
+
+```
+Organisation
+├── id (UUID)
+├── name ("Greenfield Pharmacy")
+├── gphc_premises_number
+├── address
+├── geolocation (lat/lng + radius)
+├── settings (JSON - configurable)
+├── subscription_tier
+├── created_by (us — PharmStation admin)
+├── owner_user_id (FK → User)
+│
+├── Has ONE of each:
+│   ├── RP Log
+│   ├── CD Register
+│   ├── Patient Returns Log
+│   ├── Private CD Register
+│   ├── POM Register
+│   ├── SOP Library
+│   ├── Handover Board
+│   └── Optional Logs (fridge, cleaning, etc.)
+│
+└── Has MANY:
+    ├── Organisation Members (join table)
+    └── Invitations / Access Grants
+```
+
+### Users
+
+```
+User
+├── id (UUID — Supabase Auth)
+├── email
+├── full_name
+├── gphc_number (nullable — not all roles are registered)
+├── role_type_default (pharmacist | technician | dispenser | owner)
+├── phone
+├── created_at
+│
+└── Can belong to MANY organisations
+    (with different permissions in each)
+```
+
+### Organisation Members (Join Table)
+
+```
+OrganisationMember
+├── id
+├── organisation_id (FK)
+├── user_id (FK)
+├── role (owner | manager | pharmacist | technician | dispenser | locum)
+├── permissions (JSONB — fully configurable overrides)
+├── pin_code (hashed — 4-6 digit for quick login)
+├── status (active | suspended | revoked)
+├── is_locum (boolean)
+├── approved_by (FK → User)
+├── approved_at
+├── created_at
+└── last_active_at
+```
+
+---
+
+## 🛡️ Permissions System
+
+### Default Role Templates (Starting Point)
+
+These are just **defaults** — owners can override everything per user.
+
+| Permission | Owner | Manager | Pharmacist | Technician | Dispenser | Locum |
+|-----------|-------|---------|------------|------------|-----------|-------|
+| **CD Register — Read** | ✅ | ✅ | ✅ | ✅ | ❌ | ✅ |
+| **CD Register — Write** | ❌* | ❌ | ✅ | ✅ | ❌ | ✅ |
+| **CD Register — Correct** | ❌ | ❌ | ✅ | ❌ | ❌ | ✅ |
+| **RP Log — Sign In/Out** | ✅ | ❌ | ✅ | ❌ | ❌ | ✅ |
+| **RP Log — View** | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| **Patient Returns — Write** | ❌ | ❌ | ✅ | ✅ | ❌ | ✅ |
+| **SOP Library — Upload** | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ |
+| **Handover Notes — All** | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| **Manage Users** | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ |
+| **Approve Locums** | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ |
+| **View Audit Trail** | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ |
+| **AI Scan — Use** | ✅ | ✅ | ✅ | ✅ | ❌ | ✅ |
+| **Org Settings** | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ |
+| **Billing** | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ |
+
+*\*Owner defaults to read-only on CD register — can be enabled by the owner themselves*
+
+### How Overrides Work
+
+```typescript
+// Default permissions come from role template
+const defaultPerms = getRoleTemplate("technician");
+
+// Owner can override specific permissions for a user
+const memberPerms = {
+  ...defaultPerms,
+  ...member.permissions  // JSONB overrides from org_members table
+};
+
+// Example: Give a specific technician CD correction rights
+member.permissions = {
+  "cd_register.correct": true  // Override default false
+};
+```
+
+---
+
+## 🔄 Login Flows
+
+### Flow 1: Full Login (First Time / New Session)
+
+```
+User opens PharmStation
+        │
+        ▼
+┌─ Choose login type ──────────────────────┐
+│                                          │
+│  [Organisation Login]  [Personal Login]  │
+│                                          │
+└──────────────┬───────────────┬───────────┘
+               │               │
+               ▼               ▼
+        Org Login Flow    Personal-Only Flow
+               │          (edit profile,
+               │           view your history)
+               ▼
+    Enter Org Code/ID
+               │
+               ▼
+    Geolocation Check ──── FAIL → "You must be
+               │                   at the pharmacy"
+               │
+               ▼
+    2FA via Pharmacy Device
+    (Authenticator app on
+     pharmacy tablet/eDOS)
+               │
+               ▼
+    ✅ Org Session Active
+    (shows user selection screen)
+               │
+               ▼
+    Select Your Name / Enter PIN
+    (4-6 digit quick code)
+               │
+               ▼
+    ✅ Fully Authenticated
+    Role permissions loaded
+    Audit trail active
+```
+
+### Flow 2: Quick User Switch (Shared Computer)
+
+```
+Org is already logged in
+        │
+        ▼
+User clicks "Switch User" or session times out
+        │
+        ▼
+Shows user list for this org
+        │
+        ▼
+User taps their name + enters 4-digit PIN
+        │
+        ▼
+✅ New user session
+Previous user's session cleanly closed
+Audit trail switches
+```
+
+### Flow 3: Locum Access Request
+
+```
+Locum pharmacist has a PharmStation account
+        │
+        ▼
+Locum selects "Request Access to Pharmacy"
+        │
+        ▼
+Enters Org Code or searches by name/GPhC premises number
+        │
+        ▼
+Request sent to Org Owner/Manager
+        │
+        ▼
+Owner/Manager approves (can set expiry date)
+        │
+        ▼
+Locum can now log into that org
+(same flow as regular staff)
+        │
+        ▼
+Access persists until revoked
+```
+
+---
+
+## 📱 Platform-Specific Session Behaviour
+
+| Behaviour | Web (Vite) | Desktop (Tauri) | Mobile (RN) |
+|-----------|-----------|-----------------|--------------|
+| **Org session** | Timeout after X mins inactivity | Stays logged in (persisted) | Timeout after X mins |
+| **User session** | Timeout, requires PIN re-entry | Timeout, requires PIN | Timeout, requires PIN |
+| **Geolocation** | Browser API | Optional (trusted device) | GPS |
+| **2FA device** | Separate device needed | Can be the 2FA device itself | Can be the 2FA device |
+| **Offline** | ❌ Not supported | ✅ Full offline mode | ⚠️ Limited offline |
+| **Auto-update** | Vercel (instant) | Tauri updater (built-in) | APK from website / OTA |
+
+---
+
+## 🗄️ Supabase Schema (High Level)
+
+```sql
+-- Organisations (we create these, not users)
+CREATE TABLE organisations (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name TEXT NOT NULL,
+  gphc_premises_number TEXT UNIQUE,
+  address JSONB NOT NULL,
+  geolocation GEOGRAPHY(POINT, 4326),
+  geo_radius_meters INTEGER DEFAULT 100,
+  settings JSONB DEFAULT '{}',
+  subscription_tier TEXT DEFAULT 'base',
+  is_active BOOLEAN DEFAULT TRUE,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Users (extend Supabase Auth)
+CREATE TABLE user_profiles (
+  id UUID PRIMARY KEY REFERENCES auth.users(id),
+  full_name TEXT NOT NULL,
+  gphc_number TEXT,
+  phone TEXT,
+  default_role TEXT DEFAULT 'dispenser',
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Organisation Members (join table with permissions)
+CREATE TABLE organisation_members (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  organisation_id UUID REFERENCES organisations(id),
+  user_id UUID REFERENCES user_profiles(id),
+  role TEXT NOT NULL DEFAULT 'dispenser',
+  permissions JSONB DEFAULT '{}',
+  pin_hash TEXT,  -- hashed 4-6 digit PIN
+  status TEXT DEFAULT 'active',
+  is_locum BOOLEAN DEFAULT FALSE,
+  approved_by UUID REFERENCES user_profiles(id),
+  approved_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  last_active_at TIMESTAMPTZ,
+  UNIQUE(organisation_id, user_id)
+);
+
+-- Sessions / Audit
+CREATE TABLE org_sessions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  organisation_id UUID REFERENCES organisations(id),
+  user_id UUID REFERENCES user_profiles(id),
+  platform TEXT NOT NULL,  -- 'web' | 'desktop' | 'mobile'
+  started_at TIMESTAMPTZ DEFAULT NOW(),
+  ended_at TIMESTAMPTZ,
+  geo_verified BOOLEAN DEFAULT FALSE,
+  twofa_verified BOOLEAN DEFAULT FALSE
+);
+
+-- CD Register (one per org, entries are rows)
+CREATE TABLE cd_registers (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  organisation_id UUID REFERENCES organisations(id) UNIQUE,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE cd_register_entries (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  register_id UUID REFERENCES cd_registers(id),
+  entry_number SERIAL,
+  drug_name TEXT NOT NULL,
+  form TEXT,
+  strength TEXT,
+  quantity_received NUMERIC,
+  quantity_supplied NUMERIC,
+  running_balance NUMERIC NOT NULL,
+  patient_name TEXT,
+  prescriber TEXT,
+  date_of_transaction DATE NOT NULL,
+  entered_by UUID REFERENCES user_profiles(id),
+  source TEXT DEFAULT 'manual',  -- 'manual' | 'ai_scan' | 'ai_draft'
+  scan_image_url TEXT,           -- link to stored invoice/script image
+  prescription_image_url TEXT,   -- attached prescription scan
+  is_correction BOOLEAN DEFAULT FALSE,
+  corrects_entry_id UUID REFERENCES cd_register_entries(id),
+  correction_reason TEXT,
+  approved_by UUID REFERENCES user_profiles(id),
+  approved_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  -- NEVER DELETE — soft corrections only
+  is_void BOOLEAN DEFAULT FALSE
+);
+
+-- RP Log (one per org)
+CREATE TABLE rp_logs (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  organisation_id UUID REFERENCES organisations(id) UNIQUE,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE rp_log_entries (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  log_id UUID REFERENCES rp_logs(id),
+  pharmacist_id UUID REFERENCES user_profiles(id),
+  signed_in_at TIMESTAMPTZ NOT NULL,
+  signed_out_at TIMESTAMPTZ,
+  gphc_number TEXT NOT NULL,
+  notes TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Scan attachments bucket reference
+-- Images stored in Supabase Storage bucket: 'scan-attachments'
+-- Path: {org_id}/{register_type}/{entry_id}/{filename}
+```
+
+---
+
+## 🔄 Offline Sync Strategy (Desktop)
+
+```
+┌──────────────────┐         ┌──────────────────┐
+│   Tauri Desktop  │         │     Supabase     │
+│                  │         │                  │
+│  ┌────────────┐  │  sync   │  ┌────────────┐  │
+│  │  SQLite    │◄─┼────────►┼─►│  Postgres  │  │
+│  │  (local)   │  │         │  │  (cloud)   │  │
+│  └────────────┘  │         │  └────────────┘  │
+│                  │         │                  │
+│  Works offline   │         │  Source of truth │
+│  Queues changes  │         │  when online     │
+└──────────────────┘         └──────────────────┘
+
+Sync rules:
+1. Every entry has a created_at timestamp + client_id
+2. When online: push local queue → pull remote changes
+3. Conflict resolution: last-write-wins with audit log
+4. Images queued for upload when back online
+5. Sync status indicator in UI (green/amber/red)
+```
+
+---
+
+## 🔄 Update Strategy
+
+| Platform | Method | Mechanism |
+|----------|--------|-----------|
+| **Web** | Automatic | Vercel deploys on push to `main` |
+| **Desktop** | Tauri built-in updater | Checks GitHub releases or custom endpoint |
+| **Mobile (Phase 1)** | Manual APK | Download from `pharmstation.co.uk/download` |
+| **Mobile (Phase 2)** | OTA updates | Expo Updates / CodePush |
+| **Mobile (Phase 3)** | Store updates | Google Play / App Store |
+
+---
+
+## 📸 AI Scan Flow (The Killer Feature)
+
+```
+Pharmacist receives CD delivery
+        │
+        ▼
+Opens PharmStation → CD Register → "Quick Scan"
+        │
+        ▼
+Takes photo of invoice with phone/tablet/webcam
+        │
+        ▼
+Image uploaded to Supabase Storage
+(permanently stored — this IS the record)
+        │
+        ▼
+Edge Function sends to LLM (Vision API)
+        │
+        ▼
+AI extracts: drug name, form, strength,
+quantity, supplier, invoice number, date
+        │
+        ▼
+Returns DRAFT entries (marked as "AI Draft")
+        │
+        ▼
+Pharmacist reviews → approves/edits → confirms
+        │
+        ▼
+Entry saved with:
+- source: "ai_scan"
+- scan_image_url: link to original photo
+- approved_by: pharmacist who confirmed
+        │
+        ▼
+Running balance updated automatically
+```
+
+**This means**: The original invoice image is permanently attached to the entry. If there's ever a query during an audit or reconciliation, you can pull up the exact photo. No other provider offers this.
+
+---
+
+## My Suggestions & Pushbacks
+
+### 1. 🟢 Geolocation — make it configurable, not mandatory
+Some pharmacies may push back on mandatory location tracking. I'd suggest:
+- **Default: ON** (recommended for compliance)
+- **Configurable per org**: owner can disable if they accept the risk
+- **Desktop exception**: if it's a fixed pharmacy PC, geolocation is less critical — the device itself is trusted
+
+### 2. 🟢 PIN length — go 4-6 digits, user choice
+4 is fine for quick switching in a pharmacy. Let users choose their own length. Hash it properly (bcrypt).
+
+### 3. 🟡 Org creation — consider a self-service onboarding later
+Starting with manual creation is smart (you control quality, build relationships). But plan the schema so you *could* add self-service signup later without rewriting everything.
+
+### 4. 🟢 Desktop "offline forever" concern
+You mentioned pharmacies could theoretically use desktop offline and never pay. Some mitigations:
+- License key that expires after 30 days without sync
+- Feature degradation (AI features disabled offline obviously)
+- Audit log watermark showing last sync date (regulators might ask about this)
+
+### 5. 🟢 Image storage costs
+Invoice and prescription images will add up in storage. Plan for:
+- Compressed uploads (client-side resize before upload)
+- Tiered storage (recent images in hot storage, older in cold)
+- Include a storage allowance in the £15/month (e.g., 5GB) with overage billing
+
+---
+
+Want me to **create a PR** that adds this entire architecture document to your `documentation/technical/` folder? Or shall we refine any of these flows first before committing them to the repo?
+

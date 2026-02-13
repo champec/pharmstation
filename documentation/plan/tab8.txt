@@ -1,0 +1,461 @@
+Now you're talking! This is actually the cleanest solution. Two Supabase clients in the same browser, each with their own storage key, no clashes. Let me work through this properly.
+
+## Two Clients, Two Sessions, No Clash
+
+```typescript
+import { createClient } from '@supabase/supabase-js'
+
+// Client 1: Organisation session (stays logged in)
+const orgClient = createClient(
+  process.env.VITE_SUPABASE_URL!,
+  process.env.VITE_SUPABASE_ANON_KEY!,
+  {
+    auth: {
+      storageKey: 'ps-org-session',    // ← unique key
+      storage: localStorage,
+      autoRefreshToken: true,
+      persistSession: true,
+    }
+  }
+)
+
+// Client 2: User session (logs in/out frequently)
+const userClient = createClient(
+  process.env.VITE_SUPABASE_URL!,
+  process.env.VITE_SUPABASE_ANON_KEY!,
+  {
+    auth: {
+      storageKey: 'ps-user-session',   // ← different key
+      storage: localStorage,
+      autoRefreshToken: true,
+      persistSession: true,
+    }
+  }
+)
+```
+
+### What Lives in localStorage
+
+```
+localStorage:
+├── ps-org-session          → org JWT (long-lived, stays logged in)
+├── ps-user-session         → user JWT (short-lived, switches often)
+├── ps-terminal-id          → UUID for this terminal
+└── ps-terminal-name        → "Dispensary PC" (set during setup)
+```
+
+### How It Works
+
+```
+Terminal opens PharmStation
+        │
+        ▼
+  orgClient.auth.getSession()
+  → Session exists? ✅ Org is logged in
+  → No session? → Show org login screen
+        │
+        ▼
+  userClient.auth.getSession()
+  → Session exists? ✅ User is logged in, go to dashboard
+  → No session? → Show staff login screen
+        │
+        ▼
+  Staff member types email + password
+  (or selects saved email + types password)
+        │
+        ▼
+  userClient.auth.signInWithPassword({
+    email: 'sarah@example.com',
+    password: 'their-real-password'
+  })
+        │
+        ▼
+  ✅ Both sessions active simultaneously
+  orgClient → scopes data to the pharmacy
+  userClient → identifies who is making changes
+```
+
+## The Architecture
+
+```
+┌─────────────────────────────────────────────────┐
+│                  BROWSER                         │
+│                                                  │
+│  ┌─────────────────┐  ┌──────────────────┐      │
+│  │   orgClient     │  │   userClient     │      │
+│  │                 │  │                  │      │
+│  │  storageKey:    │  │  storageKey:     │      │
+│  │  ps-org-session │  │  ps-user-session │      │
+│  │                 │  │                  │      │
+│  │  Logged in as:  │  │  Logged in as:   │      │
+│  │  Greenfield     │  │  Sarah Ahmed     │      │
+│  │  Pharmacy       │  │  (Pharmacist)    │      │
+│  │                 │  │                  │      │
+│  │  Used for:      │  │  Used for:       │      │
+│  │  • RLS scoping  │  │  • auth.uid()    │      │
+│  │  • Org data     │  │  • User identity │      │
+│  │  • Realtime     │  │  • Audit trail   │      │
+│  └────────┬────────┘  └────────┬─────────┘      │
+│           │                    │                  │
+│           └────────┬───────────┘                  │
+│                    │                              │
+│           ┌────────▼─────────┐                    │
+│           │  PharmStation    │                    │
+│           │  App Logic       │                    │
+│           │                  │                    │
+│           │  Reads: orgClient│                    │
+│           │  Writes: both    │                    │
+│           └──────────────────┘                    │
+│                                                   │
+└───────────────────────────────────────────────────┘
+```
+
+## Schema — Users Are Real Supabase Auth Accounts
+
+```sql
+-- Organisations (one Supabase Auth account each)
+CREATE TABLE organisations (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  auth_user_id UUID UNIQUE REFERENCES auth.users(id),
+  name TEXT NOT NULL,
+  gphc_premises_number TEXT UNIQUE,
+  address JSONB NOT NULL,
+  geolocation GEOGRAPHY(POINT, 4326),
+  geo_radius_meters INTEGER DEFAULT 100,
+  settings JSONB DEFAULT '{}',
+  subscription_tier TEXT DEFAULT 'base',
+  is_active BOOLEAN DEFAULT TRUE,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- User profiles (extend real Supabase Auth accounts)
+CREATE TABLE user_profiles (
+  id UUID PRIMARY KEY REFERENCES auth.users(id),
+  full_name TEXT NOT NULL,
+  gphc_number TEXT,
+  phone TEXT,
+  default_role TEXT DEFAULT 'dispenser',
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Membership: which users belong to which orgs
+CREATE TABLE organisation_members (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  organisation_id UUID REFERENCES organisations(id),
+  user_id UUID REFERENCES user_profiles(id),
+  role TEXT NOT NULL DEFAULT 'dispenser',
+  permissions JSONB DEFAULT '{}',
+  status TEXT DEFAULT 'active',
+  is_locum BOOLEAN DEFAULT FALSE,
+  approved_by UUID REFERENCES user_profiles(id),
+  approved_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(organisation_id, user_id)
+);
+
+-- Active sessions (tracks who's on which terminal)
+CREATE TABLE active_sessions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  organisation_id UUID REFERENCES organisations(id),
+  user_id UUID REFERENCES user_profiles(id),
+  terminal_id TEXT NOT NULL,
+  terminal_name TEXT,
+  platform TEXT NOT NULL,
+  started_at TIMESTAMPTZ DEFAULT NOW(),
+  last_activity_at TIMESTAMPTZ DEFAULT NOW(),
+  is_active BOOLEAN DEFAULT TRUE
+);
+
+-- CD Register entries — entered_by is the REAL user auth.uid()
+CREATE TABLE cd_register_entries (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  register_id UUID REFERENCES cd_registers(id),
+  -- ...all fields...
+  entered_by UUID REFERENCES user_profiles(id) NOT NULL,
+  session_id UUID REFERENCES active_sessions(id),
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+```
+
+## RLS Policies — The Beautiful Part
+
+This is where having two real auth sessions pays off. You can write RLS policies that check **both**:
+
+```sql
+-- Policy: User can only read CD entries for orgs they belong to
+CREATE POLICY "cd_entries_read" ON cd_register_entries
+  FOR SELECT USING (
+    register_id IN (
+      SELECT cr.id FROM cd_registers cr
+      JOIN organisations o ON o.id = cr.organisation_id
+      JOIN organisation_members om ON om.organisation_id = o.id
+      WHERE om.user_id = auth.uid()  -- the USER's auth session
+      AND om.status = 'active'
+    )
+  );
+
+-- Policy: User can only write if they have permission
+CREATE POLICY "cd_entries_write" ON cd_register_entries
+  FOR INSERT WITH CHECK (
+    -- The entered_by must be the authenticated user
+    entered_by = auth.uid()
+    AND
+    -- And they must be a member of the org that owns this register
+    register_id IN (
+      SELECT cr.id FROM cd_registers cr
+      JOIN organisations o ON o.id = cr.organisation_id
+      JOIN organisation_members om ON om.organisation_id = o.id
+      WHERE om.user_id = auth.uid()
+      AND om.status = 'active'
+      -- Could also check permissions JSONB here
+    )
+  );
+```
+
+**Wait** — but which `auth.uid()` does RLS use? The org's or the user's? It depends on **which client makes the query**. This is the key insight:
+
+```typescript
+// Reading org-level data (which pharmacy, settings, etc.)
+// → Use orgClient (auth.uid() = org's auth account)
+const { data: org } = await orgClient
+  .from('organisations')
+  .select('*')
+  .single()
+
+// Writing entries (CD register, RP log, etc.)
+// → Use userClient (auth.uid() = the actual user)
+const { data: entry } = await userClient
+  .from('cd_register_entries')
+  .insert({
+    register_id: registerId,
+    drug_name: 'Morphine Sulfate 10mg/5ml',
+    quantity_received: 100,
+    running_balance: 250,
+    entered_by: userSession.user.id,  // auth.uid() matches this
+    session_id: activeSessionId,
+  })
+```
+
+## Which Client Does What
+
+| Operation | Client | Why |
+|-----------|--------|-----|
+| **Get org details/settings** | `orgClient` | Scoped to this pharmacy |
+| **List staff for this org** | `orgClient` | Org-level data |
+| **Get user's own profile** | `userClient` | User's own data |
+| **Write CD entry** | `userClient` | `entered_by = auth.uid()` must match |
+| **Sign RP log** | `userClient` | Same — user identity matters |
+| **Read CD entries** | Either | Both have access via membership |
+| **Upload scan image** | `userClient` | Attributed to user |
+| **Realtime subscriptions** | `orgClient` | All terminals see same updates |
+| **Org settings changes** | `orgClient` | Only org-level auth can modify |
+
+## The Client Wrapper
+
+```typescript
+// lib/supabase.ts
+
+import { createClient, SupabaseClient } from '@supabase/supabase-js'
+
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL
+const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY
+
+// Organisation client — long-lived session
+export const orgClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+  auth: {
+    storageKey: 'ps-org-session',
+    autoRefreshToken: true,
+    persistSession: true,
+  },
+})
+
+// User client — switches when staff change
+export const userClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+  auth: {
+    storageKey: 'ps-user-session',
+    autoRefreshToken: true,
+    persistSession: true,
+  },
+})
+
+// Helper: get current org ID from org session
+export async function getOrgId(): Promise<string | null> {
+  const { data: { user } } = await orgClient.auth.getUser()
+  if (!user) return null
+  
+  const { data: org } = await orgClient
+    .from('organisations')
+    .select('id')
+    .eq('auth_user_id', user.id)
+    .single()
+  
+  return org?.id ?? null
+}
+
+// Helper: get current user profile from user session
+export async function getCurrentUser() {
+  const { data: { user } } = await userClient.auth.getUser()
+  if (!user) return null
+  
+  const { data: profile } = await userClient
+    .from('user_profiles')
+    .select('*, organisation_members(*)')
+    .eq('id', user.id)
+    .single()
+  
+  return profile
+}
+```
+
+## React Context
+
+```typescript
+// contexts/PharmStationProvider.tsx
+
+interface PharmStationContextType {
+  // Org layer
+  orgSession: Session | null
+  organisation: Organisation | null
+  isOrgLoggedIn: boolean
+  orgLogin: (email: string, password: string) => Promise<void>
+  orgLogout: () => Promise<void>
+  
+  // User layer
+  userSession: Session | null
+  activeUser: UserProfile | null
+  isUserLoggedIn: boolean
+  userLogin: (email: string, password: string) => Promise<void>
+  userLogout: () => Promise<void>
+  switchUser: () => void  // logs out user, shows staff picker
+  
+  // Computed
+  isFullyAuthenticated: boolean  // both org + user logged in
+  userPermissions: Permissions | null
+  
+  // Clients (for direct access if needed)
+  orgClient: SupabaseClient
+  userClient: SupabaseClient
+}
+
+export function PharmStationProvider({ children }: { children: ReactNode }) {
+  const [orgSession, setOrgSession] = useState<Session | null>(null)
+  const [userSession, setUserSession] = useState<Session | null>(null)
+  const [organisation, setOrganisation] = useState<Organisation | null>(null)
+  const [activeUser, setActiveUser] = useState<UserProfile | null>(null)
+
+  useEffect(() => {
+    // Listen to org auth changes
+    const { data: { subscription: orgSub } } = orgClient.auth.onAuthStateChange(
+      (event, session) => {
+        setOrgSession(session)
+        if (session) fetchOrganisation(session.user.id)
+        if (event === 'SIGNED_OUT') {
+          setOrganisation(null)
+          // If org signs out, user must too
+          userClient.auth.signOut()
+        }
+      }
+    )
+
+    // Listen to user auth changes
+    const { data: { subscription: userSub } } = userClient.auth.onAuthStateChange(
+      (event, session) => {
+        setUserSession(session)
+        if (session) fetchUserProfile(session.user.id)
+        if (event === 'SIGNED_OUT') setActiveUser(null)
+      }
+    )
+
+    return () => {
+      orgSub.unsubscribe()
+      userSub.unsubscribe()
+    }
+  }, [])
+
+  const switchUser = async () => {
+    await userClient.auth.signOut()
+    // This clears the user session but org stays logged in
+    // UI will show the staff picker again
+  }
+
+  // ...rest of the provider
+}
+```
+
+## Login Flow UX
+
+```
+┌─────────────────────────────────────────────────┐
+│              PharmStation Login                   │
+│                                                  │
+│  Step 1: Pharmacy Login                          │
+│  ┌────────────────────────────────────────┐      │
+│  │ Pharmacy Email: [greenfield@ps.co.uk] │      │
+│  │ Password:       [••••••••••]          │      │
+│  │                                        │      │
+│  │ [Login to Pharmacy]                    │      │
+│  └────────────────────────────────────────┘      │
+│                                                  │
+│  ✅ Pharmacy verified                            │
+│  ✅ Geolocation confirmed                        │
+│  ✅ 2FA verified                                 │
+│                                                  │
+│  Step 2: Who's signing in?                       │
+│  ┌────────────────────────────────────────┐      │
+│  │ Saved staff:                           │      │
+│  │ [sarah@example.com    ] ← remembered  │      │
+│  │ [james.wilson@nhs.net ] ← remembered  │      │
+│  │ [Enter different email]                │      │
+│  │                                        │      │
+│  │ Password: [••••••••]                   │      │
+│  │                                        │      │
+│  │ [Sign In]                              │      │
+│  └────────────────────────────────────────┘      │
+│                                                  │
+└─────────────────────────────────────────────────┘
+```
+
+The "saved staff" emails are stored in localStorage (just emails, no passwords) so staff don't have to type their email every time — they just tap their name and type their password.
+
+## Multi-Terminal — Now Solved Cleanly
+
+```
+Terminal 1                          Terminal 2
+┌─────────────────┐                ┌─────────────────┐
+│ orgClient:      │                │ orgClient:      │
+│ ps-org-session  │                │ ps-org-session  │
+│ = Greenfield    │                │ = Greenfield    │
+│ Pharmacy        │                │ Pharmacy        │
+│                 │                │                 │
+│ userClient:     │                │ userClient:     │
+│ ps-user-session │                │ ps-user-session │
+│ = Sarah Ahmed   │                │ = James Wilson  │
+│                 │                │                 │
+│ auth.uid() on   │                │ auth.uid() on   │
+│ writes = Sarah  │                │ writes = James  │
+└─────────────────┘                └─────────────────┘
+
+Both terminals: org is the same pharmacy ✅
+Each terminal: different user, different JWT ✅
+RLS: entered_by = auth.uid() enforced per user ✅
+No conflicts ✅
+```
+
+## Advantages Over the Superficial User Approach
+
+| Aspect | This Approach | Superficial Users |
+|--------|--------------|-------------------|
+| **Audit trail** | Cryptographically tied to real user JWT | App-enforced, could be spoofed |
+| **RLS** | `auth.uid() = entered_by` enforced by Postgres | App must set `entered_by` correctly |
+| **Locum portability** | User carries their account everywhere | Must be re-created at each pharmacy |
+| **User profile** | User owns their data across all pharmacies | Per-org staff entries |
+| **Password management** | Supabase handles hashing, reset, etc. | You build it yourself |
+| **Complexity** | Two clients, slightly more setup | Simpler but less secure |
+| **Supabase MAU cost** | Higher (every staff member is a user) | Lower (one per org) |
+
+The MAU cost is the only real downside, but Supabase's Pro plan includes 100K MAUs for $25/month, so even at 330 pharmacies × 10 staff = 3,300 MAUs, you're well within limits.
+
+---
+
+This is the right approach. Two real clients, two real sessions, no hacks. Want me to create a PR adding this architecture to your documentation?
+

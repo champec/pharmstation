@@ -1,0 +1,45 @@
+
+
+Let me think about what's left uncovered:
+
+## What We've Covered ✅
+
+- Auth (dual client, org + user, 2FA, geolocation)
+- ACL (roles, permissions, configurable per user)
+- Register schema (immutable, locking, corrections, annotations)
+- Database design (ledgers, entries, audit log, known contacts)
+- Tech stack (React 19, Vite, Zustand, TanStack Table, RHF, CSS Modules)
+- Layout (admin dashboard, side nav, right panel, breadcrumbs)
+- CD register page (accordion by drug class, grid by brand/strength)
+- RP log page (table + right panel form)
+- Tables (inline editing, filters, pagination, annotations, from previous)
+- Printing (react-to-print, @media print CSS, certificates)
+- Handover notes (canvas whiteboard, sticky notes)
+- Monorepo structure (pnpm, Turborepo, apps/packages)
+- Platforms (web, Tauri, React Native)
+- Update delivery (Vercel, Tauri updater, APK)
+
+## What We Haven't Discussed ❓
+
+1. **Offline sync** — Tauri desktop works offline, but how exactly does data sync back? Conflict resolution strategy, queue management, what happens when two pharmacies have the same locum making entries offline
+
+2. **AI scanning flow** — we mentioned it but never designed it. Edge function → LLM → draft entry → human approval. Which LLM? How does the image upload flow work? Where do draft entries live before approval?
+
+3. **Supabase Storage structure** — bucket naming, folder paths for invoice scans, prescription images, SOP documents, retention policy
+
+4. **Realtime** — do registers update live across terminals? If Sarah makes an entry on Terminal 1, does Terminal 2 see it instantly via Supabase Realtime?
+
+5. **The public RP certificate page** — `pharmstation.co.uk/rp` — separate from the app? Same app with a public route? GPhC API integration?
+
+6. **Deployment & environments** — dev/staging/production setup, Supabase project per environment, Vercel preview deployments
+
+7. **Testing strategy** — unit tests, integration tests, E2E? Which tools?
+
+8. **Error handling** — what happens when edge functions fail, Supabase is down, session expires mid-entry?
+
+9. **Billing/subscription** — how does subscription tier affect features? Free tier? Trial period? Stripe integration?
+
+10. **Data migration** — pharmacies switching from paper registers. Bulk import tool? Manual re-entry?
+
+Which of these do you want to tackle next, or are you happy to start building and address them as we go?
+

@@ -1,0 +1,111 @@
+
+
+## Custom Features Summary
+
+### Handover Notes — Canvas Whiteboard
+
+- Canvas-based board with virtual sticky notes
+- Click to add note, drag to move, resize
+- Priority colours (red/amber/green or similar)
+- Assign to staff member, set due date
+- Mark done, delete
+- Filters at top: Today / Overdue / Mine / Unassigned / By person / By date
+- Library options: build custom with HTML5 Canvas, or use something lightweight — we can decide when we get there
+
+### Printing — Certificate
+
+- A4 template (portrait or landscape, we decide on design)
+- Fixed design, only dynamic fields are name and GPhC registration number
+- Needs a print-to-PDF library
+
+For this I'd suggest **react-to-print** — it's tiny (3kb), no dependencies, just renders a React component to the browser's native print dialog. You design the certificate as a React component with print-specific CSS (`@media print`), call `window.print()`, done. The user can print or save as PDF natively. No heavy PDF generation library needed.
+
+```typescript
+// Simplified concept
+function RPCertificate({ name, gphcNumber }) {
+  return (
+    <div className="certificate">
+      {/* Your designed template */}
+      <h1>Responsible Pharmacist</h1>
+      <p>{name}</p>
+      <p>GPhC: {gphcNumber}</p>
+    </div>
+  )
+}
+
+// Print it
+const handlePrint = useReactToPrint({ contentRef: certificateRef })
+```
+
+### Printing — Logs & Registers
+
+This is the bigger one. Whatever is on screen needs to print cleanly on A4.
+
+Same approach — **`@media print` CSS** handles most of it:
+
+```css
+/* print.module.css */
+
+@media print {
+  /* Hide everything except the table */
+  .sideNav, .topNav, .rightPanel,
+  .filterBar, .pagination, .actionButtons {
+    display: none;
+  }
+
+  /* Table fills the page */
+  .registerTable {
+    width: 100%;
+    font-size: 11px;
+  }
+
+  /* Page setup */
+  @page {
+    size: A4 landscape;  /* or portrait — user chooses */
+    margin: 15mm;
+  }
+
+  /* Page breaks between pages of data */
+  .registerTable tr {
+    page-break-inside: avoid;
+  }
+
+  /* Header repeats on every printed page */
+  .registerTable thead {
+    display: table-header-group;
+  }
+
+  /* Print header with pharmacy details + date */
+  .printHeader {
+    display: block;  /* hidden on screen, visible in print */
+  }
+}
+
+@media screen {
+  .printHeader {
+    display: none;
+  }
+}
+```
+
+The key points:
+
+- **No PDF library needed** — browser print handles A4 layout natively
+- **`@media print` CSS** — hides nav/filters/buttons, shows only the table + a print header
+- **Print header** — hidden on screen, appears in print with pharmacy name, register name, date range, printed by
+- **Portrait or landscape** — user picks via a print settings toggle before printing, we set `@page { size: }` accordingly
+- **`thead` repeats** — column headers appear on every printed page automatically
+- **Page breaks** — `page-break-inside: avoid` on rows so entries don't split across pages
+- **Print all or print filtered** — whatever is currently displayed (filtered/paginated) is what prints, or a "Print All" option fetches everything and renders a hidden full table for printing
+- **react-to-print** handles triggering it cleanly
+
+So the stack for printing is just:
+
+```
+react-to-print     → 3kb, triggers browser print dialog
+@media print CSS   → Your own print styles
+Browser native     → Handles A4, PDF save, actual printing
+```
+
+No heavy libraries. The browser's built-in print engine is surprisingly good at A4 layout when you give it clean CSS.
+

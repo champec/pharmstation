@@ -1,0 +1,450 @@
+Your colleague is spot on — that's almost exactly what I designed above. Great minds think alike! The key pieces are all there:
+
+1. ✅ Append-only, no UPDATE/DELETE
+2. ✅ Corrections as new entries referencing the original
+3. ✅ Per-ledger locking (what I called `register_pages`)
+4. ✅ Server-side balance calculation
+5. ✅ Annotations as separate append-only rows
+
+The only thing I want to make sure we captured that your colleague mentioned is the **`register_type` field** — they suggested a single table approach where CD, RP, Returns, and Private CD entries all live in one table differentiated by `register_type`. Let me compare the two approaches:
+
+## Single Table vs Separate Tables
+
+### Option A: Single `register_entries` table (your colleague's suggestion)
+
+```sql
+register_entries
+├── register_type: 'CD' | 'RP' | 'RETURNS' | 'PRIVATE_CD' | 'POM'
+├── entry_type: 'normal' | 'correction' | 'note'
+├── data: JSONB (flexible per register type)
+└── ...common fields
+```
+
+### Option B: Separate tables per register type (my design above)
+
+```sql
+cd_register_entries    → CD-specific columns
+rp_log_entries         → RP-specific columns
+patient_returns        → returns-specific columns
+private_cd_entries     → private CD-specific columns
+```
+
+### My recommendation: **Hybrid — shared base + typed tables**
+
+The problem with pure single-table is that CD entries and RP entries have **very different fields**. A CD entry has drug name, quantity, balance, supplier, patient. An RP entry has pharmacist name, sign-in time, sign-out time. Cramming both into JSONB loses type safety and makes queries harder.
+
+But your colleague's instinct about a unified approach has merit for **audit and querying**. So here's the hybrid:
+
+```sql
+-- ============================================
+-- UNIFIED REGISTER SYSTEM
+-- ============================================
+
+-- Ledgers (one per drug per org for CD, one per org for RP, etc.)
+-- This is your colleague's "cd_ledgers" concept expanded
+CREATE TABLE register_ledgers (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  organisation_id UUID NOT NULL REFERENCES organisations(id),
+  
+  register_type TEXT NOT NULL CHECK (register_type IN (
+    'CD', 'RP', 'RETURNS', 'PRIVATE_CD', 'POM'
+  )),
+  
+  -- For CD/PRIVATE_CD: identifies the drug (the "page")
+  -- For RP/RETURNS/POM: NULL (one ledger per org)
+  drug_name TEXT,
+  form TEXT,
+  strength TEXT,
+  
+  -- Ledger key: unique per org + type + drug
+  ledger_key TEXT GENERATED ALWAYS AS (
+    register_type || '|' || 
+    COALESCE(lower(trim(drug_name)), '_') || '|' || 
+    COALESCE(lower(trim(form)), '_') || '|' || 
+    COALESCE(lower(trim(strength)), '_')
+  ) STORED,
+  
+  -- State
+  current_balance NUMERIC DEFAULT 0,  -- only meaningful for CD types
+  entry_count INTEGER NOT NULL DEFAULT 0,
+  lock_version INTEGER NOT NULL DEFAULT 0,
+  is_active BOOLEAN DEFAULT TRUE,
+  
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  created_by UUID NOT NULL REFERENCES user_profiles(id),
+  
+  UNIQUE(organisation_id, ledger_key)
+);
+
+-- ============================================
+-- SINGLE ENTRY TABLE (your colleague's approach)
+-- with strongly typed columns (my approach)
+-- ============================================
+
+CREATE TABLE register_entries (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  ledger_id UUID NOT NULL REFERENCES register_ledgers(id),
+  organisation_id UUID NOT NULL REFERENCES organisations(id),
+  
+  -- Sequential & immutable
+  entry_number INTEGER NOT NULL,
+  register_type TEXT NOT NULL,  -- denormalised for fast queries
+  
+  entry_type TEXT NOT NULL CHECK (entry_type IN (
+    'normal',
+    'correction'
+  )),
+  
+  -- ============================================
+  -- SHARED FIELDS (all register types)
+  -- ============================================
+  date_of_transaction DATE NOT NULL DEFAULT CURRENT_DATE,
+  notes TEXT,
+  source TEXT NOT NULL DEFAULT 'manual' CHECK (source IN (
+    'manual', 'ai_scan'
+  )),
+  
+  -- Correction chain
+  corrects_entry_id UUID REFERENCES register_entries(id),
+  correction_reason TEXT,
+  
+  -- Evidence
+  scan_image_path TEXT,
+  
+  -- Audit
+  entered_by UUID NOT NULL REFERENCES user_profiles(id),
+  session_id UUID REFERENCES active_sessions(id),
+  entered_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  
+  -- Locking
+  previous_entry_id UUID REFERENCES register_entries(id),
+  ledger_lock_version INTEGER NOT NULL,
+  
+  -- ============================================
+  -- CD REGISTER FIELDS (NULL for non-CD entries)
+  -- ============================================
+  -- Quantities
+  quantity_received NUMERIC CHECK (quantity_received >= 0),
+  quantity_deducted NUMERIC CHECK (quantity_deducted >= 0),
+  running_balance NUMERIC,
+  previous_balance NUMERIC,
+  
+  -- Transaction details
+  transaction_type TEXT CHECK (transaction_type IN (
+    'receipt', 'supply', 'return_to_supplier',
+    'patient_return', 'disposal', 'correction',
+    'transfer_in', 'transfer_out'
+  )),
+  
+  -- Supplier (receipts)
+  supplier_name TEXT,
+  invoice_number TEXT,
+  
+  -- Patient (supplies)
+  patient_name TEXT,
+  patient_address TEXT,
+  prescriber_name TEXT,
+  prescriber_address TEXT,
+  prescription_date DATE,
+  prescription_image_path TEXT,
+  
+  -- Disposal
+  witness_name TEXT,
+  witness_role TEXT,
+  authorised_by TEXT,
+  
+  -- ============================================
+  -- RP LOG FIELDS (NULL for non-RP entries)
+  -- ============================================
+  pharmacist_name TEXT,
+  gphc_number TEXT,
+  rp_signed_in_at TIMESTAMPTZ,
+  rp_signed_out_at TIMESTAMPTZ,
+  
+  -- ============================================
+  -- RETURNS FIELDS (NULL for non-returns entries)
+  -- ============================================
+  return_patient_name TEXT,
+  return_drug_name TEXT,
+  return_drug_form TEXT,
+  return_drug_strength TEXT,
+  return_quantity NUMERIC,
+  return_reason TEXT,
+  return_received_by TEXT,
+  disposal_date DATE,
+  disposal_witness TEXT,
+  disposal_method TEXT,
+  
+  -- ============================================
+  -- CONSTRAINTS
+  -- ============================================
+  UNIQUE(ledger_id, entry_number),
+  
+  -- Corrections must have a reason
+  CHECK (
+    (entry_type != 'correction') OR 
+    (corrects_entry_id IS NOT NULL AND correction_reason IS NOT NULL)
+  ),
+  
+  -- CD entries must have quantities
+  CHECK (
+    (register_type NOT IN ('CD', 'PRIVATE_CD')) OR
+    (quantity_received IS NOT NULL OR quantity_deducted IS NOT NULL)
+  ),
+  
+  -- RP entries must have pharmacist details
+  CHECK (
+    (register_type != 'RP') OR
+    (pharmacist_name IS NOT NULL AND gphc_number IS NOT NULL)
+  )
+);
+
+-- ============================================
+-- INDEXES
+-- ============================================
+CREATE INDEX idx_entries_ledger ON register_entries(ledger_id, entry_number);
+CREATE INDEX idx_entries_org ON register_entries(organisation_id);
+CREATE INDEX idx_entries_type ON register_entries(organisation_id, register_type);
+CREATE INDEX idx_entries_date ON register_entries(organisation_id, date_of_transaction);
+CREATE INDEX idx_entries_correction ON register_entries(corrects_entry_id)
+  WHERE corrects_entry_id IS NOT NULL;
+CREATE INDEX idx_entries_rp ON register_entries(organisation_id, rp_signed_in_at)
+  WHERE register_type = 'RP';
+```
+
+## Updated Entry Function (Handles All Register Types)
+
+```sql
+CREATE OR REPLACE FUNCTION make_register_entry(
+  p_ledger_id UUID,
+  p_register_type TEXT,
+  p_entry_type TEXT DEFAULT 'normal',
+  
+  -- Shared
+  p_date_of_transaction DATE DEFAULT CURRENT_DATE,
+  p_notes TEXT DEFAULT NULL,
+  p_source TEXT DEFAULT 'manual',
+  p_corrects_entry_id UUID DEFAULT NULL,
+  p_correction_reason TEXT DEFAULT NULL,
+  p_scan_image_path TEXT DEFAULT NULL,
+  p_entered_by UUID DEFAULT NULL,
+  p_session_id UUID DEFAULT NULL,
+  p_expected_lock_version INTEGER DEFAULT NULL,
+  
+  -- CD fields
+  p_transaction_type TEXT DEFAULT NULL,
+  p_quantity_received NUMERIC DEFAULT NULL,
+  p_quantity_deducted NUMERIC DEFAULT NULL,
+  p_supplier_name TEXT DEFAULT NULL,
+  p_invoice_number TEXT DEFAULT NULL,
+  p_patient_name TEXT DEFAULT NULL,
+  p_patient_address TEXT DEFAULT NULL,
+  p_prescriber_name TEXT DEFAULT NULL,
+  p_prescriber_address TEXT DEFAULT NULL,
+  p_prescription_date DATE DEFAULT NULL,
+  p_prescription_image_path TEXT DEFAULT NULL,
+  p_witness_name TEXT DEFAULT NULL,
+  p_witness_role TEXT DEFAULT NULL,
+  p_authorised_by TEXT DEFAULT NULL,
+  
+  -- RP fields
+  p_pharmacist_name TEXT DEFAULT NULL,
+  p_gphc_number TEXT DEFAULT NULL,
+  p_rp_signed_in_at TIMESTAMPTZ DEFAULT NULL,
+  p_rp_signed_out_at TIMESTAMPTZ DEFAULT NULL,
+  
+  -- Returns fields
+  p_return_patient_name TEXT DEFAULT NULL,
+  p_return_drug_name TEXT DEFAULT NULL,
+  p_return_drug_form TEXT DEFAULT NULL,
+  p_return_drug_strength TEXT DEFAULT NULL,
+  p_return_quantity NUMERIC DEFAULT NULL,
+  p_return_reason TEXT DEFAULT NULL,
+  p_return_received_by TEXT DEFAULT NULL,
+  p_disposal_date DATE DEFAULT NULL,
+  p_disposal_witness TEXT DEFAULT NULL,
+  p_disposal_method TEXT DEFAULT NULL
+)
+RETURNS register_entries
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+  v_ledger register_ledgers;
+  v_previous_entry register_entries;
+  v_new_balance NUMERIC;
+  v_entry_number INTEGER;
+  v_new_entry register_entries;
+BEGIN
+  -- STEP 1: Lock the ledger
+  SELECT * INTO v_ledger
+  FROM register_ledgers
+  WHERE id = p_ledger_id
+  FOR UPDATE;
+  
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Ledger not found: %', p_ledger_id;
+  END IF;
+  
+  -- Verify register type matches ledger
+  IF v_ledger.register_type != p_register_type THEN
+    RAISE EXCEPTION 'Register type mismatch. Ledger is %, entry is %',
+      v_ledger.register_type, p_register_type;
+  END IF;
+  
+  -- STEP 2: Optimistic lock check
+  IF p_expected_lock_version IS NOT NULL 
+     AND v_ledger.lock_version != p_expected_lock_version THEN
+    RAISE EXCEPTION 'CONFLICT: Ledger modified. Expected %, got %. Refresh and retry.',
+      p_expected_lock_version, v_ledger.lock_version;
+  END IF;
+  
+  -- STEP 3: Reject ai_draft source
+  IF p_source NOT IN ('manual', 'ai_scan') THEN
+    RAISE EXCEPTION 'Invalid source: %. Must be manual or ai_scan.', p_source;
+  END IF;
+  
+  -- STEP 4: Get previous entry
+  SELECT * INTO v_previous_entry
+  FROM register_entries
+  WHERE ledger_id = p_ledger_id
+  ORDER BY entry_number DESC
+  LIMIT 1;
+  
+  -- STEP 5: Calculate entry number
+  v_entry_number := v_ledger.entry_count + 1;
+  
+  -- STEP 6: Calculate balance (CD types only)
+  v_new_balance := NULL;
+  IF p_register_type IN ('CD', 'PRIVATE_CD') THEN
+    v_new_balance := v_ledger.current_balance;
+    
+    IF p_quantity_received IS NOT NULL THEN
+      v_new_balance := v_new_balance + p_quantity_received;
+    END IF;
+    IF p_quantity_deducted IS NOT NULL THEN
+      v_new_balance := v_new_balance - p_quantity_deducted;
+    END IF;
+    
+    IF v_new_balance < 0 THEN
+      RAISE EXCEPTION 'Negative balance: %. Current: %, deducting: %',
+        v_new_balance, v_ledger.current_balance, p_quantity_deducted;
+    END IF;
+  END IF;
+  
+  -- STEP 7: Validate correction
+  IF p_entry_type = 'correction' THEN
+    IF p_corrects_entry_id IS NULL OR p_correction_reason IS NULL THEN
+      RAISE EXCEPTION 'Corrections require corrects_entry_id and correction_reason';
+    END IF;
+    IF NOT EXISTS (
+      SELECT 1 FROM register_entries
+      WHERE id = p_corrects_entry_id AND ledger_id = p_ledger_id
+    ) THEN
+      RAISE EXCEPTION 'Corrected entry not found on this ledger';
+    END IF;
+  END IF;
+  
+  -- STEP 8: Type-specific validation
+  IF p_register_type = 'RP' THEN
+    IF p_pharmacist_name IS NULL OR p_gphc_number IS NULL THEN
+      RAISE EXCEPTION 'RP entries require pharmacist_name and gphc_number';
+    END IF;
+    IF p_entry_type = 'normal' AND p_rp_signed_in_at IS NULL THEN
+      RAISE EXCEPTION 'RP entries require rp_signed_in_at';
+    END IF;
+  END IF;
+  
+  IF p_register_type IN ('CD', 'PRIVATE_CD') AND p_entry_type = 'normal' THEN
+    IF p_transaction_type IS NULL THEN
+      RAISE EXCEPTION 'CD entries require transaction_type';
+    END IF;
+  END IF;
+  
+  -- STEP 9: Insert
+  INSERT INTO register_entries (
+    ledger_id, organisation_id, entry_number, register_type, entry_type,
+    date_of_transaction, notes, source,
+    corrects_entry_id, correction_reason, scan_image_path,
+    entered_by, session_id, previous_entry_id, ledger_lock_version,
+    -- CD
+    transaction_type, quantity_received, quantity_deducted,
+    running_balance, previous_balance,
+    supplier_name, invoice_number,
+    patient_name, patient_address,
+    prescriber_name, prescriber_address, prescription_date,
+    prescription_image_path,
+    witness_name, witness_role, authorised_by,
+    -- RP
+    pharmacist_name, gphc_number, rp_signed_in_at, rp_signed_out_at,
+    -- Returns
+    return_patient_name, return_drug_name, return_drug_form,
+    return_drug_strength, return_quantity, return_reason,
+    return_received_by, disposal_date, disposal_witness, disposal_method
+  ) VALUES (
+    p_ledger_id, v_ledger.organisation_id, v_entry_number, p_register_type, p_entry_type,
+    p_date_of_transaction, p_notes, p_source,
+    p_corrects_entry_id, p_correction_reason, p_scan_image_path,
+    p_entered_by, p_session_id, v_previous_entry.id, v_ledger.lock_version,
+    p_transaction_type, p_quantity_received, p_quantity_deducted,
+    v_new_balance, v_ledger.current_balance,
+    p_supplier_name, p_invoice_number,
+    p_patient_name, p_patient_address,
+    p_prescriber_name, p_prescriber_address, p_prescription_date,
+    p_prescription_image_path,
+    p_witness_name, p_witness_role, p_authorised_by,
+    p_pharmacist_name, p_gphc_number, p_rp_signed_in_at, p_rp_signed_out_at,
+    p_return_patient_name, p_return_drug_name, p_return_drug_form,
+    p_return_drug_strength, p_return_quantity, p_return_reason,
+    p_return_received_by, p_disposal_date, p_disposal_witness, p_disposal_method
+  )
+  RETURNING * INTO v_new_entry;
+  
+  -- STEP 10: Update ledger
+  UPDATE register_ledgers
+  SET 
+    current_balance = COALESCE(v_new_balance, current_balance),
+    entry_count = v_entry_number,
+    lock_version = lock_version + 1
+  WHERE id = p_ledger_id;
+  
+  RETURN v_new_entry;
+END;
+$$;
+```
+
+## Why This Hybrid Works Best
+
+```
+┌──────────────────────────────────────────────────────────┐
+│                   register_entries                        │
+│                                                          │
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐     │
+│  │ CD entries   │  │ RP entries   │  │ Returns     │     │
+│  │ (uses CD     │  │ (uses RP     │  │ (uses       │     │
+│  │  columns)    │  │  columns)    │  │  returns    │     │
+│  │              │  │              │  │  columns)   │     │
+│  │ qty columns  │  │ pharmacist   │  │ return_*    │     │
+│  │ balance      │  │ gphc_number  │  │ disposal_*  │     │
+��  │ supplier     │  │ signed_in/out│  │             │     │
+│  │ patient      │  │              │  │             │     │
+│  └─────────────┘  └─────────────┘  └─────────────┘     │
+│                                                          │
+│  SHARED: id, ledger_id, org_id, entry_number,            │
+│          entry_type, date, notes, source,                │
+│          entered_by, session_id, evidence,               │
+│          correction chain, lock version                   │
+└──────────────────────────────────────────────────────────┘
+
+Benefits:
+✅ One table to query across all register types
+✅ One audit trigger
+✅ One locking mechanism
+✅ One RLS policy set
+✅ Strongly typed columns (not JSONB)
+✅ NULL columns for unused types (minimal storage cost)
+✅ Easy cross-register reporting ("show me everything today")
+```
+
+This gives you the best of both worlds — your colleague's unified approach with strong typing and proper validation per register type. Want me to create a PR adding this finalised schema to your repo, or shall we work through the RP sign-in/sign-out flow next?
+

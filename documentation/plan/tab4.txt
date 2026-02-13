@@ -1,0 +1,744 @@
+Great question — the table/grid UI is arguably the most important UX decision you'll make. This is what pharmacists will stare at 8+ hours a day. Let me break down the options.
+
+## Library Options for Data Tables
+
+| Library | Pros | Cons | Verdict |
+|---------|------|------|---------|
+| **TanStack Table v8** | Headless (you own the UI), extremely flexible, React 19 compatible, huge community | You build ALL the UI yourself — every cell, every scroll, every interaction | ✅ **Best choice** |
+| **AG Grid** | Enterprise-grade, Excel-like editing built in, inline editing native | Expensive ($1500+/dev), heavy bundle, opinionated styling, hard to customise to your brand | ❌ Overkill & expensive |
+| **MUI DataGrid** | Good features, Material UI integration | Tied to MUI ecosystem, Pro features need license, not as flexible | ❌ Too opinionated |
+| **Glide Data Grid** | Canvas-rendered, blazing fast, spreadsheet-feel | Less mature, fewer features, limited community | ⚠️ Interesting but risky |
+| **Custom from scratch** | Total control | Months of work reinventing the wheel | ❌ Not worth it |
+
+## Recommendation: TanStack Table + Your Custom UI
+
+TanStack Table is **headless** — it gives you all the logic (sorting, filtering, pagination, column management) but **zero UI**. You build every pixel yourself. This is perfect because:
+
+1. ✅ You match your PharmStation brand exactly
+2. ✅ You build the inline editing UX exactly how you want it
+3. ✅ No fighting a library's opinions
+4. ✅ Zero bundle bloat from UI you don't use
+5. ✅ Works in React Native too (same logic, different render)
+6. ✅ Free and open source
+
+### The Stack for Tables
+
+```
+TanStack Table v8        → Table logic (sorting, filtering, columns)
+  +
+Your custom components   → Cell renderers, inline editors, modals
+  +
+Framer Motion            → Smooth transitions, row animations
+  +
+cmdk or similar          → Command palette for quick search
+  +
+React Hook Form + Zod    → Form validation (for modal forms)
+```
+
+## The Two Input Modes You Described
+
+### Mode 1: Inline Editing (The Register Feel)
+
+This feels like writing in the physical register — you're looking at the page and typing directly into it. This is the **primary** mode.
+
+```
+┌──────────────────────────────────────────────────────────────────────────────┐
+│  CD Register — Morphine Sulfate 10mg/5ml Oral Solution                      │
+│  Balance: 140        Ledger v7         [+ New Entry]  [Quick Scan 📷]       │
+├─────┬──────────┬──────────────┬─────┬─────┬─────────┬────────────────────────┤
+│  #  │ Date     │ Details      │ In  │ Out │ Balance │ Entered By            │
+├─────┼──────────┼──────────────┼─────┼─────┼─────────┼────────────────────────┤
+│  5  │ 10/02/26 │ Received     │ 100 │     │   200   │ Sarah Ahmed RPh       │
+│     │          │ AAH Invoice  │     │     │         │ 10/02/26 09:14        │
+│     │          │ #INV-44521   │     │     │         │                       │
+├─────┼──────────┼──────────────┼─────┼─────┼─────────┼────────────────────────┤
+│  6  │ 10/02/26 │ Supplied to  │     │  30 │   170   │ James Wilson Tech     │
+│     │          │ Mr J Smith   │     │     │         │ 10/02/26 11:32        │
+│     │          │ 12 High St   │     │     │         │                       │
+│     │          │ Dr Patel     │     │     │         │                       │
+│     │          │ 📎 Rx scan   │     │     │         │                       │
+├─────┼──────────┼──────────────┼─────┼─────┼─────────┼────────────────────────┤
+│  7  │ 11/02/26 │ ⚠️ Correction │     │  30 │   140   │ Sarah Ahmed RPh       │
+│     │          │ Corrects #6  │     │     │         │ 11/02/26 08:45        │
+│     │          │ "Qty was 20  │     │     │         │                       │
+│     │          │  not 30"     │     │     │         │                       │
+├─────┼──────────┼──────────────┼─────┼─────┼─────────┼────────────────────────┤
+│  8  │ 11/02/26 │ Supplied to  │     │  20 │   120   │ Sarah Ahmed RPh       │
+│     │          │ Mr J Smith   │     │     │         │ 11/02/26 08:46        │
+│     │          │ (correct qty)│     │     │         │                       │
+├─────┼──────────┼──────────────┼─────┼─────┼─────────┼────────────────────────┤
+│     │          │              │     │     │         │                       │
+│  9  │ ▊        │              │     │     │         │ You (Sarah Ahmed)     │
+│     │          │              │     │     │         │                       │
+├─────┴──────────┴──────────────┴─────┴─────┴────────���┴────────────────────────┤
+│  ↑ New entry row — Tab through cells to fill in, Enter to submit            │
+│  Running balance will be calculated automatically                            │
+└──────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Mode 2: Modal Form (For Complex Entries)
+
+Click **[+ New Entry]** or double-click the new row to open a full form. Better for supplies (lots of fields) and when using AI scan.
+
+```
+┌─────────────────────────────────────────────────────┐
+│  New CD Entry — Morphine Sulfate 10mg/5ml           │
+│  ─────────────────────────────────────────────────── │
+│                                                     │
+│  Transaction Type:  [Supply          ▾]             │
+│                                                     │
+│  ┌─ Patient ──────────────────────────────────┐     │
+│  │                                            │     │
+│  │  Name:    [Mr J Smith         ] 🔍 recent  │     │
+│  │  Address: [12 High Street     ]            │     │
+│  │           [London, SW1 2AB    ]            │     │
+│  │                                            │     │
+│  └────────────────────────────────────────────┘     │
+│                                                     │
+│  ┌─ Prescriber ───────────────────────────────┐     │
+│  │                                            │     │
+│  │  Name:    [Dr Patel           ] 🔍 recent  │     │
+│  │  Address: [The Surgery        ]            │     │
+│  │           [45 Main Rd, SW1    ]            │     │
+│  │                                            │     │
+│  └────────────────────────────────────────────┘     │
+│                                                     │
+│  Quantity:   [20        ]                           │
+│  Date:       [11/02/2026]                           │
+│  Rx Date:    [10/02/2026]                           ���
+│                                                     │
+│  📎 Attach prescription scan  [Choose file / 📷]    │
+│                                                     │
+│  Notes:      [                          ]           │
+│                                                     │
+│  ─────────────────────────────────────────────────── │
+│  Current balance: 140                               │
+│  After this entry: 120  (-20)                       │
+│  ─────────────────────────────────────────────────── │
+│                                                     │
+│  [Cancel]                    [Submit Entry]          │
+│                                                     │
+└─────────────────────────────────────────────────────┘
+```
+
+## Reusable Patient & Prescriber Details
+
+This is key — pharmacists enter the same patients and prescribers repeatedly. We need an autocomplete system that learns.
+
+```sql
+-- ============================================
+-- KNOWN CONTACTS (patients & prescribers)
+-- ============================================
+-- These are NOT master records — they're autocomplete helpers
+-- Built from historical entries + manual additions
+
+CREATE TABLE known_contacts (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  organisation_id UUID NOT NULL REFERENCES organisations(id),
+  
+  contact_type TEXT NOT NULL CHECK (contact_type IN (
+    'patient', 'prescriber'
+  )),
+  
+  -- Details
+  full_name TEXT NOT NULL,
+  address_line_1 TEXT,
+  address_line_2 TEXT,
+  city TEXT,
+  postcode TEXT,
+  
+  -- Prescriber-specific
+  gmc_number TEXT,           -- for doctors
+  gphc_number TEXT,          -- for pharmacist prescribers
+  prescriber_type TEXT,      -- GP, dentist, nurse prescriber, etc.
+  
+  -- Patient-specific
+  nhs_number TEXT,
+  date_of_birth DATE,
+  
+  -- Usage tracking (for sorting by frequency)
+  usage_count INTEGER DEFAULT 1,
+  last_used_at TIMESTAMPTZ DEFAULT NOW(),
+  
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  
+  -- Fuzzy matching index
+  search_key TEXT GENERATED ALWAYS AS (
+    lower(trim(full_name)) || ' ' || 
+    COALESCE(lower(trim(postcode)), '')
+  ) STORED
+);
+
+CREATE INDEX idx_contacts_search 
+  ON known_contacts(organisation_id, contact_type, search_key);
+CREATE INDEX idx_contacts_usage 
+  ON known_contacts(organisation_id, contact_type, usage_count DESC);
+```
+
+### How Autocomplete Works
+
+```typescript
+// components/ContactAutocomplete.tsx
+
+interface ContactAutocompleteProps {
+  type: 'patient' | 'prescriber'
+  onSelect: (contact: KnownContact) => void
+  orgId: string
+}
+
+function ContactAutocomplete({ type, onSelect, orgId }: ContactAutocompleteProps) {
+  const [query, setQuery] = useState('')
+  const [results, setResults] = useState<KnownContact[]>([])
+  const [isOpen, setIsOpen] = useState(false)
+
+  // Debounced search
+  useEffect(() => {
+    if (query.length < 2) {
+      setResults([])
+      return
+    }
+    
+    const timer = setTimeout(async () => {
+      const { data } = await orgClient
+        .from('known_contacts')
+        .select('*')
+        .eq('organisation_id', orgId)
+        .eq('contact_type', type)
+        .ilike('search_key', `%${query.toLowerCase()}%`)
+        .order('usage_count', { ascending: false })
+        .limit(10)
+      
+      setResults(data || [])
+      setIsOpen(true)
+    }, 200)
+    
+    return () => clearTimeout(timer)
+  }, [query])
+
+  return (
+    <div className="relative">
+      <input
+        value={query}
+        onChange={(e) => setQuery(e.target.value)}
+        placeholder={`Start typing ${type} name...`}
+        className="ps-input"
+      />
+      
+      {isOpen && results.length > 0 && (
+        <div className="absolute top-full mt-1 w-full bg-white 
+                        rounded-lg shadow-lg border z-50">
+          {results.map((contact) => (
+            <button
+              key={contact.id}
+              onClick={() => {
+                onSelect(contact)
+                setQuery(contact.full_name)
+                setIsOpen(false)
+              }}
+              className="w-full text-left px-4 py-3 hover:bg-sky-50
+                         border-b last:border-b-0"
+            >
+              <div className="font-medium">{contact.full_name}</div>
+              <div className="text-sm text-gray-500">
+                {contact.address_line_1}
+                {contact.postcode && `, ${contact.postcode}`}
+              </div>
+              {contact.prescriber_type && (
+                <div className="text-xs text-blue-600 mt-1">
+                  {contact.prescriber_type}
+                </div>
+              )}
+            </button>
+          ))}
+          
+          <button
+            onClick={() => {
+              onSelect({ full_name: query } as KnownContact)
+              setIsOpen(false)
+            }}
+            className="w-full text-left px-4 py-2 text-sm 
+                       text-blue-600 hover:bg-blue-50"
+          >
+            + Add "{query}" as new {type}
+          </button>
+        </div>
+      )}
+    </div>
+  )
+}
+```
+
+### Auto-learning: Update Contacts from Entries
+
+```sql
+-- After every entry, upsert the patient/prescriber into known_contacts
+CREATE OR REPLACE FUNCTION learn_contacts_from_entry()
+RETURNS TRIGGER AS $$
+BEGIN
+  -- Learn patient
+  IF NEW.patient_name IS NOT NULL THEN
+    INSERT INTO known_contacts (
+      organisation_id, contact_type, full_name,
+      address_line_1, last_used_at, usage_count
+    ) VALUES (
+      NEW.organisation_id, 'patient', NEW.patient_name,
+      NEW.patient_address, NOW(), 1
+    )
+    ON CONFLICT (organisation_id, contact_type, 
+                 lower(trim(full_name)), COALESCE(lower(trim(postcode)), ''))
+    DO UPDATE SET
+      usage_count = known_contacts.usage_count + 1,
+      last_used_at = NOW(),
+      -- Update address if newer
+      address_line_1 = COALESCE(EXCLUDED.address_line_1, known_contacts.address_line_1);
+  END IF;
+  
+  -- Learn prescriber
+  IF NEW.prescriber_name IS NOT NULL THEN
+    INSERT INTO known_contacts (
+      organisation_id, contact_type, full_name,
+      address_line_1, last_used_at, usage_count
+    ) VALUES (
+      NEW.organisation_id, 'prescriber', NEW.prescriber_name,
+      NEW.prescriber_address, NOW(), 1
+    )
+    ON CONFLICT (organisation_id, contact_type,
+                 lower(trim(full_name)), COALESCE(lower(trim(postcode)), ''))
+    DO UPDATE SET
+      usage_count = known_contacts.usage_count + 1,
+      last_used_at = NOW(),
+      address_line_1 = COALESCE(EXCLUDED.address_line_1, known_contacts.address_line_1);
+  END IF;
+  
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+CREATE TRIGGER learn_contacts
+  AFTER INSERT ON register_entries
+  FOR EACH ROW EXECUTE FUNCTION learn_contacts_from_entry();
+```
+
+## The Inline Editing Component
+
+```typescript
+// components/register/InlineEntryRow.tsx
+
+interface InlineEntryRowProps {
+  ledger: RegisterLedger
+  lockVersion: number
+  onEntrySubmitted: () => void
+}
+
+function InlineEntryRow({ ledger, lockVersion, onEntrySubmitted }: InlineEntryRowProps) {
+  const { activeUser } = useStaff()
+  const [isActive, setIsActive] = useState(false)
+  const [transactionType, setTransactionType] = useState<string>('')
+  const [formData, setFormData] = useState<Partial<EntryInput>>({})
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [showModal, setShowModal] = useState(false)
+  
+  // Cell refs for Tab navigation
+  const dateRef = useRef<HTMLInputElement>(null)
+  const typeRef = useRef<HTMLSelectElement>(null)
+  const qtyRef = useRef<HTMLInputElement>(null)
+  const detailsRef = useRef<HTMLInputElement>(null)
+
+  const handleSubmit = async () => {
+    if (isSubmitting) return
+    setIsSubmitting(true)
+    
+    try {
+      await makeRegisterEntry(ledger.id, {
+        ...formData,
+        registerType: ledger.register_type,
+        entryType: 'normal',
+        transactionType,
+        enteredBy: activeUser.id,
+        expectedLockVersion: lockVersion,
+      })
+      
+      // Reset form
+      setFormData({})
+      setTransactionType('')
+      onEntrySubmitted()  // Triggers refresh
+      
+    } catch (err) {
+      if (err instanceof ConflictError) {
+        toast.warning(
+          'Another entry was just made. The register has been ' +
+          'refreshed. Please review the new balance and resubmit.'
+        )
+        onEntrySubmitted()  // Refresh to get new data
+      } else {
+        toast.error('Failed to submit entry. Please try again.')
+      }
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  // Handle Tab key to move between cells
+  const handleKeyDown = (e: KeyboardEvent, nextRef: RefObject<HTMLElement>) => {
+    if (e.key === 'Tab' && !e.shiftKey) {
+      e.preventDefault()
+      nextRef.current?.focus()
+    }
+    if (e.key === 'Enter' && e.ctrlKey) {
+      handleSubmit()
+    }
+  }
+
+  if (!isActive) {
+    return (
+      <tr 
+        className="cursor-pointer hover:bg-sky-50/50 transition-colors"
+        onClick={() => setIsActive(true)}
+      >
+        <td className="text-gray-400 text-center">
+          {ledger.entry_count + 1}
+        </td>
+        <td colSpan={5} className="text-gray-400 italic pl-4">
+          Click to add new entry, or press [+ New Entry] for full form...
+        </td>
+        <td className="text-sm text-gray-400">
+          {activeUser?.full_name}
+        </td>
+      </tr>
+    )
+  }
+
+  return (
+    <tr className="bg-sky-50/30 border-2 border-sky-200">
+      {/* Entry Number (auto) */}
+      <td className="text-center font-mono text-sky-600">
+        {ledger.entry_count + 1}
+      </td>
+      
+      {/* Date */}
+      <td className="p-1">
+        <input
+          ref={dateRef}
+          type="date"
+          defaultValue={new Date().toISOString().split('T')[0]}
+          onChange={(e) => setFormData(prev => ({
+            ...prev, dateOfTransaction: e.target.value
+          }))}
+          onKeyDown={(e) => handleKeyDown(e, typeRef)}
+          className="ps-inline-input w-full"
+          autoFocus
+        />
+      </td>
+      
+      {/* Transaction Type + Details */}
+      <td className="p-1">
+        <select
+          ref={typeRef}
+          value={transactionType}
+          onChange={(e) => setTransactionType(e.target.value)}
+          onKeyDown={(e) => handleKeyDown(e, detailsRef)}
+          className="ps-inline-select w-full mb-1"
+        >
+          <option value="">Select type...</option>
+          <option value="receipt">Receipt (stock in)</option>
+          <option value="supply">Supply (to patient)</option>
+          <option value="disposal">Disposal</option>
+          <option value="patient_return">Patient return</option>
+          <option value="return_to_supplier">Return to supplier</option>
+        </select>
+        
+        {/* Context-dependent detail fields */}
+        {transactionType === 'receipt' && (
+          <div className="space-y-1">
+            <input
+              ref={detailsRef}
+              placeholder="Supplier name"
+              onChange={(e) => setFormData(prev => ({
+                ...prev, supplierName: e.target.value
+              }))}
+              className="ps-inline-input w-full"
+            />
+            <input
+              placeholder="Invoice number"
+              onChange={(e) => setFormData(prev => ({
+                ...prev, invoiceNumber: e.target.value
+              }))}
+              className="ps-inline-input w-full"
+            />
+          </div>
+        )}
+        
+        {transactionType === 'supply' && (
+          <div className="space-y-1">
+            <ContactAutocomplete
+              type="patient"
+              orgId={ledger.organisation_id}
+              onSelect={(contact) => setFormData(prev => ({
+                ...prev,
+                patientName: contact.full_name,
+                patientAddress: contact.address_line_1,
+              }))}
+            />
+            <ContactAutocomplete
+              type="prescriber"
+              orgId={ledger.organisation_id}
+              onSelect={(contact) => setFormData(prev => ({
+                ...prev,
+                prescriberName: contact.full_name,
+                prescriberAddress: contact.address_line_1,
+              }))}
+            />
+          </div>
+        )}
+      </td>
+      
+      {/* Quantity In */}
+      <td className="p-1">
+        {['receipt', 'patient_return', 'transfer_in'].includes(transactionType) && (
+          <input
+            ref={qtyRef}
+            type="number"
+            min="0"
+            step="any"
+            placeholder="Qty"
+            onChange={(e) => setFormData(prev => ({
+              ...prev, quantityReceived: parseFloat(e.target.value)
+            }))}
+            className="ps-inline-input w-20 text-center font-mono"
+          />
+        )}
+      </td>
+      
+      {/* Quantity Out */}
+      <td className="p-1">
+        {['supply', 'disposal', 'return_to_supplier', 'transfer_out'].includes(transactionType) && (
+          <input
+            type="number"
+            min="0"
+            step="any"
+            placeholder="Qty"
+            onChange={(e) => setFormData(prev => ({
+              ...prev, quantityDeducted: parseFloat(e.target.value)
+            }))}
+            className="ps-inline-input w-20 text-center font-mono"
+          />
+        )}
+      </td>
+      
+      {/* Balance (auto-calculated preview) */}
+      <td className="text-center font-mono">
+        <span className="text-sky-600">
+          {calculatePreviewBalance(
+            ledger.current_balance,
+            formData.quantityReceived,
+            formData.quantityDeducted
+          )}
+        </span>
+        <span className="text-xs text-gray-400 block">
+          (preview)
+        </span>
+      </td>
+      
+      {/* Actions */}
+      <td className="p-1">
+        <div className="flex items-center gap-1">
+          <span className="text-xs text-gray-500">
+            {activeUser?.full_name}
+          </span>
+          <button
+            onClick={handleSubmit}
+            disabled={isSubmitting || !transactionType}
+            className="ps-btn-primary text-xs px-3 py-1"
+          >
+            {isSubmitting ? '...' : '✓'}
+          </button>
+          <button
+            onClick={() => setShowModal(true)}
+            className="ps-btn-secondary text-xs px-2 py-1"
+            title="Open full form"
+          >
+            ⬈
+          </button>
+          <button
+            onClick={() => setIsActive(false)}
+            className="ps-btn-ghost text-xs px-2 py-1"
+          >
+            ✕
+          </button>
+        </div>
+      </td>
+      
+      {/* Full form modal */}
+      {showModal && (
+        <EntryFormModal
+          ledger={ledger}
+          lockVersion={lockVersion}
+          initialData={formData}
+          transactionType={transactionType}
+          onClose={() => setShowModal(false)}
+          onSubmitted={onEntrySubmitted}
+        />
+      )}
+    </tr>
+  )
+}
+```
+
+## Custom CSS Classes for the PharmStation Look
+
+```css
+/* styles/register-table.css */
+
+/* Inline input — looks like it's part of the table */
+.ps-inline-input {
+  border: 1px solid transparent;
+  border-radius: 4px;
+  padding: 4px 8px;
+  font-size: 14px;
+  background: transparent;
+  transition: all 0.15s ease;
+  color: #1a1a1a;
+}
+
+.ps-inline-input:hover {
+  border-color: #9FCADE; /* Cloud Blue */
+}
+
+.ps-inline-input:focus {
+  border-color: #04B0FF; /* Electric Cyan */
+  background: white;
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(4, 176, 255, 0.1);
+}
+
+/* Inline select */
+.ps-inline-select {
+  border: 1px solid transparent;
+  border-radius: 4px;
+  padding: 4px 8px;
+  font-size: 14px;
+  background: transparent;
+  cursor: pointer;
+}
+
+.ps-inline-select:focus {
+  border-color: #04B0FF;
+  background: white;
+  outline: none;
+}
+
+/* Register table */
+.ps-register-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 14px;
+}
+
+.ps-register-table th {
+  background: #257BB4; /* Deep Blue */
+  color: white;
+  padding: 10px 12px;
+  text-align: left;
+  font-weight: 600;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.ps-register-table td {
+  padding: 8px 12px;
+  border-bottom: 1px solid #E5F2F7; /* Off-White */
+  vertical-align: top;
+}
+
+.ps-register-table tr:hover {
+  background: #f8fcfe;
+}
+
+/* Correction entries highlighted */
+.ps-register-table tr[data-entry-type="correction"] {
+  background: #FFF8E1;
+  border-left: 3px solid #FFA000;
+}
+
+/* Annotated entries */
+.ps-register-table tr[data-has-annotations="true"] td:first-child::after {
+  content: "📝";
+  font-size: 10px;
+  margin-left: 4px;
+}
+
+/* Primary button */
+.ps-btn-primary {
+  background: #257BB4;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  padding: 8px 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.ps-btn-primary:hover {
+  background: #378FC2;
+}
+
+.ps-btn-primary:disabled {
+  background: #8FA7B3;
+  cursor: not-allowed;
+}
+```
+
+## Summary of the Table Architecture
+
+```
+┌─────────────────────────────────────────────────────┐
+│                    TanStack Table                    │
+│              (logic: sort, filter, paginate)         │
+│                                                     │
+│  ┌───────────────────────────────────────────────┐  │
+│  │          Custom PharmStation UI                │  │
+���  │                                               │  │
+│  │  ┌─────────────────────────────────────────┐  │  │
+│  │  │  Read-only rows (existing entries)      │  │  │
+│  │  │  • Immutable display                    │  │  │
+│  │  │  • Click to view details/annotations    │  │  │
+│  │  │  • Correction entries highlighted       │  │  │
+│  │  │  • Evidence attachments viewable        │  │  │
+│  │  └─────────────────────────────────────────┘  │  │
+│  │                                               │  │
+│  │  ┌─────────────────────────────────────────┐  │  │
+│  │  │  Inline entry row (new entry)           │  │  │
+│  │  │  • Tab through cells                    │  │  │
+│  │  │  • Context-dependent fields             │  │  │
+│  │  │  • Autocomplete patients/prescribers    │  │  │
+│  │  │  • Live balance preview                 │  │  │
+│  │  │  • Ctrl+Enter to submit                 │  │  │
+│  │  │  • ⬈ button opens full modal form       │  │  │
+│  │  └─────────────────────────────────────────┘  │  │
+│  │                                               │  │
+│  │  ┌─────────────────────────────────────────┐  │  │
+│  │  │  Modal form (full entry form)           │  │  │
+│  │  │  • All fields visible                   │  │  │
+│  │  │  • File upload for scans                │  │  │
+│  │  │  • React Hook Form + Zod validation     │  │  │
+│  │  │  • Balance preview before submit        │  │  │
+│  │  └─────────────────────────────────────────┘  │  │
+│  │                                               │  │
+│  └───────────────────────────────────────────────┘  │
+│                                                     │
+│  Contact Autocomplete                               │
+│  • Learns from entries (DB trigger)                 │
+│  • Sorted by usage frequency                        │
+│  • Fuzzy search                                     │
+│  • Add new on the fly                               │
+│                                                     │
+└─────────────────────────────────────────────────────┘
+```
+
+This gives you the best of both worlds — fast inline entry for simple transactions (receipts from suppliers), and a full modal form for complex ones (supplies with patient/prescriber details + prescription scan). The autocomplete learns from every entry, so after a few weeks the pharmacy barely has to type anything.
+
+Want me to create a PR adding all of this to your documentation, or shall we work through the RP log UX next since that's a simpler register and a good starting point for building?
+

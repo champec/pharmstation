@@ -1,0 +1,28 @@
+
+
+You're right. Yes, I'm confident. TanStack Table it is.
+
+## Table Plan Summary
+
+**Library:** TanStack Table v8 (headless) + custom CSS + React Hook Form
+
+**Features we'll build:**
+
+- Inline draft entry row (tab through cells, Ctrl+Enter to submit)
+- Accordion expandable rows (notes, annotations, correction references, evidence)
+- Inline annotation input (appears below row, Enter to save, Esc to cancel)
+- "From Previous" dropdown on supplier/invoice fields (localStorage)
+- Contact autocomplete for patient/prescriber (learns from entries)
+- Filter bar (by type, patient, prescriber, corrections only, referenced rows)
+- Pagination (20 per page)
+- Reference icons linking correction chains
+- Type badges (receipt, supply, disposal, correction)
+- Evidence attachment indicators
+- Balance preview on draft row
+
+**Approach:** Start minimal, grow with the product. Build the CD register table first, then reuse the patterns for RP log, returns, private CD, and all other tables.
+
+**No unnecessary libraries.** Just TanStack for table logic, RHF for forms, and our own CSS using the PharmStation brand colours.
+
+Shall we move on to the next topic — or do you want me to create a PR documenting everything we've decided so far (auth architecture, register schema, table plan, tech stack)?
+
