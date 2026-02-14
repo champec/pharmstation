@@ -6,11 +6,13 @@ import { DashboardLayout } from './layouts/DashboardLayout'
 import { OrgLoginPage } from './pages/auth/OrgLoginPage'
 import { UserLoginPage } from './pages/auth/UserLoginPage'
 import { DashboardPage } from './pages/DashboardPage'
+import { RegistersPage } from './pages/registers/RegistersPage'
 import { CDRegisterPage } from './pages/registers/CDRegisterPage'
 import { CDLedgerPage } from './pages/registers/CDLedgerPage'
 import { RPLogPage } from './pages/registers/RPLogPage'
 import { ReturnsPage } from './pages/registers/ReturnsPage'
 import { SettingsPage } from './pages/SettingsPage'
+import { RPCertificatePage } from './pages/public/RPCertificatePage'
 
 export function App() {
   const { initialize, orgLoading, userLoading, isOrgLoggedIn, isUserLoggedIn } = useAuthStore()
@@ -31,6 +33,9 @@ export function App() {
 
   return (
     <Routes>
+      {/* Public routes — no auth required */}
+      <Route path="/rp" element={<RPCertificatePage />} />
+
       {/* Auth routes */}
       <Route element={<AuthLayout />}>
         <Route
@@ -64,6 +69,7 @@ export function App() {
         }
       >
         <Route path="/" element={<DashboardPage />} />
+        <Route path="/registers" element={<RegistersPage />} />
         <Route path="/registers/cd" element={<CDRegisterPage />} />
         <Route path="/registers/cd/:drugId" element={<CDLedgerPage />} />
         <Route path="/registers/rp" element={<RPLogPage />} />

@@ -3,7 +3,7 @@
 // Used for CD Register, RP Log, Returns
 // ============================================
 
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import {
   useReactTable,
   getCoreRowModel,
@@ -24,6 +24,14 @@ interface RegisterTableProps<T> {
   pageSize?: number
   globalFilter?: string
   onGlobalFilterChange?: (value: string) => void
+  /** Optional inline footer row rendered inside <tfoot> */
+  footerRow?: ReactNode
+  /** Optional callback to add extra CSS classes per row */
+  rowClassName?: (row: T) => string | undefined
+  /** When true, always show pagination controls even on single page */
+  alwaysShowPagination?: boolean
+  /** ID used for print targeting */
+  printId?: string
 }
 
 export function RegisterTable<T>({
@@ -34,6 +42,10 @@ export function RegisterTable<T>({
   pageSize = 50,
   globalFilter,
   onGlobalFilterChange,
+  footerRow,
+  rowClassName,
+  alwaysShowPagination = false,
+  printId,
 }: RegisterTableProps<T>) {
   const [sorting, setSorting] = useState<SortingState>([])
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
@@ -68,7 +80,7 @@ export function RegisterTable<T>({
   }
 
   return (
-    <div className="register-table-wrapper">
+    <div className="register-table-wrapper" id={printId}>
       <div className="register-table-scroll">
         <table className="register-table">
           <thead>
@@ -102,25 +114,33 @@ export function RegisterTable<T>({
                 </td>
               </tr>
             ) : (
-              table.getRowModel().rows.map((row) => (
-                <tr key={row.id} className={row.index % 2 === 0 ? 'even' : 'odd'}>
+              table.getRowModel().rows.map((row) => {
+                const extraClass = rowClassName ? rowClassName(row.original) : ''
+                return (
+                <tr key={row.id} className={`${row.index % 2 === 0 ? 'even' : 'odd'} ${extraClass ?? ''}`}>
                   {row.getVisibleCells().map((cell) => (
                     <td key={cell.id}>
                       {flexRender(cell.column.columnDef.cell, cell.getContext())}
                     </td>
                   ))}
                 </tr>
-              ))
+              )})
             )}
           </tbody>
+
+          {footerRow && (
+            <tfoot className="register-table-footer">
+              {footerRow}
+            </tfoot>
+          )}
         </table>
       </div>
 
       {/* Pagination */}
-      {table.getPageCount() > 1 && (
-        <div className="register-table-pagination">
+      {(alwaysShowPagination || table.getPageCount() > 1) && (
+        <div className="register-table-pagination no-print">
           <div className="pagination-info">
-            Showing {table.getState().pagination.pageIndex * pageSize + 1}–
+            Showing {table.getFilteredRowModel().rows.length === 0 ? 0 : table.getState().pagination.pageIndex * pageSize + 1}–
             {Math.min(
               (table.getState().pagination.pageIndex + 1) * pageSize,
               table.getFilteredRowModel().rows.length,
@@ -143,7 +163,7 @@ export function RegisterTable<T>({
               ◀
             </button>
             <span className="pagination-page">
-              Page {table.getState().pagination.pageIndex + 1} of {table.getPageCount()}
+              Page {table.getState().pagination.pageIndex + 1} of {Math.max(1, table.getPageCount())}
             </span>
             <button
               className="ps-btn ps-btn-ghost"

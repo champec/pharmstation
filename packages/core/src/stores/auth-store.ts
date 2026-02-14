@@ -95,10 +95,12 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         if (org) {
           try {
             membership = await fetchOrgMembership(org.id, userData.session.user.id)
-            permissions = resolvePermissions(
-              membership.role,
-              membership.permissions,
-            )
+            if (membership) {
+              permissions = resolvePermissions(
+                membership.role,
+                membership.permissions,
+              )
+            }
           } catch {
             // User not a member of this org
           }
@@ -239,7 +241,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       if (org) {
         try {
           membership = await fetchOrgMembership(org.id, data.user.id)
-          permissions = resolvePermissions(membership.role, membership.permissions)
+          if (membership) {
+            permissions = resolvePermissions(membership.role, membership.permissions)
+          }
         } catch {
           await getUserClient().auth.signOut()
           throw new Error('You are not a member of this pharmacy. Contact your manager.')

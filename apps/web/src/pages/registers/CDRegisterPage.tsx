@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { getUserClient } from '@pharmstation/supabase-client'
 import { useAuthStore } from '@pharmstation/core'
@@ -7,178 +7,173 @@ import type { CDDrug } from '@pharmstation/types'
 export function CDRegisterPage() {
   const navigate = useNavigate()
   const { organisation } = useAuthStore()
-  const [drugClasses, setDrugClasses] = useState<string[]>([])
+  const [allDrugs, setAllDrugs] = useState<CDDrug[]>([])
   const [expandedClass, setExpandedClass] = useState<string | null>(null)
-  const [drugsInClass, setDrugsInClass] = useState<CDDrug[]>([])
-  const [searchQuery, setSearchQuery] = useState('')
+  const [globalSearch, setGlobalSearch] = useState('')
+  const [classSearch, setClassSearch] = useState<Record<string, string>>({})
   const [loading, setLoading] = useState(true)
 
-  // Fetch distinct drug classes from cdr_drugs_unique
+  // Fetch ALL drugs at once on mount
   useEffect(() => {
-    async function fetchClasses() {
+    async function fetchAll() {
       setLoading(true)
       const { data, error } = await getUserClient()
         .from('cdr_drugs_unique')
-        .select('drug_class')
+        .select('*')
         .order('drug_class')
+        .order('drug_brand')
 
       if (data && !error) {
-        const unique = [...new Set(data.map((d) => d.drug_class))]
-        setDrugClasses(unique)
+        setAllDrugs(data as CDDrug[])
       }
       setLoading(false)
     }
-    fetchClasses()
+    fetchAll()
   }, [])
 
-  // Fetch drugs when a class is expanded
-  useEffect(() => {
-    if (!expandedClass) {
-      setDrugsInClass([])
-      return
+  // Group drugs by class
+  const drugsByClass = useMemo(() => {
+    const map = new Map<string, CDDrug[]>()
+    for (const drug of allDrugs) {
+      const cls = drug.drug_class
+      if (!map.has(cls)) map.set(cls, [])
+      map.get(cls)!.push(drug)
     }
-    async function fetchDrugs() {
-      const { data } = await getUserClient()
-        .from('cdr_drugs_unique')
-        .select('*')
-        .eq('drug_class', expandedClass)
-        .order('drug_brand')
+    return map
+  }, [allDrugs])
 
-      setDrugsInClass((data as CDDrug[]) ?? [])
-    }
-    fetchDrugs()
-  }, [expandedClass])
+  // Filter classes by global search
+  const filteredClasses = useMemo(() => {
+    const classes = Array.from(drugsByClass.keys())
+    if (!globalSearch) return classes
+    const q = globalSearch.toLowerCase()
+    return classes.filter((cls) => {
+      // Match class name or any drug in the class
+      if (cls.toLowerCase().includes(q)) return true
+      return drugsByClass.get(cls)!.some(
+        (d) =>
+          d.drug_brand.toLowerCase().includes(q) ||
+          d.drug_form.toLowerCase().includes(q) ||
+          d.drug_strength.toLowerCase().includes(q),
+      )
+    })
+  }, [drugsByClass, globalSearch])
 
-  const filteredClasses = searchQuery
-    ? drugClasses.filter((c) => c.toLowerCase().includes(searchQuery.toLowerCase()))
-    : drugClasses
+  // Filter drugs within expanded class
+  const getFilteredDrugs = (cls: string): CDDrug[] => {
+    const drugs = drugsByClass.get(cls) ?? []
+    const q = classSearch[cls]?.toLowerCase()
+    if (!q) return drugs
+    return drugs.filter(
+      (d) =>
+        d.drug_brand.toLowerCase().includes(q) ||
+        d.drug_form.toLowerCase().includes(q) ||
+        d.drug_strength.toLowerCase().includes(q),
+    )
+  }
+
+  const setClassSearchValue = (cls: string, value: string) => {
+    setClassSearch((prev) => ({ ...prev, [cls]: value }))
+  }
 
   return (
     <div>
       <div className="page-header">
         <div className="breadcrumbs">
-          <a href="/">Dashboard</a>
+          <a href="/" onClick={(e) => { e.preventDefault(); navigate('/') }}>Dashboard</a>
           <span className="separator">/</span>
-          <span>Registers</span>
+          <a href="/registers" onClick={(e) => { e.preventDefault(); navigate('/registers') }}>Registers</a>
           <span className="separator">/</span>
           <span>CD Register</span>
         </div>
         <h1>💊 CD Register</h1>
       </div>
 
-      {/* Search */}
+      {/* Global search */}
       <div style={{ marginBottom: 'var(--ps-space-md)', maxWidth: '400px' }}>
         <input
           className="ps-input"
-          placeholder="Search drug class..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
+          placeholder="Search all drugs..."
+          value={globalSearch}
+          onChange={(e) => setGlobalSearch(e.target.value)}
         />
       </div>
 
       {loading ? (
-        <p style={{ color: 'var(--ps-slate)' }}>Loading drug classes...</p>
+        <p style={{ color: 'var(--ps-slate)' }}>Loading drugs...</p>
       ) : (
         <div>
-          {filteredClasses.map((drugClass) => (
-            <div key={drugClass} className="ps-card" style={{ marginBottom: 'var(--ps-space-sm)' }}>
-              {/* Accordion header */}
-              <button
-                onClick={() =>
-                  setExpandedClass(expandedClass === drugClass ? null : drugClass)
-                }
-                style={{
-                  width: '100%',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  padding: 'var(--ps-space-md)',
-                  background: 'none',
-                  border: 'none',
-                  cursor: 'pointer',
-                  fontFamily: 'var(--ps-font-family)',
-                  fontSize: 'var(--ps-font-base)',
-                  fontWeight: 600,
-                  color: 'var(--ps-midnight)',
-                  textAlign: 'left',
-                }}
-              >
-                <span>{drugClass}</span>
-                <span style={{ color: 'var(--ps-mist)' }}>
-                  {expandedClass === drugClass ? '▼' : '▶'}
-                </span>
-              </button>
+          {filteredClasses.map((drugClass) => {
+            const isOpen = expandedClass === drugClass
+            const drugCount = drugsByClass.get(drugClass)?.length ?? 0
+            const filtered = isOpen ? getFilteredDrugs(drugClass) : []
 
-              {/* Expanded: show drugs in this class */}
-              {expandedClass === drugClass && (
-                <div style={{ padding: '0 var(--ps-space-md) var(--ps-space-md)' }}>
-                  {drugsInClass.length === 0 ? (
-                    <p style={{ color: 'var(--ps-mist)', fontSize: 'var(--ps-font-sm)' }}>
-                      Loading...
-                    </p>
-                  ) : (
+            return (
+              <div key={drugClass} className="ps-card" style={{ marginBottom: 'var(--ps-space-sm)' }}>
+                {/* Accordion header */}
+                <button
+                  onClick={() => setExpandedClass(isOpen ? null : drugClass)}
+                  className="accordion-header"
+                >
+                  <div className="accordion-header-left">
+                    <span className="accordion-chevron">{isOpen ? '▼' : '▶'}</span>
+                    <span className="accordion-title">{drugClass}</span>
+                    <span className="accordion-count">{drugCount}</span>
+                  </div>
+
+                  {/* Inline search — shown when expanded */}
+                  {isOpen && (
                     <div
-                      style={{
-                        display: 'grid',
-                        gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))',
-                        gap: 'var(--ps-space-sm)',
-                      }}
+                      className="accordion-search"
+                      onClick={(e) => e.stopPropagation()}
                     >
-                      {drugsInClass.map((drug) => (
-                        <button
-                          key={drug.id}
-                          className="ps-card"
-                          onClick={() => navigate(`/registers/cd/${drug.id}`)}
-                          style={{
-                            padding: 'var(--ps-space-sm) var(--ps-space-md)',
-                            cursor: 'pointer',
-                            border: '1px solid var(--ps-off-white)',
-                            background: 'var(--ps-white)',
-                            textAlign: 'left',
-                            fontFamily: 'var(--ps-font-family)',
-                            transition: 'all var(--ps-transition-fast)',
-                          }}
-                          onMouseOver={(e) => {
-                            e.currentTarget.style.borderColor = 'var(--ps-cloud-blue)'
-                          }}
-                          onMouseOut={(e) => {
-                            e.currentTarget.style.borderColor = 'var(--ps-off-white)'
-                          }}
-                        >
-                          <div style={{ fontWeight: 600, fontSize: 'var(--ps-font-sm)' }}>
-                            {drug.drug_brand}
-                            {drug.is_generic && (
-                              <span className="ps-badge ps-badge-blue" style={{ marginLeft: '6px' }}>
-                                Generic
-                              </span>
-                            )}
-                          </div>
-                          <div
-                            style={{
-                              fontSize: 'var(--ps-font-xs)',
-                              color: 'var(--ps-slate)',
-                              marginTop: '2px',
-                            }}
-                          >
-                            {drug.drug_form} — {drug.drug_strength}
-                          </div>
-                          <div
-                            style={{
-                              fontSize: 'var(--ps-font-xs)',
-                              color: 'var(--ps-mist)',
-                              marginTop: '2px',
-                            }}
-                          >
-                            {drug.drug_type}
-                          </div>
-                        </button>
-                      ))}
+                      <input
+                        className="ps-input accordion-search-input"
+                        placeholder="Filter brands..."
+                        value={classSearch[drugClass] ?? ''}
+                        onChange={(e) => setClassSearchValue(drugClass, e.target.value)}
+                        autoFocus
+                      />
                     </div>
                   )}
-                </div>
-              )}
-            </div>
-          ))}
+                </button>
+
+                {/* Expanded: drug cards */}
+                {isOpen && (
+                  <div className="accordion-body">
+                    {filtered.length === 0 ? (
+                      <p style={{ color: 'var(--ps-mist)', fontSize: 'var(--ps-font-sm)', padding: 'var(--ps-space-sm)' }}>
+                        No matching drugs
+                      </p>
+                    ) : (
+                      <div className="drug-card-grid">
+                        {filtered.map((drug) => (
+                          <button
+                            key={drug.id}
+                            className="drug-card"
+                            onClick={() => navigate(`/registers/cd/${drug.id}`)}
+                          >
+                            <div className="drug-card-name">
+                              {drug.drug_brand}
+                              {drug.is_generic && (
+                                <span className="ps-badge ps-badge-blue" style={{ marginLeft: '6px' }}>
+                                  Generic
+                                </span>
+                              )}
+                            </div>
+                            <div className="drug-card-detail">
+                              {drug.drug_form} — {drug.drug_strength}
+                            </div>
+                            <div className="drug-card-type">{drug.drug_type}</div>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )
+          })}
         </div>
       )}
     </div>

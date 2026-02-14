@@ -11,6 +11,13 @@ export function UserLoginPage() {
   // Load saved staff emails from localStorage
   const savedStaff = JSON.parse(localStorage.getItem('ps-saved-staff') || '[]') as string[]
 
+  const handleStaffSelect = (staffEmail: string) => {
+    // If already selected, clicking again just keeps the selection (cancel = don't submit)
+    setEmail(staffEmail)
+    setPassword('') // Clear password so they need to re-enter it
+    setError(null)
+  }
+
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
     setError(null)
@@ -51,8 +58,9 @@ export function UserLoginPage() {
             {savedStaff.map((staffEmail) => (
               <button
                 key={staffEmail}
+                type="button"
                 className={`saved-staff-item ${email === staffEmail ? 'selected' : ''}`}
-                onClick={() => setEmail(staffEmail)}
+                onClick={() => handleStaffSelect(staffEmail)}
               >
                 👤 {staffEmail}
               </button>
@@ -86,6 +94,7 @@ export function UserLoginPage() {
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             required
+            autoFocus={savedStaff.length > 0}
           />
         </div>
 

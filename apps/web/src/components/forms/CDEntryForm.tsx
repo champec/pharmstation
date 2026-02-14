@@ -1,6 +1,7 @@
 // ============================================
-// CDEntryForm — React Hook Form + Zod
-// Form for adding a new CD register entry
+// CDEntryForm — Simplified IN/OUT entry form
+// IN = receipt from supplier (supplier + invoice + qty)
+// OUT = supply to patient (patient, prescriber, collector, ID check, qty)
 // ============================================
 
 import { useForm } from 'react-hook-form'
@@ -9,85 +10,76 @@ import { z } from 'zod'
 import { useState, useEffect, useCallback } from 'react'
 import { getUserClient } from '@pharmstation/supabase-client'
 import { useAuthStore, useRegisterStore } from '@pharmstation/core'
-import type { KnownContact, RegisterEntry, TransactionType } from '@pharmstation/types'
+import type { KnownContact, RegisterEntry } from '@pharmstation/types'
 
-const cdEntrySchema = z.object({
-  transaction_type: z.enum([
-    'receipt', 'supply', 'return_to_supplier', 'patient_return',
-    'disposal', 'transfer_in', 'transfer_out',
-  ] as const),
+// Schema changes based on direction (IN vs OUT)
+const cdInSchema = z.object({
+  direction: z.literal('in'),
   date_of_transaction: z.string().min(1, 'Date is required'),
-  quantity_received: z.coerce.number().min(0).optional().nullable(),
-  quantity_deducted: z.coerce.number().min(0).optional().nullable(),
-  supplier_name: z.string().optional().nullable(),
+  supplier_name: z.string().min(1, 'Supplier is required'),
   invoice_number: z.string().optional().nullable(),
-  patient_name: z.string().optional().nullable(),
-  patient_address: z.string().optional().nullable(),
-  prescriber_name: z.string().optional().nullable(),
-  prescriber_address: z.string().optional().nullable(),
-  prescription_date: z.string().optional().nullable(),
-  witness_name: z.string().optional().nullable(),
-  witness_role: z.string().optional().nullable(),
-  authorised_by: z.string().optional().nullable(),
+  quantity: z.coerce.number().min(0.01, 'Quantity must be greater than 0'),
   notes: z.string().optional().nullable(),
-}).superRefine((data, ctx) => {
-  const receiptTypes: TransactionType[] = ['receipt', 'transfer_in', 'patient_return']
-  const deductTypes: TransactionType[] = ['supply', 'return_to_supplier', 'disposal', 'transfer_out']
-
-  if (receiptTypes.includes(data.transaction_type)) {
-    if (!data.quantity_received || data.quantity_received <= 0) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: 'Quantity received is required for receipts',
-        path: ['quantity_received'],
-      })
-    }
-  }
-  if (deductTypes.includes(data.transaction_type)) {
-    if (!data.quantity_deducted || data.quantity_deducted <= 0) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: 'Quantity deducted is required for supplies/disposals',
-        path: ['quantity_deducted'],
-      })
-    }
-  }
-  if (data.transaction_type === 'supply') {
-    if (!data.patient_name) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: 'Patient name is required for supplies',
-        path: ['patient_name'],
-      })
-    }
-    if (!data.prescriber_name) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: 'Prescriber name is required for supplies',
-        path: ['prescriber_name'],
-      })
-    }
-  }
 })
+
+const cdOutSchema = z.object({
+  direction: z.literal('out'),
+  date_of_transaction: z.string().min(1, 'Date is required'),
+  patient_name: z.string().min(1, 'Patient name is required'),
+  patient_address: z.string().optional().nullable(),
+  prescriber_name: z.string().min(1, 'Prescriber is required'),
+  prescriber_address: z.string().optional().nullable(),
+  collector_name: z.string().optional().nullable(),
+  was_id_requested: z.boolean(),
+  was_id_provided: z.boolean(),
+  quantity: z.coerce.number().min(0.01, 'Quantity must be greater than 0'),
+  notes: z.string().optional().nullable(),
+})
+
+const cdEntrySchema = z.discriminatedUnion('direction', [cdInSchema, cdOutSchema])
 
 type CDEntryFormData = z.infer<typeof cdEntrySchema>
 
 interface CDEntryFormProps {
+  direction: 'in' | 'out'
   onSuccess: (entry: RegisterEntry) => void
   onCancel: () => void
 }
 
-const RECEIPT_TYPES: TransactionType[] = ['receipt', 'transfer_in', 'patient_return']
-
-export function CDEntryForm({ onSuccess, onCancel }: CDEntryFormProps) {
+export function CDEntryForm({ direction, onSuccess, onCancel }: CDEntryFormProps) {
   const { organisation, activeUser } = useAuthStore()
   const { activeLedger, lastUsedValues, setLastUsedValue } = useRegisterStore()
   const [submitting, setSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [patientSuggestions, setPatientSuggestions] = useState<KnownContact[]>([])
   const [prescriberSuggestions, setPrescriberSuggestions] = useState<KnownContact[]>([])
+  const [supplierSuggestions, setSupplierSuggestions] = useState<KnownContact[]>([])
   const [showPatientSuggest, setShowPatientSuggest] = useState(false)
   const [showPrescriberSuggest, setShowPrescriberSuggest] = useState(false)
+  const [showSupplierSuggest, setShowSupplierSuggest] = useState(false)
+
+  const defaultValues: CDEntryFormData = direction === 'in'
+    ? {
+        direction: 'in',
+        date_of_transaction: new Date().toISOString().split('T')[0],
+        supplier_name: lastUsedValues.supplier_name ?? '',
+        invoice_number: '',
+        quantity: 0,
+        notes: '',
+      }
+    : {
+        direction: 'out',
+        date_of_transaction: new Date().toISOString().split('T')[0],
+        patient_name: '',
+        patient_address: '',
+        prescriber_name: lastUsedValues.prescriber_name ?? '',
+        prescriber_address: lastUsedValues.prescriber_address ?? '',
+        collector_name: '',
+        was_id_requested: false,
+        was_id_provided: false,
+        quantity: 0,
+        notes: '',
+      }
 
   const {
     register,
@@ -96,87 +88,95 @@ export function CDEntryForm({ onSuccess, onCancel }: CDEntryFormProps) {
     setValue,
     formState: { errors },
   } = useForm<CDEntryFormData>({
-    resolver: zodResolver(cdEntrySchema),
-    defaultValues: {
-      transaction_type: 'receipt',
-      date_of_transaction: new Date().toISOString().split('T')[0],
-      quantity_received: null,
-      quantity_deducted: null,
-      supplier_name: lastUsedValues.supplier_name ?? '',
-      invoice_number: '',
-      patient_name: '',
-      patient_address: '',
-      prescriber_name: lastUsedValues.prescriber_name ?? '',
-      prescriber_address: lastUsedValues.prescriber_address ?? '',
-      prescription_date: '',
-      witness_name: '',
-      witness_role: '',
-      authorised_by: activeUser?.full_name ?? '',
-      notes: '',
-    },
+    resolver: zodResolver(direction === 'in' ? cdInSchema : cdOutSchema),
+    defaultValues,
   })
 
-  const transactionType = watch('transaction_type')
-  const isReceipt = RECEIPT_TYPES.includes(transactionType)
-  const isSupply = transactionType === 'supply'
-  const isDisposal = transactionType === 'disposal'
-
   // Auto-complete search for contacts
-  const searchContacts = useCallback(async (query: string, type: 'patient' | 'prescriber') => {
-    if (!organisation || query.length < 2) {
-      type === 'patient' ? setPatientSuggestions([]) : setPrescriberSuggestions([])
-      return
-    }
-    const { data } = await getUserClient()
-      .from('ps_known_contacts')
-      .select('*')
-      .eq('organisation_id', organisation.id)
-      .eq('contact_type', type)
-      .ilike('search_key', `%${query.toLowerCase()}%`)
-      .order('usage_count', { ascending: false })
-      .limit(5)
+  const searchContacts = useCallback(
+    async (query: string, type: 'patient' | 'prescriber' | 'supplier') => {
+      if (!organisation || query.length < 2) {
+        if (type === 'patient') setPatientSuggestions([])
+        else if (type === 'prescriber') setPrescriberSuggestions([])
+        else setSupplierSuggestions([])
+        return
+      }
+      const { data } = await getUserClient()
+        .from('ps_known_contacts')
+        .select('*')
+        .eq('organisation_id', organisation.id)
+        .eq('contact_type', type)
+        .ilike('search_key', `%${query.toLowerCase()}%`)
+        .order('usage_count', { ascending: false })
+        .limit(5)
 
-    if (data) {
-      type === 'patient' ? setPatientSuggestions(data) : setPrescriberSuggestions(data)
-    }
-  }, [organisation])
+      if (data) {
+        if (type === 'patient') setPatientSuggestions(data)
+        else if (type === 'prescriber') setPrescriberSuggestions(data)
+        else setSupplierSuggestions(data)
+      }
+    },
+    [organisation],
+  )
 
-  const patientName = watch('patient_name')
-  const prescriberName = watch('prescriber_name')
+  // Debounced search for each contact field
+  const watchedValues = watch()
 
   useEffect(() => {
+    if (direction !== 'out') return
+    const val = (watchedValues as z.infer<typeof cdOutSchema>).patient_name
     const timer = setTimeout(() => {
-      if (patientName && patientName.length >= 2) {
-        searchContacts(patientName, 'patient')
-      } else {
-        setPatientSuggestions([])
-      }
+      if (val && val.length >= 2) searchContacts(val, 'patient')
+      else setPatientSuggestions([])
     }, 300)
     return () => clearTimeout(timer)
-  }, [patientName, searchContacts])
+  }, [direction, (watchedValues as z.infer<typeof cdOutSchema>).patient_name, searchContacts])
 
   useEffect(() => {
+    if (direction !== 'out') return
+    const val = (watchedValues as z.infer<typeof cdOutSchema>).prescriber_name
     const timer = setTimeout(() => {
-      if (prescriberName && prescriberName.length >= 2) {
-        searchContacts(prescriberName, 'prescriber')
-      } else {
-        setPrescriberSuggestions([])
-      }
+      if (val && val.length >= 2) searchContacts(val, 'prescriber')
+      else setPrescriberSuggestions([])
     }, 300)
     return () => clearTimeout(timer)
-  }, [prescriberName, searchContacts])
+  }, [direction, (watchedValues as z.infer<typeof cdOutSchema>).prescriber_name, searchContacts])
 
-  const selectContact = (contact: KnownContact, type: 'patient' | 'prescriber') => {
+  useEffect(() => {
+    if (direction !== 'in') return
+    const val = (watchedValues as z.infer<typeof cdInSchema>).supplier_name
+    const timer = setTimeout(() => {
+      if (val && val.length >= 2) searchContacts(val, 'supplier')
+      else setSupplierSuggestions([])
+    }, 300)
+    return () => clearTimeout(timer)
+  }, [direction, (watchedValues as z.infer<typeof cdInSchema>).supplier_name, searchContacts])
+
+  const selectContact = (contact: KnownContact, type: 'patient' | 'prescriber' | 'supplier') => {
     if (type === 'patient') {
-      setValue('patient_name', contact.full_name)
-      setValue('patient_address', [contact.address_line_1, contact.city, contact.postcode].filter(Boolean).join(', '))
+      setValue('patient_name' as keyof CDEntryFormData, contact.full_name)
+      setValue(
+        'patient_address' as keyof CDEntryFormData,
+        [contact.address_line_1, contact.city, contact.postcode].filter(Boolean).join(', '),
+      )
+      // Auto-suggest prescriber for this patient
+      if (contact.full_name) {
+        searchContacts(contact.full_name, 'prescriber')
+      }
       setShowPatientSuggest(false)
       setPatientSuggestions([])
-    } else {
-      setValue('prescriber_name', contact.full_name)
-      setValue('prescriber_address', [contact.address_line_1, contact.city, contact.postcode].filter(Boolean).join(', '))
+    } else if (type === 'prescriber') {
+      setValue('prescriber_name' as keyof CDEntryFormData, contact.full_name)
+      setValue(
+        'prescriber_address' as keyof CDEntryFormData,
+        [contact.address_line_1, contact.city, contact.postcode].filter(Boolean).join(', '),
+      )
       setShowPrescriberSuggest(false)
       setPrescriberSuggestions([])
+    } else {
+      setValue('supplier_name' as keyof CDEntryFormData, contact.full_name)
+      setShowSupplierSuggest(false)
+      setSupplierSuggestions([])
     }
   }
 
@@ -186,7 +186,8 @@ export function CDEntryForm({ onSuccess, onCancel }: CDEntryFormProps) {
     setSubmitError(null)
 
     try {
-      const { data: entry, error } = await getUserClient().rpc('ps_make_register_entry', {
+      const isIn = data.direction === 'in'
+      const rpcParams: Record<string, unknown> = {
         p_ledger_id: activeLedger.id,
         p_register_type: activeLedger.register_type,
         p_entry_type: 'normal',
@@ -194,26 +195,29 @@ export function CDEntryForm({ onSuccess, onCancel }: CDEntryFormProps) {
         p_notes: data.notes || null,
         p_source: 'manual',
         p_expected_lock_version: activeLedger.lock_version,
-        p_transaction_type: data.transaction_type,
-        p_quantity_received: isReceipt ? data.quantity_received : null,
-        p_quantity_deducted: !isReceipt ? data.quantity_deducted : null,
-        p_supplier_name: data.supplier_name || null,
-        p_invoice_number: data.invoice_number || null,
-        p_patient_name: data.patient_name || null,
-        p_patient_address: data.patient_address || null,
-        p_prescriber_name: data.prescriber_name || null,
-        p_prescriber_address: data.prescriber_address || null,
-        p_prescription_date: data.prescription_date || null,
-        p_witness_name: data.witness_name || null,
-        p_witness_role: data.witness_role || null,
-        p_authorised_by: data.authorised_by || null,
+        p_transaction_type: isIn ? 'receipt' : 'supply',
+        p_quantity_received: isIn ? data.quantity : null,
+        p_quantity_deducted: isIn ? null : data.quantity,
         p_entered_by: activeUser.id,
-      })
+        // IN fields
+        p_supplier_name: isIn ? (data as z.infer<typeof cdInSchema>).supplier_name : null,
+        p_invoice_number: isIn ? (data as z.infer<typeof cdInSchema>).invoice_number || null : null,
+        // OUT fields
+        p_patient_name: !isIn ? (data as z.infer<typeof cdOutSchema>).patient_name : null,
+        p_patient_address: !isIn ? (data as z.infer<typeof cdOutSchema>).patient_address || null : null,
+        p_prescriber_name: !isIn ? (data as z.infer<typeof cdOutSchema>).prescriber_name : null,
+        p_prescriber_address: !isIn ? (data as z.infer<typeof cdOutSchema>).prescriber_address || null : null,
+        p_prescription_date: null,
+        p_witness_name: null,
+        p_witness_role: null,
+        p_authorised_by: activeUser.full_name,
+      }
+
+      const { data: entry, error } = await getUserClient().rpc('ps_make_register_entry', rpcParams)
 
       if (error) {
-        // Handle conflict errors
         if (error.message.includes('CONFLICT')) {
-          setSubmitError('Another entry was made while you were editing. Please refresh the ledger and try again.')
+          setSubmitError('Another entry was made while you were editing. Refresh the ledger and try again.')
         } else {
           setSubmitError(error.message)
         }
@@ -221,9 +225,13 @@ export function CDEntryForm({ onSuccess, onCancel }: CDEntryFormProps) {
       }
 
       // Save frequently used values
-      if (data.supplier_name) setLastUsedValue('supplier_name', data.supplier_name)
-      if (data.prescriber_name) setLastUsedValue('prescriber_name', data.prescriber_name)
-      if (data.prescriber_address) setLastUsedValue('prescriber_address', data.prescriber_address)
+      if (isIn) {
+        setLastUsedValue('supplier_name', (data as z.infer<typeof cdInSchema>).supplier_name)
+      } else {
+        const outData = data as z.infer<typeof cdOutSchema>
+        if (outData.prescriber_name) setLastUsedValue('prescriber_name', outData.prescriber_name)
+        if (outData.prescriber_address) setLastUsedValue('prescriber_address', outData.prescriber_address)
+      }
 
       onSuccess(entry as RegisterEntry)
     } catch (err) {
@@ -244,71 +252,63 @@ export function CDEntryForm({ onSuccess, onCancel }: CDEntryFormProps) {
         <span className="ps-badge ps-badge-blue">Balance: {activeLedger.current_balance}</span>
       </div>
 
-      {submitError && (
-        <div className="auth-error">{submitError}</div>
-      )}
-
-      {/* Transaction Type */}
-      <div className="form-row">
-        <div className="form-group">
-          <label>Transaction Type *</label>
-          <select className="ps-input" {...register('transaction_type')}>
-            <optgroup label="Receipts (Quantity In)">
-              <option value="receipt">Receipt from Supplier</option>
-              <option value="transfer_in">Transfer In</option>
-              <option value="patient_return">Patient Return</option>
-            </optgroup>
-            <optgroup label="Deductions (Quantity Out)">
-              <option value="supply">Supply to Patient</option>
-              <option value="return_to_supplier">Return to Supplier</option>
-              <option value="disposal">Disposal / Destruction</option>
-              <option value="transfer_out">Transfer Out</option>
-            </optgroup>
-          </select>
-          {errors.transaction_type && <div className="form-error">{errors.transaction_type.message}</div>}
-        </div>
-
-        <div className="form-group">
-          <label>Date of Transaction *</label>
-          <input type="date" className="ps-input" {...register('date_of_transaction')} />
-          {errors.date_of_transaction && <div className="form-error">{errors.date_of_transaction.message}</div>}
-        </div>
+      <div className={`entry-direction-badge ${direction === 'in' ? 'entry-in' : 'entry-out'}`}>
+        {direction === 'in' ? '📥 Received IN' : '📤 Supplied OUT'}
       </div>
 
-      {/* Quantity */}
-      <div className="form-row">
-        {isReceipt ? (
+      {submitError && <div className="auth-error">{submitError}</div>}
+
+      {/* Date */}
+      <div className="form-group">
+        <label>Date of Transaction *</label>
+        <input type="date" className="ps-input" {...register('date_of_transaction')} />
+        {errors.date_of_transaction && <div className="form-error">{errors.date_of_transaction.message}</div>}
+      </div>
+
+      {/* === IN FIELDS === */}
+      {direction === 'in' && (
+        <>
+          <div className="form-row">
+            <div className="form-group autocomplete-group">
+              <label>Supplier *</label>
+              <input
+                className="ps-input"
+                placeholder="e.g. Alliance Healthcare"
+                {...register('supplier_name')}
+                onFocus={() => setShowSupplierSuggest(true)}
+                onBlur={() => setTimeout(() => setShowSupplierSuggest(false), 200)}
+              />
+              {showSupplierSuggest && supplierSuggestions.length > 0 && (
+                <div className="autocomplete-dropdown">
+                  {supplierSuggestions.map((c) => (
+                    <button key={c.id} type="button" className="autocomplete-item" onClick={() => selectContact(c, 'supplier')}>
+                      <span className="autocomplete-name">{c.full_name}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+              {(errors as Record<string, { message?: string }>).supplier_name && (
+                <div className="form-error">{(errors as Record<string, { message?: string }>).supplier_name?.message}</div>
+              )}
+            </div>
+            <div className="form-group">
+              <label>Invoice Number</label>
+              <input className="ps-input" placeholder="e.g. INV-12345" {...register('invoice_number')} />
+            </div>
+          </div>
+
           <div className="form-group">
             <label>Quantity Received *</label>
-            <input type="number" className="ps-input" step="any" min="0" {...register('quantity_received')} />
-            {errors.quantity_received && <div className="form-error">{errors.quantity_received.message}</div>}
+            <input type="number" className="ps-input" step="any" min="0" {...register('quantity')} />
+            {errors.quantity && <div className="form-error">{errors.quantity.message}</div>}
           </div>
-        ) : (
-          <div className="form-group">
-            <label>Quantity Deducted *</label>
-            <input type="number" className="ps-input" step="any" min="0" {...register('quantity_deducted')} />
-            {errors.quantity_deducted && <div className="form-error">{errors.quantity_deducted.message}</div>}
-          </div>
-        )}
-      </div>
-
-      {/* Receipt: Supplier info */}
-      {isReceipt && (
-        <div className="form-row">
-          <div className="form-group">
-            <label>Supplier Name</label>
-            <input className="ps-input" placeholder="e.g. Alliance Healthcare" {...register('supplier_name')} />
-          </div>
-          <div className="form-group">
-            <label>Invoice Number</label>
-            <input className="ps-input" placeholder="e.g. INV-12345" {...register('invoice_number')} />
-          </div>
-        </div>
+        </>
       )}
 
-      {/* Supply: Patient info */}
-      {isSupply && (
+      {/* === OUT FIELDS === */}
+      {direction === 'out' && (
         <>
+          {/* Patient */}
           <div className="form-row">
             <div className="form-group autocomplete-group">
               <label>Patient Name *</label>
@@ -322,19 +322,16 @@ export function CDEntryForm({ onSuccess, onCancel }: CDEntryFormProps) {
               {showPatientSuggest && patientSuggestions.length > 0 && (
                 <div className="autocomplete-dropdown">
                   {patientSuggestions.map((c) => (
-                    <button
-                      key={c.id}
-                      type="button"
-                      className="autocomplete-item"
-                      onClick={() => selectContact(c, 'patient')}
-                    >
+                    <button key={c.id} type="button" className="autocomplete-item" onClick={() => selectContact(c, 'patient')}>
                       <span className="autocomplete-name">{c.full_name}</span>
                       {c.postcode && <span className="autocomplete-detail">{c.postcode}</span>}
                     </button>
                   ))}
                 </div>
               )}
-              {errors.patient_name && <div className="form-error">{errors.patient_name.message}</div>}
+              {(errors as Record<string, { message?: string }>).patient_name && (
+                <div className="form-error">{(errors as Record<string, { message?: string }>).patient_name?.message}</div>
+              )}
             </div>
             <div className="form-group">
               <label>Patient Address</label>
@@ -342,9 +339,10 @@ export function CDEntryForm({ onSuccess, onCancel }: CDEntryFormProps) {
             </div>
           </div>
 
+          {/* Prescriber */}
           <div className="form-row">
             <div className="form-group autocomplete-group">
-              <label>Prescriber Name *</label>
+              <label>Prescriber *</label>
               <input
                 className="ps-input"
                 placeholder="Start typing..."
@@ -355,19 +353,16 @@ export function CDEntryForm({ onSuccess, onCancel }: CDEntryFormProps) {
               {showPrescriberSuggest && prescriberSuggestions.length > 0 && (
                 <div className="autocomplete-dropdown">
                   {prescriberSuggestions.map((c) => (
-                    <button
-                      key={c.id}
-                      type="button"
-                      className="autocomplete-item"
-                      onClick={() => selectContact(c, 'prescriber')}
-                    >
+                    <button key={c.id} type="button" className="autocomplete-item" onClick={() => selectContact(c, 'prescriber')}>
                       <span className="autocomplete-name">{c.full_name}</span>
                       {c.postcode && <span className="autocomplete-detail">{c.postcode}</span>}
                     </button>
                   ))}
                 </div>
               )}
-              {errors.prescriber_name && <div className="form-error">{errors.prescriber_name.message}</div>}
+              {(errors as Record<string, { message?: string }>).prescriber_name && (
+                <div className="form-error">{(errors as Record<string, { message?: string }>).prescriber_name?.message}</div>
+              )}
             </div>
             <div className="form-group">
               <label>Prescriber Address</label>
@@ -375,35 +370,41 @@ export function CDEntryForm({ onSuccess, onCancel }: CDEntryFormProps) {
             </div>
           </div>
 
+          {/* Collector */}
+          <div className="form-group">
+            <label>Person Collecting</label>
+            <input className="ps-input" placeholder="Name of collector (if different from patient)" {...register('collector_name')} />
+          </div>
+
+          {/* ID Check */}
           <div className="form-row">
             <div className="form-group">
-              <label>Prescription Date</label>
-              <input type="date" className="ps-input" {...register('prescription_date')} />
+              <label className="checkbox-label">
+                <input type="checkbox" {...register('was_id_requested')} />
+                <span>ID Requested?</span>
+              </label>
             </div>
+            <div className="form-group">
+              <label className="checkbox-label">
+                <input type="checkbox" {...register('was_id_provided')} />
+                <span>ID Provided?</span>
+              </label>
+            </div>
+          </div>
+
+          {/* Quantity */}
+          <div className="form-group">
+            <label>Quantity Supplied *</label>
+            <input type="number" className="ps-input" step="any" min="0" {...register('quantity')} />
+            {errors.quantity && <div className="form-error">{errors.quantity.message}</div>}
           </div>
         </>
       )}
 
-      {/* Disposal: Witness */}
-      {isDisposal && (
-        <div className="form-row">
-          <div className="form-group">
-            <label>Witness Name</label>
-            <input className="ps-input" placeholder="Name of witness" {...register('witness_name')} />
-          </div>
-          <div className="form-group">
-            <label>Witness Role</label>
-            <input className="ps-input" placeholder="e.g. Pharmacist" {...register('witness_role')} />
-          </div>
-        </div>
-      )}
-
-      {/* Authorised by */}
-      <div className="form-row">
-        <div className="form-group">
-          <label>Authorised By</label>
-          <input className="ps-input" {...register('authorised_by')} />
-        </div>
+      {/* Entered by — auto-filled, read-only */}
+      <div className="form-group">
+        <label>Entered By</label>
+        <input className="ps-input" value={activeUser?.full_name ?? ''} readOnly disabled />
       </div>
 
       {/* Notes */}
@@ -423,8 +424,12 @@ export function CDEntryForm({ onSuccess, onCancel }: CDEntryFormProps) {
         <button type="button" className="ps-btn ps-btn-ghost" onClick={onCancel}>
           Cancel
         </button>
-        <button type="submit" className="ps-btn ps-btn-primary" disabled={submitting}>
-          {submitting ? 'Saving...' : 'Add Entry'}
+        <button
+          type="submit"
+          className={`ps-btn ${direction === 'in' ? 'ps-btn-success' : 'ps-btn-primary'}`}
+          disabled={submitting}
+        >
+          {submitting ? 'Saving...' : direction === 'in' ? '📥 Record Receipt' : '📤 Record Supply'}
         </button>
       </div>
     </form>

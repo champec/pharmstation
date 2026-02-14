@@ -84,6 +84,9 @@ importers:
       '@pharmstation/types':
         specifier: workspace:*
         version: link:../types
+      '@supabase/supabase-js':
+        specifier: ^2.49.0
+        version: 2.95.3
       zod:
         specifier: ^3.24.0
         version: 3.25.76

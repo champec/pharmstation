@@ -10,6 +10,7 @@ export function TopNav() {
         <button className="ps-btn ps-btn-ghost" onClick={toggleSideNav} title="Toggle sidebar">
           ☰
         </button>
+        <span className="top-nav-brand">Pharm<span>Station</span></span>
       </div>
 
       <div className="top-nav-right">

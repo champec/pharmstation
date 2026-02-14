@@ -14,10 +14,11 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "@pharmstation/types": "workspace:*",
     "@pharmstation/supabase-client": "workspace:*",
-    "zustand": "^5.0.0",
-    "zod": "^3.24.0"
+    "@pharmstation/types": "workspace:*",
+    "@supabase/supabase-js": "^2.49.0",
+    "zod": "^3.24.0",
+    "zustand": "^5.0.0"
   },
   "devDependencies": {
     "typescript": "^5.7.0"

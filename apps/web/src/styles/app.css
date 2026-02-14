@@ -756,3 +756,505 @@
   color: var(--ps-midnight);
   font-family: var(--ps-font-mono);
 }
+
+/* ============================================
+   Drawer (right-side slide panel)
+   ============================================ */
+
+.drawer-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(26, 26, 46, 0.35);
+  z-index: 400;
+  animation: fadeIn 150ms ease;
+}
+
+.drawer-panel {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  background: var(--ps-white);
+  box-shadow: var(--ps-shadow-xl);
+  z-index: 401;
+  display: flex;
+  flex-direction: column;
+  max-width: 95vw;
+  animation: slideInRight 200ms ease;
+}
+
+.drawer-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--ps-space-md) var(--ps-space-lg);
+  border-bottom: 1px solid var(--ps-off-white);
+  flex-shrink: 0;
+}
+
+.drawer-header h2 {
+  font-size: var(--ps-font-lg);
+  font-weight: 700;
+  color: var(--ps-midnight);
+}
+
+.drawer-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--ps-space-lg);
+}
+
+@keyframes slideInRight {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}
+
+/* ============================================
+   Sidebar — Expandable Sections
+   ============================================ */
+
+.side-nav-section-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: var(--ps-space-sm);
+  border: none;
+  background: none;
+  cursor: pointer;
+  font-family: var(--ps-font-family);
+  font-size: var(--ps-font-xs);
+  font-weight: 600;
+  color: var(--ps-mist);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  white-space: nowrap;
+  overflow: hidden;
+  border-radius: var(--ps-radius-md);
+  transition: color var(--ps-transition-fast);
+}
+
+.side-nav-section-toggle:hover {
+  color: var(--ps-slate);
+}
+
+.side-nav-chevron {
+  font-size: 10px;
+  transition: transform var(--ps-transition-fast);
+  flex-shrink: 0;
+}
+
+.side-nav-chevron.open {
+  transform: rotate(90deg);
+}
+
+.side-nav-section-items.indented .side-nav-item {
+  padding-left: var(--ps-space-lg);
+}
+
+.side-nav-section-icon {
+  margin-right: var(--ps-space-xs);
+  font-size: 14px;
+}
+
+/* ============================================
+   Accordion (CD Register drug classes)
+   ============================================ */
+
+.accordion-header {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  padding: var(--ps-space-md);
+  border: 1px solid var(--ps-off-white);
+  border-radius: var(--ps-radius-lg);
+  background: var(--ps-white);
+  cursor: pointer;
+  font-family: var(--ps-font-family);
+  transition: all var(--ps-transition-fast);
+  box-shadow: var(--ps-shadow-sm);
+  gap: var(--ps-space-md);
+}
+
+.accordion-header:hover {
+  border-color: var(--ps-cloud-blue);
+  box-shadow: var(--ps-shadow-md);
+}
+
+.accordion-header-left {
+  display: flex;
+  align-items: center;
+  gap: var(--ps-space-sm);
+  flex-shrink: 0;
+}
+
+.accordion-chevron {
+  font-size: 12px;
+  color: var(--ps-mist);
+  transition: transform var(--ps-transition-fast);
+  flex-shrink: 0;
+}
+
+.accordion-chevron.open {
+  transform: rotate(90deg);
+}
+
+.accordion-title {
+  font-size: var(--ps-font-base);
+  font-weight: 600;
+  color: var(--ps-midnight);
+  white-space: nowrap;
+}
+
+.accordion-count {
+  font-size: var(--ps-font-xs);
+  color: var(--ps-mist);
+  background: var(--ps-off-white);
+  padding: 2px 8px;
+  border-radius: var(--ps-radius-full);
+  white-space: nowrap;
+}
+
+.accordion-search {
+  margin-left: auto;
+  flex-shrink: 1;
+  min-width: 0;
+}
+
+.accordion-search-input {
+  width: 200px;
+  max-width: 100%;
+  padding: var(--ps-space-xs) var(--ps-space-sm);
+  border: 1px solid var(--ps-cloud-blue);
+  border-radius: var(--ps-radius-md);
+  font-family: var(--ps-font-family);
+  font-size: var(--ps-font-sm);
+  color: var(--ps-midnight);
+  background: var(--ps-white);
+}
+
+.accordion-search-input:focus {
+  outline: none;
+  border-color: var(--ps-electric-cyan);
+  box-shadow: 0 0 0 2px rgba(4, 176, 255, 0.15);
+}
+
+.accordion-body {
+  padding: var(--ps-space-md) 0;
+}
+
+/* ============================================
+   Drug Card Grid
+   ============================================ */
+
+.drug-card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: var(--ps-space-md);
+}
+
+.drug-card {
+  background: var(--ps-white);
+  border: 1px solid var(--ps-off-white);
+  border-radius: var(--ps-radius-lg);
+  padding: var(--ps-space-md);
+  cursor: pointer;
+  transition: all var(--ps-transition-fast);
+  text-decoration: none;
+  color: inherit;
+}
+
+.drug-card:hover {
+  border-color: var(--ps-cloud-blue);
+  box-shadow: var(--ps-shadow-md);
+  transform: translateY(-1px);
+}
+
+.drug-card-name {
+  font-size: var(--ps-font-sm);
+  font-weight: 600;
+  color: var(--ps-midnight);
+  margin-bottom: var(--ps-space-xs);
+}
+
+.drug-card-detail {
+  font-size: var(--ps-font-xs);
+  color: var(--ps-mist);
+  line-height: 1.4;
+}
+
+.drug-card-type {
+  display: inline-block;
+  font-size: var(--ps-font-xs);
+  color: var(--ps-deep-blue);
+  background: rgba(37, 123, 180, 0.1);
+  padding: 1px 6px;
+  border-radius: var(--ps-radius-sm);
+  margin-top: var(--ps-space-xs);
+}
+
+/* ============================================
+   Entry Direction Badge (IN/OUT)
+   ============================================ */
+
+.entry-direction-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: var(--ps-radius-full);
+  font-size: var(--ps-font-xs);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.entry-in {
+  background: rgba(34, 197, 94, 0.12);
+  color: #16a34a;
+}
+
+.entry-out {
+  background: rgba(245, 158, 11, 0.12);
+  color: #d97706;
+}
+
+/* ============================================
+   Checkbox label
+   ============================================ */
+
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: var(--ps-space-sm);
+  font-size: var(--ps-font-sm);
+  color: var(--ps-midnight);
+  cursor: pointer;
+}
+
+.checkbox-label input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--ps-deep-blue);
+}
+
+/* ============================================
+   Button — Success variant
+   ============================================ */
+
+.ps-btn-success {
+  background: var(--ps-success);
+  color: var(--ps-white);
+}
+
+.ps-btn-success:hover:not(:disabled) {
+  background: #16a34a;
+}
+
+/* ============================================
+   Top Nav Brand
+   ============================================ */
+
+.top-nav-brand {
+  font-weight: 700;
+  font-size: var(--ps-font-lg);
+  color: var(--ps-deep-blue);
+  white-space: nowrap;
+}
+
+.top-nav-brand span {
+  color: var(--ps-electric-cyan);
+}
+
+/* ============================================
+   Inline Provision Row
+   ============================================ */
+
+.register-table-footer {
+  border-top: 2px solid var(--ps-cloud-blue);
+}
+
+.inline-provision-row td {
+  padding: var(--ps-space-xs) var(--ps-space-sm);
+  background: rgba(229, 242, 247, 0.5);
+  vertical-align: middle;
+  position: relative;
+}
+
+.prov-input {
+  width: 100%;
+  min-width: 80px;
+  padding: 4px 6px;
+  border: 1px solid var(--ps-cloud-blue);
+  border-radius: var(--ps-radius-sm);
+  font-family: var(--ps-font-family);
+  font-size: var(--ps-font-xs);
+  color: var(--ps-midnight);
+  background: var(--ps-white);
+  transition: border-color var(--ps-transition-fast);
+}
+
+.prov-input:focus {
+  outline: none;
+  border-color: var(--ps-electric-cyan);
+  box-shadow: 0 0 0 2px rgba(4, 176, 255, 0.12);
+}
+
+.prov-input::placeholder {
+  color: var(--ps-mist);
+}
+
+.prov-qty {
+  width: 60px;
+  min-width: 50px;
+  text-align: right;
+  font-family: var(--ps-font-mono);
+}
+
+.prov-save-btn {
+  padding: 3px 8px !important;
+  font-size: var(--ps-font-xs) !important;
+  min-width: 32px;
+}
+
+/* Badge helpers */
+.ps-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: var(--ps-radius-full);
+  font-size: var(--ps-font-xs);
+  font-weight: 600;
+}
+
+.ps-badge-green {
+  background: rgba(34, 197, 94, 0.12);
+  color: #16a34a;
+}
+
+.ps-badge-amber {
+  background: rgba(245, 158, 11, 0.12);
+  color: #d97706;
+}
+
+.ps-badge-red {
+  background: rgba(239, 68, 68, 0.12);
+  color: #dc2626;
+}
+
+.ps-badge-blue {
+  background: rgba(59, 130, 246, 0.12);
+  color: #2563eb;
+}
+
+/* ============================================
+   RP Today Row Highlight
+   ============================================ */
+
+.rp-today-row {
+  background: rgba(4, 176, 255, 0.08) !important;
+  border-left: 3px solid var(--ps-electric-cyan);
+}
+
+.rp-today-row td:first-child {
+  font-weight: 700;
+  color: var(--ps-deep-blue);
+}
+
+/* ============================================
+   Print Styles
+   ============================================ */
+
+.no-print {
+  /* visible on screen */
+}
+
+@media print {
+  /* Hide all non-essential UI */
+  .no-print,
+  .no-print *,
+  .sidebar,
+  .top-nav,
+  .drawer-backdrop,
+  .drawer-panel,
+  .modal-backdrop,
+  .modal-container {
+    display: none !important;
+  }
+
+  /* Reset layout so content fills the page */
+  body,
+  html {
+    margin: 0;
+    padding: 0;
+    background: #fff !important;
+  }
+
+  .app-layout,
+  .main-content {
+    display: block !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    width: 100% !important;
+    max-width: none !important;
+  }
+
+  .page-header {
+    margin-bottom: 8px;
+  }
+
+  .page-header h1 {
+    font-size: 16px;
+  }
+
+  .register-table-wrapper {
+    width: 100%;
+    overflow: visible;
+  }
+
+  .register-table-scroll {
+    overflow: visible;
+  }
+
+  .register-table {
+    font-size: 10px;
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  .register-table th,
+  .register-table td {
+    padding: 3px 5px;
+    border: 1px solid #aaa;
+  }
+
+  .register-table thead th {
+    background: #eee !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .rp-today-row {
+    background: rgba(4, 176, 255, 0.06) !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  .ps-badge {
+    border: 1px solid #999;
+    padding: 1px 4px;
+    font-size: 8px;
+  }
+
+  .register-table-pagination {
+    display: none;
+  }
+
+  @page {
+    size: A4 landscape;
+    margin: 12mm;
+  }
+}
