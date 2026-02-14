@@ -3,7 +3,7 @@
 // Used for CD Register, RP Log, Returns
 // ============================================
 
-import { useState, type ReactNode } from 'react'
+import { useState, useEffect, type ReactNode } from 'react'
 import {
   useReactTable,
   getCoreRowModel,
@@ -14,6 +14,7 @@ import {
   type ColumnDef,
   type SortingState,
   type ColumnFiltersState,
+  type PaginationState,
 } from '@tanstack/react-table'
 
 interface RegisterTableProps<T> {
@@ -49,6 +50,15 @@ export function RegisterTable<T>({
 }: RegisterTableProps<T>) {
   const [sorting, setSorting] = useState<SortingState>([])
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
+  const [pagination, setPagination] = useState<PaginationState>({
+    pageIndex: 0,
+    pageSize,
+  })
+
+  // Sync pageSize prop with internal pagination state and reset to page 1
+  useEffect(() => {
+    setPagination((prev) => ({ ...prev, pageSize, pageIndex: 0 }))
+  }, [pageSize])
 
   const table = useReactTable({
     data,
@@ -57,17 +67,16 @@ export function RegisterTable<T>({
       sorting,
       columnFilters,
       globalFilter,
+      pagination,
     },
     onSortingChange: setSorting,
     onColumnFiltersChange: setColumnFilters,
     onGlobalFilterChange,
+    onPaginationChange: setPagination,
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
-    initialState: {
-      pagination: { pageSize },
-    },
   })
 
   if (loading) {
@@ -140,9 +149,9 @@ export function RegisterTable<T>({
       {(alwaysShowPagination || table.getPageCount() > 1) && (
         <div className="register-table-pagination no-print">
           <div className="pagination-info">
-            Showing {table.getFilteredRowModel().rows.length === 0 ? 0 : table.getState().pagination.pageIndex * pageSize + 1}–
+            Showing {table.getFilteredRowModel().rows.length === 0 ? 0 : pagination.pageIndex * pagination.pageSize + 1}–
             {Math.min(
-              (table.getState().pagination.pageIndex + 1) * pageSize,
+              (pagination.pageIndex + 1) * pagination.pageSize,
               table.getFilteredRowModel().rows.length,
             )}{' '}
             of {table.getFilteredRowModel().rows.length} entries
@@ -163,7 +172,7 @@ export function RegisterTable<T>({
               ◀
             </button>
             <span className="pagination-page">
-              Page {table.getState().pagination.pageIndex + 1} of {Math.max(1, table.getPageCount())}
+              Page {pagination.pageIndex + 1} of {Math.max(1, table.getPageCount())}
             </span>
             <button
               className="ps-btn ps-btn-ghost"

@@ -102,7 +102,7 @@ export function RPLogPage() {
   const [includeDb, setIncludeDb] = useState(false)
   const [dbSearchResults, setDbSearchResults] = useState<RegisterEntry[]>([])
   const [dbSearching, setDbSearching] = useState(false)
-  const [daysBack, setDaysBack] = useState(20)
+  const [rowsPerPage, setRowsPerPage] = useState(20)
   const [userNameMap, setUserNameMap] = useState<Record<string, string>>({})
 
   const [editingRowDate, setEditingRowDate] = useState<string | null>(null)
@@ -114,6 +114,10 @@ export function RPLogPage() {
   const [historyModalRow, setHistoryModalRow] = useState<RPDayRow | null>(null)
   const [notesModalRow, setNotesModalRow] = useState<RPDayRow | null>(null)
   const [certModalOpen, setCertModalOpen] = useState(false)
+  const [printModalOpen, setPrintModalOpen] = useState(false)
+  const [printMode, setPrintMode] = useState<'current' | 'custom'>('current')
+  const [printStartDate, setPrintStartDate] = useState(() => toIsoDateLocal(new Date()))
+  const [printDaysCount, setPrintDaysCount] = useState(30)
 
   const todayIso = useMemo(() => toIsoDateLocal(new Date()), [])
 
@@ -247,10 +251,24 @@ export function RPLogPage() {
     }
   }, [setActiveLedger, setEntries])
 
+  // Calculate the full date range from the earliest entry to today (min 30 days)
+  const totalDays = useMemo(() => {
+    const normals = entries.filter((e) => e.entry_type === 'normal')
+    if (normals.length === 0) return 30
+    const earliestDate = normals.reduce(
+      (min, e) => (e.date_of_transaction < min ? e.date_of_transaction : min),
+      normals[0].date_of_transaction,
+    )
+    const start = new Date(`${earliestDate}T00:00:00`)
+    const end = new Date()
+    const diff = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1
+    return Math.max(diff, 30)
+  }, [entries])
+
   const dayRows = useMemo(() => {
     const today = toIsoDateLocal(new Date())
     const startCursor = new Date()
-    startCursor.setDate(startCursor.getDate() - (daysBack - 1))
+    startCursor.setDate(startCursor.getDate() - (totalDays - 1))
     const startDate = toIsoDateLocal(startCursor)
 
     const allEntries = includeDb && dbSearchResults.length > 0
@@ -317,7 +335,7 @@ export function RPLogPage() {
         }
       )
     })
-  }, [entries, daysBack, includeDb, dbSearchResults, userNameMap])
+  }, [entries, totalDays, includeDb, dbSearchResults, userNameMap])
 
   const filteredRows = useMemo(() => {
     const query = searchFilter.trim().toLowerCase()
@@ -651,51 +669,164 @@ export function RPLogPage() {
     await Promise.all([loadLedger(), loadEntries()])
   }
 
-  const handlePrintLog = () => {
-    const tableEl = document.getElementById('rp-log-print-area')
-    if (!tableEl) return
-    const headerEl = document.querySelector('.page-header')
-    const printWindow = window.open('', '_blank')
-    if (!printWindow) return
-    printWindow.document.write(`
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <title>RP Log — ${organisation?.name ?? 'PharmStation'}</title>
-        <style>
-          * { margin: 0; padding: 0; box-sizing: border-box; }
-          body { font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; padding: 8px; }
-          @page { size: A4 landscape; margin: 12mm; }
-          @media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
-          h1 { font-size: 16px; margin-bottom: 4px; }
-          .print-header { margin-bottom: 12px; }
-          .print-header p { font-size: 11px; color: #666; }
-          table { width: 100%; border-collapse: collapse; font-size: 10px; }
-          th, td { padding: 3px 5px; border: 1px solid #aaa; text-align: left; }
-          th { background: #eee; font-size: 9px; text-transform: uppercase; letter-spacing: 0.5px; }
-          tr:nth-child(even) { background: #fafafa; }
-          .rp-today-row { background: rgba(4, 176, 255, 0.08) !important; }
-          .rp-today-row td:first-child { font-weight: 700; color: #257BB4; }
-          .ps-badge { border: 1px solid #999; padding: 1px 4px; font-size: 8px; border-radius: 4px; }
-          .no-print { display: none !important; }
-        </style>
-      </head>
-      <body>
-        <div class="print-header">
-          <h1>👤 RP Log</h1>
-          <p>${organisation?.name ?? ''} — Printed ${new Date().toLocaleString('en-GB')}</p>
-        </div>
-        ${tableEl.querySelector('.register-table-scroll')?.innerHTML ?? tableEl.innerHTML}
-      </body>
-      </html>
-    `)
-    printWindow.document.close()
-    printWindow.focus()
-    printWindow.print()
-    printWindow.close()
-  }
+  const buildPrintRows = useCallback(
+    (rows: RPDayRow[]) => {
+      return rows
+        .map((row) => {
+          const entry = row.entry
+          const edited = row.editHistory.length > 0 ? ` (Edited ${row.editHistory.length}×)` : ''
+          return `<tr${row.date === todayIso ? ' class="rp-today-row"' : ''}>
+            <td>${formatDate(row.date)}</td>
+            <td>${entry?.pharmacist_name || '—'}${edited}</td>
+            <td>${entry?.gphc_number || '—'}</td>
+            <td>${formatTime(entry?.rp_signed_in_at ?? null)}</td>
+            <td>${formatTime(entry?.rp_signed_out_at ?? null)}</td>
+            <td>${entry?.notes || '—'}</td>
+          </tr>`
+        })
+        .join('')
+    },
+    [todayIso],
+  )
 
-  const DAYS_OPTIONS = [5, 10, 15, 20, 25, 30, 40, 50]
+  const executePrint = useCallback(
+    (rows: RPDayRow[], subtitle: string) => {
+      const printWindow = window.open('', '_blank')
+      if (!printWindow) return
+      printWindow.document.write(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <title>RP Log — ${organisation?.name ?? 'PharmStation'}</title>
+          <style>
+            * { margin: 0; padding: 0; box-sizing: border-box; }
+            body { font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; padding: 8px; }
+            @page { size: A4 landscape; margin: 12mm; }
+            @media print {
+              body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+              tr { page-break-inside: avoid; }
+              thead { display: table-header-group; }
+            }
+            h1 { font-size: 16px; margin-bottom: 4px; }
+            .print-header { margin-bottom: 12px; }
+            .print-header p { font-size: 11px; color: #666; }
+            table { width: 100%; border-collapse: collapse; font-size: 10px; }
+            th, td { padding: 3px 5px; border: 1px solid #aaa; text-align: left; }
+            th { background: #eee; font-size: 9px; text-transform: uppercase; letter-spacing: 0.5px; }
+            tr:nth-child(even) { background: #fafafa; }
+            .rp-today-row { background: rgba(4, 176, 255, 0.08) !important; }
+            .rp-today-row td:first-child { font-weight: 700; color: #257BB4; }
+          </style>
+        </head>
+        <body>
+          <div class="print-header">
+            <h1>👤 RP Log</h1>
+            <p>${organisation?.name ?? ''} — ${subtitle} — Printed ${new Date().toLocaleString('en-GB')}</p>
+          </div>
+          <table>
+            <thead><tr>
+              <th>Date</th><th>Name</th><th>Reg</th><th>Time Started</th><th>Time Ended</th><th>Notes</th>
+            </tr></thead>
+            <tbody>${buildPrintRows(rows)}</tbody>
+          </table>
+        </body>
+        </html>
+      `)
+      printWindow.document.close()
+      printWindow.focus()
+      printWindow.print()
+      printWindow.close()
+    },
+    [organisation, buildPrintRows],
+  )
+
+  const handlePrintFromModal = useCallback(() => {
+    if (printMode === 'current') {
+      executePrint(filteredRows, `${filteredRows.length} days — Current view`)
+    } else {
+      // Custom range: build rows from printStartDate going back printDaysCount days
+      const endDate = new Date(`${printStartDate}T00:00:00`)
+      const startCursor = new Date(endDate)
+      startCursor.setDate(startCursor.getDate() - (printDaysCount - 1))
+
+      const allEntries =
+        includeDb && dbSearchResults.length > 0
+          ? [...entries, ...dbSearchResults.filter((dbE) => !entries.some((e) => e.id === dbE.id))]
+          : entries
+
+      const normals = allEntries.filter((entry) => entry.entry_type === 'normal')
+      const corrections = allEntries.filter((entry) => entry.entry_type === 'correction')
+
+      const correctionsByTarget = new Map<string, RegisterEntry[]>()
+      for (const correction of corrections) {
+        if (!correction.corrects_entry_id) continue
+        const list = correctionsByTarget.get(correction.corrects_entry_id) ?? []
+        list.push(correction)
+        correctionsByTarget.set(correction.corrects_entry_id, list)
+      }
+
+      const effectiveByDate = new Map<string, RPDayRow>()
+      for (const normal of normals) {
+        const allCorrections = correctionsByTarget.get(normal.id) ?? []
+        allCorrections.sort((a, b) => new Date(a.entered_at).getTime() - new Date(b.entered_at).getTime())
+        const latest = allCorrections.length > 0 ? allCorrections[allCorrections.length - 1] : null
+        const effective = latest ?? normal
+        const editHistory: RPEditHistoryItem[] = allCorrections.map((c) => ({
+          correctionEntry: c,
+          editedBy: c.authorised_by || userNameMap[c.entered_by] || 'Unknown',
+          editedAt: c.entered_at,
+          reason: c.correction_reason ?? '',
+        }))
+        const nextRow: RPDayRow = {
+          date: effective.date_of_transaction,
+          entry: effective,
+          originalEntry: normal,
+          editedBy: latest ? latest.authorised_by || userNameMap[latest.entered_by] || 'Unknown' : null,
+          editedAt: latest?.entered_at ?? null,
+          editedReason: latest?.correction_reason ?? null,
+          editHistory,
+        }
+        const existing = effectiveByDate.get(effective.date_of_transaction)
+        if (!existing || (existing.entry && new Date(effective.entered_at) > new Date(existing.entry.entered_at))) {
+          effectiveByDate.set(effective.date_of_transaction, nextRow)
+        }
+      }
+
+      const dates = buildDateRange(toIsoDateLocal(startCursor), toIsoDateLocal(endDate))
+      const customRows = dates.reverse().map((date) => {
+        return (
+          effectiveByDate.get(date) ?? {
+            date,
+            entry: null,
+            originalEntry: null,
+            editedBy: null,
+            editedAt: null,
+            editedReason: null,
+            editHistory: [],
+          }
+        )
+      })
+
+      executePrint(
+        customRows,
+        `${formatDate(toIsoDateLocal(startCursor))} – ${formatDate(printStartDate)} (${printDaysCount} days)`,
+      )
+    }
+    setPrintModalOpen(false)
+  }, [
+    printMode,
+    filteredRows,
+    rowsPerPage,
+    executePrint,
+    printStartDate,
+    printDaysCount,
+    includeDb,
+    dbSearchResults,
+    entries,
+    userNameMap,
+  ])
+
+  const ROWS_PER_PAGE_OPTIONS = [5, 10, 15, 20, 25, 30, 40, 50]
 
   return (
     <div>
@@ -750,7 +881,7 @@ export function RPLogPage() {
             <button className="ps-btn ps-btn-ghost no-print" onClick={() => setCertModalOpen(true)}>
               🪪 RP Certificate
             </button>
-            <button className="ps-btn ps-btn-ghost no-print" onClick={handlePrintLog}>
+            <button className="ps-btn ps-btn-ghost no-print" onClick={() => setPrintModalOpen(true)}>
               🖨️ Print Log
             </button>
             <button className="ps-btn ps-btn-primary no-print" onClick={() => setDrawerOpen(true)}>
@@ -780,15 +911,15 @@ export function RPLogPage() {
 
         <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 'var(--ps-space-xs)' }}>
           <label style={{ fontSize: 'var(--ps-font-sm)', color: 'var(--ps-slate)', whiteSpace: 'nowrap' }}>
-            Days shown:
+            Rows per page:
           </label>
           <select
             className="ps-input"
-            value={daysBack}
-            onChange={(e) => setDaysBack(Number(e.target.value))}
+            value={rowsPerPage}
+            onChange={(e) => setRowsPerPage(Number(e.target.value))}
             style={{ width: '80px' }}
           >
-            {DAYS_OPTIONS.map((n) => (
+            {ROWS_PER_PAGE_OPTIONS.map((n) => (
               <option key={n} value={n}>{n}</option>
             ))}
           </select>
@@ -800,7 +931,7 @@ export function RPLogPage() {
         columns={columns}
         loading={entriesLoading}
         emptyMessage="No RP rows found."
-        pageSize={daysBack}
+        pageSize={rowsPerPage}
         rowClassName={todayRowClassName}
         alwaysShowPagination
         printId="rp-log-print-area"
@@ -949,6 +1080,87 @@ export function RPLogPage() {
             </div>
           </div>
         )}
+      </Modal>
+
+      {/* Print Options Modal */}
+      <Modal
+        isOpen={printModalOpen}
+        onClose={() => setPrintModalOpen(false)}
+        title="🖨️ Print RP Log"
+        width="480px"
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--ps-space-md)' }}>
+          <div style={{ display: 'flex', gap: 'var(--ps-space-sm)' }}>
+            <button
+              type="button"
+              className={`ps-btn ${printMode === 'current' ? 'ps-btn-primary' : 'ps-btn-ghost'}`}
+              onClick={() => setPrintMode('current')}
+              style={{ flex: 1 }}
+            >
+              Current View
+            </button>
+            <button
+              type="button"
+              className={`ps-btn ${printMode === 'custom' ? 'ps-btn-primary' : 'ps-btn-ghost'}`}
+              onClick={() => setPrintMode('custom')}
+              style={{ flex: 1 }}
+            >
+              Custom Range
+            </button>
+          </div>
+
+          {printMode === 'current' ? (
+            <p style={{ color: 'var(--ps-slate)', fontSize: 'var(--ps-font-sm)' }}>
+              Print all {filteredRows.length} rows currently displayed
+              {searchFilter.trim() ? ' (filtered)' : ''}.
+            </p>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--ps-space-sm)' }}>
+              <div>
+                <label
+                  style={{ display: 'block', fontSize: 'var(--ps-font-sm)', color: 'var(--ps-slate)', marginBottom: '4px' }}
+                >
+                  End date (most recent)
+                </label>
+                <input
+                  type="date"
+                  className="ps-input"
+                  value={printStartDate}
+                  onChange={(e) => setPrintStartDate(e.target.value)}
+                  style={{ width: '100%' }}
+                />
+              </div>
+              <div>
+                <label
+                  style={{ display: 'block', fontSize: 'var(--ps-font-sm)', color: 'var(--ps-slate)', marginBottom: '4px' }}
+                >
+                  Number of days
+                </label>
+                <input
+                  type="number"
+                  className="ps-input"
+                  min={1}
+                  max={365}
+                  value={printDaysCount}
+                  onChange={(e) => setPrintDaysCount(Math.max(1, Math.min(365, Number(e.target.value))))}
+                  style={{ width: '100%' }}
+                />
+              </div>
+              <p style={{ color: 'var(--ps-slate)', fontSize: 'var(--ps-font-sm)' }}>
+                Will print {printDaysCount} days ending on {formatDate(printStartDate)}.
+              </p>
+            </div>
+          )}
+
+          <button
+            type="button"
+            className="ps-btn ps-btn-primary"
+            onClick={handlePrintFromModal}
+            style={{ alignSelf: 'flex-end' }}
+          >
+            🖨️ Print
+          </button>
+        </div>
       </Modal>
 
       {/* RP Certificate Modal */}

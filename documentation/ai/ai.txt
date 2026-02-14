@@ -1,0 +1,25 @@
+
+openaitext model text model - gpt-5.2-2025-12-11
+openai-image-gen model - gpt-image-1.5-2025-12-16
+openi-cost-model-text - gpt-5-mini-2025-08-07
+openai ultra cheap model  - 
+
+anthropic
+
+anthropic text model - claude-sonnet-4-5
+anthropic-cost-model - claude-haiku-4-5
+no image gen
+
+google 
+
+google-text model - gemini-3-pro-preview
+google-text- cost model - gemini-3-flash-previe
+google - ultra cheap model - gemini-2.5-flash
+google image gen model - gemini-3-pro-image-preview
+google live model - gemini-2.5-flash-native-audio-preview-12-2025
+
+supabase secrets to access keys 
+
+google_api_key 
+openai_api_key
+anthropic_api_key
