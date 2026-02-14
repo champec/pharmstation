@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
-import { useUIStore } from '@pharmstation/core'
+import { useUIStore, useChatStore } from '@pharmstation/core'
 
 interface NavItem {
   to: string
@@ -120,6 +120,16 @@ export function SideNav() {
       </nav>
 
       <div className="side-nav-footer">
+        <button
+          className={`side-nav-item genie-nav-btn ${useChatStore.getState().isOpen ? 'active' : ''}`}
+          onClick={() => useChatStore.getState().toggleOpen()}
+          title="Genie AI Assistant"
+        >
+          <span className="side-nav-item-icon">✨</span>
+          {isExpanded && (
+            <span className="side-nav-item-label">Genie</span>
+          )}
+        </button>
         <NavLink to="/settings" className="side-nav-item">
           <span className="side-nav-item-icon">⚙</span>
           {isExpanded && (

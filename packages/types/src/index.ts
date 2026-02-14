@@ -370,3 +370,129 @@ export function resolvePermissions(role: UserRole, overrides: Permissions = {}):
     ...overrides,
   }
 }
+
+// ============================================
+// AI Models & Chat
+// ============================================
+
+// --- AI Provider ---
+
+export type AIProvider = 'openai' | 'anthropic' | 'google'
+
+export type AIModelType = 'standard' | 'cheap' | 'ultra_cheap' | 'image_gen' | 'realtime'
+
+export type AICapability = 'text' | 'image_input' | 'image_gen' | 'function_calling' | 'streaming' | 'audio'
+
+export interface AIModel {
+  id: string
+  provider: AIProvider
+  model_id: string
+  display_name: string
+  model_type: AIModelType
+  capabilities: AICapability[]
+  context_window: number | null
+  max_output_tokens: number | null
+  input_cost_per_1k: number | null
+  output_cost_per_1k: number | null
+  is_active: boolean
+  is_default: boolean
+  sort_order: number
+  created_at: string
+  updated_at: string
+}
+
+// --- AI Org Settings ---
+
+export interface AIOrgSettings {
+  id: string
+  organisation_id: string
+  standard_model_id: string | null
+  cheap_model_id: string | null
+  ultra_cheap_model_id: string | null
+  image_gen_model_id: string | null
+  monthly_token_limit: number | null
+  tokens_used_this_month: number
+  enable_ai_features: boolean
+  created_at: string
+  updated_at: string
+}
+
+// --- Chat ---
+
+export type ChatRole = 'user' | 'assistant' | 'system' | 'tool'
+export type MessageStatus = 'pending' | 'streaming' | 'completed' | 'error'
+
+export interface ChatAttachment {
+  type: 'image' | 'pdf' | 'file'
+  url: string
+  name: string
+  size?: number
+  mime_type?: string
+}
+
+export interface ToolCall {
+  id: string
+  name: string
+  arguments: string // JSON string
+}
+
+export interface ChatConversation {
+  id: string
+  organisation_id: string
+  user_id: string
+  title: string
+  model_id: string | null
+  is_archived: boolean
+  metadata: Record<string, unknown>
+  created_at: string
+  updated_at: string
+}
+
+export interface ChatMessage {
+  id: string
+  conversation_id: string
+  role: ChatRole
+  content: string | null
+  tool_calls: ToolCall[] | null
+  tool_call_id: string | null
+  tool_name: string | null
+  attachments: ChatAttachment[]
+  input_tokens: number | null
+  output_tokens: number | null
+  model_provider: string | null
+  model_id_str: string | null
+  status: MessageStatus
+  error_message: string | null
+  created_at: string
+}
+
+// --- Chat API Request/Response ---
+
+export interface ChatRequest {
+  conversation_id?: string          // existing conversation, or omit to create new
+  organisation_id: string
+  message: string
+  attachments?: ChatAttachment[]
+  model_id?: string                 // override model for this request (ps_ai_models UUID)
+  model_type?: AIModelType          // or specify by type, resolved server-side
+}
+
+export interface ChatStreamEvent {
+  type: 'text_delta' | 'tool_call_start' | 'tool_call_delta' | 'tool_call_end' | 'tool_result' | 'done' | 'error' | 'conversation_created' | 'message_saved'
+  // text_delta
+  content?: string
+  // tool_call
+  tool_call_id?: string
+  tool_name?: string
+  tool_arguments?: string
+  tool_result?: string
+  // conversation_created
+  conversation_id?: string
+  // message_saved
+  message_id?: string
+  // done
+  input_tokens?: number
+  output_tokens?: number
+  // error
+  error?: string
+}
