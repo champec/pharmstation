@@ -1,15 +1,93 @@
 // ============================================
 // RPCertificatePage — Public utility page
 // Available at /rp without login
-// Lets any pharmacist print an RP certificate
+// Smart lookup: enter GPhC → auto-fetches name
+// New users prompted to save name for next time
 // ============================================
 
-import { useState } from 'react'
+import { useState, useEffect, useCallback } from 'react'
+import { getOrgClient } from '@pharmstation/supabase-client'
 import { RPCertificate } from '../../components/RPCertificate'
 
+type LookupState = 'idle' | 'searching' | 'found' | 'not-found'
+
 export function RPCertificatePage() {
-  const [name, setName] = useState('')
   const [gphcNumber, setGphcNumber] = useState('')
+  const [name, setName] = useState('')
+  const [lookupState, setLookupState] = useState<LookupState>('idle')
+  const [editingName, setEditingName] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [saveMessage, setSaveMessage] = useState<string | null>(null)
+
+  const lookupPharmacist = useCallback(async (gphc: string) => {
+    if (!/^\d{7}$/.test(gphc)) return
+
+    setLookupState('searching')
+    setSaveMessage(null)
+
+    const { data, error } = await getOrgClient()
+      .from('ps_public_pharmacists')
+      .select('full_name')
+      .eq('gphc_number', gphc)
+      .maybeSingle()
+
+    if (error || !data) {
+      setLookupState('not-found')
+      setName('')
+      return
+    }
+
+    setName(data.full_name)
+    setLookupState('found')
+    setEditingName(false)
+  }, [])
+
+  // Auto-lookup when 7 digits entered
+  useEffect(() => {
+    if (/^\d{7}$/.test(gphcNumber)) {
+      lookupPharmacist(gphcNumber)
+    } else {
+      setLookupState('idle')
+      setName('')
+      setEditingName(false)
+      setSaveMessage(null)
+    }
+  }, [gphcNumber, lookupPharmacist])
+
+  const handleSave = async () => {
+    if (!name.trim() || !/^\d{7}$/.test(gphcNumber)) return
+
+    setSaving(true)
+    setSaveMessage(null)
+
+    if (lookupState === 'not-found') {
+      const { error } = await getOrgClient()
+        .from('ps_public_pharmacists')
+        .insert({ gphc_number: gphcNumber, full_name: name.trim() })
+
+      if (error) {
+        setSaveMessage(error.message)
+      } else {
+        setSaveMessage('Saved! Your name will auto-fill next time.')
+        setLookupState('found')
+        setEditingName(false)
+      }
+    } else {
+      const { error } = await getOrgClient()
+        .from('ps_public_pharmacists')
+        .update({ full_name: name.trim() })
+        .eq('gphc_number', gphcNumber)
+
+      if (error) {
+        setSaveMessage(error.message)
+      } else {
+        setSaveMessage('Name updated successfully.')
+        setEditingName(false)
+      }
+    }
+
+    setSaving(false)
+  }
 
   const handlePrint = (orientation: 'portrait' | 'landscape') => {
     const el = document.getElementById('rp-certificate-print')
@@ -61,6 +139,8 @@ export function RPCertificatePage() {
     printWindow.close()
   }
 
+  const showCertificate = name.trim() && /^\d{7}$/.test(gphcNumber) && lookupState !== 'searching'
+
   return (
     <div
       style={{
@@ -88,45 +168,171 @@ export function RPCertificatePage() {
             Responsible Pharmacist Certificate
           </h1>
           <p style={{ color: '#64748b', fontSize: '14px' }}>
-            Free utility by <strong>PharmStation</strong> — enter your details and print your RP notice.
+            Free utility by <strong>PharmStation</strong> — enter your GPhC number to get started.
           </p>
         </div>
 
-        <div style={{ display: 'flex', gap: '16px', marginBottom: '32px', flexWrap: 'wrap' }}>
-          <div style={{ flex: 1, minWidth: '200px' }}>
-            <label style={{ display: 'block', fontSize: '14px', fontWeight: 600, color: '#374151', marginBottom: '6px' }}>
-              Full Name *
-            </label>
-            <input
-              className="ps-input"
-              placeholder="e.g. Sarah Ahmed"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              style={{ width: '100%' }}
-            />
-          </div>
-          <div style={{ flex: 1, minWidth: '200px' }}>
-            <label style={{ display: 'block', fontSize: '14px', fontWeight: 600, color: '#374151', marginBottom: '6px' }}>
-              GPhC Registration No. *
-            </label>
-            <input
-              className="ps-input"
-              placeholder="e.g. 2087654"
-              value={gphcNumber}
-              inputMode="numeric"
-              maxLength={7}
-              onChange={(e) => {
-                const val = e.target.value
-                if (/^\d{0,7}$/.test(val)) setGphcNumber(val)
-              }}
-              style={{ width: '100%' }}
-            />
-          </div>
+        {/* Step 1: GPhC Number */}
+        <div style={{ marginBottom: '24px' }}>
+          <label style={{ display: 'block', fontSize: '14px', fontWeight: 600, color: '#374151', marginBottom: '6px' }}>
+            GPhC Registration Number
+          </label>
+          <input
+            className="ps-input"
+            placeholder="Enter your 7-digit GPhC number"
+            value={gphcNumber}
+            inputMode="numeric"
+            maxLength={7}
+            onChange={(e) => {
+              const val = e.target.value
+              if (/^\d{0,7}$/.test(val)) setGphcNumber(val)
+            }}
+            style={{ width: '100%', fontSize: '18px', padding: '12px 16px', textAlign: 'center', letterSpacing: '2px' }}
+          />
+          {gphcNumber.length > 0 && gphcNumber.length < 7 && (
+            <p style={{ fontSize: '12px', color: '#94a3b8', marginTop: '4px', textAlign: 'center' }}>
+              {7 - gphcNumber.length} more digit{7 - gphcNumber.length !== 1 ? 's' : ''} needed
+            </p>
+          )}
         </div>
 
-        {name.trim() && gphcNumber.trim() ? (
+        {/* Searching indicator */}
+        {lookupState === 'searching' && (
+          <div style={{ textAlign: 'center', padding: '24px', color: '#64748b' }}>
+            Looking you up...
+          </div>
+        )}
+
+        {/* Found — show name with edit option */}
+        {lookupState === 'found' && !editingName && (
+          <div style={{ marginBottom: '24px' }}>
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                background: '#f0fdf4',
+                border: '1px solid #bbf7d0',
+                borderRadius: '10px',
+                padding: '14px 18px',
+              }}
+            >
+              <div>
+                <div style={{ fontSize: '12px', color: '#16a34a', fontWeight: 600, marginBottom: '2px' }}>
+                  Welcome back!
+                </div>
+                <div style={{ fontSize: '18px', fontWeight: 700, color: '#1a1a2e' }}>
+                  {name}
+                </div>
+              </div>
+              <button
+                onClick={() => setEditingName(true)}
+                style={{
+                  background: 'none',
+                  border: '1px solid #d1d5db',
+                  borderRadius: '6px',
+                  padding: '4px 12px',
+                  fontSize: '13px',
+                  color: '#64748b',
+                  cursor: 'pointer',
+                }}
+              >
+                Edit name
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Not found — prompt for name */}
+        {lookupState === 'not-found' && (
+          <div style={{ marginBottom: '24px' }}>
+            <div
+              style={{
+                background: '#fffbeb',
+                border: '1px solid #fde68a',
+                borderRadius: '10px',
+                padding: '14px 18px',
+                marginBottom: '16px',
+              }}
+            >
+              <div style={{ fontSize: '13px', color: '#92400e' }}>
+                We don't have your details yet. Enter your name below and we'll save it for next time.
+              </div>
+            </div>
+
+            <label style={{ display: 'block', fontSize: '14px', fontWeight: 600, color: '#374151', marginBottom: '6px' }}>
+              Full Name
+            </label>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <input
+                className="ps-input"
+                placeholder="e.g. Sarah Ahmed"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                style={{ flex: 1 }}
+              />
+              <button
+                className="ps-btn ps-btn-primary"
+                onClick={handleSave}
+                disabled={saving || !name.trim()}
+                style={{ whiteSpace: 'nowrap' }}
+              >
+                {saving ? 'Saving...' : 'Save'}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Editing existing name */}
+        {lookupState === 'found' && editingName && (
+          <div style={{ marginBottom: '24px' }}>
+            <label style={{ display: 'block', fontSize: '14px', fontWeight: 600, color: '#374151', marginBottom: '6px' }}>
+              Update Full Name
+            </label>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <input
+                className="ps-input"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                style={{ flex: 1 }}
+              />
+              <button
+                className="ps-btn ps-btn-primary"
+                onClick={handleSave}
+                disabled={saving || !name.trim()}
+                style={{ whiteSpace: 'nowrap' }}
+              >
+                {saving ? 'Saving...' : 'Update'}
+              </button>
+              <button
+                className="ps-btn ps-btn-ghost"
+                onClick={() => { setEditingName(false); lookupPharmacist(gphcNumber) }}
+                disabled={saving}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Save feedback */}
+        {saveMessage && (
+          <div
+            style={{
+              fontSize: '13px',
+              color: saveMessage.includes('Saved') || saveMessage.includes('updated') ? '#16a34a' : '#dc2626',
+              textAlign: 'center',
+              marginBottom: '16px',
+            }}
+          >
+            {saveMessage}
+          </div>
+        )}
+
+        {/* Certificate preview */}
+        {showCertificate ? (
           <RPCertificate name={name} gphcNumber={gphcNumber} onPrint={handlePrint} />
-        ) : (
+        ) : lookupState !== 'searching' && /^\d{7}$/.test(gphcNumber) ? null : (
           <div
             style={{
               textAlign: 'center',
@@ -136,7 +342,7 @@ export function RPCertificatePage() {
               borderRadius: '12px',
             }}
           >
-            Enter your name and GPhC number above to preview your certificate.
+            Enter your 7-digit GPhC number to get started.
           </div>
         )}
       </div>
