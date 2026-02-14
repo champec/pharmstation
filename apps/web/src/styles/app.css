@@ -1117,6 +1117,343 @@
   min-width: 32px;
 }
 
+/* ============================================
+   CD Register — Empty State
+   ============================================ */
+
+.cd-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: var(--ps-space-2xl) var(--ps-space-lg);
+  text-align: center;
+  color: var(--ps-slate);
+}
+
+.cd-empty-icon {
+  font-size: 48px;
+  margin-bottom: var(--ps-space-md);
+}
+
+.cd-empty-state h3 {
+  color: var(--ps-midnight);
+  margin-bottom: var(--ps-space-sm);
+}
+
+.cd-empty-state p {
+  max-width: 400px;
+  line-height: 1.6;
+  margin-bottom: var(--ps-space-lg);
+  font-size: var(--ps-font-sm);
+}
+
+/* ============================================
+   CD Register — No Results / Add Prompt
+   ============================================ */
+
+.cd-no-results-prompt {
+  display: flex;
+  align-items: center;
+  gap: var(--ps-space-md);
+  padding: var(--ps-space-md) var(--ps-space-lg);
+  background: rgba(4, 176, 255, 0.06);
+  border: 1px solid var(--ps-cloud-blue);
+  border-radius: var(--ps-radius-lg);
+  margin-bottom: var(--ps-space-md);
+}
+
+.cd-no-results-prompt p {
+  flex: 1;
+  color: var(--ps-midnight);
+  font-size: var(--ps-font-sm);
+}
+
+/* ============================================
+   Add Register Modal
+   ============================================ */
+
+.add-register-modal {
+  min-height: 300px;
+}
+
+.add-register-breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: var(--ps-space-sm);
+  margin-bottom: var(--ps-space-lg);
+  padding-bottom: var(--ps-space-md);
+  border-bottom: 1px solid var(--ps-off-white);
+}
+
+.add-register-step {
+  padding: var(--ps-space-xs) var(--ps-space-md);
+  border-radius: var(--ps-radius-full);
+  font-size: var(--ps-font-sm);
+  font-weight: 500;
+  border: 1px solid var(--ps-off-white);
+  background: var(--ps-white);
+  color: var(--ps-mist);
+  cursor: pointer;
+  transition: all var(--ps-transition-fast);
+}
+
+.add-register-step.active {
+  background: var(--ps-deep-blue);
+  color: var(--ps-white);
+  border-color: var(--ps-deep-blue);
+}
+
+.add-register-step.done {
+  background: rgba(34, 197, 94, 0.1);
+  color: #16a34a;
+  border-color: rgba(34, 197, 94, 0.3);
+}
+
+.add-register-step:disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+
+.add-register-step-arrow {
+  color: var(--ps-mist);
+  font-size: var(--ps-font-sm);
+}
+
+.add-register-step-content {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ps-space-sm);
+}
+
+.add-register-selected {
+  display: flex;
+  align-items: center;
+  gap: var(--ps-space-sm);
+  padding: var(--ps-space-sm) var(--ps-space-md);
+  background: var(--ps-off-white);
+  border-radius: var(--ps-radius-md);
+  font-size: var(--ps-font-sm);
+  color: var(--ps-midnight);
+  margin-bottom: var(--ps-space-sm);
+}
+
+.add-register-list {
+  max-height: 300px;
+  overflow-y: auto;
+  border: 1px solid var(--ps-off-white);
+  border-radius: var(--ps-radius-md);
+}
+
+.add-register-list-item {
+  display: flex;
+  align-items: center;
+  gap: var(--ps-space-md);
+  width: 100%;
+  padding: var(--ps-space-sm) var(--ps-space-md);
+  border: none;
+  border-bottom: 1px solid var(--ps-off-white);
+  background: var(--ps-white);
+  cursor: pointer;
+  font-family: var(--ps-font-family);
+  font-size: var(--ps-font-sm);
+  color: var(--ps-midnight);
+  text-align: left;
+  transition: background var(--ps-transition-fast);
+}
+
+.add-register-list-item:last-child {
+  border-bottom: none;
+}
+
+.add-register-list-item:hover {
+  background: var(--ps-off-white);
+}
+
+.add-register-list-item:disabled {
+  opacity: 0.5;
+  cursor: wait;
+}
+
+.add-register-drug-name {
+  flex: 1;
+  font-weight: 500;
+}
+
+.add-register-drug-strength {
+  font-family: var(--ps-font-mono);
+  color: var(--ps-deep-blue);
+  font-size: var(--ps-font-xs);
+}
+
+.add-register-drug-type {
+  font-size: var(--ps-font-xs);
+  color: var(--ps-mist);
+  background: var(--ps-off-white);
+  padding: 1px 6px;
+  border-radius: var(--ps-radius-sm);
+}
+
+.add-register-empty {
+  padding: var(--ps-space-lg);
+  text-align: center;
+  color: var(--ps-mist);
+  font-size: var(--ps-font-sm);
+}
+
+/* ============================================
+   Inline Entry — Locked Cell / Multi-line Cell
+   ============================================ */
+
+.prov-cell-wrap {
+  position: relative;
+}
+
+.prov-cell-wrap.prov-locked {
+  opacity: 0.35;
+  pointer-events: none;
+}
+
+.prov-cell-wrap.prov-locked .prov-input {
+  background: var(--ps-off-white);
+  cursor: not-allowed;
+}
+
+.cell-multiline {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  line-height: 1.3;
+}
+
+.cell-primary {
+  font-weight: 500;
+  color: var(--ps-midnight);
+}
+
+.cell-secondary {
+  font-size: var(--ps-font-xs);
+  color: var(--ps-mist);
+}
+
+.cell-na {
+  color: var(--ps-mist);
+}
+
+/* Invoice sub-field in supplier cell */
+.prov-invoice-field {
+  margin-top: 4px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.prov-invoice-input {
+  flex: 1;
+}
+
+.prov-use-previous {
+  border: none;
+  background: rgba(4, 176, 255, 0.1);
+  color: var(--ps-deep-blue);
+  padding: 2px 6px;
+  border-radius: var(--ps-radius-sm);
+  font-size: 10px;
+  cursor: pointer;
+  white-space: nowrap;
+  font-family: var(--ps-font-family);
+  transition: background var(--ps-transition-fast);
+}
+
+.prov-use-previous:hover {
+  background: rgba(4, 176, 255, 0.2);
+}
+
+/* Address line under patient in provision row */
+.prov-address-line {
+  display: block;
+  font-size: 10px;
+  color: var(--ps-mist);
+  margin-top: 2px;
+  line-height: 1.3;
+}
+
+/* ID select in provision row */
+.prov-id-cell {
+  text-align: center;
+}
+
+.prov-id-select {
+  width: 50px;
+  min-width: 50px;
+  padding: 2px 4px;
+  text-align: center;
+  font-size: 10px;
+}
+
+/* ============================================
+   Selected Contact Badge (in provision row)
+   ============================================ */
+
+.selected-contact-badge {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 6px;
+  background: var(--ps-off-white);
+  border-radius: var(--ps-radius-sm);
+  font-size: var(--ps-font-xs);
+}
+
+.selected-contact-name {
+  color: var(--ps-midnight);
+  font-weight: 500;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.selected-contact-edit,
+.selected-contact-clear {
+  border: none;
+  background: none;
+  cursor: pointer;
+  font-size: 12px;
+  padding: 0 2px;
+  color: var(--ps-mist);
+  line-height: 1;
+  transition: color var(--ps-transition-fast);
+}
+
+.selected-contact-edit:hover {
+  color: var(--ps-deep-blue);
+}
+
+.selected-contact-clear:hover {
+  color: var(--ps-error);
+}
+
+/* ============================================
+   Autocomplete — Add New item at bottom
+   ============================================ */
+
+.autocomplete-add-new {
+  border-top: 1px solid var(--ps-off-white);
+  color: var(--ps-deep-blue);
+  font-weight: 500;
+}
+
+.autocomplete-add-new:hover {
+  background: rgba(4, 176, 255, 0.06);
+}
+
+.autocomplete-item-left {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
 /* Badge helpers */
 .ps-badge {
   display: inline-flex;

@@ -155,6 +155,8 @@ export interface RegisterEntry {
   witness_name: string | null
   witness_role: string | null
   authorised_by: string | null
+  was_id_requested: boolean
+  was_id_provided: boolean
   // RP fields
   pharmacist_name: string | null
   gphc_number: string | null
@@ -189,9 +191,24 @@ export interface EntryAnnotation {
   created_by_profile?: UserProfile
 }
 
+// --- Subscribed Registers (pharmacies subscribe to specific drug registers) ---
+
+export interface SubscribedRegister {
+  id: string
+  organisation_id: string
+  drug_id: string
+  drug_brand: string
+  drug_form: string
+  drug_strength: string
+  drug_class: string
+  drug_type: string
+  created_at: string
+  created_by: string | null
+}
+
 // --- Known Contacts ---
 
-export type ContactType = 'patient' | 'prescriber'
+export type ContactType = 'patient' | 'prescriber' | 'supplier'
 
 export interface KnownContact {
   id: string
