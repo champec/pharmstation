@@ -28,6 +28,7 @@ const menuSections: NavSection[] = [
     expandable: true,
     items: [
       { to: '/registers/cd', icon: '💊', label: 'CD Register' },
+      { to: '/registers/scan', icon: '📸', label: 'AI Scan' },
       { to: '/registers/rp', icon: '👤', label: 'RP Log' },
       { to: '/registers/returns', icon: '↩', label: 'Returns' },
     ],

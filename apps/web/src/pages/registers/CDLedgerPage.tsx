@@ -15,6 +15,7 @@ import { Drawer } from '../../components/Drawer'
 import { CDEntryForm } from '../../components/forms/CDEntryForm'
 import { ContactModal } from '../../components/ContactModal'
 import { Modal } from '../../components/Modal'
+import { ScanImageBadge } from '../../components/scan/ScanImageBadge'
 
 const columnHelper = createColumnHelper<RegisterEntry>()
 
@@ -120,10 +121,15 @@ export function CDLedgerPage() {
     () => [
       columnHelper.accessor('entry_number', {
         header: '#',
-        size: 50,
+        size: 70,
         cell: (info) => (
-          <span style={{ fontFamily: 'var(--ps-font-mono)', fontWeight: 600 }}>
-            {info.getValue()}
+          <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+            <span style={{ fontFamily: 'var(--ps-font-mono)', fontWeight: 600 }}>
+              {info.getValue()}
+            </span>
+            {info.row.original.scan_image_path && (
+              <ScanImageBadge imagePath={info.row.original.scan_image_path} />
+            )}
           </span>
         ),
       }),
@@ -173,18 +179,31 @@ export function CDLedgerPage() {
       }),
       columnHelper.accessor('prescriber_name', {
         header: 'Prescriber',
-        size: 140,
-        cell: (info) => info.getValue() || <span className="cell-na">—</span>,
+        size: 160,
+        cell: (info) => {
+          const row = info.row.original
+          if (row.prescriber_name) {
+            return (
+              <div className="cell-multiline">
+                <span className="cell-primary">{row.prescriber_name}</span>
+                {row.prescriber_registration && (
+                  <span className="cell-secondary">Reg: {row.prescriber_registration}</span>
+                )}
+              </div>
+            )
+          }
+          return <span className="cell-na">—</span>
+        },
       }),
       columnHelper.display({
         id: 'id_check',
         header: 'ID Req / Given',
-        size: 100,
+        size: 140,
         cell: (info) => {
           const row = info.row.original
           if (!row.patient_name) return <span className="cell-na">—</span>
-          const requested = (row as Record<string, unknown>).was_id_requested
-          const provided = (row as Record<string, unknown>).was_id_provided
+          const requested = row.was_id_requested
+          const provided = row.was_id_provided
           const reqLabel = requested ? 'Yes' : 'No'
           const provLabel = provided ? 'Yes' : 'No'
           const color = requested && provided
@@ -276,6 +295,7 @@ export function CDLedgerPage() {
   const [provAddress, setProvAddress] = useState('')
   const [provPrescriber, setProvPrescriber] = useState('')
   const [provPrescriberAddr, setProvPrescriberAddr] = useState('')
+  const [provPrescriberReg, setProvPrescriberReg] = useState('')
   const [provIdRequested, setProvIdRequested] = useState(false)
   const [provIdProvided, setProvIdProvided] = useState(false)
   const [provQty, setProvQty] = useState('')
@@ -430,6 +450,7 @@ export function CDLedgerPage() {
       setProvPrescriberAddr(
         [contact.address_line_1, contact.city, contact.postcode].filter(Boolean).join(', '),
       )
+      setProvPrescriberReg(contact.gmc_number ?? '')
       setSelectedPrescriberContact(contact)
       setShowProvPrescriberSugg(false)
       setProvPrescriberSugg([])
@@ -473,6 +494,7 @@ export function CDLedgerPage() {
       setProvPrescriberAddr(
         [contact.address_line_1, contact.city, contact.postcode].filter(Boolean).join(', '),
       )
+      setProvPrescriberReg(contact.gmc_number ?? '')
       setSelectedPrescriberContact(contact)
     } else {
       setProvSupplier(contact.full_name)
@@ -489,6 +511,7 @@ export function CDLedgerPage() {
     setProvAddress('')
     setProvPrescriber('')
     setProvPrescriberAddr('')
+    setProvPrescriberReg('')
     setProvIdRequested(false)
     setProvIdProvided(false)
     setProvQty('')
@@ -548,6 +571,7 @@ export function CDLedgerPage() {
         p_patient_address: !isIn ? (provAddress || null) : null,
         p_prescriber_name: !isIn ? provPrescriber : null,
         p_prescriber_address: !isIn ? (provPrescriberAddr || null) : null,
+        p_prescriber_registration: !isIn ? (provPrescriberReg || null) : null,
         p_prescription_date: null,
         p_witness_name: null,
         p_witness_role: null,
@@ -616,6 +640,7 @@ export function CDLedgerPage() {
           >
             <div className="autocomplete-item-left">
               <span className="autocomplete-name">{c.full_name}</span>
+              {c.gmc_number && <span className="autocomplete-detail">Reg: {c.gmc_number}</span>}
               {c.postcode && <span className="autocomplete-detail">{c.postcode}</span>}
               {c.address_line_1 && (
                 <span className="autocomplete-detail">{c.address_line_1}</span>
@@ -781,11 +806,19 @@ export function CDLedgerPage() {
       <td style={{ position: 'relative' }}>
         <div className={`prov-cell-wrap ${entryMode !== 'out' ? 'prov-locked' : ''}`}>
           {selectedPrescriberContact
-            ? renderSelectedContact(selectedPrescriberContact, 'prescriber', () => {
-                setSelectedPrescriberContact(null)
-                setProvPrescriber('')
-                setProvPrescriberAddr('')
-              })
+            ? (
+              <div>
+                {renderSelectedContact(selectedPrescriberContact, 'prescriber', () => {
+                  setSelectedPrescriberContact(null)
+                  setProvPrescriber('')
+                  setProvPrescriberAddr('')
+                  setProvPrescriberReg('')
+                })}
+                {provPrescriberReg && (
+                  <span className="prov-address-line">Reg: {provPrescriberReg}</span>
+                )}
+              </div>
+            )
             : (
               <input
                 className="prov-input"
@@ -848,7 +881,31 @@ export function CDLedgerPage() {
           />
         </div>
       </td>
-      <td>{/* Balance — auto */}</td>
+      <td>
+        {/* Auto-calculated new balance preview */}
+        {entryMode && provQty && activeLedger ? (
+          (() => {
+            const qty = parseFloat(provQty) || 0
+            const newBal = entryMode === 'in'
+              ? activeLedger.current_balance + qty
+              : activeLedger.current_balance - qty
+            const isNeg = newBal < 0
+            return (
+              <div className="prov-new-balance">
+                <span className="prov-new-balance-label">New bal:</span>
+                <strong
+                  className="prov-new-balance-value"
+                  style={{ color: isNeg ? 'var(--ps-error)' : 'var(--ps-success)' }}
+                >
+                  {newBal}
+                </strong>
+              </div>
+            )
+          })()
+        ) : (
+          <strong style={{ fontFamily: 'var(--ps-font-mono)' }}>{activeLedger?.current_balance ?? '—'}</strong>
+        )}
+      </td>
       <td style={{ fontSize: 'var(--ps-font-xs)', color: 'var(--ps-mist)' }}>
         {activeUser?.full_name}
       </td>
@@ -982,6 +1039,27 @@ export function CDLedgerPage() {
         existingContact={contactModalEdit}
         initialName={contactModalInitialName}
         onSaved={handleContactSaved}
+        onDeleted={(deletedId) => {
+          setContactModalOpen(false)
+          // Clear the selected contact if it was the one deleted
+          if (selectedPatientContact?.id === deletedId) {
+            setSelectedPatientContact(null)
+            setProvPatient('')
+            setProvAddress('')
+            if (entryMode === 'out') setEntryMode(null)
+          }
+          if (selectedPrescriberContact?.id === deletedId) {
+            setSelectedPrescriberContact(null)
+            setProvPrescriber('')
+            setProvPrescriberAddr('')
+            setProvPrescriberReg('')
+          }
+          if (selectedSupplierContact?.id === deletedId) {
+            setSelectedSupplierContact(null)
+            setProvSupplier('')
+            if (entryMode === 'in') setEntryMode(null)
+          }
+        }}
       />
 
       {/* Negative Balance Confirmation Modal */}

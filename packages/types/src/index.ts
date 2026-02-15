@@ -150,6 +150,7 @@ export interface RegisterEntry {
   patient_address: string | null
   prescriber_name: string | null
   prescriber_address: string | null
+  prescriber_registration: string | null
   prescription_date: string | null
   prescription_image_path: string | null
   witness_name: string | null
@@ -215,6 +216,8 @@ export interface KnownContact {
   organisation_id: string
   contact_type: ContactType
   full_name: string
+  first_name: string | null
+  last_name: string | null
   address_line_1: string | null
   address_line_2: string | null
   city: string | null
@@ -512,4 +515,158 @@ export interface ChatStreamEvent {
   output_tokens?: number
   // error
   error?: string
+}
+
+// ============================================
+// AI Scan — Image Capture & Processing
+// ============================================
+
+// --- Document Type ---
+
+export type ScanDocumentType = 'prescription' | 'invoice' | 'unknown'
+export type ScanConfidence = 0 | 1 | 2 | 3
+
+export type ScanQueueStatus = 'uploading' | 'processing' | 'ready' | 'partially_approved' | 'fully_approved' | 'rejected' | 'error'
+export type ScanItemStatus = 'pending' | 'approved' | 'edited' | 'rejected'
+
+// --- Augmentation Notes (global & org-level AI context) ---
+
+export type AugmentationScope = 'global' | 'organisation'
+export type AugmentationCategory =
+  | 'invoice_quirks'
+  | 'prescription_notes'
+  | 'supplier_patterns'
+  | 'pharmacy_conventions'
+  | 'general'
+
+export interface AugmentationNote {
+  id: string
+  organisation_id: string | null  // NULL = global
+  scope: AugmentationScope
+  category: AugmentationCategory
+  title: string
+  content: string
+  is_active: boolean
+  created_by: string | null
+  created_at: string
+  updated_at: string
+}
+
+// --- AI Scan Queue ---
+
+export interface ScanQueueItem {
+  id: string
+  organisation_id: string
+  uploaded_by: string
+  image_path: string
+  image_url: string | null
+  document_type: ScanDocumentType | null
+  overall_confidence: ScanConfidence | null
+  status: ScanQueueStatus
+  raw_ai_response: Record<string, unknown> | null
+  ai_notes: string | null
+  model_used: string | null
+  error_message: string | null
+  // Invoice fields
+  supplier_name: string | null
+  invoice_number: string | null
+  invoice_date: string | null
+  // Prescription fields
+  patient_name: string | null
+  patient_address: string | null
+  prescriber_name: string | null
+  prescriber_address: string | null
+  prescriber_registration: string | null
+  is_partial_supply: boolean
+  handwritten_notes: string | null
+  // Timestamps
+  created_at: string
+  processed_at: string | null
+  approved_at: string | null
+  approved_by: string | null
+  // Joined
+  items?: ScanDrugItem[]
+  uploaded_by_profile?: UserProfile
+  approved_by_profile?: UserProfile
+}
+
+// --- AI Scan Drug Items (individual drugs extracted from a scan) ---
+
+export interface ScanDrugItem {
+  id: string
+  scan_id: string
+  organisation_id: string
+  // AI-extracted fields (raw from AI)
+  drug_name_raw: string | null
+  drug_class_raw: string | null
+  drug_form_raw: string | null
+  drug_strength_raw: string | null
+  quantity: number | null
+  // Reconciled against our drug database
+  matched_drug_id: string | null
+  matched_drug_brand: string | null
+  matched_drug_form: string | null
+  matched_drug_strength: string | null
+  matched_drug_class: string | null
+  // Confidence
+  confidence: ScanConfidence | null
+  confidence_notes: string | null
+  // Status
+  status: ScanItemStatus
+  // User edits (if any)
+  edited_drug_id: string | null
+  edited_quantity: number | null
+  // After approval — linked to actual register entry
+  entry_id: string | null
+  approved_by: string | null
+  approved_at: string | null
+  created_at: string
+  // Joined
+  matched_drug?: CDDrug
+  entry?: RegisterEntry
+}
+
+// --- AI Scan Request/Response ---
+
+export interface ScanRequest {
+  organisation_id: string
+  image_base64: string
+  mime_type: string
+  filename?: string
+}
+
+export interface ScanAIResponse {
+  document_type: ScanDocumentType
+  overall_confidence: ScanConfidence
+  notes: string
+  // Invoice fields
+  supplier?: {
+    name: string
+    invoice_number: string
+    date: string
+  }
+  // Prescription fields
+  patient?: {
+    name: string
+    address: string
+  }
+  prescriber?: {
+    name: string
+    address: string
+    registration: string
+  }
+  is_partial_supply?: boolean
+  handwritten_notes?: string
+  // Drugs
+  drugs: ScanAIDrugResult[]
+}
+
+export interface ScanAIDrugResult {
+  drug_name: string
+  drug_class: string
+  drug_form: string
+  drug_strength: string
+  quantity: number
+  confidence: ScanConfidence
+  confidence_notes: string
 }

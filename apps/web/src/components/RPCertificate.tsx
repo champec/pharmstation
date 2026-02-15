@@ -94,7 +94,7 @@ export function RPCertificate({ name, gphcNumber, onPrint }: RPCertificateProps)
           />
 
           <div style={{ fontSize: '11px', color: '#94a3b8', letterSpacing: '1px', textTransform: 'uppercase' }}>
-            PharmStation
+            PharmStation — www.pharmstation.co.uk/rp
           </div>
         </div>
       </div>

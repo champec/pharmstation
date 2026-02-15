@@ -168,7 +168,7 @@ export function RPCertificatePage() {
             Responsible Pharmacist Certificate
           </h1>
           <p style={{ color: '#64748b', fontSize: '14px' }}>
-            Free utility by <strong>PharmStation</strong> — enter your GPhC number to get started.
+            Free utility by <strong>PharmStation</strong> — www.pharmstation.co.uk/rp — enter your GPhC number to get started.
           </p>
         </div>
 
