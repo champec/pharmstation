@@ -1,64 +1,48 @@
 // ============================================
-// ScanQueuePage — View and manage AI scan queue
-// Shows all uploaded scans with status, confidence, actions
+// ScanQueuePage — Single flat queue of unprocessed scans
+// Items disappear once fully approved/rejected
+// Click any item to open review modal
 // ============================================
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuthStore, useScanStore } from '@pharmstation/core'
-import type { ScanQueueItem, ScanQueueStatus } from '@pharmstation/types'
+import type { ScanQueueItem } from '@pharmstation/types'
 import { ScanUploadModal } from '../../components/scan/ScanUploadModal'
 import { ScanReviewModal } from '../../components/scan/ScanReviewModal'
 
-const STATUS_LABELS: Record<string, { label: string; icon: string; className: string }> = {
-  uploading: { label: 'Uploading', icon: '⬆️', className: 'ps-badge-blue' },
-  processing: { label: 'Processing', icon: '⏳', className: 'ps-badge-blue' },
-  ready: { label: 'Ready for Review', icon: '📋', className: 'ps-badge-amber' },
-  partially_approved: { label: 'Partially Approved', icon: '⚡', className: 'ps-badge-amber' },
-  fully_approved: { label: 'Approved', icon: '✅', className: 'ps-badge-green' },
-  rejected: { label: 'Rejected', icon: '❌', className: 'ps-badge-red' },
-  error: { label: 'Error', icon: '⚠️', className: 'ps-badge-red' },
+const CONFIDENCE_CONFIG: Record<number, { label: string; dot: string; border: string }> = {
+  0: { label: 'Rejected', dot: '#6b7280', border: '#d1d5db' },
+  1: { label: 'Low', dot: '#dc2626', border: '#fca5a5' },
+  2: { label: 'Partial', dot: '#d97706', border: '#fcd34d' },
+  3: { label: 'High', dot: '#16a34a', border: '#86efac' },
 }
-
-const CONFIDENCE_LABELS: Record<number, { label: string; icon: string; className: string }> = {
-  0: { label: 'Rejected', icon: '🚫', className: 'confidence-0' },
-  1: { label: 'Low', icon: '🔴', className: 'confidence-1' },
-  2: { label: 'Partial', icon: '🟡', className: 'confidence-2' },
-  3: { label: 'High', icon: '🟢', className: 'confidence-3' },
-}
-
-const FILTER_OPTIONS: { value: ScanQueueStatus | 'all'; label: string }[] = [
-  { value: 'all', label: 'All Scans' },
-  { value: 'ready', label: 'Ready for Review' },
-  { value: 'partially_approved', label: 'Partially Approved' },
-  { value: 'processing', label: 'Processing' },
-  { value: 'fully_approved', label: 'Approved' },
-  { value: 'rejected', label: 'Rejected' },
-  { value: 'error', label: 'Errors' },
-]
 
 export function ScanQueuePage() {
   const navigate = useNavigate()
   const { organisation } = useAuthStore()
-  const {
-    queue, queueLoading, activeQueueFilter,
-    loadQueue, setQueueFilter, deleteScan,
-  } = useScanStore()
+  const { queue, queueLoading, uploadsInProgress, loadQueue, deleteScan } = useScanStore()
 
   const [uploadModalOpen, setUploadModalOpen] = useState(false)
   const [reviewScanId, setReviewScanId] = useState<string | null>(null)
 
-  // Load queue on mount and when filter changes
-  useEffect(() => {
-    if (organisation?.id) {
-      loadQueue(organisation.id)
-    }
-  }, [organisation?.id, activeQueueFilter, loadQueue])
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
-  const handleScanComplete = useCallback((scanId: string) => {
-    // Open the review modal for the completed scan
-    setReviewScanId(scanId)
-  }, [])
+  useEffect(() => {
+    if (organisation?.id) loadQueue(organisation.id)
+  }, [organisation?.id, loadQueue])
+
+  // Always poll while on this page — other terminals may be scanning too
+  // Poll faster (3s) when items are processing, slower (8s) otherwise
+  useEffect(() => {
+    if (!organisation?.id) return
+    const hasProcessing = queue.some(s => s.status === 'processing' || s.status === 'uploading')
+    const interval = hasProcessing || uploadsInProgress > 0 ? 3000 : 8000
+    pollRef.current = setInterval(() => loadQueue(organisation.id), interval)
+    return () => {
+      if (pollRef.current) clearInterval(pollRef.current)
+    }
+  }, [queue, organisation?.id, loadQueue, uploadsInProgress])
 
   const handleReviewClose = () => {
     setReviewScanId(null)
@@ -71,16 +55,23 @@ export function ScanQueuePage() {
     await deleteScan(scanId)
   }
 
-  const formatDate = (dateStr: string) => {
+  const formatTime = (dateStr: string) => {
     const d = new Date(dateStr)
-    return d.toLocaleDateString('en-GB', {
-      day: 'numeric', month: 'short', year: 'numeric',
-      hour: '2-digit', minute: '2-digit',
-    })
+    const now = new Date()
+    const diffMs = now.getTime() - d.getTime()
+    const diffMin = Math.floor(diffMs / 60000)
+    if (diffMin < 1) return 'Just now'
+    if (diffMin < 60) return `${diffMin}m ago`
+    const diffHr = Math.floor(diffMin / 60)
+    if (diffHr < 24) return `${diffHr}h ago`
+    return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
   }
 
-  // Counts for filter badges
-  const readyCount = queue.filter(s => s.status === 'ready' || s.status === 'partially_approved').length
+  // Filter: only show items that are NOT fully_approved (those are done)
+  const activeQueue = queue.filter(s => s.status !== 'fully_approved')
+
+  const processingCount = activeQueue.filter(s => s.status === 'processing' || s.status === 'uploading').length
+  const readyCount = activeQueue.filter(s => s.status === 'ready' || s.status === 'partially_approved').length
 
   return (
     <div>
@@ -93,73 +84,60 @@ export function ScanQueuePage() {
           <span className="separator">/</span>
           <span>AI Scan Queue</span>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <h1>📸 AI Scan Queue</h1>
-          <button
-            className="ps-btn ps-btn-primary"
-            onClick={() => setUploadModalOpen(true)}
-          >
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--ps-space-md)' }}>
+          <div>
+            <h1 style={{ margin: 0 }}>📸 Scan Queue</h1>
+            {(processingCount > 0 || readyCount > 0) && (
+              <p style={{ margin: '4px 0 0', fontSize: 'var(--ps-font-sm)', color: 'var(--ps-slate)' }}>
+                {processingCount > 0 && <span>⏳ {processingCount} processing</span>}
+                {processingCount > 0 && readyCount > 0 && ' · '}
+                {readyCount > 0 && <span>📋 {readyCount} ready for review</span>}
+              </p>
+            )}
+          </div>
+          <button className="ps-btn ps-btn-primary" onClick={() => setUploadModalOpen(true)}>
             📷 Scan Document
           </button>
         </div>
       </div>
 
-      {/* Filter bar */}
-      <div className="scan-filter-bar">
-        {FILTER_OPTIONS.map((opt) => (
-          <button
-            key={opt.value}
-            className={`scan-filter-btn ${activeQueueFilter === opt.value ? 'active' : ''}`}
-            onClick={() => setQueueFilter(opt.value)}
-          >
-            {opt.label}
-            {opt.value === 'ready' && readyCount > 0 && (
-              <span className="scan-filter-badge">{readyCount}</span>
-            )}
-          </button>
-        ))}
-      </div>
-
-      {/* Queue list */}
-      {queueLoading ? (
-        <p style={{ color: 'var(--ps-slate)', padding: 'var(--ps-space-lg)' }}>Loading scan queue...</p>
-      ) : queue.length === 0 ? (
+      {/* Queue */}
+      {uploadsInProgress > 0 && (
+        <div className="sq-uploading-banner">
+          <span className="sq-uploading-spinner" />
+          Uploading {uploadsInProgress === 1 ? 'scan' : `${uploadsInProgress} scans`}...
+        </div>
+      )}
+      {queueLoading && activeQueue.length === 0 && uploadsInProgress === 0 ? (
+        <p style={{ color: 'var(--ps-slate)', padding: 'var(--ps-space-lg)' }}>Loading...</p>
+      ) : activeQueue.length === 0 ? (
         <div className="cd-empty-state">
           <div className="cd-empty-icon">📸</div>
-          <h3>No scans yet</h3>
-          <p>
-            Upload a photo of a prescription or invoice to get started.
-            The AI will extract Schedule 2 CD details for you to review and approve.
-          </p>
-          <button
-            className="ps-btn ps-btn-primary"
-            onClick={() => setUploadModalOpen(true)}
-          >
-            📷 Scan Your First Document
+          <h3>Queue is empty</h3>
+          <p>All scans have been processed. Take a photo of a prescription or invoice to start.</p>
+          <button className="ps-btn ps-btn-primary" onClick={() => setUploadModalOpen(true)}>
+            📷 Scan Document
           </button>
         </div>
       ) : (
-        <div className="scan-queue-list">
-          {queue.map((scan) => (
-            <ScanQueueCard
+        <div className="sq-list">
+          {activeQueue.map((scan) => (
+            <ScanQueueRow
               key={scan.id}
               scan={scan}
               onReview={() => setReviewScanId(scan.id)}
               onDelete={(e) => handleDelete(scan.id, e)}
-              formatDate={formatDate}
+              formatTime={formatTime}
             />
           ))}
         </div>
       )}
 
-      {/* Upload Modal */}
       <ScanUploadModal
         isOpen={uploadModalOpen}
         onClose={() => setUploadModalOpen(false)}
-        onScanComplete={handleScanComplete}
       />
 
-      {/* Review Modal */}
       {reviewScanId && (
         <ScanReviewModal
           isOpen={!!reviewScanId}
@@ -172,107 +150,100 @@ export function ScanQueuePage() {
 }
 
 // ============================================
-// Scan Queue Card
+// Single queue row
 // ============================================
 
-function ScanQueueCard({
+function ScanQueueRow({
   scan,
   onReview,
   onDelete,
-  formatDate,
+  formatTime,
 }: {
   scan: ScanQueueItem
   onReview: () => void
   onDelete: (e: React.MouseEvent) => void
-  formatDate: (d: string) => string
+  formatTime: (d: string) => string
 }) {
-  const statusInfo = STATUS_LABELS[scan.status] ?? STATUS_LABELS.error
-  const confidenceInfo = scan.overall_confidence !== null
-    ? CONFIDENCE_LABELS[scan.overall_confidence] ?? CONFIDENCE_LABELS[0]
+  const isProcessing = scan.status === 'processing' || scan.status === 'uploading'
+  const isError = scan.status === 'error'
+  const isRejected = scan.status === 'rejected'
+  const isReady = scan.status === 'ready' || scan.status === 'partially_approved'
+
+  const conf = scan.overall_confidence !== null && scan.overall_confidence !== undefined
+    ? CONFIDENCE_CONFIG[scan.overall_confidence] ?? CONFIDENCE_CONFIG[0]
     : null
 
-  const isActionable = scan.status === 'ready' || scan.status === 'partially_approved'
+  // Left border color based on confidence
+  const borderColor = isProcessing ? '#60a5fa' : isError ? '#dc2626' : conf?.border ?? '#e5e7eb'
+
+  // Summary text
+  let summaryText = ''
+  if (scan.document_type === 'invoice') {
+    summaryText = scan.supplier_name
+      ? `Invoice — ${scan.supplier_name}${scan.invoice_number ? ` #${scan.invoice_number}` : ''}`
+      : 'Invoice'
+  } else if (scan.document_type === 'prescription') {
+    summaryText = scan.patient_name ? `Prescription — ${scan.patient_name}` : 'Prescription'
+  }
 
   return (
     <div
-      className={`scan-queue-card ${isActionable ? 'actionable' : ''}`}
-      onClick={onReview}
+      className={`sq-row ${isProcessing ? 'sq-processing' : ''} ${isError ? 'sq-error' : ''} ${isRejected ? 'sq-rejected' : ''} ${isReady ? 'sq-ready' : ''}`}
+      style={{ borderLeftColor: borderColor }}
+      onClick={isProcessing ? undefined : onReview}
     >
       {/* Thumbnail */}
-      <div className="scan-card-thumb">
+      <div className="sq-thumb">
         {scan.image_url ? (
-          <img src={scan.image_url} alt="Scan" loading="lazy" />
+          <img src={scan.image_url} alt="" loading="lazy" />
         ) : (
-          <div className="scan-card-thumb-placeholder">📄</div>
+          <span className="sq-thumb-icon">{isProcessing ? '⏳' : '📄'}</span>
         )}
       </div>
 
-      {/* Info */}
-      <div className="scan-card-info">
-        <div className="scan-card-row">
-          <span className={`ps-badge ${statusInfo.className}`}>
-            {statusInfo.icon} {statusInfo.label}
-          </span>
-          {confidenceInfo && (
-            <span className={`scan-confidence-badge ${confidenceInfo.className}`}>
-              {confidenceInfo.icon} Confidence: {confidenceInfo.label}
-            </span>
+      {/* Content */}
+      <div className="sq-content">
+        <div className="sq-top-row">
+          {isProcessing && <span className="sq-status-pill sq-pill-processing">⏳ Processing...</span>}
+          {isError && <span className="sq-status-pill sq-pill-error">⚠️ Error</span>}
+          {isRejected && <span className="sq-status-pill sq-pill-rejected">🚫 Rejected</span>}
+          {isReady && conf && (
+            <span className="sq-confidence-dot" style={{ background: conf.dot }} title={`Confidence: ${conf.label}`} />
           )}
-          {scan.document_type && (
-            <span className="ps-badge ps-badge-blue">
-              {scan.document_type === 'invoice' ? '📥 Invoice' : '📤 Prescription'}
-            </span>
-          )}
+          {summaryText && <span className="sq-summary">{summaryText}</span>}
+          {!summaryText && !isProcessing && <span className="sq-summary sq-summary-dim">Document scan</span>}
         </div>
 
-        <div className="scan-card-row">
-          {scan.document_type === 'invoice' && scan.supplier_name && (
-            <span className="scan-card-detail">
-              <strong>Supplier:</strong> {scan.supplier_name}
-              {scan.invoice_number && ` (${scan.invoice_number})`}
-            </span>
-          )}
-          {scan.document_type === 'prescription' && scan.patient_name && (
-            <span className="scan-card-detail">
-              <strong>Patient:</strong> {scan.patient_name}
-            </span>
-          )}
-          {scan.document_type === 'prescription' && scan.prescriber_name && (
-            <span className="scan-card-detail">
-              <strong>Prescriber:</strong> {scan.prescriber_name}
-            </span>
-          )}
-        </div>
-
-        {scan.ai_notes && (
-          <div className="scan-card-notes">
-            {scan.ai_notes.length > 120 ? scan.ai_notes.slice(0, 120) + '...' : scan.ai_notes}
-          </div>
+        {/* AI notes preview or error */}
+        {isError && scan.error_message && (
+          <p className="sq-detail sq-detail-error">{scan.error_message.slice(0, 100)}</p>
+        )}
+        {!isError && !isProcessing && scan.ai_notes && (
+          <p className="sq-detail">{scan.ai_notes.length > 80 ? scan.ai_notes.slice(0, 80) + '...' : scan.ai_notes}</p>
         )}
 
-        <div className="scan-card-meta">
-          <span>{formatDate(scan.created_at)}</span>
-          {scan.model_used && <span>Model: {scan.model_used}</span>}
-          {scan.error_message && (
-            <span className="scan-card-error">Error: {scan.error_message.slice(0, 60)}</span>
-          )}
+        <div className="sq-meta">
+          <span>{formatTime(scan.created_at)}</span>
+          {scan.model_used && <span>{scan.model_used}</span>}
         </div>
       </div>
 
       {/* Actions */}
-      <div className="scan-card-actions">
-        {isActionable && (
-          <button
-            className="ps-btn ps-btn-primary"
-            onClick={(e) => { e.stopPropagation(); onReview() }}
-          >
+      <div className="sq-actions">
+        {isReady && (
+          <button className="ps-btn ps-btn-primary ps-btn-sm" onClick={(e) => { e.stopPropagation(); onReview() }}>
             Review
           </button>
         )}
+        {(isRejected || isError) && (
+          <button className="ps-btn ps-btn-ghost ps-btn-sm" onClick={(e) => { e.stopPropagation(); onReview() }}>
+            View
+          </button>
+        )}
         <button
-          className="ps-btn ps-btn-ghost"
+          className="ps-btn ps-btn-ghost ps-btn-sm sq-delete-btn"
           onClick={onDelete}
-          title="Delete scan"
+          title="Delete"
         >
           🗑
         </button>

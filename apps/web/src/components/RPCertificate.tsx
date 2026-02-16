@@ -29,9 +29,30 @@ export function RPCertificate({ name, gphcNumber, onPrint }: RPCertificateProps)
             textAlign: 'center',
             fontFamily: "'Segoe UI', system-ui, -apple-system, sans-serif",
             background: 'linear-gradient(180deg, #f8fbff 0%, #ffffff 100%)',
+            position: 'relative',
           }}
           className="rp-cert-card"
         >
+          <div
+            style={{
+              position: 'absolute',
+              top: '16px',
+              right: '16px',
+              background: '#ffffff',
+              border: '1px solid #d3e8f7',
+              borderRadius: '10px',
+              padding: '6px',
+              width: '92px',
+            }}
+            className="rp-cert-qr"
+          >
+            <img
+              src="https://quickchart.io/qr?text=https%3A%2F%2Fwww.pharmstation.co.uk%2Fabout&size=120"
+              alt="PharmStation info QR"
+              style={{ width: '100%', display: 'block', borderRadius: '4px' }}
+            />
+          </div>
+
           {/* Header accent */}
           <div
             style={{

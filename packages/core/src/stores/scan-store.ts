@@ -7,7 +7,6 @@ import { create } from 'zustand'
 import type {
   ScanQueueItem,
   ScanDrugItem,
-  ScanQueueStatus,
   CDDrug,
 } from '@pharmstation/types'
 import { getUserClient } from '@pharmstation/supabase-client'
@@ -16,22 +15,31 @@ export interface ScanState {
   // Queue
   queue: ScanQueueItem[]
   queueLoading: boolean
-  activeQueueFilter: ScanQueueStatus | 'all'
+
+  // How many scans are currently uploading (shown as indicator on queue page)
+  uploadsInProgress: number
 
   // Active scan being reviewed
   activeScan: ScanQueueItem | null
   activeScanItems: ScanDrugItem[]
   activeScanLoading: boolean
 
-  // Upload state
+  // Upload state (legacy)
   isUploading: boolean
   uploadProgress: number
 
   // Actions
   loadQueue: (orgId: string) => Promise<void>
-  setQueueFilter: (filter: ScanQueueStatus | 'all') => void
   loadScan: (scanId: string) => Promise<void>
   setActiveScan: (scan: ScanQueueItem | null) => void
+  fireAndForgetScan: (params: {
+    organisationId: string
+    imageBase64: string
+    mimeType: string
+    filename?: string
+    supabaseUrl: string
+    accessToken: string
+  }) => void
   uploadAndScan: (params: {
     organisationId: string
     imageBase64: string
@@ -57,7 +65,8 @@ export interface ScanState {
 export const useScanStore = create<ScanState>((set, get) => ({
   queue: [],
   queueLoading: false,
-  activeQueueFilter: 'all',
+
+  uploadsInProgress: 0,
 
   activeScan: null,
   activeScanItems: [],
@@ -68,23 +77,18 @@ export const useScanStore = create<ScanState>((set, get) => ({
 
   // ============================================
   // Load scan queue for organisation
+  // Simple: just load from DB, no merge logic
   // ============================================
   loadQueue: async (orgId: string) => {
     set({ queueLoading: true })
     try {
-      let query = getUserClient()
+      const { data, error } = await getUserClient()
         .from('ps_ai_scan_queue')
         .select('*')
         .eq('organisation_id', orgId)
         .order('created_at', { ascending: false })
         .limit(100)
 
-      const filter = get().activeQueueFilter
-      if (filter !== 'all') {
-        query = query.eq('status', filter)
-      }
-
-      const { data, error } = await query
       if (error) throw error
       set({ queue: (data as ScanQueueItem[]) ?? [] })
     } catch (err) {
@@ -94,7 +98,76 @@ export const useScanStore = create<ScanState>((set, get) => ({
     }
   },
 
-  setQueueFilter: (filter) => set({ activeQueueFilter: filter }),
+  // ============================================
+  // Two-phase scan: register (instant) → process (fire-and-forget)
+  //
+  // Phase 1 (upload): ~1s — just creates DB record, no image
+  //   → Record is instantly visible to ALL terminals via polling
+  // Phase 2 (process): ~1-2min — sends image directly to LLM + storage in parallel
+  //   → Runs in background, updates DB record when done
+  // ============================================
+  fireAndForgetScan: ({ organisationId, imageBase64, mimeType, filename, supabaseUrl, accessToken }) => {
+    // Increment upload counter (shows "Uploading..." indicator on queue page)
+    set({ uploadsInProgress: get().uploadsInProgress + 1 })
+
+    const headers = {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${accessToken}`,
+    }
+    const fnUrl = `${supabaseUrl}/functions/v1/ai-scan`
+
+    ;(async () => {
+      try {
+        // Phase 1: Create DB record only — no image (instant)
+        const uploadRes = await fetch(fnUrl, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({
+            action: 'upload',
+            organisation_id: organisationId,
+          }),
+        })
+
+        const uploadData = await uploadRes.json()
+
+        // Done — decrement counter
+        set({ uploadsInProgress: Math.max(0, get().uploadsInProgress - 1) })
+
+        if (!uploadRes.ok) {
+          console.error('Scan upload failed:', uploadData.error)
+          return
+        }
+
+        // Real DB record exists — add it to our local queue immediately
+        if (uploadData.scan) {
+          const newScan = uploadData.scan as ScanQueueItem
+          // Prepend to queue (avoid duplicate if poll already picked it up)
+          const current = get().queue
+          if (!current.some(q => q.id === newScan.id)) {
+            set({ queue: [newScan, ...current] })
+          }
+        }
+
+        // Phase 2: Send image directly for AI + storage in parallel (fire and forget)
+        fetch(fnUrl, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({
+            action: 'process',
+            scan_id: uploadData.scan_id,
+            organisation_id: organisationId,
+            image_base64: imageBase64,
+            mime_type: mimeType,
+          }),
+        }).catch(err => {
+          console.error('AI processing request failed:', err)
+        })
+      } catch (err) {
+        console.error('Scan upload failed:', err)
+        set({ uploadsInProgress: Math.max(0, get().uploadsInProgress - 1) })
+      }
+    })()
+  },
 
   // ============================================
   // Load a specific scan with its items
@@ -388,10 +461,24 @@ export const useScanStore = create<ScanState>((set, get) => ({
         })
         .eq('id', itemId)
 
-      // Reload
-      if (get().activeScan) {
-        await get().loadScan(get().activeScan!.id)
-      }
+      // Optimistically update the item in local state instead of reloading everything
+      set({
+        activeScanItems: get().activeScanItems.map((item) =>
+          item.id === itemId
+            ? {
+                ...item,
+                edited_drug_id: drugId,
+                edited_quantity: quantity,
+                matched_drug_id: drugId,
+                matched_drug_brand: drug?.drug_brand ?? null,
+                matched_drug_form: drug?.drug_form ?? null,
+                matched_drug_strength: drug?.drug_strength ?? null,
+                matched_drug_class: drug?.drug_class ?? null,
+                status: 'edited' as const,
+              }
+            : item
+        ),
+      })
       return true
     } catch (err) {
       console.error('Failed to edit scan item:', err)
@@ -451,7 +538,7 @@ export const useScanStore = create<ScanState>((set, get) => ({
   reset: () => set({
     queue: [],
     queueLoading: false,
-    activeQueueFilter: 'all',
+    uploadsInProgress: 0,
     activeScan: null,
     activeScanItems: [],
     activeScanLoading: false,

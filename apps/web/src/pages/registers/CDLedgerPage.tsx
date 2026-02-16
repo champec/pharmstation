@@ -971,6 +971,13 @@ export function CDLedgerPage() {
               </span>
             )}
             <button
+              className="ps-btn ps-btn-ghost"
+              onClick={() => navigate('/registers/scan')}
+              title="Scan a prescription or invoice with AI"
+            >
+              📸 Scan
+            </button>
+            <button
               className="ps-btn ps-btn-success"
               onClick={() => openDrawer('in')}
               disabled={!activeLedger}

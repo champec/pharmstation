@@ -9,7 +9,14 @@ const registerCards = [
     color: 'var(--ps-deep-blue)',
   },
   {
-    icon: '👤',
+    icon: '�',
+    title: 'AI Scan',
+    description: 'Scan prescriptions and invoices — AI extracts CD entries for you',
+    to: '/registers/scan',
+    color: 'var(--ps-electric-cyan)',
+  },
+  {
+    icon: '�👤',
     title: 'RP Log',
     description: 'Responsible Pharmacist sign-in and sign-out records',
     to: '/registers/rp',

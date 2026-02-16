@@ -135,12 +135,21 @@ export function CDRegisterPage() {
         </div>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <h1>💊 CD Register</h1>
-          <button
-            className="ps-btn ps-btn-primary"
-            onClick={() => { setAddModalInitialSearch(''); setAddModalOpen(true) }}
-          >
-            ＋ Add New Register
-          </button>
+          <div style={{ display: 'flex', gap: 'var(--ps-space-sm)' }}>
+            <button
+              className="ps-btn ps-btn-ghost"
+              onClick={() => navigate('/registers/scan')}
+              title="Scan a prescription or invoice with AI"
+            >
+              📸 AI Scan
+            </button>
+            <button
+              className="ps-btn ps-btn-primary"
+              onClick={() => { setAddModalInitialSearch(''); setAddModalOpen(true) }}
+            >
+              ＋ Add New Register
+            </button>
+          </div>
         </div>
       </div>
 
