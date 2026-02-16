@@ -4,6 +4,7 @@ import { getUserClient } from '@pharmstation/supabase-client'
 import { useAuthStore, useRegisterStore } from '@pharmstation/core'
 import type { CDDrug, SubscribedRegister } from '@pharmstation/types'
 import { Modal } from '../../components/Modal'
+import { BalanceCheckModal } from '../../components/balance-check/BalanceCheckModal'
 
 export function CDRegisterPage() {
   const navigate = useNavigate()
@@ -18,6 +19,9 @@ export function CDRegisterPage() {
   // Add New Register modal state
   const [addModalOpen, setAddModalOpen] = useState(false)
   const [addModalInitialSearch, setAddModalInitialSearch] = useState('')
+
+  // Balance Check modal state
+  const [balanceCheckOpen, setBalanceCheckOpen] = useState(false)
 
   // ============================================
   // Fetch subscribed registers for this org
@@ -136,6 +140,13 @@ export function CDRegisterPage() {
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <h1>💊 CD Register</h1>
           <div style={{ display: 'flex', gap: 'var(--ps-space-sm)' }}>
+            <button
+              className="ps-btn ps-btn-ghost"
+              onClick={() => setBalanceCheckOpen(true)}
+              title="Perform a CD balance check across all registers"
+            >
+              📋 Balance Check
+            </button>
             <button
               className="ps-btn ps-btn-ghost"
               onClick={() => navigate('/registers/scan')}
@@ -267,6 +278,12 @@ export function CDRegisterPage() {
         onClose={() => setAddModalOpen(false)}
         initialSearch={addModalInitialSearch}
         onAdded={handleRegisterAdded}
+      />
+
+      {/* Balance Check Modal */}
+      <BalanceCheckModal
+        isOpen={balanceCheckOpen}
+        onClose={() => setBalanceCheckOpen(false)}
       />
     </div>
   )

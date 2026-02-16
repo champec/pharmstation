@@ -15,7 +15,20 @@ import {
   type SortingState,
   type ColumnFiltersState,
   type PaginationState,
+  type Row,
 } from '@tanstack/react-table'
+
+/**
+ * Describes how to merge cells for a specific row.
+ * `startIndex` — 0-based column index where the merged cell begins
+ * `span` — number of columns to merge
+ * `content` — ReactNode rendered inside the merged <td>
+ */
+export interface RowMerge {
+  startIndex: number
+  span: number
+  content: ReactNode
+}
 
 interface RegisterTableProps<T> {
   data: T[]
@@ -33,6 +46,11 @@ interface RegisterTableProps<T> {
   alwaysShowPagination?: boolean
   /** ID used for print targeting */
   printId?: string
+  /**
+   * Optional callback that can merge cells for specific rows.
+   * Return a RowMerge to merge columns, or undefined for normal rendering.
+   */
+  rowMerge?: (row: Row<T>) => RowMerge | undefined
 }
 
 export function RegisterTable<T>({
@@ -47,6 +65,7 @@ export function RegisterTable<T>({
   rowClassName,
   alwaysShowPagination = false,
   printId,
+  rowMerge,
 }: RegisterTableProps<T>) {
   const [sorting, setSorting] = useState<SortingState>([])
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
@@ -125,13 +144,36 @@ export function RegisterTable<T>({
             ) : (
               table.getRowModel().rows.map((row) => {
                 const extraClass = rowClassName ? rowClassName(row.original) : ''
+                const merge = rowMerge ? rowMerge(row) : undefined
                 return (
                 <tr key={row.id} className={`${row.index % 2 === 0 ? 'even' : 'odd'} ${extraClass ?? ''}`}>
-                  {row.getVisibleCells().map((cell) => (
-                    <td key={cell.id}>
-                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                    </td>
-                  ))}
+                  {merge
+                    ? row.getVisibleCells().map((cell, colIdx) => {
+                        // Inside the merged span — skip these cells
+                        if (colIdx > merge.startIndex && colIdx < merge.startIndex + merge.span) {
+                          return null
+                        }
+                        // The merged cell itself
+                        if (colIdx === merge.startIndex) {
+                          return (
+                            <td key={cell.id} colSpan={merge.span}>
+                              {merge.content}
+                            </td>
+                          )
+                        }
+                        // Normal cell outside merge
+                        return (
+                          <td key={cell.id}>
+                            {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                          </td>
+                        )
+                      })
+                    : row.getVisibleCells().map((cell) => (
+                        <td key={cell.id}>
+                          {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                        </td>
+                      ))
+                  }
                 </tr>
               )})
             )}

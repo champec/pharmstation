@@ -13,6 +13,7 @@ interface ScanImageBadgeProps {
 
 export function ScanImageBadge({ imagePath }: ScanImageBadgeProps) {
   const [viewing, setViewing] = useState(false)
+  
   const [imageUrl, setImageUrl] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
 

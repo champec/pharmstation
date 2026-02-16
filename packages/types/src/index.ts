@@ -86,7 +86,7 @@ export interface Permissions {
 // --- Register Types ---
 
 export type RegisterType = 'CD' | 'RP' | 'RETURNS' | 'PRIVATE_CD' | 'POM'
-export type EntryType = 'normal' | 'correction'
+export type EntryType = 'normal' | 'correction' | 'balance_check'
 export type EntrySource = 'manual' | 'ai_scan'
 
 export type TransactionType =
@@ -98,6 +98,7 @@ export type TransactionType =
   | 'correction'
   | 'transfer_in'
   | 'transfer_out'
+  | 'balance_check'
 
 // --- Register Ledger ---
 
@@ -205,6 +206,53 @@ export interface SubscribedRegister {
   drug_type: string
   created_at: string
   created_by: string | null
+}
+
+// --- Balance Check Types ---
+
+export type BalanceCheckStatus = 'pending' | 'matched' | 'discrepancy' | 'adjusted' | 'pending_reconciliation'
+export type BalanceCheckSessionStatus = 'in_progress' | 'completed' | 'cancelled'
+
+export interface BalanceCheckSession {
+  id: string
+  organisation_id: string
+  started_at: string
+  completed_at: string | null
+  status: BalanceCheckSessionStatus
+  started_by: string
+  completed_by: string | null
+  notes: string | null
+  total_registers: number
+  checked_count: number
+  discrepancy_count: number
+  created_at: string
+  // Joined
+  started_by_profile?: UserProfile
+  completed_by_profile?: UserProfile
+}
+
+export interface BalanceCheckItem {
+  id: string
+  session_id: string
+  organisation_id: string
+  drug_id: string
+  ledger_id: string
+  drug_brand: string
+  drug_form: string
+  drug_strength: string
+  drug_class: string
+  expected_balance: number
+  actual_count: number | null
+  status: BalanceCheckStatus
+  adjustment_amount: number | null
+  adjustment_reason: string | null
+  notes: string | null
+  checked_by: string | null
+  checked_at: string | null
+  register_entry_id: string | null
+  created_at: string
+  // Joined
+  checked_by_profile?: UserProfile
 }
 
 // --- Known Contacts ---

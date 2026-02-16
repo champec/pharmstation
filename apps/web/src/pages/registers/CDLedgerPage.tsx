@@ -6,11 +6,11 @@
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { createColumnHelper, type ColumnDef } from '@tanstack/react-table'
+import { createColumnHelper, type ColumnDef, type Row } from '@tanstack/react-table'
 import { getUserClient } from '@pharmstation/supabase-client'
 import { useAuthStore, useRegisterStore } from '@pharmstation/core'
 import type { RegisterEntry, RegisterLedger, CDDrug, KnownContact } from '@pharmstation/types'
-import { RegisterTable } from '../../components/table/RegisterTable'
+import { RegisterTable, type RowMerge } from '../../components/table/RegisterTable'
 import { Drawer } from '../../components/Drawer'
 import { CDEntryForm } from '../../components/forms/CDEntryForm'
 import { ContactModal } from '../../components/ContactModal'
@@ -114,6 +114,137 @@ export function CDLedgerPage() {
     }
   }, [setActiveLedger, setEntries])
 
+  // ============================================
+  // Single-register balance check
+  // ============================================
+  const [bcModalOpen, setBcModalOpen] = useState(false)
+  const [bcCount, setBcCount] = useState('')
+  const [bcNotes, setBcNotes] = useState('')
+  const [bcSaving, setBcSaving] = useState(false)
+  const [bcError, setBcError] = useState<string | null>(null)
+  const [bcDone, setBcDone] = useState(false)
+  const [bcShowAdj, setBcShowAdj] = useState(false)
+  const [bcAdjAmount, setBcAdjAmount] = useState('')
+  const [bcAdjReason, setBcAdjReason] = useState('')
+
+  const openBalanceCheck = () => {
+    setBcCount('')
+    setBcNotes('')
+    setBcAdjAmount('')
+    setBcAdjReason('')
+    setBcShowAdj(false)
+    setBcError(null)
+    setBcDone(false)
+    setBcModalOpen(true)
+  }
+
+  const submitBalanceCheck = async () => {
+    if (!activeLedger || !activeUser || !organisation || !drug) return
+    const actualCount = parseFloat(bcCount)
+    if (isNaN(actualCount) || actualCount < 0) {
+      setBcError('Please enter a valid count (0 or more).')
+      return
+    }
+
+    setBcSaving(true)
+    setBcError(null)
+
+    const expectedBalance = activeLedger.current_balance ?? 0
+    const matched = actualCount === expectedBalance
+    const adjustmentAmount = bcShowAdj && bcAdjAmount ? parseFloat(bcAdjAmount) : 0
+    const hasAdjustment = adjustmentAmount !== 0
+    const gphcNum = activeUser.gphc_number ?? ''
+    const checkerName = activeUser.full_name
+    const checkedBy = `${checkerName}${gphcNum ? ` (GPhC: ${gphcNum})` : ''}`
+
+    let status: string = matched ? 'matched' : 'discrepancy'
+    if (hasAdjustment) status = 'adjusted'
+
+    const balanceNote = matched
+      ? `Balance checked and verified — ${checkedBy}`
+      : hasAdjustment
+      ? `Balance check — Adjusted by ${adjustmentAmount > 0 ? '+' : ''}${adjustmentAmount}. ${bcAdjReason || 'Balance adjustment'}. ${checkedBy}`
+      : `Balance check — Discrepancy of ${actualCount - expectedBalance}.${bcNotes ? ` ${bcNotes}.` : ''} ${checkedBy}`
+
+    try {
+      // Create session for audit trail
+      const { data: sessionData } = await getUserClient()
+        .from('ps_balance_check_sessions')
+        .insert({
+          organisation_id: organisation.id,
+          started_by: activeUser.id,
+          status: 'completed',
+          total_registers: 1,
+          completed_count: 1,
+          matched_count: status === 'matched' ? 1 : 0,
+          discrepancy_count: status === 'discrepancy' ? 1 : 0,
+          adjusted_count: status === 'adjusted' ? 1 : 0,
+          notes: `Quick balance check — ${drug.drug_brand}`,
+          completed_at: new Date().toISOString(),
+        })
+        .select('id')
+        .single()
+
+      const sessionId = sessionData?.id
+
+      if (sessionId) {
+        await getUserClient()
+          .from('ps_balance_check_items')
+          .insert({
+            session_id: sessionId,
+            drug_id: drug.id,
+            drug_brand: drug.drug_brand,
+            drug_form: drug.drug_form,
+            drug_strength: drug.drug_strength,
+            drug_class: drug.drug_class,
+            expected_balance: expectedBalance,
+            actual_count: actualCount,
+            status,
+            notes: bcNotes || null,
+            checked_by: activeUser.id,
+            adjustment_amount: hasAdjustment ? adjustmentAmount : null,
+            adjustment_reason: hasAdjustment ? (bcAdjReason || null) : null,
+          })
+      }
+
+      // Create register entry
+      const isAdjIncrease = hasAdjustment && adjustmentAmount > 0
+      const isAdjDecrease = hasAdjustment && adjustmentAmount < 0
+
+      const { error: entryErr } = await getUserClient().rpc('ps_make_register_entry', {
+        p_ledger_id: activeLedger.id,
+        p_register_type: 'CD',
+        p_entry_type: 'balance_check',
+        p_date_of_transaction: new Date().toISOString().split('T')[0],
+        p_notes: balanceNote,
+        p_source: 'manual',
+        p_expected_lock_version: activeLedger.lock_version,
+        p_transaction_type: 'balance_check',
+        p_quantity_received: isAdjIncrease ? Math.abs(adjustmentAmount) : null,
+        p_quantity_deducted: isAdjDecrease ? Math.abs(adjustmentAmount) : null,
+        p_entered_by: activeUser.id,
+        p_authorised_by: checkerName,
+        p_was_id_requested: false,
+        p_was_id_provided: false,
+      })
+
+      if (entryErr) {
+        setBcError(`Failed to create register entry: ${entryErr.message}`)
+        setBcSaving(false)
+        return
+      }
+
+      // Refresh entries and ledger
+      await loadEntries()
+      await loadLedger()
+      setBcDone(true)
+    } catch (e: unknown) {
+      setBcError(`Error: ${e instanceof Error ? e.message : String(e)}`)
+    } finally {
+      setBcSaving(false)
+    }
+  }
+
   // Table columns — no separate "Type" column; IN/OUT direction is
   // inferred from which amount field is populated. Single "Amount" column.
   // ID check is a yes/no field. Multi-line cells for patient & supplier.
@@ -146,6 +277,17 @@ export function CDLedgerPage() {
         size: 180,
         cell: (info) => {
           const row = info.row.original
+          // Balance check entries: show the check note spanning this cell
+          if (row.entry_type === 'balance_check') {
+            return (
+              <div className="bc-entry-stamp" title={row.notes ?? ''}>
+                <span className="bc-entry-stamp-icon">✅</span>
+                <span className="bc-entry-stamp-text">
+                  {row.notes ?? 'Balance checked and verified'}
+                </span>
+              </div>
+            )
+          }
           if (row.supplier_name) {
             return (
               <div className="cell-multiline">
@@ -164,6 +306,7 @@ export function CDLedgerPage() {
         size: 180,
         cell: (info) => {
           const row = info.row.original
+          if (row.entry_type === 'balance_check') return null
           if (row.patient_name) {
             return (
               <div className="cell-multiline">
@@ -182,6 +325,7 @@ export function CDLedgerPage() {
         size: 160,
         cell: (info) => {
           const row = info.row.original
+          if (row.entry_type === 'balance_check') return null
           if (row.prescriber_name) {
             return (
               <div className="cell-multiline">
@@ -201,6 +345,7 @@ export function CDLedgerPage() {
         size: 140,
         cell: (info) => {
           const row = info.row.original
+          if (row.entry_type === 'balance_check') return null
           if (!row.patient_name) return <span className="cell-na">—</span>
           const requested = row.was_id_requested
           const provided = row.was_id_provided
@@ -224,6 +369,24 @@ export function CDLedgerPage() {
         size: 80,
         cell: (info) => {
           const row = info.row.original
+          // Balance check: show any adjustment if present, otherwise just '—'
+          if (row.entry_type === 'balance_check') {
+            if (row.quantity_received) {
+              return (
+                <span style={{ color: 'var(--ps-success)', fontWeight: 600, fontFamily: 'var(--ps-font-mono)' }}>
+                  +{row.quantity_received}
+                </span>
+              )
+            }
+            if (row.quantity_deducted) {
+              return (
+                <span style={{ color: 'var(--ps-error)', fontWeight: 600, fontFamily: 'var(--ps-font-mono)' }}>
+                  -{row.quantity_deducted}
+                </span>
+              )
+            }
+            return <span className="cell-na">—</span>
+          }
           if (row.quantity_received !== null && row.quantity_received !== undefined) {
             return (
               <span style={{ color: 'var(--ps-success)', fontWeight: 600, fontFamily: 'var(--ps-font-mono)' }}>
@@ -264,6 +427,9 @@ export function CDLedgerPage() {
         cell: (info) => {
           if (info.getValue() === 'correction') {
             return <span title="Correction entry" className="ps-badge ps-badge-red">C</span>
+          }
+          if (info.getValue() === 'balance_check') {
+            return <span title="Balance check" className="ps-badge ps-badge-blue">BC</span>
           }
           return null
         },
@@ -972,6 +1138,14 @@ export function CDLedgerPage() {
             )}
             <button
               className="ps-btn ps-btn-ghost"
+              onClick={openBalanceCheck}
+              disabled={!activeLedger}
+              title="Quick balance check for this register"
+            >
+              📋 Balance Check
+            </button>
+            <button
+              className="ps-btn ps-btn-ghost"
               onClick={() => navigate('/registers/scan')}
               title="Scan a prescription or invoice with AI"
             >
@@ -1016,6 +1190,28 @@ export function CDLedgerPage() {
         globalFilter={searchFilter}
         onGlobalFilterChange={setSearchFilter}
         footerRow={provisionFooterRow}
+        rowClassName={(row) => row.entry_type === 'balance_check' ? 'bc-entry-row' : undefined}
+        rowMerge={(row: Row<RegisterEntry>): RowMerge | undefined => {
+          if (row.original.entry_type !== 'balance_check') return undefined
+          const r = row.original
+          const adjText = r.quantity_received
+            ? ` (Adjusted +${r.quantity_received})`
+            : r.quantity_deducted
+            ? ` (Adjusted -${r.quantity_deducted})`
+            : ''
+          return {
+            startIndex: 2, // Supplier column
+            span: 5,       // Supplier → Patient → Prescriber → ID → Amount
+            content: (
+              <div className="bc-entry-stamp">
+                <span className="bc-entry-stamp-icon">✅</span>
+                <span className="bc-entry-stamp-text">
+                  {r.notes ?? 'Balance checked and verified'}{adjText}
+                </span>
+              </div>
+            ),
+          }
+        }}
       />
 
       {provError && (
@@ -1104,6 +1300,144 @@ export function CDLedgerPage() {
               {provSaving ? 'Saving...' : 'Yes, submit anyway'}
             </button>
           </div>
+        </div>
+      </Modal>
+
+      {/* Single-register Balance Check Modal */}
+      <Modal
+        isOpen={bcModalOpen}
+        onClose={() => setBcModalOpen(false)}
+        title="📋 Balance Check"
+        width="460px"
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--ps-space-md)' }}>
+          {/* Drug & current balance info */}
+          <div style={{ background: 'var(--ps-off-white)', borderRadius: 'var(--ps-radius)', padding: 'var(--ps-space-md)' }}>
+            <strong style={{ fontSize: 'var(--ps-font-md)' }}>{drug?.drug_brand}</strong>
+            <p style={{ color: 'var(--ps-slate)', fontSize: 'var(--ps-font-sm)', margin: '4px 0 0' }}>
+              {drug?.drug_form} — {drug?.drug_strength}
+            </p>
+            <div style={{ marginTop: 'var(--ps-space-sm)', display: 'flex', alignItems: 'center', gap: 'var(--ps-space-sm)' }}>
+              <span style={{ color: 'var(--ps-slate)', fontSize: 'var(--ps-font-sm)' }}>Register balance:</span>
+              <strong style={{ fontFamily: 'var(--ps-font-mono)', fontSize: 'var(--ps-font-lg)' }}>
+                {activeLedger?.current_balance ?? 0}
+              </strong>
+            </div>
+          </div>
+
+          {bcDone ? (
+            /* Success state */
+            <div style={{ textAlign: 'center', padding: 'var(--ps-space-lg) 0' }}>
+              <div style={{ fontSize: '48px', marginBottom: 'var(--ps-space-sm)' }}>✅</div>
+              <p style={{ fontWeight: 600, fontSize: 'var(--ps-font-md)' }}>Balance check recorded</p>
+              <p style={{ color: 'var(--ps-slate)', fontSize: 'var(--ps-font-sm)', marginTop: '4px' }}>
+                Entry added to the register.
+              </p>
+              <button
+                className="ps-btn ps-btn-primary"
+                style={{ marginTop: 'var(--ps-space-md)' }}
+                onClick={() => setBcModalOpen(false)}
+              >
+                Done
+              </button>
+            </div>
+          ) : (
+            /* Entry form */
+            <>
+              <div className="form-group">
+                <label className="form-label">Actual count</label>
+                <input
+                  className="ps-input"
+                  type="number"
+                  min="0"
+                  step="any"
+                  placeholder="Enter physical count…"
+                  value={bcCount}
+                  onChange={(e) => setBcCount(e.target.value)}
+                  autoFocus
+                />
+              </div>
+
+              {/* Show discrepancy info if count entered and doesn't match */}
+              {bcCount !== '' && !isNaN(parseFloat(bcCount)) && parseFloat(bcCount) !== (activeLedger?.current_balance ?? 0) && (
+                <div className="add-register-confirm-warning" style={{ marginTop: 0 }}>
+                  <strong>Discrepancy:</strong> count is{' '}
+                  {parseFloat(bcCount) - (activeLedger?.current_balance ?? 0) > 0 ? '+' : ''}
+                  {parseFloat(bcCount) - (activeLedger?.current_balance ?? 0)} from register balance.
+
+                  {!bcShowAdj && (
+                    <div style={{ marginTop: 'var(--ps-space-sm)' }}>
+                      <button
+                        className="ps-btn ps-btn-ghost"
+                        style={{ fontSize: 'var(--ps-font-xs)', padding: '4px 8px' }}
+                        onClick={() => {
+                          setBcShowAdj(true)
+                          setBcAdjAmount(String(parseFloat(bcCount) - (activeLedger?.current_balance ?? 0)))
+                        }}
+                      >
+                        🔧 Adjust balance to match count
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {bcShowAdj && (
+                <>
+                  <div className="form-group">
+                    <label className="form-label">Adjustment amount</label>
+                    <input
+                      className="ps-input"
+                      type="number"
+                      step="any"
+                      value={bcAdjAmount}
+                      onChange={(e) => setBcAdjAmount(e.target.value)}
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Adjustment reason</label>
+                    <input
+                      className="ps-input"
+                      placeholder="e.g. Breakage, spillage…"
+                      value={bcAdjReason}
+                      onChange={(e) => setBcAdjReason(e.target.value)}
+                    />
+                  </div>
+                </>
+              )}
+
+              <div className="form-group">
+                <label className="form-label">Notes <span style={{ color: 'var(--ps-mist)', fontWeight: 400 }}>(optional)</span></label>
+                <input
+                  className="ps-input"
+                  placeholder="Any observations…"
+                  value={bcNotes}
+                  onChange={(e) => setBcNotes(e.target.value)}
+                />
+              </div>
+
+              {bcError && (
+                <div className="auth-error" style={{ marginTop: 0 }}>{bcError}</div>
+              )}
+
+              <div className="form-actions" style={{ justifyContent: 'flex-end' }}>
+                <button
+                  className="ps-btn ps-btn-ghost"
+                  onClick={() => setBcModalOpen(false)}
+                  disabled={bcSaving}
+                >
+                  Cancel
+                </button>
+                <button
+                  className="ps-btn ps-btn-primary"
+                  onClick={submitBalanceCheck}
+                  disabled={bcSaving || bcCount === ''}
+                >
+                  {bcSaving ? 'Saving…' : '✓ Confirm Balance Check'}
+                </button>
+              </div>
+            </>
+          )}
         </div>
       </Modal>
     </div>

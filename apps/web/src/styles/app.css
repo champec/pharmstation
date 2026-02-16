@@ -3456,3 +3456,446 @@
     flex-wrap: wrap;
   }
 }
+
+/* ============================================
+   CD Balance Check Modal
+   ============================================ */
+
+.bc-modal {
+  min-height: 300px;
+}
+
+/* ---- Landing ---- */
+.bc-landing {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ps-space-md);
+}
+
+.bc-description {
+  color: var(--ps-slate);
+  font-size: var(--ps-font-sm);
+  line-height: 1.5;
+}
+
+.bc-landing-actions {
+  display: flex;
+  gap: var(--ps-space-sm);
+  flex-wrap: wrap;
+}
+
+.bc-start-btn {
+  font-size: var(--ps-font-md) !important;
+  padding: 12px 24px !important;
+}
+
+.bc-history-section {
+  border-top: 1px solid var(--ps-off-white);
+  padding-top: var(--ps-space-sm);
+}
+
+.bc-history-toggle {
+  background: none;
+  border: none;
+  color: var(--ps-deep-blue);
+  font-weight: 600;
+  cursor: pointer;
+  font-size: var(--ps-font-sm);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+}
+
+.bc-history-toggle:hover {
+  color: var(--ps-electric-cyan);
+}
+
+/* Register preview */
+.bc-register-preview h4 {
+  font-size: var(--ps-font-sm);
+  color: var(--ps-slate);
+  margin-bottom: 8px;
+}
+
+.bc-preview-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 8px;
+}
+
+.bc-preview-item {
+  display: flex;
+  flex-direction: column;
+  padding: 8px 12px;
+  background: var(--ps-off-white);
+  border-radius: var(--ps-radius-md);
+  font-size: var(--ps-font-xs);
+}
+
+.bc-preview-name {
+  font-weight: 600;
+  color: var(--ps-midnight);
+}
+
+.bc-preview-detail {
+  color: var(--ps-slate);
+}
+
+.bc-preview-more {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--ps-mist);
+  font-style: italic;
+}
+
+/* ---- History ---- */
+.bc-history-header {
+  display: flex;
+  align-items: center;
+  gap: var(--ps-space-md);
+  margin-bottom: var(--ps-space-md);
+}
+
+.bc-history-header h3 {
+  font-size: var(--ps-font-md);
+  color: var(--ps-midnight);
+}
+
+.bc-history-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.bc-history-row {
+  display: flex;
+  align-items: center;
+  gap: var(--ps-space-md);
+  padding: 10px 14px;
+  background: var(--ps-off-white);
+  border-radius: var(--ps-radius-md);
+  font-size: var(--ps-font-sm);
+}
+
+.bc-history-date {
+  font-weight: 600;
+  color: var(--ps-midnight);
+  min-width: 120px;
+}
+
+.bc-history-time {
+  display: block;
+  font-weight: 400;
+  font-size: var(--ps-font-xs);
+  color: var(--ps-mist);
+}
+
+.bc-history-stats {
+  flex: 1;
+  display: flex;
+  gap: var(--ps-space-md);
+  color: var(--ps-slate);
+  font-size: var(--ps-font-xs);
+}
+
+.bc-history-disc {
+  color: var(--ps-error);
+  font-weight: 600;
+}
+
+/* ---- Active session ---- */
+.bc-active {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ps-space-sm);
+}
+
+.bc-stats-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--ps-space-md);
+  padding: 10px 14px;
+  background: var(--ps-off-white);
+  border-radius: var(--ps-radius-md);
+  flex-wrap: wrap;
+}
+
+.bc-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 60px;
+}
+
+.bc-stat-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--ps-mist);
+  font-weight: 600;
+}
+
+.bc-stat-value {
+  font-size: var(--ps-font-lg);
+  font-weight: 700;
+  font-family: var(--ps-font-mono);
+  color: var(--ps-midnight);
+}
+
+.bc-stat-checked { color: var(--ps-deep-blue); }
+.bc-stat-ok { color: var(--ps-success); }
+.bc-stat-warn { color: var(--ps-error); }
+.bc-stat-adj { color: var(--ps-electric-cyan); }
+
+/* Filters */
+.bc-filters {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.bc-search {
+  flex: 1;
+  min-width: 150px;
+  max-width: 220px;
+}
+
+.bc-filter-select {
+  min-width: 130px;
+  max-width: 180px;
+  cursor: pointer;
+}
+
+.bc-filter-select:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.bc-sort-active {
+  background: var(--ps-electric-cyan) !important;
+  color: var(--ps-white) !important;
+}
+
+/* Table */
+.bc-table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--ps-off-white);
+  border-radius: var(--ps-radius-md);
+}
+
+.bc-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--ps-font-sm);
+}
+
+.bc-table thead th {
+  background: var(--ps-off-white);
+  padding: 8px 10px;
+  text-align: left;
+  font-size: var(--ps-font-xs);
+  font-weight: 600;
+  color: var(--ps-slate);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  white-space: nowrap;
+  border-bottom: 2px solid #e2e8f0;
+}
+
+.bc-table tbody tr {
+  border-bottom: 1px solid var(--ps-off-white);
+}
+
+.bc-table tbody tr:hover {
+  background: #f8fafc;
+}
+
+.bc-table td {
+  padding: 8px 10px;
+  vertical-align: middle;
+}
+
+.bc-col-num {
+  text-align: right;
+  width: 100px;
+}
+
+.bc-col-status {
+  width: 110px;
+}
+
+.bc-col-action {
+  width: 60px;
+  text-align: center;
+}
+
+.bc-cell-class {
+  font-size: var(--ps-font-xs);
+  color: var(--ps-mist);
+  white-space: nowrap;
+}
+
+.bc-cell-brand strong {
+  color: var(--ps-midnight);
+}
+
+.bc-cell-strength {
+  font-size: var(--ps-font-xs);
+  color: var(--ps-slate);
+  white-space: nowrap;
+}
+
+/* Row states */
+.bc-row-done {
+  background: #f0fdf4;
+}
+
+.bc-row-done:hover {
+  background: #ecfce5 !important;
+}
+
+.bc-row-no-ledger {
+  opacity: 0.5;
+}
+
+/* Inputs in table */
+.bc-count-input {
+  width: 80px !important;
+  text-align: right;
+  font-family: var(--ps-font-mono);
+  padding: 4px 8px !important;
+  font-size: var(--ps-font-sm) !important;
+}
+
+.bc-note-input {
+  width: 100% !important;
+  padding: 4px 8px !important;
+  font-size: var(--ps-font-xs) !important;
+}
+
+.bc-note-text {
+  font-size: var(--ps-font-xs);
+  color: var(--ps-slate);
+}
+
+/* Adjustment row */
+.bc-adjustment-row td {
+  padding: 4px 10px 8px !important;
+  border-bottom: 2px solid var(--ps-off-white);
+}
+
+.bc-adjustment {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--ps-font-xs);
+}
+
+.bc-adjustment-label {
+  white-space: nowrap;
+  font-weight: 600;
+  color: var(--ps-slate);
+}
+
+.bc-adj-input {
+  width: 70px !important;
+  text-align: right;
+  font-family: var(--ps-font-mono);
+  padding: 3px 6px !important;
+  font-size: var(--ps-font-xs) !important;
+}
+
+.bc-adj-reason {
+  flex: 1;
+  padding: 3px 6px !important;
+  font-size: var(--ps-font-xs) !important;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .bc-filters {
+    flex-direction: column;
+  }
+
+  .bc-search,
+  .bc-filter-select {
+    max-width: 100%;
+    width: 100%;
+  }
+
+  .bc-stats-bar {
+    justify-content: center;
+  }
+
+  .bc-table {
+    font-size: var(--ps-font-xs);
+  }
+}
+
+/* ============================================
+   Balance Check Entry — Register Row Style
+   Mimics the real-life "stamp across" the register
+   ============================================ */
+
+.bc-entry-row {
+  background: rgba(0, 191, 255, 0.03) !important;
+  border-left: 3px solid var(--ps-electric-cyan, #00bfff) !important;
+}
+
+.bc-entry-row:hover {
+  background: rgba(0, 191, 255, 0.06) !important;
+}
+
+.bc-entry-stamp {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 4px 0;
+}
+
+.bc-entry-stamp-icon {
+  flex-shrink: 0;
+  font-size: 14px;
+}
+
+.bc-entry-stamp-text {
+  font-size: var(--ps-font-xs, 12px);
+  color: var(--ps-electric-cyan, #00bfff);
+  font-weight: 500;
+  line-height: 1.4;
+  letter-spacing: 0.01em;
+  white-space: normal;
+  word-break: break-word;
+}
+
+/* Make the stamp text more prominent — it spans across merged supplier→amount columns */
+.bc-entry-row td[colspan] .bc-entry-stamp {
+  justify-content: flex-start;
+}
+
+.bc-entry-row td[colspan] .bc-entry-stamp-text {
+  max-width: none;
+  font-size: var(--ps-font-sm, 13px);
+  letter-spacing: 0.02em;
+}
+
+/* Blue "BC" badge in the entry type column */
+.ps-badge-blue {
+  background: rgba(0, 191, 255, 0.15);
+  color: var(--ps-electric-cyan, #00bfff);
+  font-weight: 700;
+  font-size: 10px;
+}
+
+@media print {
+  .bc-entry-row {
+    background: #f0f8ff !important;
+    border-left: 2px solid #00bfff !important;
+  }
+  .bc-entry-stamp-text {
+    color: #005577;
+  }
+}
