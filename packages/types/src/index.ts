@@ -843,20 +843,22 @@ export type AppointmentStatus = 'pending' | 'confirmed' | 'cancelled' | 'complet
 
 export interface Appointment {
   id: string
-  slot_id: string
+  slot_id: string | null
   org_id: string
-  service_id: string
+  service_id: string | null
   patient_id: string
-  form_id: string
+  form_id: string | null
   form_data: Record<string, unknown>
   status: AppointmentStatus
   notes: string | null
   booked_by_user_id: string | null
   created_at: string
+  updated_at: string
   // Joined
   patient?: Patient
-  service?: Service
-  slot?: AppointmentSlot
+  service?: Service | null
+  slot?: AppointmentSlot | null
+  form?: ServiceForm | null
 }
 
 // ============================================
