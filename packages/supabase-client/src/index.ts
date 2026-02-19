@@ -7,6 +7,7 @@ import { createClient, type SupabaseClient, type Session, type User } from '@sup
 
 let _orgClient: SupabaseClient | null = null
 let _userClient: SupabaseClient | null = null
+let _patientClient: SupabaseClient | null = null
 
 export interface SupabaseConfig {
   url: string
@@ -34,7 +35,15 @@ export function initSupabase(config: SupabaseConfig) {
     },
   })
 
-  return { orgClient: _orgClient, userClient: _userClient }
+  _patientClient = createClient(config.url, config.anonKey, {
+    auth: {
+      storageKey: 'ps-patient-session',
+      autoRefreshToken: true,
+      persistSession: true,
+    },
+  })
+
+  return { orgClient: _orgClient, userClient: _userClient, patientClient: _patientClient }
 }
 
 /**
@@ -53,6 +62,15 @@ export function getOrgClient(): SupabaseClient {
 export function getUserClient(): SupabaseClient {
   if (!_userClient) throw new Error('Supabase not initialized. Call initSupabase() first.')
   return _userClient
+}
+
+/**
+ * Patient client — for patient-facing auth and data access.
+ * Used for: patient portal login, patient profile, patient appointments.
+ */
+export function getPatientClient(): SupabaseClient {
+  if (!_patientClient) throw new Error('Supabase not initialized. Call initSupabase() first.')
+  return _patientClient
 }
 
 // ============================================
@@ -142,3 +160,47 @@ export async function fetchOrgMembership(orgId: string, userId: string) {
 
 // Re-export Supabase types
 export type { SupabaseClient, Session, User } from '@supabase/supabase-js'
+
+// ============================================
+// Patient auth helpers
+// ============================================
+
+export async function patientSignIn(email: string, password: string) {
+  const { data, error } = await getPatientClient().auth.signInWithPassword({ email, password })
+  if (error) throw error
+  return data
+}
+
+export async function patientSignUp(
+  email: string,
+  password: string,
+  metadata: { first_name: string; last_name: string; organisation_id: string; account_type: 'patient' }
+) {
+  const { data, error } = await getPatientClient().auth.signUp({
+    email,
+    password,
+    options: { data: metadata },
+  })
+  if (error) throw error
+  return data
+}
+
+export async function patientSignOut() {
+  const { error } = await getPatientClient().auth.signOut()
+  if (error) throw error
+}
+
+export async function getPatientSession(): Promise<Session | null> {
+  const { data } = await getPatientClient().auth.getSession()
+  return data.session
+}
+
+export async function fetchPatientProfile(authUserId: string) {
+  const { data, error } = await getPatientClient()
+    .from('ps_patients')
+    .select('*')
+    .eq('auth_user_id', authUserId)
+    .single()
+  if (error) throw error
+  return data
+}

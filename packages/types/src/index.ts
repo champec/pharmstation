@@ -718,3 +718,259 @@ export interface ScanAIDrugResult {
   confidence: ScanConfidence
   confidence_notes: string
 }
+
+// ============================================
+// Expansion Types — Patients
+// ============================================
+
+export interface Patient {
+  id: string
+  auth_user_id: string | null
+  organisation_id: string
+  first_name: string
+  last_name: string
+  dob: string | null
+  nhs_number: string | null
+  email: string | null
+  phone: string | null
+  address_line_1: string | null
+  address_line_2: string | null
+  city: string | null
+  postcode: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface PatientAuthState {
+  patient: Patient | null
+  loading: boolean
+  isLoggedIn: boolean
+}
+
+// ============================================
+// Expansion Types — Services & Service Forms
+// ============================================
+
+export interface ServiceLibraryItem {
+  id: string
+  name: string
+  description: string
+  category: string
+  is_active: boolean
+  created_at: string
+}
+
+export interface Service {
+  id: string
+  org_id: string
+  library_service_id: string | null
+  name: string
+  description: string
+  is_active: boolean
+  is_public: boolean
+  duration_minutes: number
+  created_at: string
+}
+
+export interface ServiceForm {
+  id: string
+  service_id: string
+  name: string
+  is_default: boolean
+  version: number
+  created_at: string
+  fields?: ServiceFormField[]
+}
+
+export type FieldType =
+  | 'text'
+  | 'number'
+  | 'boolean'
+  | 'select'
+  | 'multiselect'
+  | 'date'
+  | 'textarea'
+  | 'signature'
+  | 'canvas'
+
+export interface ServiceFormField {
+  id: string
+  form_id: string
+  label: string
+  field_key: string
+  field_type: FieldType
+  options: Record<string, unknown> | null
+  is_required: boolean
+  display_order: number
+}
+
+// ============================================
+// Expansion Types — Appointments
+// ============================================
+
+export interface AppointmentSlot {
+  id: string
+  org_id: string
+  service_id: string
+  start_time: string
+  end_time: string
+  max_bookings: number
+  booked_count: number
+  is_recurring: boolean
+  recurrence_rule: string | null
+  is_active: boolean
+}
+
+export type AppointmentStatus = 'pending' | 'confirmed' | 'cancelled' | 'completed' | 'no_show'
+
+export interface Appointment {
+  id: string
+  slot_id: string
+  org_id: string
+  service_id: string
+  patient_id: string
+  form_id: string
+  form_data: Record<string, unknown>
+  status: AppointmentStatus
+  notes: string | null
+  booked_by_user_id: string | null
+  created_at: string
+  // Joined
+  patient?: Patient
+  service?: Service
+  slot?: AppointmentSlot
+}
+
+// ============================================
+// Expansion Types — Logs
+// ============================================
+
+export type LogCategory = 'cleaning' | 'fridge' | 'cd' | 'visitor' | 'date_check' | 'custom'
+export type LogScheduleType = 'daily' | 'custom_days' | 'sporadic'
+
+export interface LogTemplate {
+  id: string
+  org_id: string | null
+  title: string
+  description: string
+  category: LogCategory
+  schedule_type: LogScheduleType
+  required_days: number[]
+  is_library: boolean
+  version: number
+  created_at: string
+  fields?: LogField[]
+}
+
+export interface LogField {
+  id: string
+  template_id: string
+  label: string
+  field_key: string
+  field_type: FieldType
+  options: Record<string, unknown> | null
+  is_required: boolean
+  display_order: number
+  column_width: string | null
+}
+
+export interface LogSubscription {
+  id: string
+  org_id: string
+  template_id: string
+  custom_title: string | null
+  custom_fields: Record<string, unknown> | null
+  is_active: boolean
+  subscribed_at: string
+  template?: LogTemplate
+}
+
+export interface LogEntry {
+  id: string
+  subscription_id: string
+  org_id: string
+  entry_date: string
+  data: Record<string, unknown>
+  entered_by_user_id: string
+  created_at: string
+  entered_by_profile?: UserProfile
+}
+
+// ============================================
+// Expansion Types — Video Consultations
+// ============================================
+
+export type VideoConsultationStatus = 'scheduled' | 'active' | 'completed' | 'cancelled'
+
+export interface VideoConsultation {
+  id: string
+  org_id: string
+  patient_id: string | null
+  patient_name: string
+  patient_phone: string | null
+  daily_room_name: string
+  daily_room_url: string
+  org_token: string
+  patient_token: string
+  patient_access_code: string
+  status: VideoConsultationStatus
+  appointment_id: string | null
+  scheduled_for: string
+  started_at: string | null
+  ended_at: string | null
+  created_at: string
+  // Joined
+  patient?: Patient
+  appointment?: Appointment
+}
+
+// ============================================
+// Expansion Types — Messaging (NHS Notify)
+// ============================================
+
+export type MessageChannel = 'sms' | 'letter' | 'email'
+export type NotifyMessageStatus = 'pending' | 'sent' | 'delivered' | 'failed'
+export type BroadcastStatus = 'draft' | 'sending' | 'sent' | 'failed'
+
+export interface NotifySettings {
+  id: string
+  org_id: string
+  api_key: string
+  sms_template_ids: Record<string, string>
+  letter_template_ids: Record<string, string>
+  is_active: boolean
+  created_at: string
+}
+
+export interface NotifyMessage {
+  id: string
+  org_id: string
+  patient_id: string | null
+  recipient_phone: string | null
+  recipient_address: Record<string, string> | null
+  channel: MessageChannel
+  template_id: string
+  personalisation: Record<string, unknown>
+  status: NotifyMessageStatus
+  notify_message_id: string | null
+  sent_at: string | null
+  created_by_user_id: string
+  created_at: string
+  // Joined
+  patient?: Patient
+}
+
+export interface Broadcast {
+  id: string
+  org_id: string
+  name: string
+  channel: MessageChannel
+  template_id: string
+  personalisation_template: Record<string, unknown>
+  recipient_filter: Record<string, unknown>
+  status: BroadcastStatus
+  total_count: number
+  sent_count: number
+  created_at: string
+  created_by_user_id: string
+}

@@ -1,0 +1,2309 @@
+REST API
+Your domain's API key is available in the Developers section of the Daily dashboard.
+
+Domain owners can view and regenerate your team's API key.
+
+Members do not have access to your team's API key.
+
+Need a staging key? Learn more here.
+
+If you're a member and you require access, request the key from a team member or request administrator privileges from one of your team's admins.
+
+HTTPS is required for all Daily REST API requests.
+Authentication
+The Daily API uses API keys to authenticate requests.
+
+Almost all of the Daily API endpoints require that you include your API key in the Authorization header of your HTTPS request. For example:
+
+cURL
+Copy to clipboard
+curl --request GET \
+  --url https://api.daily.co/v1/rooms \
+  --header "Authorization: Bearer DAILY_API_KEY"
+
+Each API key is tied to a specific Daily domain.
+
+You should keep your API key secret. Never use the API key in client-side web browser code, for example.
+
+If an API call requires authentication, but no Authorization: Bearer header is present, we return an HTTP 400 error, with a body that includes an error parameter set to the string "authorization-header-error".
+
+If an API call requires authentication but the API key provided in the authorization header isn't valid, we return an HTTP 401 error, with a body that includes an error parameter set to the string "authentication-error".
+
+Rate limits
+Daily uses rate limiting to ensure the stability of the API across all of Daily's users. If you make lots of requests in succession, you may see 429 status codes returned by the API. Daily has two levels of rate limiting, each of which affect different endpoints.
+
+For most of our API endpoints, you can expect a limit of 20 requests per second, or 100 requests over a 5 second window.
+For the DELETE /rooms/:name and GET /recordings endpoints, you can expect about 2 requests per second, or 50 requests over a 30 second window.
+For starting a Recording, Livestreaming, PSTN, and SIP call, you can expect about 1 requests per second, or 5 requests over a 5 second window. For example, you can start a recording and initiate a PSTN dial-out immediately when the first participant joins a call, so it is possible to do a burst of requests as long as you are within the 5 requests in that 5 second window.
+You should attempt to retry 429 status codes in order to handle limiting gracefully. A good technique to apply here is to retry your requests with an exponential backoff schedule to help reduce your request volume over each window. Many HTTP clients offer this as a configuration option out of the box.
+
+In order to ensure stability and prevent abuse, we may alter the stated limits. Contact support if you need to increase your API limits.
+
+Errors
+The Daily API endpoints all return errors, wherever possible, as HTTP 4xx or 5xx error responses.
+
+Error response bodies generally includes two parameters: error, and info. The error parameter is a string indicating an error type, and the info parameter fills in a bit more human readable information, wherever available.
+
+The error types are stable; we don't expect to change them (though we'll likely add new error types over time.) But please treat the info strings only as additional information you use while developing and debugging. Content of the info parameter is not fixed and may change as we improve error feedback.
+
+JSON
+Copy to clipboard
+// Example: an error response body
+{
+  "error": "invalid-request-error",
+  "info": "bad Authorization header format"
+}
+
+HTTP status codes
+HTTP status code	Response	Interpretation
+200	OK	Everything worked as expected.
+400	Bad Request	The operation could not be performed as requested.
+401	Unauthorized	The provided API key was not valid.
+403	Forbidden	The API key was valid but the requested resource was forbidden.
+404	Not Found	The requested REST resource did not exist.
+429	Too Many Requests	Too many requests were sent in too short a period of time. Please throttle your request rate.
+5xx	Server Errors	Something unexpected happened on the server side. Please ping us to report this, if possible.
+Error types
+Error string	Description
+authentication-error	The API key is not valid.
+authorization-header-error	The Authorization header is missing or badly formatted.
+forbidden-error	The API key is valid but the requested resource is forbidden.
+json-parsing-error	The JSON request body could not be parsed.
+invalid-request-error	The request could not be performed. More information is usually available in the info field of the response body. Typical causes are missing required parameters, bad parameter values, etc.
+rate-limit-error	Too many requests were sent in too short a period of time. Please throttle your request rate.
+server-error	Something unexpected went wrong.
+Pagination
+Fetching 100 results at a time
+The list rooms and list recordings API endpoints return a maximum of 100 data objects at one time, and accept pagination arguments in their query strings.
+
+All pagination arguments are optional. Without any pagination arguments, the list methods return up to 100 data objects, sorted in reverse chronological order by creation time. (In other words, by default, you just get back a list of your most recently created room or recording objects!)
+
+It's helpful to think of pagination arguments — as the name suggests — in terms of defining "pages" of results.
+
+The limit argument sets the size of the page (how many objects each page contains), and defaults to a value of 100.
+The starting_after argument sets the starting point of the page and is used to fetch "subsequent" pages of results – as if you were paging through a book from front to back.
+The ending_before argument is the opposite, and is used to fetch previous pages of results -- as if you were paging through a book from back to front.
+A special ending_before argument, OLDEST, is available to facilitate fetching pages of results "backwards," from oldest objects to newest.
+Note that the granularity for created_at timestamps is one second. The returned list order is stable, because id is the secondary sort field. But if you create multiple rooms within a 1-second window, the list order may not be precisely reverse-chronological.
+
+Pagination argument	Description
+limit	A limit on the number of objects to be returned. Maximum value is 100. Default value (if not supplied) is 100.
+starting_after	An object ID to be used as a pagination cursor. The first object returned will be the object immediately after the object this id. This argument is commonly used to fetch the "next" page of results.
+ending_before	The opposite of starting_after. The last page of returned results will be the object immediately preceding the object with this id. The special value OLDEST fetches the "last" page of results (the page containing the objects created longest ago).
+Examples
+cURL
+Copy to clipboard
+# list your five most recently created rooms
+curl -H "Content-Type: application/json" \
+     -H "Authorization: Bearer DAILY_API_KEY" \
+     https://api.daily.co/v1/rooms?limit=5
+
+ # data[0] is your most recently created room
+
+ # if you have at least five rooms,
+ # data[4] is your fifth-newest room
+
+cURL
+Copy to clipboard
+# list your five oldest rooms
+curl -H "Content-Type: application/json" \
+    -H "Authorization: Bearer DAILY_API_KEY" \
+    https://api.daily.co/v1/rooms?limit=5&ending_before=OLDEST
+
+# data[data.length-1] is your oldest room
+
+# if you have at least five rooms,
+# data[0] is your fifth-oldest room
+
+Pseudocode for fetching until there are no more results available
+Here's what code looks like that fetches and does something will all of your room objects. We've left error checking as an exercise for the reader.
+
+JavaScript
+Copy to clipboard
+// fetch all rooms// get first page of results
+let rooms = getPageOfRooms({
+  endpoint: 'https://api.daily.co/v1/rooms',
+});
+
+while (rooms.data.length > 0) {
+  // do something with each room object
+  for (var i = 0; i < rooms.data.length; i++) {
+    doSomeStuff(rooms.data[i]);
+  }
+
+  // fetch another page
+  rooms = getPageOfRooms({
+    endpoint:
+      'https://api.daily.co/v1/rooms?starting_after=' +
+      rooms.data[rooms.data.length - 1].id,
+  });
+}
+
+Built worldwide
+
+your-domain.daily.co
+Your Daily domain
+Your domain is your top-level object in the Daily API.
+
+You create a Daily domain when you sign up for a Daily account. Once you have a domain, you can create Daily room URLs to host video calls.
+
+JSON
+Copy to clipboard
+{
+  "domain_name": "your-domain",
+  "config": {
+    "hide_daily_branding": false,
+    "redirect_on_meeting_exit": "https://your-domain.co/vid-exit",
+    "hipaa": false,
+    "intercom_auto_record": false,
+    "lang": "en"
+  }
+}
+You can use the Daily REST API to retrieve information about your domain and set domain configuration options, like the default language of the rooms on your domain.
+
+More about Daily domains
+
+What is a Daily domain?
+
+Configuration
+enable_advanced_chat
+boolean
+Property that gives end users a richer chat experience. This includes:
+
+Emoji reactions to chat messages
+Emoji picker in the chat input form
+Ability to send a Giphy chat message
+⚠️ This flag only applies to Daily Prebuilt. It has no effect when building custom video applications with the Daily call object.
+
+Default: false
+enable_people_ui
+boolean
+Determines if Daily Prebuilt displays the People UI. When set to true, a People button in the call tray reveals a People tab in the call sidebar. The tab lists all participants, and next to each name indicates audio status and an option to pin the participant. When enable_people_ui is set to false, the button and tab are hidden.
+
+⚠️ Has no effect on custom calls built on the Daily call object.
+
+Default: true
+enable_cpu_warning_notifications
+boolean
+Determines if Daily Prebuilt displays CPU warning notifications. When set to true, snackbar notifications appear when high CPU usage is detected. When set to false, these notifications are hidden.
+
+⚠️ This flag only applies to Daily Prebuilt. It has no effect when building custom video applications with the Daily call object.
+
+Default: true
+enable_pip_ui
+boolean
+Sets whether rooms for this domain can use Daily Prebuilt's Picture in Picture controls. When set to true, an additional button will be available in Daily Prebuilt's UI to toggle the Picture in Picture feature.
+
+⚠️ This flag only applies to Daily Prebuilt. It has no effect when building custom video applications with the Daily call object.
+
+Default: false
+enable_emoji_reactions
+boolean
+Determines if Daily Prebuilt displays the Emoji Reactions UI. When set to true, a Reactions button appears in the call tray. This button allows users to select and send a reaction into the call. When set to false, the Reactions button is hidden and the feature is disabled.
+
+Usage: This feature is a good fit for meetings when a host or presenter would benefit from receiving nonverbal cues from the audience. It's also great to keep meetings fun.
+
+⚠️ This flag only applies to Daily Prebuilt. It has no effect when building custom video applications with the Daily call object.
+
+Default: false
+enable_hand_raising
+boolean
+Sets whether the participants in the room can use Daily Prebuilt's hand raising controls. When set to true, an additional button will be available in Daily Prebuilt's UI to toggle a hand raise.
+
+⚠️ This flag only applies to Daily Prebuilt. It has no effect when building custom video applications with the Daily call object.
+
+Default: false
+enable_prejoin_ui
+boolean
+Determines whether participants enter a waiting room with a camera, mic, and browser check before joining a call in any room under this domain.
+
+⚠️ You must be using Daily Prebuilt to use enable_prejoin_ui.
+
+Default: true
+enable_breakout_rooms
+boolean
+Sets whether rooms for this domain have Daily Prebuilt’s breakout rooms feature enabled. When set to true, an owner in a Prebuilt call can create breakout rooms to divide participants into smaller, private groups.
+
+⚠️ You must be using Daily Prebuilt to use enable_breakout_rooms.
+
+⚠️ This property is in beta.
+
+Default: false
+enable_live_captions_ui
+boolean
+Sets whether participants in a room see a closed captions button in their Daily Prebuilt call tray. When the closed caption button is clicked, closed captions are displayed locally.
+
+When set to true, a closed captions button appears in the call tray. When set to false, the closed captions button is hidden from the call tray.
+
+Note: Transcription must be enabled for the room or users must have permission to start transcription for this feature to be enabled. View the transcription guide for more details.
+
+⚠️ You must be using Daily Prebuilt to use enable_live_captions_ui.
+
+Default: false
+enable_network_ui
+boolean
+Determines whether the network button, and the network panel it reveals on click, appears across all rooms belonging to this domain.
+
+⚠️ You must be using Daily Prebuilt to use enable_network_ui.
+
+Default: false
+enable_noise_cancellation_ui
+boolean
+Determines whether Daily Prebuilt displays noise cancellation controls. When set to true, a participant can enable microphone noise cancellation during a Daily Prebuilt call. ⚠️ This flag only applies to Daily Prebuilt. It has no effect when building custom video applications with the Daily call object. To learn more about adding noise cancellation to a custom application, see the updateInputSettings() docs.
+
+Default: true
+enable_video_processing_ui
+boolean
+Determines whether Daily Prebuilt displays background blur controls. When set to true, a participant can enable blur during a Daily Prebuilt call.
+
+⚠️ This flag only applies to Daily Prebuilt. It has no effect when building custom video applications with the Daily call object.
+
+Default: true
+hide_daily_branding
+boolean
+Pay-as-you-go
+Whether "Powered by Daily" displays in the in-call UI.
+
+Default: false
+redirect_on_meeting_exit
+string
+(For meetings that open in a separate browser tab.) When a user clicks on the in-call menu bar's "leave meeting" button, the browser loads this URL. A query string that includes a parameter of the form recent-call=<domain>/<room> is appended to the URL. On mobile, you can redirect to a deep link to bring a user back into your app.
+
+hipaa
+boolean
+Paid add-on
+Email us at help@daily.co to turn on HIPAA. Learn more about our HIPAA compliance.
+
+Default: false
+intercom_auto_record
+boolean
+Whether to automatically start recording when an Intercom support agent joins an Intercom-created call. Please see our Intercom Messenger App page for more information.
+
+⚠️This method is read-only; please contact us if you'd like to enable intercom call auto-recording.
+
+lang
+string
+The default language for the video call UI, for all calls.
+
+If you set the language at this domain level, you can still override the setting for specific rooms in a room's configuration properties, or for a specific participant in a meeting token.
+
+You can also set the language dynamically using the front-end library setDailyLang() method.
+
+* Norwegian "no" and Russian "ru" are only available in the new Daily Prebuilt.
+
+Options: "da","de","en","es","fi","fr","it","jp","ka","nl","no","pt","pt-BR","pl","ru","sv","tr","user"
+Default: en
+meeting_join_hook
+string
+Sets a URL that will receive a webhook when a user joins a room.
+
+⚠️ In place of the meeting_join_hook, we recommend setting up a webhook and listening for the participant.joined event.
+
+Default: NULL
+geo
+string
+Daily uses signaling servers to manage all of the participants in a given call session. In an SFU/server mode call, the server will send and receive all audio and video from each participant. In a peer-to-peer call, each participant sends media directly to and from each other peer, but a signaling server still manages call state.
+
+Daily runs servers in several different AWS regions to minimize latency for users around the world. The job of 'picking' a call server is handled when the first participant joins a room. The first participant's browser connects to a call server using Amazon's Route 53 DNS resolution, which chooses a server in the region closest to them.
+
+This isn't always optimal. For example, if one person joins in London, and then ten more people join from Cape Town, the call will still be hosted out of eu-west-2 . The majority of the participants will have higher latency to the server than if one of them had joined first and the call was being hosted in af-south-1. In cases like this, you may want to configure your domain (or a specific room) to always choose a call server in a specific AWS region.
+
+Available regions:
+
+"af-south-1" (Cape Town)
+"ap-northeast-2" (Seoul)
+"ap-southeast-1" (Singapore)
+"ap-southeast-2" (Sydney)
+"ap-south-1" (Mumbai)
+"eu-central-1" (Frankfurt)
+"eu-west-2" (London)
+"sa-east-1" (São Paulo)
+"us-east-1" (N. Virginia)
+"us-west-2" (Oregon)
+Default: NULL
+rtmp_geo
+string
+Used to select the region where an RTMP stream should originate. In cases where RTMP streaming services aren't available in the desired region, we'll attempt to fall back to the default region based on the SFU being used for the meeting.
+
+Available regions:
+
+"us-west-2" (Oregon)
+"eu-central-1" (Frankfurt)
+"ap-south-1" (Mumbai)
+The default regions are grouped based on the SFU region like so:
+
+RTMP region "us-west-2" includes SFU regions: "us-west-2", "us-east-1", "sa-east-1"
+RTMP region "eu-central-1" includes SFU regions: "eu-central-1", "eu-west-2", "af-south-1"
+RTMP region "ap-south-1" includes SFU regions: "ap-southeast-1", "ap-southeast-2", "ap-northeast-2", "ap-south-1"
+Default: The closest available region to the SFU region used by the meeting.
+disable_rtmp_geo_fallback
+boolean
+Disable the fall back behavior of rtmp_geo. When rtmp_geo is set, we first try to connect to a media server in desired region. If a media server is not available in the desired region, we fall back to default region based on SFU's region. This property disables this automatic fall back. When this property is set, we will trigger a recording/streaming error event when media worker is unavailable. Also, the client should retry recording/streaming.
+
+Default: false
+enable_terse_logging
+boolean
+Reduces the volume of log messages. This feature should be enabled when there are more than 200 participants in a meeting to help improve performance.
+
+See our guides for supporting large experiences for additional instruction.
+
+Default: false
+enable_transcription_storage
+boolean
+Live transcriptions generated can be saved as WebVTT. This flag controls if transcription started with startTranscription() should be saved or not.
+
+Default: false
+transcription_bucket
+object
+Configures an S3 bucket in which to store transcriptions. See the S3 bucket guide for more information.
+
+bucket_name
+string
+The name of the Amazon S3 bucket to use for transcription storage.
+
+bucket_region
+string
+The region which the specified S3 bucket is located in.
+
+assume_role_arn
+string
+The Amazon Resource Name (ARN) of the role Daily should assume when storing the transcription in the specified bucket.
+
+allow_api_access
+boolean
+Whether the transcription should be accessible using Daily's API.
+
+recordings_template
+string
+Cloud recordings are stored in either Daily's S3 bucket or the customer's own S3 bucket. By default recordings are stored as {domain_name}/{room_name}/{epoch_time}. Sometimes, the use case may call for custom recording file names to be used (for example, if you'd like to enforce the presence of the .mp4 extension in the file name).
+
+recordings_template is made up of a replacement string with prefixes, suffixes, or both. The currently supported replacements are:
+
+epoch_time: The epoch time in milliseconds (mandatory)
+domain_name: Your Daily domain (optional)
+room_name: The name of the room which is getting recorded (optional)
+mtg_session_id: The ID of the meeting session which is getting recorded (optional)
+instance_id: The instance ID of the recording (optional)
+recording_id: The recording ID of the recording (optional)
+The restrictions for defining a recording template are as follows:
+
+The epoch_time tag is mandatory to ensure the recording file name is unique under all conditions
+The maximum size of the template is 1024 characters
+Each replacement parameter should be placed within a curly bracket (e.g., {domain_name})
+Only alphanumeric characters (0-9, A-Z, a-z) and ., /, -, _ are valid within the template
+.mp4 is the only valid extension
+Examples
+
+Example domain: "myDomain"
+Example room: "myRoom"
+Example 1:
+
+Template: myprefix-{domain_name}-{epoch_time}.mp4
+Resulting file name: myprefix-myDomain-1675842936274.mp4
+Example 2:
+
+Template: {room_name}/{instance_id}/{epoch_time}
+Resulting room name: myRoom/d529cd2f-fbcc-4fb7-b2c0-c4995b1162b6/1675842936274
+Default: {domain_name}/{room_name}/{epoch_time}.
+transcription_template
+string
+transcriptions can be stored in either Daily's S3 bucket or the customer's own S3 bucket. By default transcriptions are stored as {domain_name}/{room_name}/{epoch_time}.vtt. Sometimes, the use case may call for custom file path to be used (for example, if you'd like to map stored transcription to mtgSessionId).
+
+transcription_template is made up of a replacement string with prefixes, suffixes, or both. The currently supported replacements are:
+
+epoch_time: The epoch time in seconds (mandatory)
+domain_name: Your Daily domain (optional)
+room_name: The name of the room which is getting transcribed (optional)
+mtg_session_id: The ID of the meeting session which is getting transcribed (optional)
+instance_id: The instance ID of the transcription (optional)
+transcript_id: The transcript ID of the transcription (optional)
+The restrictions for defining a transcription template are as follows:
+
+The epoch_time tag is mandatory to ensure the transcription file name is unique under all conditions
+The maximum size of the template is 1024 characters
+Each replacement parameter should be placed within a curly bracket (e.g., {domain_name})
+Only alphanumeric characters (0-9, A-Z, a-z) and ., /, -, _ are valid within the template
+Examples
+
+Example domain: "myDomain"
+Example room: "myRoom"
+Example 1:
+
+Template: myprefix-{domain_name}-{epoch_time}.mp4
+Resulting file name: myprefix-myDomain-1675842936274.mp4
+Example 2:
+
+Template: {room_name}/{instance_id}/{epoch_time}
+Resulting room name: myRoom/d529cd2f-fbcc-4fb7-b2c0-c4995b1162b6/1675842936274
+Default: {domain_name}/{room_name}/{epoch_time}.vtt.
+enable_mesh_sfu
+boolean
+Configures a room to use multiple SFUs for a call's media. This feature enables calls to scale to large sizes and to reduce latency between participants. It is recommended specifically for interactive live streaming.
+
+See our guide for interactive live streaming for additional instruction.
+
+sfu_switchover
+number
+Dictates the participant count after which room topology automatically switches from Peer-to-Peer (P2P) to Selective Forwarding Unit (SFU) mode, or vice versa.
+
+For example, if sfu_switchover is set to 2 and the current network topology is P2P, the topology will switch to SFU mode when the third participant joins the call. If the current topology is SFU, it will switch to P2P mode when the participant count decreases from 2 to 1.
+
+We recommend specifying an integer value for this property except for cases where you would like the room to switch to SFU mode as soon as the first participant joins. In this case, set sfu_switchover to 0.5.
+
+See our guide about video call architecture for additional information.
+
+Default: 0.5
+enable_adaptive_simulcast
+boolean
+Configures a domain or room to use Daily Adaptive Bitrate. When enabled, along with configuring the client to allowAdaptiveLayers, the Daily client will continually adapt send settings to the current network conditions. allowAdaptiveLayers is true by default; if you haven't modified that setting, then setting enable_adaptive_simulcast to true will enable Daily Adaptive Bitrate for 1:1 calls.
+
+Default: true
+enforce_unique_user_ids
+boolean
+Configures a domain or room to disallow multiple participants from having the same user_id. This feature can be enabled to prevent users from "sharing" meeting tokens. When enabled, a participant joining or reconnecting to a meeting will cause existing participants with the same user_id to be ejected.
+
+Default: false
+recordings_bucket
+object
+Configures an S3 bucket in which to store recordings. See the S3 bucket guide for more information.
+
+Properties:
+
+bucket_name
+string
+The name of the Amazon S3 bucket to use for recording storage.
+
+bucket_region
+string
+The region which the specified S3 bucket is located in.
+
+assume_role_arn
+string
+The Amazon Resource Name (ARN) of the role Daily should assume when storing the recording in the specified bucket.
+
+allow_api_access
+boolean
+Controls whether the recording will be accessible using Daily's API.
+
+allow_streaming_from_bucket
+boolean
+Specifies which Content-Disposition response header the recording link retrieved from the access-link REST API endpoint will have. If allow_streaming_from_bucket is false, the header will be Content-Dispostion: attachment. If allow_streaming_from_bucket is true, the header will be Content-Disposition: inline. To play the recording link directly in the browser or embed it in a video player, set this property to true.
+
+Default: false
+permissions
+object
+Specifies the initial default permissions for a non-meeting-owner participant joining a call.
+
+Each permission (i.e. each of the properties listed below) can be configured in the meeting token, the room, and/or the domain, in decreasing order of precedence.
+
+Participant admins (those with the 'participants' value in their canAdmin permission) can also change participants' permissions on the fly during a call using updateParticipant() or updateParticipants().
+
+hasPresence
+boolean
+Whether the participant appears as "present" in the call, i.e. whether they appear in participants().
+
+canSend
+boolean | array
+Which types of media a participant should be permitted to send.
+
+Can be:
+
+An Array containing any of 'video', 'audio', 'screenVideo', and 'screenAudio'
+true (meaning "all")
+false (meaning "none")
+canReceive
+object
+Which media the participant should be permitted to receive.
+
+See here for canReceive object format.
+
+canAdmin
+boolean | array
+Which admin tasks a participant is permitted to do.
+
+Can be:
+
+An array containing any of 'participants', 'streaming', or 'transcription'
+true (meaning "all")
+false (meaning "none")
+Default: { canSend: true, canReceive: { base: true }, hasPresence: true, canAdmin: false }
+batch_processor_bucket
+object
+Defines a custom S3 bucket where the batch processor will write its output
+
+enable_opus_fec
+boolean
+Enables the use of Opus in-band FEC (Forward Error Correction) when encoding audio to send, where possible. This can make audio quality more resilient to packet loss.
+
+pinless_dialin
+array
+Pay-as-you-go
+SIP Interconnect and Pinless Dialin,i.e., without entering a PIN code when dialling a phone number or directly calling a Daily SIP Interconnect address. In this case you dont need a SIP address associated to a particular Daily Room.
+
+When a call comes in to this phone number or to the sip interconnect address, it will trigger a webhook, where you'll need to create the Daily room and forward the call to the sipUri assocaited to the newly created room.
+
+The Pinless Dialin only works with purchased phone numbers, because the call is not intended for a particular Daily room. Read more details on our dosc-site.
+
+pin_dialin
+array
+Pay-as-you-go
+Dialin with a PIN code. This works with both the Global phone numbers and any number that you purchased. When a call comes into one of the phone numbers, the dialer must enter the PIN code. If the code is correct, the user will be connected to the Daily Room. Otherwise the incoming call will be disconnected if an incorrect PIN code is entered.
+
+GET
+/
+This is just about the simplest call you can make with our API, and is a good way to test whether your authorization header is working!
+
+
+Request
+
+200 OK
+
+400 bad request
+cURL
+Copy to clipboard
+
+curl -H "Content-Type: application/json" \
+    -H "Authorization: Bearer $TOKEN" \
+      https://api.daily.co/v1/
+        
+POST
+/
+A POST request to / sets top-level configuration options for your domain.
+
+The request returns a domain object on success. On failure, it returns an HTTP error.
+
+Body params
+properties
+enable_advanced_chat
+boolean
+Property that gives end users a richer chat experience. This includes:
+
+Emoji reactions to chat messages
+Emoji picker in the chat input form
+Ability to send a Giphy chat message
+⚠️ This flag only applies to Daily Prebuilt. It has no effect when building custom video applications with the Daily call object.
+
+Default: false
+enable_people_ui
+boolean
+Determines if Daily Prebuilt displays the People UI. When set to true, a People button in the call tray reveals a People tab in the call sidebar. The tab lists all participants, and next to each name indicates audio status and an option to pin the participant. When enable_people_ui is set to false, the button and tab are hidden.
+
+⚠️ Has no effect on custom calls built on the Daily call object.
+
+Default: true
+enable_cpu_warning_notifications
+boolean
+Determines if Daily Prebuilt displays CPU warning notifications. When set to true, snackbar notifications appear when high CPU usage is detected. When set to false, these notifications are hidden.
+
+⚠️ This flag only applies to Daily Prebuilt. It has no effect when building custom video applications with the Daily call object.
+
+Default: true
+enable_pip_ui
+boolean
+Sets whether rooms for this domain can use Daily Prebuilt's Picture in Picture controls. When set to true, an additional button will be available in Daily Prebuilt's UI to toggle the Picture in Picture feature.
+
+⚠️ This flag only applies to Daily Prebuilt. It has no effect when building custom video applications with the Daily call object.
+
+Default: false
+enable_emoji_reactions
+boolean
+Determines if Daily Prebuilt displays the Emoji Reactions UI. When set to true, a Reactions button appears in the call tray. This button allows users to select and send a reaction into the call. When set to false, the Reactions button is hidden and the feature is disabled.
+
+Usage: This feature is a good fit for meetings when a host or presenter would benefit from receiving nonverbal cues from the audience. It's also great to keep meetings fun.
+
+⚠️ This flag only applies to Daily Prebuilt. It has no effect when building custom video applications with the Daily call object.
+
+Default: false
+enable_hand_raising
+boolean
+Sets whether the participants in the room can use Daily Prebuilt's hand raising controls. When set to true, an additional button will be available in Daily Prebuilt's UI to toggle a hand raise.
+
+⚠️ This flag only applies to Daily Prebuilt. It has no effect when building custom video applications with the Daily call object.
+
+Default: false
+enable_prejoin_ui
+boolean
+Determines whether participants enter a waiting room with a camera, mic, and browser check before joining a call in any room under this domain.
+
+⚠️ You must be using Daily Prebuilt to use enable_prejoin_ui.
+
+Default: true
+enable_breakout_rooms
+boolean
+Sets whether rooms for this domain have Daily Prebuilt’s breakout rooms feature enabled. When set to true, an owner in a Prebuilt call can create breakout rooms to divide participants into smaller, private groups.
+
+⚠️ You must be using Daily Prebuilt to use enable_breakout_rooms.
+
+⚠️ This property is in beta.
+
+Default: false
+enable_live_captions_ui
+boolean
+Sets whether participants in a room see a closed captions button in their Daily Prebuilt call tray. When the closed caption button is clicked, closed captions are displayed locally.
+
+When set to true, a closed captions button appears in the call tray. When set to false, the closed captions button is hidden from the call tray.
+
+Note: Transcription must be enabled for the room or users must have permission to start transcription for this feature to be enabled. View the transcription guide for more details.
+
+⚠️ You must be using Daily Prebuilt to use enable_live_captions_ui.
+
+Default: false
+enable_network_ui
+boolean
+Determines whether the network button, and the network panel it reveals on click, appears across all rooms belonging to this domain.
+
+⚠️ You must be using Daily Prebuilt to use enable_network_ui.
+
+Default: false
+enable_noise_cancellation_ui
+boolean
+Determines whether Daily Prebuilt displays noise cancellation controls. When set to true, a participant can enable microphone noise cancellation during a Daily Prebuilt call. ⚠️ This flag only applies to Daily Prebuilt. It has no effect when building custom video applications with the Daily call object. To learn more about adding noise cancellation to a custom application, see the updateInputSettings() docs.
+
+Default: true
+enable_video_processing_ui
+boolean
+Determines whether Daily Prebuilt displays background blur controls. When set to true, a participant can enable blur during a Daily Prebuilt call.
+
+⚠️ This flag only applies to Daily Prebuilt. It has no effect when building custom video applications with the Daily call object.
+
+Default: true
+hide_daily_branding
+boolean
+Pay-as-you-go
+Whether "Powered by Daily" displays in the in-call UI.
+
+Default: false
+redirect_on_meeting_exit
+string
+(For meetings that open in a separate browser tab.) When a user clicks on the in-call menu bar's "leave meeting" button, the browser loads this URL. A query string that includes a parameter of the form recent-call=<domain>/<room> is appended to the URL. On mobile, you can redirect to a deep link to bring a user back into your app.
+
+hipaa
+boolean
+Paid add-on
+Email us at help@daily.co to turn on HIPAA. Learn more about our HIPAA compliance.
+
+Default: false
+intercom_auto_record
+boolean
+Whether to automatically start recording when an Intercom support agent joins an Intercom-created call. Please see our Intercom Messenger App page for more information.
+
+⚠️This method is read-only; please contact us if you'd like to enable intercom call auto-recording.
+
+lang
+string
+The default language for the video call UI, for all calls.
+
+If you set the language at this domain level, you can still override the setting for specific rooms in a room's configuration properties, or for a specific participant in a meeting token.
+
+You can also set the language dynamically using the front-end library setDailyLang() method.
+
+* Norwegian "no" and Russian "ru" are only available in the new Daily Prebuilt.
+
+Options: "da","de","en","es","fi","fr","it","jp","ka","nl","no","pt","pt-BR","pl","ru","sv","tr","user"
+Default: en
+meeting_join_hook
+string
+Sets a URL that will receive a webhook when a user joins a room.
+
+⚠️ In place of the meeting_join_hook, we recommend setting up a webhook and listening for the participant.joined event.
+
+Default: NULL
+geo
+string
+Daily uses signaling servers to manage all of the participants in a given call session. In an SFU/server mode call, the server will send and receive all audio and video from each participant. In a peer-to-peer call, each participant sends media directly to and from each other peer, but a signaling server still manages call state.
+
+Daily runs servers in several different AWS regions to minimize latency for users around the world. The job of 'picking' a call server is handled when the first participant joins a room. The first participant's browser connects to a call server using Amazon's Route 53 DNS resolution, which chooses a server in the region closest to them.
+
+This isn't always optimal. For example, if one person joins in London, and then ten more people join from Cape Town, the call will still be hosted out of eu-west-2 . The majority of the participants will have higher latency to the server than if one of them had joined first and the call was being hosted in af-south-1. In cases like this, you may want to configure your domain (or a specific room) to always choose a call server in a specific AWS region.
+
+Available regions:
+
+"af-south-1" (Cape Town)
+"ap-northeast-2" (Seoul)
+"ap-southeast-1" (Singapore)
+"ap-southeast-2" (Sydney)
+"ap-south-1" (Mumbai)
+"eu-central-1" (Frankfurt)
+"eu-west-2" (London)
+"sa-east-1" (São Paulo)
+"us-east-1" (N. Virginia)
+"us-west-2" (Oregon)
+Default: NULL
+rtmp_geo
+string
+Used to select the region where an RTMP stream should originate. In cases where RTMP streaming services aren't available in the desired region, we'll attempt to fall back to the default region based on the SFU being used for the meeting.
+
+Available regions:
+
+"us-west-2" (Oregon)
+"eu-central-1" (Frankfurt)
+"ap-south-1" (Mumbai)
+The default regions are grouped based on the SFU region like so:
+
+RTMP region "us-west-2" includes SFU regions: "us-west-2", "us-east-1", "sa-east-1"
+RTMP region "eu-central-1" includes SFU regions: "eu-central-1", "eu-west-2", "af-south-1"
+RTMP region "ap-south-1" includes SFU regions: "ap-southeast-1", "ap-southeast-2", "ap-northeast-2", "ap-south-1"
+Default: The closest available region to the SFU region used by the meeting.
+disable_rtmp_geo_fallback
+boolean
+Disable the fall back behavior of rtmp_geo. When rtmp_geo is set, we first try to connect to a media server in desired region. If a media server is not available in the desired region, we fall back to default region based on SFU's region. This property disables this automatic fall back. When this property is set, we will trigger a recording/streaming error event when media worker is unavailable. Also, the client should retry recording/streaming.
+
+Default: false
+enable_terse_logging
+boolean
+Reduces the volume of log messages. This feature should be enabled when there are more than 200 participants in a meeting to help improve performance.
+
+See our guides for supporting large experiences for additional instruction.
+
+Default: false
+enable_transcription_storage
+boolean
+Live transcriptions generated can be saved as WebVTT. This flag controls if transcription started with startTranscription() should be saved or not.
+
+Default: false
+transcription_bucket
+object
+Configures an S3 bucket in which to store transcriptions. See the S3 bucket guide for more information.
+
+bucket_name
+string
+The name of the Amazon S3 bucket to use for transcription storage.
+
+bucket_region
+string
+The region which the specified S3 bucket is located in.
+
+assume_role_arn
+string
+The Amazon Resource Name (ARN) of the role Daily should assume when storing the transcription in the specified bucket.
+
+allow_api_access
+boolean
+Whether the transcription should be accessible using Daily's API.
+
+recordings_template
+string
+Cloud recordings are stored in either Daily's S3 bucket or the customer's own S3 bucket. By default recordings are stored as {domain_name}/{room_name}/{epoch_time}. Sometimes, the use case may call for custom recording file names to be used (for example, if you'd like to enforce the presence of the .mp4 extension in the file name).
+
+recordings_template is made up of a replacement string with prefixes, suffixes, or both. The currently supported replacements are:
+
+epoch_time: The epoch time in milliseconds (mandatory)
+domain_name: Your Daily domain (optional)
+room_name: The name of the room which is getting recorded (optional)
+mtg_session_id: The ID of the meeting session which is getting recorded (optional)
+instance_id: The instance ID of the recording (optional)
+recording_id: The recording ID of the recording (optional)
+The restrictions for defining a recording template are as follows:
+
+The epoch_time tag is mandatory to ensure the recording file name is unique under all conditions
+The maximum size of the template is 1024 characters
+Each replacement parameter should be placed within a curly bracket (e.g., {domain_name})
+Only alphanumeric characters (0-9, A-Z, a-z) and ., /, -, _ are valid within the template
+.mp4 is the only valid extension
+Examples
+
+Example domain: "myDomain"
+Example room: "myRoom"
+Example 1:
+
+Template: myprefix-{domain_name}-{epoch_time}.mp4
+Resulting file name: myprefix-myDomain-1675842936274.mp4
+Example 2:
+
+Template: {room_name}/{instance_id}/{epoch_time}
+Resulting room name: myRoom/d529cd2f-fbcc-4fb7-b2c0-c4995b1162b6/1675842936274
+Default: {domain_name}/{room_name}/{epoch_time}.
+transcription_template
+string
+transcriptions can be stored in either Daily's S3 bucket or the customer's own S3 bucket. By default transcriptions are stored as {domain_name}/{room_name}/{epoch_time}.vtt. Sometimes, the use case may call for custom file path to be used (for example, if you'd like to map stored transcription to mtgSessionId).
+
+transcription_template is made up of a replacement string with prefixes, suffixes, or both. The currently supported replacements are:
+
+epoch_time: The epoch time in seconds (mandatory)
+domain_name: Your Daily domain (optional)
+room_name: The name of the room which is getting transcribed (optional)
+mtg_session_id: The ID of the meeting session which is getting transcribed (optional)
+instance_id: The instance ID of the transcription (optional)
+transcript_id: The transcript ID of the transcription (optional)
+The restrictions for defining a transcription template are as follows:
+
+The epoch_time tag is mandatory to ensure the transcription file name is unique under all conditions
+The maximum size of the template is 1024 characters
+Each replacement parameter should be placed within a curly bracket (e.g., {domain_name})
+Only alphanumeric characters (0-9, A-Z, a-z) and ., /, -, _ are valid within the template
+Examples
+
+Example domain: "myDomain"
+Example room: "myRoom"
+Example 1:
+
+Template: myprefix-{domain_name}-{epoch_time}.mp4
+Resulting file name: myprefix-myDomain-1675842936274.mp4
+Example 2:
+
+Template: {room_name}/{instance_id}/{epoch_time}
+Resulting room name: myRoom/d529cd2f-fbcc-4fb7-b2c0-c4995b1162b6/1675842936274
+Default: {domain_name}/{room_name}/{epoch_time}.vtt.
+enable_mesh_sfu
+boolean
+Configures a room to use multiple SFUs for a call's media. This feature enables calls to scale to large sizes and to reduce latency between participants. It is recommended specifically for interactive live streaming.
+
+See our guide for interactive live streaming for additional instruction.
+
+sfu_switchover
+number
+Dictates the participant count after which room topology automatically switches from Peer-to-Peer (P2P) to Selective Forwarding Unit (SFU) mode, or vice versa.
+
+For example, if sfu_switchover is set to 2 and the current network topology is P2P, the topology will switch to SFU mode when the third participant joins the call. If the current topology is SFU, it will switch to P2P mode when the participant count decreases from 2 to 1.
+
+We recommend specifying an integer value for this property except for cases where you would like the room to switch to SFU mode as soon as the first participant joins. In this case, set sfu_switchover to 0.5.
+
+See our guide about video call architecture for additional information.
+
+Default: 0.5
+enable_adaptive_simulcast
+boolean
+Configures a domain or room to use Daily Adaptive Bitrate. When enabled, along with configuring the client to allowAdaptiveLayers, the Daily client will continually adapt send settings to the current network conditions. allowAdaptiveLayers is true by default; if you haven't modified that setting, then setting enable_adaptive_simulcast to true will enable Daily Adaptive Bitrate for 1:1 calls.
+
+Default: true
+enforce_unique_user_ids
+boolean
+Configures a domain or room to disallow multiple participants from having the same user_id. This feature can be enabled to prevent users from "sharing" meeting tokens. When enabled, a participant joining or reconnecting to a meeting will cause existing participants with the same user_id to be ejected.
+
+Default: false
+recordings_bucket
+object
+Configures an S3 bucket in which to store recordings. See the S3 bucket guide for more information.
+
+Properties:
+
+bucket_name
+string
+The name of the Amazon S3 bucket to use for recording storage.
+
+bucket_region
+string
+The region which the specified S3 bucket is located in.
+
+assume_role_arn
+string
+The Amazon Resource Name (ARN) of the role Daily should assume when storing the recording in the specified bucket.
+
+allow_api_access
+boolean
+Controls whether the recording will be accessible using Daily's API.
+
+allow_streaming_from_bucket
+boolean
+Specifies which Content-Disposition response header the recording link retrieved from the access-link REST API endpoint will have. If allow_streaming_from_bucket is false, the header will be Content-Dispostion: attachment. If allow_streaming_from_bucket is true, the header will be Content-Disposition: inline. To play the recording link directly in the browser or embed it in a video player, set this property to true.
+
+Default: false
+permissions
+object
+Specifies the initial default permissions for a non-meeting-owner participant joining a call.
+
+Each permission (i.e. each of the properties listed below) can be configured in the meeting token, the room, and/or the domain, in decreasing order of precedence.
+
+Participant admins (those with the 'participants' value in their canAdmin permission) can also change participants' permissions on the fly during a call using updateParticipant() or updateParticipants().
+
+hasPresence
+boolean
+Whether the participant appears as "present" in the call, i.e. whether they appear in participants().
+
+canSend
+boolean | array
+Which types of media a participant should be permitted to send.
+
+Can be:
+
+An Array containing any of 'video', 'audio', 'screenVideo', and 'screenAudio'
+true (meaning "all")
+false (meaning "none")
+canReceive
+object
+Which media the participant should be permitted to receive.
+
+See here for canReceive object format.
+
+canAdmin
+boolean | array
+Which admin tasks a participant is permitted to do.
+
+Can be:
+
+An array containing any of 'participants', 'streaming', or 'transcription'
+true (meaning "all")
+false (meaning "none")
+Default: { canSend: true, canReceive: { base: true }, hasPresence: true, canAdmin: false }
+batch_processor_bucket
+object
+Defines a custom S3 bucket where the batch processor will write its output
+
+enable_opus_fec
+boolean
+Enables the use of Opus in-band FEC (Forward Error Correction) when encoding audio to send, where possible. This can make audio quality more resilient to packet loss.
+
+pinless_dialin
+array
+Pay-as-you-go
+SIP Interconnect and Pinless Dialin,i.e., without entering a PIN code when dialling a phone number or directly calling a Daily SIP Interconnect address. In this case you dont need a SIP address associated to a particular Daily Room.
+
+When a call comes in to this phone number or to the sip interconnect address, it will trigger a webhook, where you'll need to create the Daily room and forward the call to the sipUri assocaited to the newly created room.
+
+The Pinless Dialin only works with purchased phone numbers, because the call is not intended for a particular Daily room. Read more details on our dosc-site.
+
+pin_dialin
+array
+Pay-as-you-go
+Dialin with a PIN code. This works with both the Global phone numbers and any number that you purchased. When a call comes into one of the phone numbers, the dialer must enter the PIN code. If the code is correct, the user will be connected to the Daily Room. Otherwise the incoming call will be disconnected if an incorrect PIN code is entered.
+
+Example requests
+Set a domain property
+
+Request
+
+200 OK
+cURL
+Copy to clipboard
+
+curl -H "Content-Type: application/json" \
+    -H "Authorization: Bearer $TOKEN" \
+    -XPOST -d '{"properties":{"redirect_on_meeting_exit": "https://my-site.com/"}}' \
+    https://api.daily.co/v1/
+        
+Unset a domain property
+To unset any domain configuration property — in other words, to reset any property to its default value — set the property to null. For example:
+
+cURL
+Copy to clipboard
+curl -H "Content-Type: application/json" \
+     -H "Authorization: Bearer DAILY_API_KEY" \
+     -XPOST -d '{"properties": {"redirect_on_meeting_exit": null}}' \
+     https://api.daily.co/v1/
+
+rooms
+The "room" object
+A "room" represents a specific video call location and configuration. You can list, create, configure, and delete rooms with the Daily API.
+
+JSON
+Copy to clipboard
+{
+  "id": "5e3cf703-5547-47d6-a371-37b1f0b4427f",
+  "name": "hello",
+  "api_created": false,
+  "privacy": "public",
+  "url": "https://api-demo.daily.co/hello",
+  "created_at": "2019-01-25T23:49:42.000Z",
+  "config": {
+    "max_participants": 4,
+    "nbf": 1548547221,
+    "exp": 1548633621
+    "start_video_off": true,
+    "enable_recording": 'cloud',
+  }
+}
+
+A room contains a url property. A participant joins a Daily video call via a room URL.
+
+A room URL looks like this: https://<your-domain>.daily.co/<room-name>/.
+
+A participant joins a Daily video call by opening the room URL directly in a browser tab (recommended for testing only), or by accessing the link from an embedded iframe (Daily’s prebuilt UI) or within a custom app built on the Daily call object.
+
+Heads up!
+
+Hard-coding Daily room URLs is fine for testing locally, but a security liability in production. You'll want to generate room URLs server side.
+
+Tutorial: Deploying a Daily backend server instantly with Glitch and Node.js.
+
+Rooms can be created either manually in the Daily dashboard or by a POST to the /rooms API endpoint.
+
+You can specify configuration properties when you create the room. All rooms come with a few default settings, unless you configure them otherwise.
+
+By default, the privacy property is set to "public". Anyone who knows the room's name can join the room, and anybody with access to the URL can enter. This is often what you want. It's easy to create rooms that have unique, unguessable, names. But, you can also change a room's privacy setting and control who can join a room.
+
+More resources on room privacy
+
+Intro to room access control
+Add advanced security to video chats with the Daily API.
+By default, rooms are permanent and always available. To limit that access, you can set two fields to control when participants can join a meeting in a room. nbf stands for "not before". If the nbf configuration field is set, participants can’t connect to the room before that time. exp is short for "expires." If the exp configuration flag is set, participants are not able to connect to the room after that time.
+
+Note that nbf and exp only control whether users are allowed to join a meeting in a room. Users who are in a meeting when a room expires are not kicked out of the meeting, unless you set the eject_at_room_exp property.
+
+Rooms that have an exp in the past are not returned by the list rooms endpoint; they are zombies of a sort. An existing meeting can continue in the room, but from the perspective of most of the API, the room does not exist!
+
+If you ever need to kick everyone out of a room unexpectedly, you can delete the room. (You can always recreate a room with the same name, later.)
+
+Configuration
+You can configure Daily rooms with three different parameters: name, privacy, and a properties object.
+
+name
+name
+string
+Defaults to a randomly generated string A room name can include only the uppercase and lowercase ascii letters, numbers, dash and underscore. In other words, this regexp detects an invalid room name: /[^A-Za-z0-9_-]/.
+
+The room name cannot exceed 128 characters. You'll get an error if you try to create a room with a name that's too long.
+
+If you supply a name for the room, the room will (if possible) be created with that name. Otherwise a random room name — something like 'w2pp2cf4kltgFACPKXmX' — will be generated.
+
+Human-readable room names are great for lots of applications! The room's name is part of the room's URL, and anyone you send the URL to, or who opens the URL in a new browser tab, will see the name.
+
+If you don't care about having a human-readable room name, just don't supply a name parameter.
+
+privacy
+privacy
+string
+Determines who can access the room.
+Options: "public","private"
+Default: "public"
+More resources on room privacy
+
+An introduction to room access control
+Add advanced security to video chats with the Daily API
+Controlling who joins a meeting
+properties
+Most properties determine what features appear when using the Daily prebuilt UI.
+
+nbf
+integer
+"Not before". This is a unix timestamp (seconds since the epoch.) Users cannot join a meeting in this room before this time.
+
+exp
+integer
+"Expires". This is a unix timestamp (seconds since the epoch.) Users cannot join a meeting in this room after this time.
+
+More resources:
+
+Add advanced security to video chats with the Daily API
+max_participants
+integer
+Pay-as-you-go
+How many people are allowed in a room at the same time.
+
+⚠️ Contact us if you need to set the limit above 200.
+
+Default: 200
+enable_people_ui
+boolean
+Determines if Daily Prebuilt displays the People UI. When set to true, a People button in the call tray reveals a People tab in the call sidebar. The tab lists all participants, and next to each name indicates audio status and an option to pin the participant. When enable_people_ui is set to false, the button and tab are hidden.
+
+⚠️ Has no effect on custom calls built on the Daily call object.
+
+enable_cpu_warning_notifications
+boolean
+Determines if Daily Prebuilt displays CPU warning notifications. When set to true, snackbar notifications appear when high CPU usage is detected. When set to false, these notifications are hidden.
+
+⚠️ This flag only applies to Daily Prebuilt. It has no effect when building custom video applications with the Daily call object.
+
+enable_pip_ui
+boolean
+Sets whether the room can use Daily Prebuilt's Picture in Picture controls. When set to true, an additional button will be available in Daily Prebuilt's UI to toggle the Picture in Picture feature.
+
+⚠️ This flag only applies to Daily Prebuilt. It has no effect when building custom video applications with the Daily call object.
+
+enable_emoji_reactions
+boolean
+Determines if Daily Prebuilt displays the Emoji Reactions UI. When set to true, a Reactions button appears in the call tray. This button allows users to select and send a reaction into the call. When set to false, the Reactions button is hidden and the feature is disabled.
+
+Usage: This feature is a good fit for meetings when a host or presenter would benefit from receiving nonverbal cues from the audience. It's also great to keep meetings fun.
+
+⚠️ This flag only applies to Daily Prebuilt. It has no effect when building custom video applications with the Daily call object.
+
+enable_hand_raising
+boolean
+Sets whether the participants in the room can use Daily Prebuilt's hand raising controls. When set to true, an additional button will be available in Daily Prebuilt's UI to toggle a hand raise.
+
+⚠️ This flag only applies to Daily Prebuilt. It has no effect when building custom video applications with the Daily call object.
+
+enable_prejoin_ui
+boolean
+Determines whether participants enter a waiting room with a camera, mic, and browser check before joining a call.
+
+⚠️ You must be using Daily Prebuilt to use enable_prejoin_ui.
+
+enable_live_captions_ui
+boolean
+Sets whether participants in a room see a closed captions button in their Daily Prebuilt call tray. When the closed caption button is clicked, closed captions are displayed locally.
+
+When set to true, a closed captions button appears in the call tray. When set to false, the closed captions button is hidden from the call tray.
+
+Note: Transcription must be enabled for the room or users must have permission to start transcription for this feature to be enabled. View the transcription guide for more details.
+
+⚠️ You must be using Daily Prebuilt to use enable_live_captions_ui.
+
+enable_network_ui
+boolean
+Determines whether the network button, and the network panel it reveals on click, appears in this room.
+
+⚠️ You must be using Daily Prebuilt to use enable_network_ui.
+
+enable_noise_cancellation_ui
+boolean
+Determines whether Daily Prebuilt displays noise cancellation controls. When set to true, a participant can enable microphone noise cancellation during a Daily Prebuilt call. ⚠️ This flag only applies to Daily Prebuilt. It has no effect when building custom video applications with the Daily call object. To learn more about adding noise cancellation to a custom application, see the updateInputSettings() docs.
+
+enable_breakout_rooms
+boolean
+Sets whether Daily Prebuilt’s breakout rooms feature is enabled. When set to true, an owner in a Prebuilt call can create breakout rooms to divide participants into smaller, private groups.
+
+⚠️ You must be using Daily Prebuilt to use enable_breakout_rooms.
+
+⚠️ This property is in beta.
+
+enable_knocking
+boolean
+Turns on a lobby experience for private rooms. A participant without a corresponding meeting token can request to be admitted to the meeting with a "knock", and wait for the meeting owner to admit them.
+
+enable_screenshare
+boolean
+Sets whether users in a room can screen share during a session. This property cannot be changed after a session starts. For dynamic control over permissions, use the updateParticipant() method to control user permissions.
+
+Default: true
+enable_video_processing_ui
+boolean
+Determines whether Daily Prebuilt displays background blur controls. When set to true, a participant can enable blur during a Daily Prebuilt call.
+
+⚠️ This flag only applies to Daily Prebuilt. It has no effect when building custom video applications with the Daily call object.
+
+Default: true
+enable_chat
+boolean
+This property is one of multiple ways to add chat to Daily video calls.
+
+Default: false
+enable_shared_chat_history
+boolean
+When enabled, newly joined participants in Prebuilt calls will request chat history from remote peers, in order to view chat messages from before they joined.
+
+Default: true
+start_video_off
+boolean
+Disable the default behavior of automatically turning on a participant's camera on a direct join() (i.e. without startCamera() first).
+
+Default: false
+start_audio_off
+boolean
+Disable the default behavior of automatically turning on a participant's microphone on a direct join() (i.e. without startCamera() first).
+
+Default: false
+enable_recording
+string
+Jump to recording docs.
+
+Options: "cloud","cloud-audio-only","local","raw-tracks","<not set>"
+Default: <not set>
+eject_at_room_exp
+boolean
+If there's a meeting going on at room exp time, end the meeting by kicking everyone out. This behavior can be overridden by setting eject properties of a meeting token.
+
+Default: false
+eject_after_elapsed
+integer
+Eject a meeting participant this many seconds after the participant joins the meeting. You can use this is a default length limit to prevent long meetings. This can be overridden by setting eject properties of a meeting token.
+
+enable_advanced_chat
+boolean
+Property that gives end users a richer chat experience. This includes:
+
+Emoji reactions to chat messages
+Emoji picker in the chat input form
+Ability to send a Giphy chat message
+⚠️ This flag only applies to Daily Prebuilt. It has no effect when building custom video applications with the Daily call object.
+
+Default: false
+enable_hidden_participants
+boolean
+When enabled, non-owner users join a meeting with a hidden presence, meaning they won't appear as a named participant in the meeting and have no participant events associated to them. Additionally, these participants can only receive media tracks from owner participants.
+
+Hidden participants can be tracked using the participantCounts() method. Hidden participants do not have entries in the participants() method return value.
+
+When used with Daily Prebuilt, hidden participants are included in the participant count available in the UI; however, are not included in the People panel and can only read chat messages.
+
+This property should be used to support hosting large meetings. See our guide on interactive live streaming for additional instruction.
+
+Default: false
+enable_mesh_sfu
+boolean
+Configures a room to use multiple SFUs for a call's media. This feature enables calls to scale to large sizes and to reduce latency between participants. It is recommended specifically for interactive live streaming.
+
+See our guide for interactive live streaming for additional instruction.
+
+sfu_switchover
+number
+Dictates the participant count after which room topology automatically switches from Peer-to-Peer (P2P) to Selective Forwarding Unit (SFU) mode, or vice versa.
+
+For example, if sfu_switchover is set to 2 and the current network topology is P2P, the topology will switch to SFU mode when the third participant joins the call. If the current topology is SFU, it will switch to P2P mode when the participant count decreases from 2 to 1.
+
+We recommend specifying an integer value for this property except for cases where you would like the room to switch to SFU mode as soon as the first participant joins. In this case, set sfu_switchover to 0.5.
+
+See our guide about video call architecture for additional information.
+
+Default: 0.5
+enable_adaptive_simulcast
+boolean
+Configures a domain or room to use Daily Adaptive Bitrate. When enabled, along with configuring the client to allowAdaptiveLayers, the Daily client will continually adapt send settings to the current network conditions. allowAdaptiveLayers is true by default; if you haven't modified that setting, then setting enable_adaptive_simulcast to true will enable Daily Adaptive Bitrate for 1:1 calls.
+
+Default: true
+enable_multiparty_adaptive_simulcast
+boolean
+Configures a domain or room to use Daily Adaptive Bitrate. When enabled, along with configuring the client to allowAdaptiveLayers, the Daily client will continually adapt send settings to the current network conditions. allowAdaptiveLayers is true by default; if you haven't modified that setting, then setting enable_multiparty_adaptive_simulcast to true will enable Daily Adaptive Bitrate for multi-party calls. To use this feature, enable_adaptive_simulcast must also be set to true.
+
+Default: false
+enforce_unique_user_ids
+boolean
+Configures a domain or room to disallow multiple participants from having the same user_id. This feature can be enabled to prevent users from "sharing" meeting tokens. When enabled, a participant joining or reconnecting to a meeting will cause existing participants with the same user_id to be ejected.
+
+Default: false
+experimental_optimize_large_calls
+boolean
+Enables Daily Prebuilt to support group calls of over 1,000 participants.
+
+When set to true, Daily Prebuilt will:
+
+Automatically mute the local user on joining
+Update grid view to show a maximum of 12 users in the grid at a time
+Allow only 16 users to be unmuted at the same time. When more than 16 users are unmuted, the oldest active speaker will be automatically muted.
+See our guide on large real-time calls for additional instruction.
+
+⚠️ This flag only applies to Daily Prebuilt. It has no effect when building custom video applications with the Daily call object.
+
+lang
+string
+The default language of the Daily prebuilt video call UI, for this room.
+
+Setting the language at the room level will override any domain-level language settings you have.
+
+Read more about changing prebuilt UI language settings.
+
+* Norwegian "no" and Russian "ru" are only available in the new Daily Prebuilt.
+
+Options: "da","de","en","es","fi","fr","it","jp","ka","nl","no","pt","pt-BR","pl","ru","sv","tr","user"
+Default: en
+meeting_join_hook
+string
+Sets a URL that will receive a webhook when a user joins a room. Default is NULL. Character limit for webhook URL is 255.
+
+⚠️ In place of the meeting_join_hook, we recommend setting up a webhook and listening for the participant.joined event.
+
+geo
+string
+Daily uses signaling servers to manage all of the participants in a given call session. In an SFU/server mode call, the server will send and receive all audio and video from each participant. In a peer-to-peer call, each participant sends media directly to and from each other peer, but a signaling server still manages call state.
+
+Daily runs servers in several different AWS regions to minimize latency for users around the world. The job of 'picking' a call server is handled when the first participant joins a room. The first participant's browser connects to a call server using Amazon's Route 53 DNS resolution, which chooses a server in the region closest to them.
+
+This isn't always optimal. For example, if one person joins in London, and then ten more people join from Cape Town, the call will still be hosted out of eu-west-2 . The majority of the participants will have higher latency to the server than if one of them had joined first and the call was being hosted in af-south-1. In cases like this, you may want to configure your domain (or a specific room) to always choose a call server in a specific AWS region.
+
+Available regions:
+
+"af-south-1" (Cape Town)
+"ap-northeast-2" (Seoul)
+"ap-southeast-1" (Singapore)
+"ap-southeast-2" (Sydney)
+"ap-south-1" (Mumbai)
+"eu-central-1" (Frankfurt)
+"eu-west-2" (London)
+"sa-east-1" (São Paulo)
+"us-east-1" (N. Virginia)
+"us-west-2" (Oregon)
+Default: NULL
+rtmp_geo
+string
+Used to select the region where an RTMP stream should originate. In cases where RTMP streaming services aren't available in the desired region, we'll attempt to fall back to the default region based on the SFU being used for the meeting.
+
+Available regions:
+
+"us-west-2" (Oregon)
+"eu-central-1" (Frankfurt)
+"ap-south-1" (Mumbai)
+The default regions are grouped based on the SFU region like so:
+
+RTMP region "us-west-2" includes SFU regions: "us-west-2", "us-east-1", "sa-east-1"
+RTMP region "eu-central-1" includes SFU regions: "eu-central-1", "eu-west-2", "af-south-1"
+RTMP region "ap-south-1" includes SFU regions: "ap-southeast-1", "ap-southeast-2", "ap-northeast-2", "ap-south-1"
+Default: The closest available region to the SFU region used by the meeting.
+disable_rtmp_geo_fallback
+boolean
+Disable the fall back behavior of rtmp_geo. When rtmp_geo is set, we first try to connect to a media server in desired region. If a media server is not available in the desired region, we fall back to default region based on SFU's region. This property disables this automatic fall back. When this property is set, we will trigger a recording/streaming error event when media worker is unavailable. Also, the client should retry recording/streaming.
+
+Default: false
+recordings_bucket
+object
+Configures an S3 bucket in which to store recordings. See the S3 bucket guide for more information.
+
+Properties:
+
+bucket_name
+string
+The name of the Amazon S3 bucket to use for recording storage.
+
+bucket_region
+string
+The region which the specified S3 bucket is located in.
+
+assume_role_arn
+string
+The Amazon Resource Name (ARN) of the role Daily should assume when storing the recording in the specified bucket.
+
+allow_api_access
+boolean
+Controls whether the recording will be accessible using Daily's API.
+
+allow_streaming_from_bucket
+boolean
+Specifies which Content-Disposition response header the recording link retrieved from the access-link REST API endpoint will have. If allow_streaming_from_bucket is false, the header will be Content-Dispostion: attachment. If allow_streaming_from_bucket is true, the header will be Content-Disposition: inline. To play the recording link directly in the browser or embed it in a video player, set this property to true.
+
+Default: false
+enable_terse_logging
+boolean
+Reduces the volume of log messages. This feature should be enabled when there are more than 200 participants in a meeting to help improve performance.
+
+See our guides for supporting large experiences for additional instruction.
+
+Default: false
+auto_transcription_settings
+object
+Pay-as-you-go
+Options to use when auto_start_transcription is true. See startTranscription() for available options.
+
+enable_transcription_storage
+boolean
+Live transcriptions generated can be saved as WebVTT. This flag controls if transcription started with startTranscription() should be saved or not.
+
+Default: false
+transcription_bucket
+object
+Configures an S3 bucket in which to store transcriptions. See the S3 bucket guide for more information.
+
+bucket_name
+string
+The name of the Amazon S3 bucket to use for transcription storage.
+
+bucket_region
+string
+The region which the specified S3 bucket is located in.
+
+assume_role_arn
+string
+The Amazon Resource Name (ARN) of the role Daily should assume when storing the transcription in the specified bucket.
+
+allow_api_access
+boolean
+Whether the transcription should be accessible using Daily's API.
+
+recordings_template
+string
+Cloud recordings are stored in either Daily's S3 bucket or the customer's own S3 bucket. By default recordings are stored as {domain_name}/{room_name}/{epoch_time}. Sometimes, the use case may call for custom recording file names to be used (for example, if you'd like to enforce the presence of the .mp4 extension in the file name).
+
+recordings_template is made up of a replacement string with prefixes, suffixes, or both. The currently supported replacements are:
+
+epoch_time: The epoch time in milliseconds (mandatory)
+domain_name: Your Daily domain (optional)
+room_name: The name of the room which is getting recorded (optional)
+mtg_session_id: The ID of the meeting session which is getting recorded (optional)
+instance_id: The instance ID of the recording (optional)
+recording_id: The recording ID of the recording (optional)
+The restrictions for defining a recording template are as follows:
+
+The epoch_time tag is mandatory to ensure the recording file name is unique under all conditions
+The maximum size of the template is 1024 characters
+Each replacement parameter should be placed within a curly bracket (e.g., {domain_name})
+Only alphanumeric characters (0-9, A-Z, a-z) and ., /, -, _ are valid within the template
+.mp4 is the only valid extension
+Examples
+
+Example domain: "myDomain"
+Example room: "myRoom"
+Example 1:
+
+Template: myprefix-{domain_name}-{epoch_time}.mp4
+Resulting file name: myprefix-myDomain-1675842936274.mp4
+Example 2:
+
+Template: {room_name}/{instance_id}/{epoch_time}
+Resulting room name: myRoom/d529cd2f-fbcc-4fb7-b2c0-c4995b1162b6/1675842936274
+Default: {domain_name}/{room_name}/{epoch_time}.
+transcription_template
+string
+transcriptions can be stored in either Daily's S3 bucket or the customer's own S3 bucket. By default transcriptions are stored as {domain_name}/{room_name}/{epoch_time}.vtt. Sometimes, the use case may call for custom file path to be used (for example, if you'd like to map stored transcription to mtgSessionId).
+
+transcription_template is made up of a replacement string with prefixes, suffixes, or both. The currently supported replacements are:
+
+epoch_time: The epoch time in seconds (mandatory)
+domain_name: Your Daily domain (optional)
+room_name: The name of the room which is getting transcribed (optional)
+mtg_session_id: The ID of the meeting session which is getting transcribed (optional)
+instance_id: The instance ID of the transcription (optional)
+transcript_id: The transcript ID of the transcription (optional)
+The restrictions for defining a transcription template are as follows:
+
+The epoch_time tag is mandatory to ensure the transcription file name is unique under all conditions
+The maximum size of the template is 1024 characters
+Each replacement parameter should be placed within a curly bracket (e.g., {domain_name})
+Only alphanumeric characters (0-9, A-Z, a-z) and ., /, -, _ are valid within the template
+Examples
+
+Example domain: "myDomain"
+Example room: "myRoom"
+Example 1:
+
+Template: myprefix-{domain_name}-{epoch_time}.mp4
+Resulting file name: myprefix-myDomain-1675842936274.mp4
+Example 2:
+
+Template: {room_name}/{instance_id}/{epoch_time}
+Resulting room name: myRoom/d529cd2f-fbcc-4fb7-b2c0-c4995b1162b6/1675842936274
+Default: {domain_name}/{room_name}/{epoch_time}.vtt.
+enable_dialout
+boolean
+Allow dialout API from the room.
+
+Default: false
+dialout_config
+object
+Allow configuring dialout behaviour.
+
+allow_room_start
+boolean
+Setting this to true allows starting the room and initiating the dial-out even though there is no user present in the room. By default, initiating a dial-out via the REST API fails when the corresponding room is empty (without any participant).
+
+Default: false
+dialout_geo
+string
+The region where SFU is selected to start the room. default is taken from room geo else from domain geo and if both are not defined us-west-2 is take as default.
+
+max_idle_timeout_sec
+number
+Number of seconds where dialout user can be alone in the room. dialout user can start the room and can remain in the room alone waiting for other participant for this duration, also when all the web users leave the room, room is automatically closed, this property allows dialout user to remain in room after all web users leave the room.
+
+Default: 0
+streaming_endpoints
+array
+An array of stream endpoint configuration objects, which allows configurations to be pre-defined without having to pass them into startLiveStreaming() at runtime. For example, an RTMP endpoint can be set up for YouTube as a streaming_endpoints configuration along with another configuration for HLS storage.
+
+HLS output can only be stored on a customer's S3, not in Daily's storage infrastructure. The stream configuration defines which S3 bucket to store the HLS output. (See the S3 bucket guide for more information.)
+
+Example:
+
+JSON
+Copy to clipboard
+
+{
+  "properties": {
+    // ... add additional room properties here
+    "streaming_endpoints": [
+      {
+        "name": "rtmp_youtube",
+        "type": "rtmp",
+        "rtmp_config": {
+          "url": "rtmps://exampleYouTubeServer.com:443/stream"
+        }
+      },
+
+      {
+        "name": "rtmp_ivs",
+        "type": "rtmp",
+        "rtmp_config": {
+          "url": "rtmps://811111111111.global-contribute.live-video.net:443/app/"
+        }
+      },
+
+      {
+        "name": "hls_akamai",
+        "type": "hls",
+        "hls_config": {
+        "save_hls_recording": true/false,
+          "storage": {
+            "bucket_name": "daily-hls-streams",
+            "bucket_region": "us-west-2",
+            "assume_role_arn": "arn:aws:iam::999999999999:role/DailyS3AccessRole",
+            "path_template": "testHarness/{live_streaming_id}/{instance_id}"
+          },
+          "variant" : [
+              {
+                "width": 1920,
+                "height": 1080,
+                "fps": 30,
+                "bitrate": 3500,
+                "iframe_only": false
+              },
+              {
+                "width": 1280,
+                "height": 720,
+                "fps": 30,
+                "bitrate": 2500,
+                "iframe_only": false
+              },
+              {
+                "width": 640,
+                "height": 360,
+                "fps": 30,
+                "bitrate": 780,
+                "iframe_only": true
+              }
+          ]
+        }
+      }
+    ]
+  }
+}
+
+To reset the streaming_endpoints property, pass null instead of an array.
+
+When calling startLiveStreaming(), the pre-defined streaming_endpoints name can be used:
+
+JavaScript
+Copy to clipboard
+await callObject.startLiveStreaming({
+  endpoints: [{"endpoint":"rtmp_youtube"},{"endpoint":"rtmp_fb"}],
+  width: 1280,
+  height: 720,
+});
+
+Properties:
+
+permissions
+object
+Specifies the initial default permissions for a non-meeting-owner participant joining a call.
+
+Each permission (i.e. each of the properties listed below) can be configured in the meeting token, the room, and/or the domain, in decreasing order of precedence.
+
+Participant admins (those with the 'participants' value in their canAdmin permission) can also change participants' permissions on the fly during a call using updateParticipant() or updateParticipants().
+
+hasPresence
+boolean
+Whether the participant appears as "present" in the call, i.e. whether they appear in participants().
+
+canSend
+boolean | array
+Which types of media a participant should be permitted to send.
+
+Can be:
+
+An Array containing any of 'video', 'audio', 'screenVideo', and 'screenAudio'
+true (meaning "all")
+false (meaning "none")
+canReceive
+object
+Which media the participant should be permitted to receive.
+
+See here for canReceive object format.
+
+canAdmin
+boolean | array
+Which admin tasks a participant is permitted to do.
+
+Can be:
+
+An array containing any of 'participants', 'streaming', or 'transcription'
+true (meaning "all")
+false (meaning "none")
+Default: <not set>
+
+/rooms
+A GET request to /rooms returns a list of rooms in your domain.
+
+Rooms are returned sorted by created_at_time in reverse chronological order (your most recent room comes first; oldest latest).
+
+Each call to this endpoint fetches a maximum of 100 room objects.
+
+The response body consists of two fields: total_count and data.
+
+The total_count field is the total number of rooms in the domain. The count includes rooms outside the scope of the request, e.g. if you’ve created +100 rooms, exceeding the request limit, or if you’ve provided started_before or ending_before arguments.
+
+The data field is a list of room objects.
+
+Query params
+limit
+int32
+Sets the number of rooms listed
+
+ending_before
+string
+Returns room objects created before a provided room id
+
+starting_after
+string
+Returns room objects created after a provided room id
+
+Example request
+
+Request
+
+200 OK
+
+400 bad request
+cURL
+Copy to clipboard
+
+curl -H "Content-Type: application/json" \
+     -H "Authorization: Bearer $TOKEN" \
+     https://api.daily.co/v1/rooms?limit=5
+        
+When a room object is returned by an API call, only configuration options that differ from the defaults are included in the config struct.
+
+Further reading
+
+Room configuration
+How to use the limit, ending_before, and starting_after query parameters
+
+/rooms
+A POST request to /rooms creates a new room.
+
+If the room is created, a room object is returned. So you can, for example, create a room, then immediately grab the room url from the API response and use it in your user interface. If you don't set privacy configuration parameters when you create the room, you can always set/change them later.
+
+The config part of the room object includes only configuration parameters that differ from room configuration defaults.
+
+If the room is not created, you'll get back an HTTP error, with information about the error in the HTTP response body.
+
+Body params
+A POST request has three optional body parameters: name, privacy, and a properties object.
+
+name
+name
+string
+Defaults to a randomly generated string. A room name can include only the uppercase and lowercase ascii letters, numbers, dash and underscore. In other words, this regexp detects an invalid room name: /[^A-Za-z0-9_-]/.
+
+The room name cannot exceed 128 characters. You'll get an error if you try to create a room with a name that's too long.
+
+privacy
+privacy
+string
+Determines who can access the room.
+Options: "public","private"
+Default: "public"
+properties
+nbf
+integer
+"Not before". This is a unix timestamp (seconds since the epoch.) Users cannot join a meeting in this room before this time.
+
+exp
+integer
+"Expires". This is a unix timestamp (seconds since the epoch.) Users cannot join a meeting in this room after this time.
+
+More resources:
+
+Add advanced security to video chats with the Daily API
+max_participants
+integer
+Pay-as-you-go
+How many people are allowed in a room at the same time.
+
+⚠️ Contact us if you need to set the limit above 200.
+
+Default: 200
+enable_people_ui
+boolean
+Determines if Daily Prebuilt displays the People UI. When set to true, a People button in the call tray reveals a People tab in the call sidebar. The tab lists all participants, and next to each name indicates audio status and an option to pin the participant. When enable_people_ui is set to false, the button and tab are hidden.
+
+⚠️ Has no effect on custom calls built on the Daily call object.
+
+enable_cpu_warning_notifications
+boolean
+Determines if Daily Prebuilt displays CPU warning notifications. When set to true, snackbar notifications appear when high CPU usage is detected. When set to false, these notifications are hidden.
+
+⚠️ This flag only applies to Daily Prebuilt. It has no effect when building custom video applications with the Daily call object.
+
+enable_pip_ui
+boolean
+Sets whether the room can use Daily Prebuilt's Picture in Picture controls. When set to true, an additional button will be available in Daily Prebuilt's UI to toggle the Picture in Picture feature.
+
+⚠️ This flag only applies to Daily Prebuilt. It has no effect when building custom video applications with the Daily call object.
+
+enable_emoji_reactions
+boolean
+Determines if Daily Prebuilt displays the Emoji Reactions UI. When set to true, a Reactions button appears in the call tray. This button allows users to select and send a reaction into the call. When set to false, the Reactions button is hidden and the feature is disabled.
+
+Usage: This feature is a good fit for meetings when a host or presenter would benefit from receiving nonverbal cues from the audience. It's also great to keep meetings fun.
+
+⚠️ This flag only applies to Daily Prebuilt. It has no effect when building custom video applications with the Daily call object.
+
+enable_hand_raising
+boolean
+Sets whether the participants in the room can use Daily Prebuilt's hand raising controls. When set to true, an additional button will be available in Daily Prebuilt's UI to toggle a hand raise.
+
+⚠️ This flag only applies to Daily Prebuilt. It has no effect when building custom video applications with the Daily call object.
+
+enable_prejoin_ui
+boolean
+Determines whether participants enter a waiting room with a camera, mic, and browser check before joining a call.
+
+⚠️ You must be using Daily Prebuilt to use enable_prejoin_ui.
+
+enable_live_captions_ui
+boolean
+Sets whether participants in a room see a closed captions button in their Daily Prebuilt call tray. When the closed caption button is clicked, closed captions are displayed locally.
+
+When set to true, a closed captions button appears in the call tray. When set to false, the closed captions button is hidden from the call tray.
+
+Note: Transcription must be enabled for the room or users must have permission to start transcription for this feature to be enabled. View the transcription guide for more details.
+
+⚠️ You must be using Daily Prebuilt to use enable_live_captions_ui.
+
+enable_network_ui
+boolean
+Determines whether the network button, and the network panel it reveals on click, appears in this room.
+
+⚠️ You must be using Daily Prebuilt to use enable_network_ui.
+
+enable_noise_cancellation_ui
+boolean
+Determines whether Daily Prebuilt displays noise cancellation controls. When set to true, a participant can enable microphone noise cancellation during a Daily Prebuilt call. ⚠️ This flag only applies to Daily Prebuilt. It has no effect when building custom video applications with the Daily call object. To learn more about adding noise cancellation to a custom application, see the updateInputSettings() docs.
+
+enable_breakout_rooms
+boolean
+Sets whether Daily Prebuilt’s breakout rooms feature is enabled. When set to true, an owner in a Prebuilt call can create breakout rooms to divide participants into smaller, private groups.
+
+⚠️ You must be using Daily Prebuilt to use enable_breakout_rooms.
+
+⚠️ This property is in beta.
+
+enable_knocking
+boolean
+Turns on a lobby experience for private rooms. A participant without a corresponding meeting token can request to be admitted to the meeting with a "knock", and wait for the meeting owner to admit them.
+
+enable_screenshare
+boolean
+Sets whether users in a room can screen share during a session. This property cannot be changed after a session starts. For dynamic control over permissions, use the updateParticipant() method to control user permissions.
+
+Default: true
+enable_video_processing_ui
+boolean
+Determines whether Daily Prebuilt displays background blur controls. When set to true, a participant can enable blur during a Daily Prebuilt call.
+
+⚠️ This flag only applies to Daily Prebuilt. It has no effect when building custom video applications with the Daily call object.
+
+Default: true
+enable_chat
+boolean
+This property is one of multiple ways to add chat to Daily video calls.
+
+Default: false
+enable_shared_chat_history
+boolean
+When enabled, newly joined participants in Prebuilt calls will request chat history from remote peers, in order to view chat messages from before they joined.
+
+Default: true
+start_video_off
+boolean
+Disable the default behavior of automatically turning on a participant's camera on a direct join() (i.e. without startCamera() first).
+
+Default: false
+start_audio_off
+boolean
+Disable the default behavior of automatically turning on a participant's microphone on a direct join() (i.e. without startCamera() first).
+
+Default: false
+enable_recording
+string
+Jump to recording docs.
+
+Options: "cloud","cloud-audio-only","local","raw-tracks","<not set>"
+Default: <not set>
+eject_at_room_exp
+boolean
+If there's a meeting going on at room exp time, end the meeting by kicking everyone out. This behavior can be overridden by setting eject properties of a meeting token.
+
+Default: false
+eject_after_elapsed
+integer
+Eject a meeting participant this many seconds after the participant joins the meeting. You can use this is a default length limit to prevent long meetings. This can be overridden by setting eject properties of a meeting token.
+
+enable_advanced_chat
+boolean
+Property that gives end users a richer chat experience. This includes:
+
+Emoji reactions to chat messages
+Emoji picker in the chat input form
+Ability to send a Giphy chat message
+⚠️ This flag only applies to Daily Prebuilt. It has no effect when building custom video applications with the Daily call object.
+
+Default: false
+enable_hidden_participants
+boolean
+When enabled, non-owner users join a meeting with a hidden presence, meaning they won't appear as a named participant in the meeting and have no participant events associated to them. Additionally, these participants can only receive media tracks from owner participants.
+
+Hidden participants can be tracked using the participantCounts() method. Hidden participants do not have entries in the participants() method return value.
+
+When used with Daily Prebuilt, hidden participants are included in the participant count available in the UI; however, are not included in the People panel and can only read chat messages.
+
+This property should be used to support hosting large meetings. See our guide on interactive live streaming for additional instruction.
+
+Default: false
+enable_mesh_sfu
+boolean
+Configures a room to use multiple SFUs for a call's media. This feature enables calls to scale to large sizes and to reduce latency between participants. It is recommended specifically for interactive live streaming.
+
+See our guide for interactive live streaming for additional instruction.
+
+sfu_switchover
+number
+Dictates the participant count after which room topology automatically switches from Peer-to-Peer (P2P) to Selective Forwarding Unit (SFU) mode, or vice versa.
+
+For example, if sfu_switchover is set to 2 and the current network topology is P2P, the topology will switch to SFU mode when the third participant joins the call. If the current topology is SFU, it will switch to P2P mode when the participant count decreases from 2 to 1.
+
+We recommend specifying an integer value for this property except for cases where you would like the room to switch to SFU mode as soon as the first participant joins. In this case, set sfu_switchover to 0.5.
+
+See our guide about video call architecture for additional information.
+
+Default: 0.5
+enable_adaptive_simulcast
+boolean
+Configures a domain or room to use Daily Adaptive Bitrate. When enabled, along with configuring the client to allowAdaptiveLayers, the Daily client will continually adapt send settings to the current network conditions. allowAdaptiveLayers is true by default; if you haven't modified that setting, then setting enable_adaptive_simulcast to true will enable Daily Adaptive Bitrate for 1:1 calls.
+
+Default: true
+enable_multiparty_adaptive_simulcast
+boolean
+Configures a domain or room to use Daily Adaptive Bitrate. When enabled, along with configuring the client to allowAdaptiveLayers, the Daily client will continually adapt send settings to the current network conditions. allowAdaptiveLayers is true by default; if you haven't modified that setting, then setting enable_multiparty_adaptive_simulcast to true will enable Daily Adaptive Bitrate for multi-party calls. To use this feature, enable_adaptive_simulcast must also be set to true.
+
+Default: false
+enforce_unique_user_ids
+boolean
+Configures a domain or room to disallow multiple participants from having the same user_id. This feature can be enabled to prevent users from "sharing" meeting tokens. When enabled, a participant joining or reconnecting to a meeting will cause existing participants with the same user_id to be ejected.
+
+Default: false
+experimental_optimize_large_calls
+boolean
+Enables Daily Prebuilt to support group calls of over 1,000 participants.
+
+When set to true, Daily Prebuilt will:
+
+Automatically mute the local user on joining
+Update grid view to show a maximum of 12 users in the grid at a time
+Allow only 16 users to be unmuted at the same time. When more than 16 users are unmuted, the oldest active speaker will be automatically muted.
+See our guide on large real-time calls for additional instruction.
+
+⚠️ This flag only applies to Daily Prebuilt. It has no effect when building custom video applications with the Daily call object.
+
+lang
+string
+The default language of the Daily prebuilt video call UI, for this room.
+
+Setting the language at the room level will override any domain-level language settings you have.
+
+Read more about changing prebuilt UI language settings.
+
+* Norwegian "no" and Russian "ru" are only available in the new Daily Prebuilt.
+
+Options: "da","de","en","es","fi","fr","it","jp","ka","nl","no","pt","pt-BR","pl","ru","sv","tr","user"
+Default: en
+meeting_join_hook
+string
+Sets a URL that will receive a webhook when a user joins a room. Default is NULL. Character limit for webhook URL is 255.
+
+⚠️ In place of the meeting_join_hook, we recommend setting up a webhook and listening for the participant.joined event.
+
+geo
+string
+Daily uses signaling servers to manage all of the participants in a given call session. In an SFU/server mode call, the server will send and receive all audio and video from each participant. In a peer-to-peer call, each participant sends media directly to and from each other peer, but a signaling server still manages call state.
+
+Daily runs servers in several different AWS regions to minimize latency for users around the world. The job of 'picking' a call server is handled when the first participant joins a room. The first participant's browser connects to a call server using Amazon's Route 53 DNS resolution, which chooses a server in the region closest to them.
+
+This isn't always optimal. For example, if one person joins in London, and then ten more people join from Cape Town, the call will still be hosted out of eu-west-2 . The majority of the participants will have higher latency to the server than if one of them had joined first and the call was being hosted in af-south-1. In cases like this, you may want to configure your domain (or a specific room) to always choose a call server in a specific AWS region.
+
+Available regions:
+
+"af-south-1" (Cape Town)
+"ap-northeast-2" (Seoul)
+"ap-southeast-1" (Singapore)
+"ap-southeast-2" (Sydney)
+"ap-south-1" (Mumbai)
+"eu-central-1" (Frankfurt)
+"eu-west-2" (London)
+"sa-east-1" (São Paulo)
+"us-east-1" (N. Virginia)
+"us-west-2" (Oregon)
+Default: NULL
+rtmp_geo
+string
+Used to select the region where an RTMP stream should originate. In cases where RTMP streaming services aren't available in the desired region, we'll attempt to fall back to the default region based on the SFU being used for the meeting.
+
+Available regions:
+
+"us-west-2" (Oregon)
+"eu-central-1" (Frankfurt)
+"ap-south-1" (Mumbai)
+The default regions are grouped based on the SFU region like so:
+
+RTMP region "us-west-2" includes SFU regions: "us-west-2", "us-east-1", "sa-east-1"
+RTMP region "eu-central-1" includes SFU regions: "eu-central-1", "eu-west-2", "af-south-1"
+RTMP region "ap-south-1" includes SFU regions: "ap-southeast-1", "ap-southeast-2", "ap-northeast-2", "ap-south-1"
+Default: The closest available region to the SFU region used by the meeting.
+disable_rtmp_geo_fallback
+boolean
+Disable the fall back behavior of rtmp_geo. When rtmp_geo is set, we first try to connect to a media server in desired region. If a media server is not available in the desired region, we fall back to default region based on SFU's region. This property disables this automatic fall back. When this property is set, we will trigger a recording/streaming error event when media worker is unavailable. Also, the client should retry recording/streaming.
+
+Default: false
+recordings_bucket
+object
+Configures an S3 bucket in which to store recordings. See the S3 bucket guide for more information.
+
+Properties:
+
+bucket_name
+string
+The name of the Amazon S3 bucket to use for recording storage.
+
+bucket_region
+string
+The region which the specified S3 bucket is located in.
+
+assume_role_arn
+string
+The Amazon Resource Name (ARN) of the role Daily should assume when storing the recording in the specified bucket.
+
+allow_api_access
+boolean
+Controls whether the recording will be accessible using Daily's API.
+
+allow_streaming_from_bucket
+boolean
+Specifies which Content-Disposition response header the recording link retrieved from the access-link REST API endpoint will have. If allow_streaming_from_bucket is false, the header will be Content-Dispostion: attachment. If allow_streaming_from_bucket is true, the header will be Content-Disposition: inline. To play the recording link directly in the browser or embed it in a video player, set this property to true.
+
+Default: false
+enable_terse_logging
+boolean
+Reduces the volume of log messages. This feature should be enabled when there are more than 200 participants in a meeting to help improve performance.
+
+See our guides for supporting large experiences for additional instruction.
+
+Default: false
+auto_transcription_settings
+object
+Pay-as-you-go
+Options to use when auto_start_transcription is true. See startTranscription() for available options.
+
+enable_transcription_storage
+boolean
+Live transcriptions generated can be saved as WebVTT. This flag controls if transcription started with startTranscription() should be saved or not.
+
+Default: false
+transcription_bucket
+object
+Configures an S3 bucket in which to store transcriptions. See the S3 bucket guide for more information.
+
+bucket_name
+string
+The name of the Amazon S3 bucket to use for transcription storage.
+
+bucket_region
+string
+The region which the specified S3 bucket is located in.
+
+assume_role_arn
+string
+The Amazon Resource Name (ARN) of the role Daily should assume when storing the transcription in the specified bucket.
+
+allow_api_access
+boolean
+Whether the transcription should be accessible using Daily's API.
+
+recordings_template
+string
+Cloud recordings are stored in either Daily's S3 bucket or the customer's own S3 bucket. By default recordings are stored as {domain_name}/{room_name}/{epoch_time}. Sometimes, the use case may call for custom recording file names to be used (for example, if you'd like to enforce the presence of the .mp4 extension in the file name).
+
+recordings_template is made up of a replacement string with prefixes, suffixes, or both. The currently supported replacements are:
+
+epoch_time: The epoch time in milliseconds (mandatory)
+domain_name: Your Daily domain (optional)
+room_name: The name of the room which is getting recorded (optional)
+mtg_session_id: The ID of the meeting session which is getting recorded (optional)
+instance_id: The instance ID of the recording (optional)
+recording_id: The recording ID of the recording (optional)
+The restrictions for defining a recording template are as follows:
+
+The epoch_time tag is mandatory to ensure the recording file name is unique under all conditions
+The maximum size of the template is 1024 characters
+Each replacement parameter should be placed within a curly bracket (e.g., {domain_name})
+Only alphanumeric characters (0-9, A-Z, a-z) and ., /, -, _ are valid within the template
+.mp4 is the only valid extension
+Examples
+
+Example domain: "myDomain"
+Example room: "myRoom"
+Example 1:
+
+Template: myprefix-{domain_name}-{epoch_time}.mp4
+Resulting file name: myprefix-myDomain-1675842936274.mp4
+Example 2:
+
+Template: {room_name}/{instance_id}/{epoch_time}
+Resulting room name: myRoom/d529cd2f-fbcc-4fb7-b2c0-c4995b1162b6/1675842936274
+Default: {domain_name}/{room_name}/{epoch_time}.
+transcription_template
+string
+transcriptions can be stored in either Daily's S3 bucket or the customer's own S3 bucket. By default transcriptions are stored as {domain_name}/{room_name}/{epoch_time}.vtt. Sometimes, the use case may call for custom file path to be used (for example, if you'd like to map stored transcription to mtgSessionId).
+
+transcription_template is made up of a replacement string with prefixes, suffixes, or both. The currently supported replacements are:
+
+epoch_time: The epoch time in seconds (mandatory)
+domain_name: Your Daily domain (optional)
+room_name: The name of the room which is getting transcribed (optional)
+mtg_session_id: The ID of the meeting session which is getting transcribed (optional)
+instance_id: The instance ID of the transcription (optional)
+transcript_id: The transcript ID of the transcription (optional)
+The restrictions for defining a transcription template are as follows:
+
+The epoch_time tag is mandatory to ensure the transcription file name is unique under all conditions
+The maximum size of the template is 1024 characters
+Each replacement parameter should be placed within a curly bracket (e.g., {domain_name})
+Only alphanumeric characters (0-9, A-Z, a-z) and ., /, -, _ are valid within the template
+Examples
+
+Example domain: "myDomain"
+Example room: "myRoom"
+Example 1:
+
+Template: myprefix-{domain_name}-{epoch_time}.mp4
+Resulting file name: myprefix-myDomain-1675842936274.mp4
+Example 2:
+
+Template: {room_name}/{instance_id}/{epoch_time}
+Resulting room name: myRoom/d529cd2f-fbcc-4fb7-b2c0-c4995b1162b6/1675842936274
+Default: {domain_name}/{room_name}/{epoch_time}.vtt.
+enable_dialout
+boolean
+Allow dialout API from the room.
+
+Default: false
+dialout_config
+object
+Allow configuring dialout behaviour.
+
+allow_room_start
+boolean
+Setting this to true allows starting the room and initiating the dial-out even though there is no user present in the room. By default, initiating a dial-out via the REST API fails when the corresponding room is empty (without any participant).
+
+Default: false
+dialout_geo
+string
+The region where SFU is selected to start the room. default is taken from room geo else from domain geo and if both are not defined us-west-2 is take as default.
+
+max_idle_timeout_sec
+number
+Number of seconds where dialout user can be alone in the room. dialout user can start the room and can remain in the room alone waiting for other participant for this duration, also when all the web users leave the room, room is automatically closed, this property allows dialout user to remain in room after all web users leave the room.
+
+Default: 0
+streaming_endpoints
+array
+An array of stream endpoint configuration objects, which allows configurations to be pre-defined without having to pass them into startLiveStreaming() at runtime. For example, an RTMP endpoint can be set up for YouTube as a streaming_endpoints configuration along with another configuration for HLS storage.
+
+HLS output can only be stored on a customer's S3, not in Daily's storage infrastructure. The stream configuration defines which S3 bucket to store the HLS output. (See the S3 bucket guide for more information.)
+
+Example:
+
+JSON
+Copy to clipboard
+
+{
+  "properties": {
+    // ... add additional room properties here
+    "streaming_endpoints": [
+      {
+        "name": "rtmp_youtube",
+        "type": "rtmp",
+        "rtmp_config": {
+          "url": "rtmps://exampleYouTubeServer.com:443/stream"
+        }
+      },
+
+      {
+        "name": "rtmp_ivs",
+        "type": "rtmp",
+        "rtmp_config": {
+          "url": "rtmps://811111111111.global-contribute.live-video.net:443/app/"
+        }
+      },
+
+      {
+        "name": "hls_akamai",
+        "type": "hls",
+        "hls_config": {
+        "save_hls_recording": true/false,
+          "storage": {
+            "bucket_name": "daily-hls-streams",
+            "bucket_region": "us-west-2",
+            "assume_role_arn": "arn:aws:iam::999999999999:role/DailyS3AccessRole",
+            "path_template": "testHarness/{live_streaming_id}/{instance_id}"
+          },
+          "variant" : [
+              {
+                "width": 1920,
+                "height": 1080,
+                "fps": 30,
+                "bitrate": 3500,
+                "iframe_only": false
+              },
+              {
+                "width": 1280,
+                "height": 720,
+                "fps": 30,
+                "bitrate": 2500,
+                "iframe_only": false
+              },
+              {
+                "width": 640,
+                "height": 360,
+                "fps": 30,
+                "bitrate": 780,
+                "iframe_only": true
+              }
+          ]
+        }
+      }
+    ]
+  }
+}
+
+To reset the streaming_endpoints property, pass null instead of an array.
+
+When calling startLiveStreaming(), the pre-defined streaming_endpoints name can be used:
+
+JavaScript
+Copy to clipboard
+await callObject.startLiveStreaming({
+  endpoints: [{"endpoint":"rtmp_youtube"},{"endpoint":"rtmp_fb"}],
+  width: 1280,
+  height: 720,
+});
+
+Properties:
+
+permissions
+object
+Specifies the initial default permissions for a non-meeting-owner participant joining a call.
+
+Each permission (i.e. each of the properties listed below) can be configured in the meeting token, the room, and/or the domain, in decreasing order of precedence.
+
+Participant admins (those with the 'participants' value in their canAdmin permission) can also change participants' permissions on the fly during a call using updateParticipant() or updateParticipants().
+
+hasPresence
+boolean
+Whether the participant appears as "present" in the call, i.e. whether they appear in participants().
+
+canSend
+boolean | array
+Which types of media a participant should be permitted to send.
+
+Can be:
+
+An Array containing any of 'video', 'audio', 'screenVideo', and 'screenAudio'
+true (meaning "all")
+false (meaning "none")
+canReceive
+object
+Which media the participant should be permitted to receive.
+
+See here for canReceive object format.
+
+canAdmin
+boolean | array
+Which admin tasks a participant is permitted to do.
+
+Can be:
+
+An array containing any of 'participants', 'streaming', or 'transcription'
+true (meaning "all")
+false (meaning "none")
+Default: <not set>
+Example requests
+Create a randomly named room that expires in an hour
+Here's how you might create a room with an auto-generated name, set to expire in an hour. This is a pretty common use case. For example, maybe you're creating rooms on demand to use for customer support or account verification. You don't need to set the room's privacy, because you won't be sharing the room URL other than within your own UI, and you won't be re-using the room. It is worth setting the room exp, just so that the room is auto-deleted and you don't end up with a huge number of live rooms.
+
+
+Request
+
+200 OK
+
+400 bad request
+cURL
+Copy to clipboard
+
+curl -H "Content-Type: application/json" \
+     -H "Authorization: Bearer $TOKEN" \
+     -XPOST -d \
+     '{"properties":{"exp":'`expr $(date +%s) + 3600`'}}' \
+     https://api.daily.co/v1/rooms/
+        
+If you're writing API calls in JavaScript, note that exp and nbf are unix timestamps expressed in seconds, not in milliseconds. You will need to divide JavaScript timestamps by 1,000 to turn them into unix timestamps. For example, you probably want to use some variant of Math.floor(Date.now()/1000) as a base value when creating near-future expiration timestamps. Don't just use Date.now().
+
+Create a private room with a human-readable name and devices turned off at start
+Here's how you might create a room with a human-readable name, and privacy set to private, and with the default behavior of everyone's camera and mic turned off initially. You can create meeting tokens to allow access to this room (Learn more in our guide to room access control).
+
+
+Request
+
+200 OK
+
+400 bad request
+cURL
+Copy to clipboard
+
+curl -H "Content-Type: application/json" \
+     -H "Authorization: Bearer $TOKEN" \
+     -XPOST -d \
+     '{"name": "getting-started-webinar",
+       "privacy": "private",
+       "properties" : {
+          "start_audio_off":true,
+          "start_video_off":true}}' \
+     https://api.daily.co/v1/rooms/
+        
+When a room object is returned by an API call, only configuration options that differ from the defaults are included in the config struct.*
+
+rooms/:name
+A GET request to /rooms/:name retrieves a room object.
+
+When a room object is returned by an API call, only configuration options that differ from the defaults are included in the config struct.
+
+Heads up!
+
+See room configuration for a discussion of the room object and a table of all room configuration options.
+
+Path params
+room_name
+string
+Example request
+
+Request
+
+200 OK
+
+400 bad request
+cURL
+Copy to clipboard
+
+curl -H "Content-Type: application/json" \
+     -H "Authorization: Bearer $TOKEN" \
+     https://api.daily.co/v1/rooms/w2pp2cf4kltgFACPKXmX
+        
+/rooms/:name/presence
+A GET request to /rooms/:name/presence retrieves presence data about a specific room.
+
+This endpoint provides a snapshot of the presence of participants in a given room.
+
+Path params
+room_name
+The name of the room
+
+Query params
+limit
+Sets the number of participants returned.
+
+userId
+Returns presence for the user with the given userId, if available. The userId is specified via a meeting token.
+
+userName
+Returns presence for the user with the given name, if available.
+
+Example request
+
+Request
+
+200 OK
+
+400 bad request
+cURL
+Copy to clipboard
+
+curl -H "Content-Type: application/json" \
+     -H "Authorization: Bearer $TOKEN" \
+     https://api.daily.co/v1/rooms/w2pp2cf4kltgFACPKXmX/presence
+        

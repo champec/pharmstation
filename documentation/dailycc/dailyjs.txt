@@ -1,0 +1,995 @@
+Daily Client SDK for JavaScript
+Overview
+Daily's client SDK for JavaScript is called daily-js. The daily-js SDK can be used to build custom video or audio calling applications or embed and control Daily Prebuilt.
+
+With this library you can:
+
+Initialize your call settings
+Join a room
+Manage call lifecycle and participant state
+Respond to in-call events
+Customize call layout and UI (Daily Prebuilt)
+Daily supports versions of daily-js and react-native-daily-js released in the past six months.
+
+We recommend updating your Daily libraries regularly to access our latest features and to ensure the version you are using is currently supported.
+Installing daily-js
+To use daily-js, you can load the library in a <script> tag or bundle with webpack and other tools.
+
+Loading the library in a script tag
+You can use this library from a <script> tag, as a CommonJS-style module with require, or as an ES6-style module with import (including within a <script type="module"> context).
+
+The easiest way to get started is to load this library from unpkg, and add a couple of lines of code to your web page or app.
+
+HTML
+Copy to clipboard
+// Example: load daily-js and embed a call
+<script crossorigin src="https://unpkg.com/@daily-co/daily-js"></script>
+<script>
+  function createFrameAndJoinRoom() {
+    window.call = window.Daily.createFrame();
+    call.join({ url: DAILY_ROOM_URL });
+  }
+</script>
+
+Bundling with webpack and other tools
+Of course, you can also use a bundler like webpack or rollup.
+
+npm install @daily-co/daily-js
+
+Then in your application code:
+
+JavaScript
+Copy to clipboard
+// webpack/node-style require
+//
+const Daily = require('@daily-co/daily-js');
+let call = Daily.wrap(MY_IFRAME);
+
+// or, cutting-edge, super-whizzy import
+//
+import Daily from '@daily-co/daily-js';
+let call = Daily.wrap(MY_IFRAME);
+
+Getting started
+This guide provides an overview of how to build a custom video or audio calling application using daily-js. For details on the methods and events mentioned in this guide, see the daily-js reference documentation.
+
+If you prefer to jump right in, you can get the associated code and run the demo.
+
+Website UI displays floating participant video screens
+
+If you're interested in learning how to use daily-js to control Daily Prebuilt, check out the Prebuilt guide for demos and sample code.
+
+Prerequisites
+Create a Daily account
+Before you get started, you'll need to sign up for your free Daily account. You get 10,000 free minutes every month, so you can try out Daily without any cost.
+
+Create a Daily room
+Begin by navigating to Daily's developer dashboard and creating a new Daily room. If you need guidance, you can follow the steps in our room creation guide.
+
+Once you've created your room, make note of the URL. You'll be using that later.
+
+Create a call client
+Daily's call client is your main interface into Daily functionality. It's the thing that your code will invoke to do anything: start a call, leave a call, listen for participants coming and going, get video and audio to play, etc.
+
+A call client can be created with:
+
+JavaScript
+Copy to clipboard
+const call = Daily.createCallObject();
+
+For more advanced use, the call client can be initialized with a number of arguments. Check out the reference docs for more information.
+
+In our getting started demo, the call client is created as part of the DailyCallManager class which is used to initialize the object, set up event listeners and handlers, manage tracks, and manage devices.
+
+Set up event listeners
+Before joining the room, we'll continue initializing our application by setting up event listeners. In this app, we're concerned with handling participant state changes, specifically regarding audio / video tracks and local camera / microphone permissions.
+
+daily-js follows the EventEmitter pattern to add event callbacks. To set up a listener, you can call on(). You can call off() to remove event callbacks. For example, you can call:
+
+JavaScript
+Copy to clipboard
+call.on('joined-meeting', handleJoin);
+
+In our getting started demo, we'll handle a number of events in the setupEventListeners() method:
+
+'active-speaker-change' to indicate when the active speaker in the call changes
+'error' to handle any errors (in this case, we'll just console log them)
+'joined-meeting' to set up any initial call state and UI
+''left-meeting'' to reset the DOM and related call state and UI
+'participant-joined' to update call state or UI when another participant joins
+'participant-left' to update call state or UI when another participant leaves
+'participant-updated' to update call state or UI when the any participant change occurs
+You can read more about the events that daily-js emits in the reference docs.
+
+Join a room
+Now that the call client is set up and initialized, we're ready to join a room. This can be done as follows:
+
+JavaScript
+Copy to clipboard
+call.join();
+
+join() can take a number of different arguments to configure the client for the upcoming call. Refer to our reference documentation for more information.
+
+In our getting started demo, we join a room with either a url only or a url andtoken property. You can modify the code to experiment with different properties to see how they affect the call.
+
+By default, the call to join() runs several operations automatically to make it easy to get started:
+
+Calls getUserMedia() and configures your camera devices for 720p 30fps video
+Enables the camera and microphone
+Publishes camera and microphone tracks
+Subscribes to media from all remote participants
+The behavior above varies based on rooms settings. For example, if the room is configured to start with the camera disabled, the getUserMedia() call and publishing the camera video is deferred until the camera is enabled.
+
+daily-js offers complete flexibility for all of these items. To learn more, check out our guides, demos, blog, and reference docs.
+
+Can't find what you're looking for? Try the Ask AI feature on the bottom right of the docs page, post a question to our community, or contact us. We're glad to help!
+
+Handle tracks
+When the local client or remote participants join a room, performs an action like unmute their microphone, or leaves a call, media tracks may be started or stopped. Track state is contained within participants().
+
+You can listen for changes to tracks through participant events: 'participant-joined', 'participant-updated', and 'participant-left'.
+
+For even more details on this topic, check out our blog post on handling media tracks.
+
+In our getting started demo, there are two handlers for these three events:
+
+handleParticipantJoinedOrUpdated() handles the 'participant-joined' and 'participant-updated' events. This method is responsible for creating HTML elements for the video track, attaching and playing tracks, destroying tracks, updating participant count, and updating device states.
+handleParticipantLeft() handles the 'participant-left' event. This method is responsible for destroying the video and audio tracks and related UI elements when a participant leaves the call.
+When it comes to handling tracks our approach is to break up the task into three parts:
+
+When a participant joins, add HTML elements where their video will be placed once a track is available. For video apps, this step can be taken even if the participant keeps their camera off during the call as the visual elements give the user presence during a call.
+When a persistentTrack is available, set the corresponding <audio> or <video> element's srcObject to the MediaStreamTrack and play it.
+For video tracks, based on the track's state, show or hide the video element.
+If you want to read more about the track states, check out the reference docs.
+
+Here's how that handler, handleParticipantJoinedOrUpdated() works:
+
+JavaScript
+Copy to clipboard
+/**
+ * Handles participant-joined and participant-updated events:
+ * - Updates the participant count
+ * - Creates a video container for new participants
+ * - Creates an audio element for new participants
+ * - Manages video and audio tracks based on their current state
+ * - Updates device states for the local participant
+ * @param {Object} event - The participant-joined, participant-updated
+ * event object.
+ */
+handleParticipantJoinedOrUpdated(event) {
+  const { participant } = event;
+  const participantId = participant.session_id;
+  const isLocal = participant.local;
+  const tracks = participant.tracks;
+
+  // Always update the participant count regardless of the event action
+  this.updateAndDisplayParticipantCount();
+
+  // Create a video container if one doesn't exist
+  if (!document.getElementById(`video-container-${participantId}`)) {
+    this.createVideoContainer(participantId);
+  }
+
+  // Create an audio element for non-local participants if one doesn't exist
+  if (!document.getElementById(`audio-${participantId}`) && !isLocal) {
+    this.createAudioElement(participantId);
+  }
+
+  Object.entries(tracks).forEach(([trackType, trackInfo]) => {
+    // If a persistentTrack exists...
+    if (trackInfo.persistentTrack) {
+      // Check if this is the local participant's audio track.
+      // If so, we will skip playing it, as it's already being played.
+      // We'll start or update tracks in all other cases.
+      if (!(isLocal && trackType === 'audio')) {
+        this.startOrUpdateTrack(trackType, trackInfo, participantId);
+      }
+    } else {
+      // If the track is not available, remove the media element
+      this.destroyTracks([trackType], participantId);
+    }
+
+    // Update the video UI based on the track's state
+    if (trackType === 'video') {
+      this.updateVideoUi(trackInfo, participantId);
+    }
+
+    // Update the camera and microphone states for the local user based on the track's state
+    if (isLocal) {
+      this.updateUiForDevicesState(trackType, trackInfo);
+    }
+  });
+}
+
+Let's inspect three of the methods that the handler calls:
+
+startOrUpdateTrack() is responsible for setting the target <video> element's srcObject to the MediaStreamTrack and playing it. The three scenarios the logic accounts for are:
+The track is new, so a new srcObject needs to be provided.
+The track has updated, so the srcObject needs to be updated to the new MediaStreamTrack.
+The track is already attached, so take no action.
+Following these points is important to ensure that the correct MediaStreamTrack is attached and that your code is not unnecessarily calling play(), which can result in a video flicker or audio blip.
+
+JavaScript
+Copy to clipboard
+/**
+ * Updates the media track (audio or video) source for a specific participant and plays
+ * the updated track. It checks if the source track needs to be updated and performs the
+ * update if necessary, ensuring playback of the media track.
+ *
+ * @param {string} trackType - Specifies the type of track to update ('audio' or 'video'),
+ * allowing the function to dynamically adapt to the track being processed.
+ * @param {Object} track - Contains the media track data, including the `persistentTrack`
+ * property which holds the actual MediaStreamTrack to be played or updated.
+ * @param {string} participantId - Identifies the participant whose media track is being
+ * updated.
+ */
+startOrUpdateTrack(trackType, track, participantId) {
+  // Construct the selector string or ID based on the trackType.
+  const selector =
+    trackType === 'video'
+      ? `#video-container-${participantId} video.video-element`
+      : `audio-${participantId}`;
+
+  // Retrieve the specific media element from the DOM.
+  const trackEl =
+    trackType === 'video'
+      ? document.querySelector(selector)
+      : document.getElementById(selector);
+
+  // Error handling if the target media element does not exist.
+  if (!trackEl) {
+    console.error(
+      `${trackType} element does not exist for participant: ${participantId}`
+    );
+    return;
+  }
+
+  // Check for the need to update the media source. This is determined by checking whether the
+  // existing srcObject's tracks include the new persistentTrack. If there are no existing tracks
+  // or the new track is not among them, an update is necessary.
+  const existingTracks = trackEl.srcObject?.getTracks();
+  const needsUpdate = !existingTracks?.includes(track.persistentTrack);
+
+  // Perform the media source update if needed by setting the srcObject of the target element
+  // to a new MediaStream containing the provided persistentTrack.
+  if (needsUpdate) {
+    trackEl.srcObject = new MediaStream([track.persistentTrack]);
+
+    // Once the media metadata is loaded, attempts to play the track. Error handling for play
+    // failures is included to catch and log issues such as autoplay policies blocking playback.
+    trackEl.onloadedmetadata = () => {
+      trackEl
+        .play()
+        .catch((e) =>
+          console.error(
+            `Error playing ${trackType} for participant ${participantId}:`,
+            e
+          )
+        );
+    };
+  }
+}
+
+updateVideoUi() is responsible for changing the visual appearance of the video track, like showing or hiding it. In the demo code, the video track is shown when it's playable and hidden when it's off, interrupted, or blocked. You can customize the UI as needed in your application. For example, if the video track is blocked, you may want to notify the user and provide them with recovery steps.
+JavaScript
+Copy to clipboard
+/**
+ * Shows or hides the video element for a participant, including managing
+ * the visibility of the video based on the track state.
+ * @param {Object} track - The video track object.
+ * @param {string} participantId - The ID of the participant.
+ */
+updateVideoUi(track, participantId) {
+  let videoEl = document
+    .getElementById(`video-container-${participantId}`)
+    .querySelector('video.video-element');
+
+  switch (track.state) {
+    case 'off':
+    case 'interrupted':
+    case 'blocked':
+      videoEl.style.display = 'none'; // Hide video but keep container
+      break;
+    case 'playable':
+    default:
+      // Here we handle all other states the same as we handle 'playable'.
+      // In your code, you may choose to handle them differently.
+      videoEl.style.display = '';
+      break;
+  }
+}
+
+destroyTracks() is responsible for setting the srcObject to null and removing the corresponding track from the DOM. destroyTracks() is called when there is no longer a persistentTrack available for a given track type. This can happen when the local user turns off their camera or when a screen share is stopped.
+JavaScript
+Copy to clipboard
+/**
+ * Cleans up specified media track types (e.g., 'video', 'audio') for a given participant
+ * by stopping the tracks and removing their corresponding elements from the DOM. This is
+ * essential for properly managing resources when participants leave or change their track
+ * states.
+ * @param {Array} trackTypes - An array of track types to destroy, e.g., ['video', 'audio'].
+ * @param {string} participantId - The ID of the participant.
+ */
+destroyTracks(trackTypes, participantId) {
+  trackTypes.forEach((trackType) => {
+    const elementId = `${trackType}-${participantId}`;
+    const element = document.getElementById(elementId);
+    if (element) {
+      element.srcObject = null; // Release media resources
+      element.parentNode.removeChild(element); // Remove element from the DOM
+    }
+  });
+}
+
+When the participant leaves, the 'participant-left' event is emitted. The demo application's handler for this event is called handleParticipantLeft(). This handler is responsible for:
+
+Cleaning up the media tracks: To do this, the application reuses the destroyTracks() method from above.
+Removing related elements from the DOM: To do this, the application removes the participant's video-container from the DOM.
+Control local media devices
+You can obtain the state for the local participant's camera and microphone by calling the localVideo() and localAudio() methods, respectively. Separately, you can control the local client's camera and microphone using the setLocalVideo() and setLocalAudio() methods. When a device's state changes, a corresponding 'participant-updated' event is emitted. You can handle this event to make relevant changes to device controls in your UI.
+
+In our getting started demo, there are camera and microphone buttons used to turn the devices on and off. There is also a text field indicating the state of the buttons. Here's an example of how the demo app controls the devices and updates the UI:
+
+Controlling the camera, which is initiated by clicking the "Camera" button:
+JavaScript
+Copy to clipboard
+/**
+ * Toggles the local video track's mute state.
+ */
+toggleCamera() {
+  this.call.setLocalVideo(!this.call.localVideo());
+}
+
+Controlling the microphone, which is initiated by clicking the "Microphone" button:
+JavaScript
+Copy to clipboard
+/**
+ * Toggles the local audio track's mute state.
+ */
+toggleMicrophone() {
+  this.call.setLocalAudio(!this.call.localAudio());
+}
+
+Updating the device UI, which is called by the handleParticipantJoinedOrUpdated() handler:
+JavaScript
+Copy to clipboard
+/**
+ * Updates the UI to reflect the current states of the local participant's
+ * camera and microphone.
+ * @param {string} trackType - The type of track, either 'video' for cameras
+ * or 'audio' for microphones.
+ * @param {Object} trackInfo - The track object.
+ */
+updateUiForDevicesState(trackType, trackInfo) {
+  // For video, set the camera state
+  if (trackType === 'video') {
+    document.getElementById('camera-state').textContent = `Camera: ${
+      this.call.localVideo() ? 'On' : 'Off'
+    }`;
+  } else if (trackType === 'audio') {
+    // For audio, set the mic state
+    document.getElementById('mic-state').textContent = `Mic: ${
+      this.call.localAudio() ? 'On' : 'Off'
+    }`;
+  }
+}
+
+Change selected local media devices
+Using daily-js, you can build a device selector to allow users to select which camera and microphone device to use during the call.
+
+To start, you can select which devices are available to the user with the enumerateDevices() method. This will return to you the videoinput, audioinput, and audiooutput devices available to the user.
+
+You'll also want to know which device, if any, the user has currently selected. For that, you can call the getInputDevices() method, which will return the currently selected camera, microphone, and speaker devices.
+
+Lastly, you can use the setInputDevicesAsync() method to select an video or audio device to use.
+
+In our getting started demo, we set up the device selector after receiving the 'joined-meeting' event, which indicates that the user is connected to the call. Here's example code showing how this is done:
+
+JavaScript
+Copy to clipboard
+/**
+ * Sets up device selectors for cameras and microphones by dynamically populating them
+ * with available devices and attaching event listeners to handle device selection changes.
+ */
+async setupDeviceSelectors() {
+  // Fetch current input devices settings and an array of available devices.
+  const selectedDevices = await this.call.getInputDevices();
+  const { devices: allDevices } = await this.call.enumerateDevices();
+
+  // Element references for camera and microphone selectors.
+  const selectors = {
+    videoinput: document.getElementById('camera-selector'),
+    audioinput: document.getElementById('mic-selector'),
+  };
+
+  // Prepare selectors by clearing existing options and adding a non-selectable prompt.
+  Object.values(selectors).forEach((selector) => {
+    selector.innerHTML = '';
+    const promptOption = new Option(
+      `Select a ${selector.id.includes('camera') ? 'camera' : 'microphone'}`,
+      '',
+      true,
+      true
+    );
+    promptOption.disabled = true;
+    selector.appendChild(promptOption);
+  });
+
+  // Create and append options to the selectors based on available devices.
+  allDevices.forEach((device) => {
+    if (device.label && selectors[device.kind]) {
+      const isSelected =
+        selectedDevices[device.kind === 'videoinput' ? 'camera' : 'mic']
+          .deviceId === device.deviceId;
+      const option = new Option(
+        device.label,
+        device.deviceId,
+        isSelected,
+        isSelected
+      );
+      selectors[device.kind].appendChild(option);
+    }
+  });
+
+  // Listen for user device change requests.
+  Object.entries(selectors).forEach(([deviceKind, selector]) => {
+    selector.addEventListener('change', async (e) => {
+      const deviceId = e.target.value;
+      const deviceOptions = {
+        [deviceKind === 'videoinput' ? 'videoDeviceId' : 'audioDeviceId']:
+          deviceId,
+      };
+      await this.call.setInputDevicesAsync(deviceOptions);
+    });
+  });
+}
+
+You can set up a handler for device changes that happen after the user has joined by listening to the 'available-devices-updated' event. This event will return devices using the same format as the enumerateDevices() method.
+
+Leave a room
+Once the meeting is finished, the client can leave the meeting room by calling leave(). When leaving, be sure to set srcObjects to null to release media resources.
+
+After leaving a meeting, the call object can be reused to join() another meeting, if you'd like to maintain the state of the call object. Once you've finished with the call object, we recommend calling destroy() to free all resources associated with it. Want more info? See our blog post covering leave() and destroy() best practices.
+
+In our getting started demo, when we call leave(), we also remove audio and video elements from the DOM and reset status fields. For example:
+
+JavaScript
+Copy to clipboard
+/**
+ * Leaves the call and performs necessary cleanup operations like removing video elements.
+ */
+async leave() {
+  try {
+    await this.call.leave();
+    document.querySelectorAll('#videos video, audio').forEach((el) => {
+      el.srcObject = null; // Release media resources
+      el.remove(); // Remove the element from the DOM
+    });
+  } catch (e) {
+    console.error('Leaving failed', e);
+  }
+}
+
+Lastly, the demo app handles the local participant's 'left-meeting' event by destroying tracks and resetting the UI. That includes:
+
+Disabling the toggle camera and mic buttons
+Resetting the camera and mic selectors
+Updating the call state (e.g. participant count and active speaker information) in the UI
+Removing all video containers
+Wrapping up
+And with that, you have a basic video calling app! Hopefully this helps to jump start your development building video and audio calling apps with Daily.
+
+Demos
+If you're interested in seeing the demo code used in the getting started guide above, you can find it on GitHub.
+
+We have many other demos, tutorials, and blog posts available to help teach you how to use daily-js. Here are some recommendations to get you started:
+
+Custom application demos
+Build a call lobby to control meeting access
+Build a custom app with Daily's React SDK
+Learn how build larger, more efficient calls using track subscriptions
+Build a spatial video and audio application
+Build an audio-only application
+Prebuilt demos
+Daily Prebuilt demo
+Step-by-step guide: embed a Daily room URL
+Didn't find what you're looking for? Check out our blog for more code and tutorials and our daily-demos GitHub repo for more demos.
+
+Built worldwide
+
+
+Events
+daily-js video call events
+Our events give you a heads up when something interesting happens during your call. For example, when you (the local participant) join a call, the joining-meeting event fires. When someone else (a remote participant) joins a call, participant-joined triggers. You can design your app to react to these and any daily-js events.
+
+We built the daily-js call object on top of the EventEmitter interface. This means you can customize how your video application responds to Daily events using callback functions. You might want to broadcast a message when all participants have joined, for example, or to update a participant list when someone leaves a meeting.
+
+The on(), once(), and off() methods add and remove callbacks. These all return the this object, so it's easy to chain calls.
+
+Here's how you might use on() to console.log the joining-meeting event, show a loading spinner while you're joining, and to make the iframe visible once you've arrived.
+
+JavaScript
+Copy to clipboard
+// Example: show a loading spinner while I'm joining a meeting and the iframe once I've joined
+call
+  .on('joining-meeting', (event) => {
+    console.log('joining-meeting event', event);
+    showSpinner();
+  })
+  .on('joined-meeting', (event) => {
+    console.log('joined-meeting event', event);
+    call.iframe().style.visibility = 'visible';
+  });
+
+The event object passed to the callbacks always includes an action property with the event's name, so that your callback functions can process multiple action types at once.
+
+JSON
+Copy to clipboard
+// Example: 'joined-meeting' event object
+{
+  "action": "joined-meeting",
+  "participants": {
+    "local": {
+      "audio": true,
+      "joinedAt": "Date(Mon Apr 29 2019 15:18:20 GMT-0700)",
+      "local": true,
+      "owner": true,
+      "screen": false,
+      "session_id": "42fb115a-6d42-4155-ae4f-c96629f5217d",
+      "user_id": "f26added-7821-49fc-9cb1-f9e22924b2c4",
+      "user_name": "kwindla-desktop",
+      "video": true
+    }
+  },
+  "callClientId": "17225364729060.9442072768918943"
+}
+
+You can install callbacks for the following events:
+
+Meeting events:
+loading
+loaded
+load-attempt-failed
+started-camera
+camera-error
+joining-meeting
+joined-meeting
+left-meeting
+call-instance-destroyed
+meeting-session-updated
+test-completed
+fullscreen*
+exited-fullscreen*
+active-speaker-change
+active-speaker-mode-change*
+access-state-updated
+error
+theme-updated
+receive-settings-updated
+send-settings-updated
+show-local-video-changed
+sidebar-view-changed*
+pip-started*
+pip-stopped*
+input-settings-updated
+nonfatal-error
+custom-button-click
+local-screen-share-started
+local-screen-share-stopped
+local-screen-share-canceled
+local-audio-level
+remote-participants-audio-level
+face-counts-updated
+* These events are only supported when using Daily Prebuilt.
+
+Participant events
+participant-joined
+participant-updated
+participant-left
+waiting-participant-added
+waiting-participant-updated
+waiting-participant-removed
+app-message
+track-started
+track-stopped
+lang-updated
+Quality events
+network-connection
+network-quality-change
+cpu-load-change
+Recording events
+Pay-as-you-go
+recording-started
+recording-stopped
+recording-stats
+recording-error
+recording-upload-completed
+recording-data
+Live streaming events
+Pay-as-you-go
+live-streaming-started
+live-streaming-updated
+live-streaming-stopped
+live-streaming-error
+Transcription events
+Pay-as-you-go
+transcription-started
+transcription-stopped
+transcription-message
+transcription-error
+Dial-out events
+Pay-as-you-go
+dialout-connected
+dialout-stopped
+dialout-error
+dialout-warning
+Dial-in events
+Pay-as-you-go
+dialin-connected
+dialin-ready
+dialin-stopped
+dialin-error
+dialin-warning
+
+Instance methods
+Use Daily instance methods to customize your call experience. Instance methods include:
+
+abortTestNetworkConnectivity()
+abortTestWebsocketConnectivity()
+accessState()
+activeSpeakerMode()
+addFakeParticipant()
+addLiveStreamingEndpoints()
+cycleCamera()
+cycleMic()
+customTrayButtons()
+customIntegrations()
+destroy()
+enumerateDevices()
+exitFullscreen()
+getDailyLang()
+getInputDevices()
+getInputSettings()
+getLocalAudioLevel()
+getRemoteParticipantsAudioLevel()
+getMeetingSession()
+getNetworkStats()
+getNetworkTopology()
+getReceiveSettings()
+getSendSettings()
+getSidebarView()
+iframe()
+isDestroyed()
+isLocalAudioLevelObserverRunning()
+isRemoteParticipantsAudioLevelObserverRunning()
+join()
+leave()
+load()
+localAudio()
+localScreenAudio()
+localScreenVideo()
+localVideo()
+meetingSessionSummary()
+meetingSessionState()
+meetingState()
+off()
+on()
+once()
+participants()
+participantCounts()
+preAuth()
+removeLiveStreamingEndpoints()
+requestAccess()
+requestFullscreen()
+room()
+sendAppMessage()
+setActiveSpeakerMode()
+setBandwidth()
+setCustomIntegrations()
+setDailyLang()
+setIceConfig()
+setInputDevicesAsync()
+setLocalAudio()
+setLocalVideo()
+setMeetingSessionData()
+setNetworkTopology()
+setOutputDeviceAsync()
+setPlayNewParticipantSound()
+setProxyUrl()
+setShowLocalVideo()
+setShowNamesMode()
+setShowParticipantsBar()
+setSidebarView()
+setSubscribeToTracksAutomatically()
+setTheme()
+setUserData()
+setUserName()
+showLocalVideo()
+showParticipantsBar()
+startCamera()
+startCustomIntegrations()
+stopCustomIntegrations()
+startCustomTrack()
+startDialOut()
+sendDTMF()
+stopDialOut()
+sipCallTransfer()
+sipRefer()
+startLiveStreaming()
+startLocalAudioLevelObserver()
+startRemoteParticipantsAudioLevelObserver()
+startRecording()
+startScreenShare()
+startTranscription()
+stopCustomTrack()
+stopLiveStreaming()
+stopLocalAudioLevelObserver()
+stopRemoteParticipantsAudioLevelObserver()
+stopRecording()
+stopScreenShare()
+stopTestCallQuality()
+stopTestConnectionQuality()
+stopTestPeerToPeerCallQuality()
+stopTranscription()
+testCallQuality()
+testConnectionQuality()
+testNetworkConnectivity()
+testPeerToPeerCallQuality()
+testWebsocketConnectivity()
+theme()
+updateCustomTrayButtons()
+updateInputSettings()
+updateLiveStreaming()
+updateParticipant()
+updateParticipants()
+updateReceiveSettings()
+updateScreenShare()
+updateSendSettings()
+updateRecording()
+updateTranscription()
+updateWaitingParticipant()
+updateWaitingParticipants()
+waitingParticipants()
+
+Static methods
+Use Daily static methods to gather information before constructing a Daily object.
+
+Static methods include:
+
+getCallInstance()
+supportedBrowser()
+
+
+Factory methods
+You can use Daily factory methods to create objects that enable a WebRTC call.
+
+These methods include:
+
+createFrame()
+wrap()
+createTransparentFrame()
+createCallObject()
+
+
+The Daily call client
+Importing Daily gives you access to factory methods for creating DailyCall* clients. These call clients expose methods and events for managing the call lifecycle and participant state, and for customizing the look and feel of Daily Prebuilt.
+
+*If you're not using TypeScript you may notice the underlying JS class is called DailyIframe for historical reasons.
+
+Methods
+Factory methods
+createFrame()
+wrap()
+createTransparentFrame()
+createCallObject()
+Top-level DailyCall configuration properties can be passed to any of the factory methods, or to thejoin() method.
+
+Instance methods
+abortTestNetworkConnectivity()
+abortTestWebsocketConnectivity()
+accessState()
+activeSpeakerMode()
+addFakeParticipant()
+addLiveStreamingEndpoints()
+cycleCamera()
+cycleMic()
+customTrayButtons()
+customIntegrations()
+destroy()
+enumerateDevices()
+exitFullscreen()
+getDailyLang()
+getInputDevices()
+getInputSettings()
+getLocalAudioLevel()
+getRemoteParticipantsAudioLevel()
+getMeetingSession()
+getNetworkStats()
+getNetworkTopology()
+getReceiveSettings()
+getSendSettings()
+getSidebarView()
+iframe()
+isDestroyed()
+isLocalAudioLevelObserverRunning()
+isRemoteParticipantsAudioLevelObserverRunning()
+join()
+leave()
+load()
+localAudio()
+localScreenAudio()
+localScreenVideo()
+localVideo()
+meetingSessionSummary()
+meetingSessionState()
+meetingState()
+off()
+on()
+once()
+participants()
+participantCounts()
+preAuth()
+removeLiveStreamingEndpoints()
+requestAccess()
+requestFullscreen()
+room()
+sendAppMessage()
+setActiveSpeakerMode()
+setBandwidth()
+setCustomIntegrations()
+setDailyLang()
+setIceConfig()
+setInputDevicesAsync()
+setLocalAudio()
+setLocalVideo()
+setMeetingSessionData()
+setNetworkTopology()
+setOutputDeviceAsync()
+setPlayNewParticipantSound()
+setProxyUrl()
+setShowLocalVideo()
+setShowNamesMode()
+setShowParticipantsBar()
+setSidebarView()
+setSubscribeToTracksAutomatically()
+setTheme()
+setUserData()
+setUserName()
+showLocalVideo()
+showParticipantsBar()
+startCamera()
+startCustomIntegrations()
+stopCustomIntegrations()
+startCustomTrack()
+startDialOut()
+sendDTMF()
+stopDialOut()
+sipCallTransfer()
+sipRefer()
+startLiveStreaming()
+startLocalAudioLevelObserver()
+startRemoteParticipantsAudioLevelObserver()
+startRecording()
+startScreenShare()
+startTranscription()
+stopCustomTrack()
+stopLiveStreaming()
+stopLocalAudioLevelObserver()
+stopRemoteParticipantsAudioLevelObserver()
+stopRecording()
+stopScreenShare()
+stopTestCallQuality()
+stopTestConnectionQuality()
+stopTestPeerToPeerCallQuality()
+stopTranscription()
+testCallQuality()
+testConnectionQuality()
+testNetworkConnectivity()
+testPeerToPeerCallQuality()
+testWebsocketConnectivity()
+theme()
+updateCustomTrayButtons()
+updateInputSettings()
+updateLiveStreaming()
+updateParticipant()
+updateParticipants()
+updateReceiveSettings()
+updateScreenShare()
+updateSendSettings()
+updateRecording()
+updateTranscription()
+updateWaitingParticipant()
+updateWaitingParticipants()
+waitingParticipants()
+Static methods
+getCallInstance()
+supportedBrowser()
+Events
+You can install callbacks for the following events:
+
+Meeting events:
+loading
+loaded
+load-attempt-failed
+started-camera
+camera-error
+joining-meeting
+joined-meeting
+left-meeting
+call-instance-destroyed
+meeting-session-updated
+test-completed
+fullscreen*
+exited-fullscreen*
+active-speaker-change
+active-speaker-mode-change*
+access-state-updated
+error
+theme-updated
+receive-settings-updated
+send-settings-updated
+show-local-video-changed
+sidebar-view-changed*
+pip-started*
+pip-stopped*
+input-settings-updated
+nonfatal-error
+custom-button-click
+local-screen-share-started
+local-screen-share-stopped
+local-screen-share-canceled
+local-audio-level
+remote-participants-audio-level
+face-counts-updated
+* These events are only supported when using Daily Prebuilt.
+
+Participant events
+participant-joined
+participant-updated
+participant-left
+waiting-participant-added
+waiting-participant-updated
+waiting-participant-removed
+app-message
+track-started
+track-stopped
+lang-updated
+Quality events
+network-connection
+network-quality-change
+cpu-load-change
+Recording events
+Pay-as-you-go
+recording-started
+recording-stopped
+recording-stats
+recording-error
+recording-upload-completed
+recording-data
+Live streaming events
+Pay-as-you-go
+live-streaming-started
+live-streaming-updated
+live-streaming-stopped
+live-streaming-error
+Transcription events
+Pay-as-you-go
+transcription-started
+transcription-stopped
+transcription-message
+transcription-error
+Dial-out events
+Pay-as-you-go
+dialout-connected
+dialout-stopped
+dialout-error
+dialout-warning
+Dial-in events
+Pay-as-you-go
+dialin-connected
+dialin-ready
+dialin-stopped
+dialin-error
+dialin-warning
+Built worldwide
+

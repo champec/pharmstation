@@ -1,0 +1,1354 @@
+REST API documentation
+This documentation is for developers interested in using the GOV.UK Notify API to send emails, text messages or letters.
+
+You can use it to integrate directly with the API if you cannot use one of our 6 client libraries.
+
+Developers can also use our OpenAPI file with tools such as Swagger and Redoc to assist with using the REST API. You cannot use Swagger Editor to make test API requests.
+
+Making a request
+Base URL
+https://api.notifications.service.gov.uk
+Headers
+Authorisation header
+The authorisation header is an API key that is encoded using JSON Web Tokens. You must include an authorisation header.
+
+JSON Web Tokens have a standard header and a payload. The header consists of:
+
+{
+  "typ": "JWT",
+  "alg": "HS256"
+}
+The payload consists of:
+
+{
+  "iss": "26785a09-ab16-4eb0-8407-a37497a57506",
+  "iat": 1568818578
+}
+JSON Web Tokens are encoded using a secret key with the following format:
+
+3d844edf-8d35-48ac-975b-e847b4f122b0
+That secret key forms a part of your API key, which follows the format {key_name}-{iss-uuid}-{secret-key-uuid}.
+
+For example, if your API key is my_test_key-26785a09-ab16-4eb0-8407-a37497a57506-3d844edf-8d35-48ac-975b-e847b4f122b0:
+
+your API key name is my_test_key
+your iss (your service id) is 26785a09-ab16-4eb0-8407-a37497a57506
+your secret key is 3d844edf-8d35-48ac-975b-e847b4f122b0
+iat (issued at) is the current time in UTC in epoch seconds. The token expires within 30 seconds of the current time.
+
+Refer to the JSON Web Tokens website for more information on encoding your authorisation header.
+
+When you have an encoded and signed token, add that token to a header as follows:
+
+"Authorization": "Bearer encoded_jwt_token"
+Content header
+The content header is application/json:
+
+"Content-type": "application/json"
+Send a message
+You can use GOV.UK Notify to send emails, text messages and letters.
+
+Bulk sending
+You cannot use a single API call to send messages in bulk.
+
+To send a batch of messages, use the API to loop over your recipient list, sending one message at a time to each recipient.
+
+Make sure you do not exceed our rate limits.
+
+Send a text message
+Method
+POST /v2/notifications/sms
+Request body
+{
+  "phone_number": "+447900900123",
+  "template_id": "f33517ff-2a88-4f6e-b855-c550268ce08a"
+}
+Arguments
+phone_number (required)
+The phone number of the recipient of the text message. This can be a UK or international number.
+
+For example:
+
+"phone_number": "+447900900123"
+template_id (required)
+To find the template ID:
+
+Sign in to GOV.UK Notify.
+Go to the Templates page and select the relevant template.
+Select Copy template ID to clipboard.
+For example:
+
+"template_id": "f33517ff-2a88-4f6e-b855-c550268ce08a"
+personalisation (optional)
+If a template has placeholder fields for personalised information such as name or reference number, you must provide their values in a dictionary with key value pairs. For example:
+
+"personalisation": {
+  "first_name": "Amala",
+  "appointment_date": "1 January 2018 at 1:00PM",
+}
+You can leave out this argument if a template does not have any placeholder fields for personalised information.
+
+reference (optional)
+An identifier you can create if necessary. This reference identifies a single unique message or a batch of messages. It must not contain any personal information such as name or postal address. For example:
+
+// optional string - identifies notification(s)
+"reference": "your reference"
+You can leave out this argument if you do not have a reference.
+
+sms_sender_id (optional)
+A unique identifier of the sender of the text message notification.
+
+To find the text message sender:
+
+Sign in to GOV.UK Notify.
+Go to the Settings page.
+In the Text Messages section, select Manage on the Text Message sender row.
+You can then either:
+
+copy the sender ID that you want to use and paste it into the method
+select Change to change the default sender that the service will use, and select Save
+"sms_sender_id": "8e222534-7f05-4972-86e3-17c5d9f894e2"
+You can leave out this argument if your service only has one text message sender, or if you want to use the default sender.
+
+Response
+If the request is successful, the response body is json with a status code of 201:
+
+{
+  "id": "740e5834-3a29-46b4-9a6f-16142fde533a",  // required string - notification ID
+  "reference": "your reference", // optional string - reference you provided when sending the message
+  "content": {
+    "body": "Hi Amala, your appointment is on 1 January 2018 at 1:00PM",  // required string - message content
+    "from_number": "GOVUK"  // required string - sender ID / phone number
+  },
+  "uri": "https://api.notifications.service.gov.uk/v2/notifications/740e5834-3a29-46b4-9a6f-16142fde533a",  // required string
+  "template": {
+    "id": "f33517ff-2a88-4f6e-b855-c550268ce08a", // required string - template ID
+    "version": 3,  // required integer
+    "uri": "https://api.notifications.service.gov.uk/v2/template/f33517ff-2a88-4f6e-b855-c550268ce08a"  // required string
+  }
+}
+If you are using the test API key, all your messages will come back with a delivered status.
+
+All messages sent using the team and guest list or live keys will appear on your dashboard.
+
+Error codes
+If the request is not successful, the API returns json containing the relevant error code. To learn more about error structure, go to Errors section.
+
+Error message	How to fix
+ValidationError (status code 400)
+
+phone_number Too many digits	Provide a valid recipient phone number.
+phone_number Not enough digits	Provide a valid recipient phone number.
+phone_number Not a UK mobile number	Provide a valid British recipient phone number.
+phone_number Must not contain letters or symbols	Provide a valid recipient phone number.
+phone_number Not a valid country prefix	Provide a valid recipient phone number.
+BadRequestError (status code 400)	
+sms_sender_id <sms_sender_id> does not exist in database for service id <service id>	Go to your service Settings and copy a valid sms_sender_id. Check that the API key you are using and the sms_sender_id belong to the same service.
+Cannot send to this recipient when service is in trial mode - see https://www.notifications.service.gov.uk/trial-mode	Your service cannot send this text message in trial mode. To fix, you need to request for your service to go live.
+Cannot send to international mobile numbers	Sending to international mobile numbers is turned off for your service. You can change this in your service Settings.
+In addition to the above, you may also encounter:
+
+various schema validation errors, for example when you forget to pass in an argument, or pass in an argument of a wrong type.
+errors that are not related to sending a text message, but instead are related to things like authentication and rate limits. You can find a list of these errors in General errors.
+Send an email
+Method
+POST /v2/notifications/email
+Request body
+{
+  "email_address": "amala@example.com",
+  "template_id": "9d751e0e-f929-4891-82a1-a3e1c3c18ee3"
+}
+Arguments
+email_address (required)
+The email address of the recipient.
+
+For example:
+
+"email_address": "amala@example.com" // required string
+template_id (required)
+To find the template ID:
+
+Sign in to GOV.UK Notify.
+Go to the Templates page and select the relevant template.
+Select Copy template ID to clipboard.
+For example:
+
+"template_id": "9d751e0e-f929-4891-82a1-a3e1c3c18ee3", // required UUID string
+personalisation (optional)
+If a template has placeholder fields for personalised information such as name or reference number, you need to provide their values in a dictionary with key value pairs. For example:
+
+"personalisation": {
+  "first_name": "Amala",
+  "appointment_date": "1 January 2018 at 1:00PM",
+  // pass in a list and it will appear as bullet points in the message:
+  "required_documents": ["passport", "utility bill", "other id"],
+}
+You can leave out this argument if a template does not have any placeholder fields for personalised information.
+
+Find out how to reduce the risk of malicious content injection in placeholders.
+
+reference (optional)
+An identifier you can create if necessary. This reference identifies a single unique email or a batch of emails. It must not contain any personal information such as name or postal address. For example:
+
+"reference": "your reference"
+You can leave out this argument if you do not have a reference.
+
+one_click_unsubscribe_url (recommended)
+If you send subscription emails you must let recipients opt out of receiving them. Read our Using Notify page for more information about unsubscribe links.
+
+The one-click unsubscribe URL will be added to the headers of your email. Email s will use it to add an unsubscribe button.
+
+"one_click_unsubscribe_url": "https://example.com/unsubscribe.html?opaque=123456789" // optional string, a URL
+The one-click unsubscribe URL must respond to an empty POST request by unsubscribing the user from your emails. You can include query parameters to help you identify the user.
+
+Your unsubscribe URL and response must comply with the guidance specified in Section 3.1 of IETF RFC 8058.
+
+You can leave out this argument if the email being sent is not a subscription email.
+
+You must also add an unsubscribe link to the bottom of your email. The unsubscribe link at the bottom of your email should take the email recipient to a webpage where they can confirm that they want to unsubscribe.
+
+Find out how to add a link when you create a New template or Edit an email template.
+
+email_reply_to_id (optional)
+This is an email address specified by you to receive replies from your users. You must add at least one reply-to email address before your service can go live.
+
+To add a reply-to email address:
+
+Sign in to GOV.UK Notify.
+Go to the Settings page.
+In the Email section, select Manage on the Reply-to email addresses row.
+Select Add reply-to address.
+Enter the email address you want to use, and select Add.
+For example:
+
+"email_reply_to_id": "8e222534-7f05-4972-86e3-17c5d9f894e2" // optional UUID string
+You can leave out this argument if your service only has one reply-to email address, or you want to use the default email address.
+
+Response
+If the request is successful, the response body is json with a status code of 201:
+
+{
+  "id": "201b576e-c09b-467b-9dfa-9c3b689ee730",  // required string - notification ID
+  "reference": "your reference",  // optional string - reference you provided when sending the message
+  "content": {
+    "subject": "Your upcoming pigeon registration appointment",  // required string - message subject
+    "body": "Dear Amala\r\n\r\nYour pigeon registration appointment is scheduled for 1 January 2018 at 1:00PM.\r\n\r\nPlease bring:\r\n\n\n* passport\n* utility bill\n* other id\r\n\r\nYours,\r\nPigeon Affairs Bureau",  // required string - message content
+    "from_email": "pigeon.affairs.bureau@notifications.service.gov.uk",  // required string - "FROM" email address, not a real inbox
+    "one_click_unsubscribe_url": "https://example.com/unsubscribe.html?opaque=123456789",  // optional string
+  },
+  "uri": "https://api.notifications.service.gov.uk/v2/notifications/201b576e-c09b-467b-9dfa-9c3b689ee730",  // required string
+  "template": {
+    "id": "9d751e0e-f929-4891-82a1-a3e1c3c18ee3",  // required string - template ID
+    "version": 1,  // required integer
+    "uri": "https://api.notifications.service.gov.uk/v2/template/9d751e0e-f929-4891-82a1-a3e1c3c18ee3"  // required string
+  }
+}
+Reducing the risk of malicious content injection in placeholders
+Notify lets you personalise messages using placeholders.
+
+You can format content or add links and urls into placeholders using Markdown.
+
+If you pass in information from untrusted sources (such as online forms) into your Notify template using personalisation, this may be used to add malicious content and links to notifications you send via Notify.
+
+The malicious content could be:
+
+Markdown syntax intended to be rendered into HTML
+a plain text URL which would be rendered into a clickable phishing link
+An example of how malicious content can be injected into Notify personalisation:
+
+Template in Notify:
+
+Hello ((name))
+Personalisation:
+
+{name: "Anne Example, now [click this evil link](https://malicious.link)"}
+Email will appear as:
+
+ Dear Anne Example, now click this evil link
+We recommend you sanitise all input from untrusted sources to prevent the injection of malicious content. You can use a backslash to escape individual characters. The characters of most concern are those that could be used to add a URL link such as [, ], ( or ).
+
+Error codes
+If the request is not successful, the API returns json containing the relevant error code. To learn more about error structure, go to Errors section.
+
+Error message	How to fix
+ValidationError (status code 400)
+
+email_address Not a valid email address	Provide a valid recipient email address.
+one_click_unsubscribe_url is not a valid https url	Provide a valid https url for your unsubscribe link.
+BadRequestError (status code 400)	
+email_reply_to_id <reply to id> does not exist in database for service id <service id>	Go to your service Settings and copy a valid email_reply_to_id. Double check that the API key you are using and the email_reply_to_id belong to the same service.
+Emails cannot be longer than 2000000 bytes. Your message is <rendered template size in bytes> bytes.	Shorten your email message.
+Cannot send to this recipient when service is in trial mode - see https://www.notifications.service.gov.uk/trial-mode	Your service cannot send this email in trial mode. To fix, you need to request for your service to go live.
+In addition to the above, you may also encounter:
+
+various schema validation errors, for example when you forget to pass in an argument, or pass in an argument of a wrong type.
+errors about a file you try to send via email. You can find a list of these errors at the end of Send a file by email
+errors that are not related to sending an email, but instead are related to things like authentication and rate limits. You can find a list of these errors in General errors
+Send a file by email
+To send a file by email, add a placeholder to the template then upload a file. The placeholder will contain a secure link to download the file.
+
+The links are unique and unguessable. GOV.UK Notify cannot access or decrypt your file.
+
+Your file will be available to download for a default period of 26 weeks (6 months).
+
+To help protect your files you can also:
+
+ask recipients to confirm their email address before downloading
+choose the length of time that a file is available to download
+Add contact details to the file download page
+Sign in to GOV.UK Notify.
+Go to the Settings page.
+In the Email section, select Manage on the Send files by email row.
+Enter the contact details you want to use, and select Save.
+Add a placeholder to the template
+Sign in to GOV.UK Notify.
+Go to the Templates page and select the relevant email template.
+Select Edit.
+Add a placeholder to the email template using double brackets. For example: “Download your file at: ((link_to_file))”
+Your email should also tell recipients how long the file will be available to download.
+
+Upload your file
+You can upload the following file types:
+
+CSV (.csv)
+image (.jpeg, .jpg, .png)
+Microsoft Excel Spreadsheet (.xlsx)
+Microsoft Word Document (.doc, .docx)
+PDF (.pdf)
+text (.json, .odt, .rtf, .txt)
+Your file must be smaller than 2MB. Contact the GOV.UK Notify team if you need to send other file types.
+
+You’ll need to convert the file into a string that is base64 encoded.
+
+Pass the encoded string into an object with a file key, and put that in the personalisation argument. For example:
+
+"personalisation":{
+  "first_name": "Amala",
+  "appointment_date": "1 January 2018 at 1:00PM",
+  "link_to_file": {"file": "file as base64 encoded string"}
+}
+Set the filename
+You should provide a filename when you upload your file.
+
+The filename should tell the recipient what the file contains. A memorable filename can help the recipient to find the file again later.
+
+The filename must end with a file extension. For example, .csv for a CSV file. If you include the wrong file extension, recipients may not be able to open your file.
+
+If you do not provide a filename for your file, Notify will:
+
+generate a random filename
+try to add the correct file extension
+If Notify cannot add the correct file extension, recipients may not be able to open your file.
+
+"personalisation":{
+  "first_name": "Amala",
+  "appointment_date": "1 January 2018 at 1:00PM",
+  "link_to_file": {"file": "CSV file as base64 encoded string", "filename": "amala_pigeon_affairs_bureau_invite.csv"}
+}
+Ask recipients to confirm their email address before they can download the file
+When a recipient clicks the link in the email you’ve sent them, they have to enter their email address. Only someone who knows the recipient’s email address can download the file.
+
+This security feature is turned on by default.
+
+Turn off email address check (not recommended)
+If you do not want to use this feature, you can turn it off on a file-by-file basis.
+
+You should not turn this feature off if you send files that contain:
+
+personally identifiable information
+commercially sensitive information
+information classified as ‘OFFICIAL’ or ‘OFFICIAL-SENSITIVE’ under the Government Security Classifications policy
+To let the recipient download the file without confirming their email address, set the confirm_email_before_download flag to false.
+
+"personalisation":{
+  "first_name": "Amala",
+  "appointment_date": "1 January 2018 at 1:00PM",
+  "link_to_file": {"file": "file as base64 encoded string", "confirm_email_before_download": false}
+}
+Choose the length of time that a file is available to download
+Set the number of weeks you want the file to be available using the retention_period key.
+
+You can choose any value between 1 week and 78 weeks. When deciding this, you should consider:
+
+the need to protect the recipient’s personal information
+whether the recipient will need to download the file again later
+If you do not choose a value, the file will be available for the default period of 26 weeks (6 months).
+
+Files sent before 12 April 2023 had a longer default period of 78 weeks (18 months).
+
+"personalisation":{
+  "first_name": "Amala",
+  "appointment_date": "1 January 2018 at 1:00PM",
+  "link_to_file": {"file": "file as base64 encoded string", "retention_period": "4 weeks"}
+}
+Response
+If the request is successful, the response body is json with a status code of 201:
+
+{
+  "id": "201b576e-c09b-467b-9dfa-9c3b689ee730",  // required string - notification ID
+  "reference": "your reference",  // optional string - reference you provided when sending the message
+  "content": {
+    "subject": "Your upcoming pigeon registration appointment",  // required string - message subject
+    "body": "Dear Amala\r\n\r\nYour pigeon registration appointment is scheduled for 1 January 2018 at 1:00PM.\r\n\r\n Here is a link to your invitation document:\r\nhttps://documents.service.gov.uk/d/YlxDzgNUQYi1Qg6QxIpptA/th46VnrvRxyVO9div6f7hA?key=R0VDmwJ1YzNYFJysAIjQd9yHn5qKUFg-nXHVe3Ioa3A\r\n\r\nPlease bring the invite with you to the appointment.\r\n\r\nYours,\r\nPigeon Affairs Bureau",  // required string - message content - see that the link to document is embedded in the message content
+    "from_email": "pigeon.affairs.bureau@notifications.service.gov.uk",  // required string - "FROM" email address, not a real inbox
+    "one_click_unsubscribe_url": "https://example.com/unsubscribe.html?opaque=123456789",  // optional string
+  },
+  "uri": "https://api.notifications.service.gov.uk/v2/notifications/201b576e-c09b-467b-9dfa-9c3b689ee730",  // required string
+  "template": {
+    "id": "9d751e0e-f929-4891-82a1-a3e1c3c18ee3",  // required string - template ID
+    "version": 1,  // required integer
+    "uri": "https://api.notifications.service.gov.uk/v2/template/9d751e0e-f929-4891-82a1-a3e1c3c18ee3"  // required string
+  }
+}
+Error codes
+If the request is not successful, the API returns json containing the relevant error code. To learn more about error structure, go to Errors section.
+
+Error message	How to fix
+BadRequestError (status code 400)
+
+Unsupported file type '(FILE TYPE)'. Supported types are: '(ALLOWED TYPES)'	Wrong file type. You can only upload .csv, .doc, .docx, .jpeg, .jpg, .odt, .pdf, .png, .rtf, .txt or .xlsx files
+filename cannot be longer than 100 characters	Choose a shorter filename
+filename must end with a file extension. For example, filename.csv	Include the file extension in your filename
+Unsupported value for retention_period '(PERIOD)'. Supported periods are from 1 to 78 weeks.	Choose a period between 1 and 78 weeks
+Unsupported value for confirm_email_before_download: '(VALUE)'. Use a boolean true or false value.	Use either True or False
+File did not pass the virus scan	The file contains a virus
+Send files by email has not been set up - add contact details for your service at https://www.notifications.service.gov.uk/services/(SERVICE ID)/service-settings/send-files-by-email	See how to add contact details to the file download page
+Can only send a file by email	Make sure you are using an email template
+Client error (no status code)	
+ValueError('File is larger than 2MB')	The file is too big. Files must be smaller than 2MB.
+In addition to the above, you may also encounter:
+
+other errors related to sending an email.
+various schema validation errors, for example when you forget to pass in an argument, or pass in an argument of a wrong type.
+errors that are not related to sending an email, but instead are related to things like authentication and rate limits. You can find a list of these errors in General errors
+Send a letter
+When you add a new service it will start in trial mode. You can only send letters when your service is live.
+
+To send Notify a request to go live:
+
+Sign in to GOV.UK Notify.
+Go to the Settings page.
+In the Your service is in trial mode section, select request to go live.
+Method
+POST /v2/notifications/letter
+Request body
+{
+  "template_id": "64415853-cb86-4cc4-b597-2aaa94ef8c39",
+  "personalisation": {
+    "address_line_1": "Amala Bird",
+    "address_line_2": "123 High Street",
+    "address_line_3": "SW14 6BH"
+  }
+}
+Arguments
+template_id (required)
+To find the template ID:
+
+Sign in to GOV.UK Notify.
+Go to the Templates page and select the relevant template.
+Select Copy template ID to clipboard.
+For example:
+
+"template_id": "9d751e0e-f929-4891-82a1-a3e1c3c18ee3", // required UUID string
+personalisation (required)
+The personalisation argument always contains the following parameters for the letter recipient’s address:
+
+address_line_1
+address_line_2
+address_line_3
+address_line_4
+address_line_5
+address_line_6
+address_line_7
+The address must have at least 3 lines.
+
+The last line needs to be a real UK postcode or the name of a country outside the UK.
+
+Notify checks for international addresses and will automatically charge you the correct postage.
+
+The postcode personalisation argument has been replaced. If your template still uses postcode, Notify will treat it as the last line of the address.
+
+Any other placeholder fields included in the letter template also count as required parameters. You need to provide their values in a dictionary with key value pairs. For example:
+
+"personalisation": {
+  "address_line_1": "Amala Bird",  // required string
+  "address_line_2": "123 High Street",  // required string
+  "address_line_3": "Richmond upon Thames",  // required string
+  "address_line_4": "Middlesex",
+  "address_line_5": "SW14 6BF",  // last line of address you include must be a postcode or a country name  outside the UK
+  "name": "Amala",
+  "appointment_date": "1 January 2018 at 1:00PM",
+  // pass in a list and it will appear as bullet points in the letter:
+  "required_documents": ["passport", "utility bill", "other id"]
+}
+reference (optional)
+An identifier you can create if necessary. This reference identifies a single unique letter or a batch of letters. It must not contain any personal information such as name or postal address. For example:
+
+"reference": "your reference" // optional string - identifies notification(s)
+Response
+If the request is successful, the response body is json and the status code is 201:
+
+{
+  "id": "3d1ce039-5476-414c-99b2-fac1e6add62c",  // required string - notification ID
+  "reference": "your reference",  // optional string - reference you provided when sending the message
+  "content": {
+    "subject": "Your upcoming pigeon registration appointment",  // required string - letter heading
+    "body": "Dear Amala\r\n\r\nYour pigeon registration appointment is scheduled for 1 January 2018 at 1:00PM.\r\n\r\nPlease bring:\r\n\n\n* passport\n* utility bill\n* other id\r\n\r\nYours,\r\nPigeon Affairs Bureau",  // required string - letter content
+  },
+  "uri": "https://api.notifications.service.gov.uk/v2/notifications/3d1ce039-5476-414c-99b2-fac1e6add62c",  // required string
+  "template": {
+    "id": "64415853-cb86-4cc4-b597-2aaa94ef8c39",  // required string - template ID
+    "version": 3,  // required integer
+    "uri": "https://api.notifications.service.gov.uk/v2/template/64415853-cb86-4cc4-b597-2aaa94ef8c39"  // required string
+  },
+  "scheduled_for": null
+}
+Error codes
+If the request is not successful, the API returns json containing the relevant error code. To learn more about error structure, go to Errors section.
+
+Error message	How to fix
+ValidationError (status code 400)
+
+personalisation address_line_1 is a required property	Ensure that your template has a field for the first line of the address, check personalisation for more information.
+Must be a real UK postcode	Ensure that the value for the last line of the address is a real UK postcode.
+Must be a real address	Provide a real recipient address. We do not accept letters for “no fixed abode” addresses, as those cannot be delivered.
+Last line of address must be a real UK postcode or another country	Ensure that the value for the last line of the address is a real UK postcode or the name of a country outside the UK.
+The last line of a BFPO address must not be a country.	The last line of a BFPO address must not be a country.
+Address must be at least 3 lines	Provide at least 3 lines of address.
+Address must be no more than 7 lines	Provide no more than 7 lines of address.
+Address lines must not start with any of the following characters: @ ( ) = [ ] ” \ / , < >	Change the start of an address line, so it doesn’t start with one of these characters. This is a requirement from our printing provider.
+postage invalid. It must be either first, second or economy.	Specify valid postage option.
+BadRequestError (status code 400)	
+Cannot send letters when service is in trial mode - see https://www.notifications.service.gov.uk/trial-mode	Your service cannot send this letter in trial mode.
+Service is not allowed to send letters	Turn on sending letters in your service Settings on GOV.UK Notify webpage
+letter_contact_id <letter_contact_id> does not exist in database for service id <service id>	Go to your service Settings and copy a valid letter_contact_id. Check that the API key you are using and the letter_contact_id belong to the same service.
+BadRequestError (status code 403)	
+Cannot send letters with a team api key	Use the correct type of API key.
+In addition to the above, you may also encounter:
+
+various schema validation errors, for example when you forget to pass in an argument, or pass in an argument of a wrong type.
+errors that are not related to sending an email, but instead are related to things like authentication and rate limits. You can find a list of these errors in General errors
+Send a precompiled letter
+POST /v2/notifications/letter
+Request body
+{
+  "reference": "your reference",
+  "content": "file as base64 encoded string"
+}
+Arguments
+reference (required)
+An identifier you create. This reference identifies a single unique precompiled letter or a batch of precompiled letters. It must not contain any personal information such as name or postal address.
+
+"reference": "your reference" // required string - identifies notification(s)
+content (required)
+The precompiled letter must be a PDF file which meets the GOV.UK Notify letter specification. You’ll need to convert the file into a string that is base64 encoded.
+
+"content": "file as base64 encoded string"
+postage (optional)
+You can choose first class, second class or economy mail postage for your precompiled letter. Set the value to first for first class, second for second class or economy for economy mail. If you do not pass in this argument, the postage will default to second class.
+
+"postage": "second"
+Response
+If the request is successful, the response body is json and the status code is 201:
+
+{
+  "id": "1d986ba7-fba6-49fb-84e5-75038a1dd968",  // required string - notification ID
+  "reference": "your reference",  // required string - reference your provided
+  "postage": "first"  // required string - postage you provided, or else default postage for the letter
+}
+Error codes
+If the request is not successful, the API returns json containing the relevant error code. To learn more about error structure, go to Errors section.
+
+Error message	How to fix
+ValidationError (status code 400)
+
+reference is a required property	Add a reference argument to the method call
+postage invalid. It must be either first, second or economy.	Change the value of postage argument in the method call to either "first", "second" or "economy"
+BadRequestError (status code 400)	
+Letter content is not a valid PDF	PDF file format is required.
+Cannot send letters when service is in trial mode - see https://www.notifications.service.gov.uk/trial-mode	Your service cannot send this precompiled letter in trial mode.
+BadRequestError (status code 403)	
+Cannot send letters with a team api key	Use the correct type of API key.
+In addition to the above, you may also encounter:
+
+other errors related to sending an letter.
+various schema validation errors, for example when you forget to pass in an argument, or pass in an argument of a wrong type.
+errors that are not related to sending a letter, but instead are related to things like authentication and rate limits. You can find a list of these errors in General errors
+Get message data
+Get the data for one message
+You can only get the data for messages sent within the retention period. The default retention period is 7 days.
+
+Method
+GET /v2/notifications/{notification_id}
+URL parameters
+notification_id (required)
+The ID of the notification. To find the notification ID, you can either:
+
+check the response to the original notification method call.
+sign in to GOV.UK Notify and go to the API integration page
+3d1ce039-5476-414c-99b2-fac1e6add62c
+Response
+If the request is successful, the response body is json and the status code is 200:
+
+{
+    "id": "740e5834-3a29-46b4-9a6f-16142fde533a",  // required string - notification ID
+    "reference": "your reference",  // optional string - reference you provided when sending the message
+    "email_address": "amala@example.com",  // required string for emails
+    "phone_number": "+447700900123",  // required string for text messages
+    "line_1": "Amala Bird",  // required string for letter
+    "line_2": "123 High Street",  // required string for letter
+    "line_3": "Richmond upon Thames",  // required string for letter
+    "line_4": "Middlesex",  // optional string for letter
+    "line_5": "SW14 6BF",  // optional string for letter
+    "line_6": null,  // optional string for letter
+    "line_7": null, // optional string for letter
+    "postage": "first / second / europe / rest-of-world", // required string for letter
+    "type": "sms / letter / email",  // required string
+    "status": "sending / delivered / permanent-failure / temporary-failure / technical-failure",  // required string
+    "template": {
+        "version": 1, // required integer
+        "id": "f33517ff-2a88-4f6e-b855-c550268ce08a",  // required string - template ID
+        "uri": "/v2/template/{id}/{version}"  // required string
+    },
+    "body": "Hi Amala, your appointment is on 1 January 2018 at 1:00PM",  // required string - body of notification
+    "subject": "Your upcoming pigeon registration appointment",  // required string for email - subject of email
+    "created_at": "2024-05-17 15:58:38.342838",  // required string - date and time notification created
+    "created_by_name": "Charlie Smith",  // optional string - name of the person who sent the notification if sent manually
+    "sent_at": "2024-05-17 15:58:30.143000",  // optional string - date and time notification sent to provider
+    "completed_at": "2024-05-17 15:59:10.321000",  // optional string - date and time notification delivered or failed
+    "scheduled_for": "2024-05-17 9:00:00.000000", // optional string - date and time notification has been scheduled to be sent at
+    "one_click_unsubscribe": "https://example.com/unsubscribe.html?opaque=123456789", // optional string, email only - URL that you provided so your recipients can unsubscribe
+    "is_cost_data_ready": true,  // required boolean, this field is true if cost data is ready, and false if it isn't
+    "cost_in_pounds": 0.0027,  // optional number - cost of the notification in pounds. The cost does not take free allowance into account
+    "cost_details": {
+        // for text messages:
+        "billable_sms_fragments": 1,  // optional integer - number of billable sms fragments in your text message
+        "international_rate_multiplier": 1,  // optional integer - for international sms rate is multiplied by this value
+        "sms_rate": 0.0027,  // optional number - cost of 1 sms fragment
+        // for letters:
+        "billable_sheets_of_paper": 2,  // optional integer - number of sheets of paper in the letter you sent, that you will be charged for
+        "postage": "first / second / europe / rest-of-world"  // optional string
+    }
+}
+Error codes
+If the request is not successful, the API returns json containing the relevant error code. To learn more about error structure, go to Errors section.
+
+Error message	How to fix
+ValidationError (status code 400)
+
+id is not a valid UUID	Check the notification ID.
+NoResultFound (status code 404)	
+No result found	If it’s outside the retention period, you may no longer get the status of the message. The default retention period is 7 days.
+In addition to the above, you may also encounter:
+
+various schema validation errors, for example when you forget to pass in an argument, or pass in an argument of a wrong type.
+errors that are not related to getting the status of a message, but instead are related to things like authentication and rate limits. You can find a list of these errors in General errors
+Get the data for multiple messages
+This API call returns one page with data for up to 250 messages. You can get either the most recent messages, or get older messages by specifying a particular notification ID in the older_than argument.
+
+You can only get messages that are within your data retention period. The default data retention period is 7 days. It can be changed in your Service Settings.
+
+GET /v2/notifications
+You can filter the returned messages by including the following optional arguments in the method:
+
+template_type
+status
+reference
+older_than
+include_jobs
+Query parameters
+You can omit any of these arguments to ignore these filters.
+
+template_type (optional)
+You can filter by:
+
+email
+sms
+letter
+?template_type=email
+status (optional)
+You can filter by each:
+
+email status
+text message status
+letter status
+precompiled letter status
+You can leave out this argument to ignore this filter.
+
+You can filter on multiple statuses by repeating the query string.
+
+?status=created&status=sending&status=delivered
+reference (optional)
+An identifier you can create if necessary. This reference identifies a single unique message or a batch of messages. It must not contain any personal information such as name or postal address. For example:
+
+?reference=your%20reference // optional string - reference you provided when sending the message
+You can leave out this argument to ignore this filter.
+
+older_than (optional)
+Input a notification ID into this argument. If you use this argument, the method returns the next 250 messages older than the given ID.
+
+?older_than=740e5834-3a29-46b4-9a6f-16142fde533a // optional string - notification ID
+If you leave out this argument, the method returns the most recent 250 messages.
+
+The API only returns messages sent within the retention period. The default retention period is 7 days. If the message specified in this argument was sent before the retention period, the API returns an empty response.
+
+include_jobs (optional)
+Includes notifications sent as part of a batch upload.
+
+If you leave out this argument, the method only returns notifications sent using the API.
+
+?include_jobs=true
+Response
+If the request is successful, the response body is json and the status code is 200.
+
+All messages
+{
+    "notifications": [
+        {
+            "id": "740e5834-3a29-46b4-9a6f-16142fde533a",  // required string - notification ID
+            "reference": "your reference",  // optional string - reference you provided when sending the message
+            "email_address": "amala@example.com",  // required string for emails
+            "phone_number": "+447700900123",  // required string for text messages
+            "line_1": "Amala Bird",  // required string for letter
+            "line_2": "123 High Street",  // required string for letter
+            "line_3": "Richmond upon Thames",  // required string for letter
+            "line_4": "Middlesex",  // optional string for letter
+            "line_5": "SW14 6BF",  // optional string for letter
+            "line_6": null,  // optional string for letter
+            "line_7": null, // optional string for letter
+            "postage": "first / second / europe / rest-of-world", // required string for letter
+            "type": "sms / letter / email",  // required string
+            "status": "sending / delivered / permanent-failure / temporary-failure / technical-failure",  // required string
+            "template": {
+                "version": 1, // required integer
+                "id": "f33517ff-2a88-4f6e-b855-c550268ce08a",  // required string - template ID
+                "uri": "/v2/template/{id}/{version}"  // required string
+            },
+            "body": "Hi Amala, your appointment is on 1 January 2018 at 1:00PM",  // required string - body of notification
+            "subject": "Your upcoming pigeon registration appointment",  // required string for email - subject of email
+            "created_at": "2024-05-17 15:58:38.342838",  // required string - date and time notification created
+            "created_by_name": "Charlie Smith",  // optional string - name of the person who sent the notification if sent manually
+            "sent_at": "2024-05-17 15:58:30.143000",  // optional string - date and time notification sent to provider
+            "completed_at": "2024-05-17 15:59:10.321000",  // optional string - date and time notification delivered or failed
+            "scheduled_for": "2024-05-17 9:00:00.000000", // optional string - date and time notification has been scheduled to be sent at
+            "one_click_unsubscribe": "https://example.com/unsubscribe.html?opaque=123456789", // optional string, email only - URL that you provided so your recipients can unsubscribe
+            "is_cost_data_ready": true,  // required boolean, this field is true if cost data is ready, and false if it isn't
+            "cost_in_pounds": 0.0027,  // optional number - cost of the notification in pounds. The cost does not take free allowance into account
+            "cost_details": {
+                // for text messages:
+                "billable_sms_fragments": 1,  // optional integer - number of billable sms fragments in your text message
+                "international_rate_multiplier": 1,  // optional integer - for international sms rate is multiplied by this value
+                "sms_rate": 0.0027,  // optional number - cost of 1 sms fragment
+                // for letters:
+                "billable_sheets_of_paper": 2,  // optional integer - number of sheets of paper in the letter you sent, that you will be charged for
+                "postage": "first / second / europe / rest-of-world"  // optional string
+            }
+        },
+        {
+            ...another notification
+        }
+    ],
+    "links": {
+        "current": "https://api.notifications.service.gov.uk/v2/notifications?template_type=sms&status=delivered",
+        "next": "https://api.notifications.service.gov.uk/v2/notifications?other_than=last_id_in_list&template_type=sms&status=delivered"
+    }
+}
+Error codes
+If the request is not successful, the API returns json containing the relevant error code. To learn more about error structure, go to Errors section.
+
+Error message	How to fix
+ValidationError (status code 400)
+
+status ‘elephant’ is not one of [cancelled, created, sending, sent, delivered, pending, failed, technical-failure, temporary-failure, permanent-failure, pending-virus-check, validation-failed, virus-scan-failed, returned-letter, accepted, received]	Change the status argument.
+‘Apple’ is not one of [sms, email, letter]	Change the template_type argument.
+In addition to the above, you may also encounter:
+
+various schema validation errors, for example when you forget to pass in an argument, or pass in an argument of a wrong type.
+errors that are not related to getting the status of messages, but instead are related to things like authentication and rate limits. You can find a list of these errors in General errors
+Email status descriptions
+Status	Description
+created	GOV.UK Notify has placed the message in a queue, ready to be sent to the provider. It should only remain in this state for a few seconds.
+sending	GOV.UK Notify has sent the message to the provider. The provider will try to deliver the message to the recipient for up to 72 hours. GOV.UK Notify is waiting for delivery information.
+delivered	The message was successfully delivered.
+permanent-failure	The provider could not deliver the message because the email address was wrong. You should remove these email addresses from your database.
+temporary-failure	The provider could not deliver the message. This can happen when the recipient’s inbox is full or their anti-spam filter rejects your email. Check your content does not look like spam before you try to send the message again.
+technical-failure	Your message was not sent because there was a problem between Notify and the provider.
+You’ll have to try sending your messages again.
+Text message status descriptions
+Status	Description
+created	GOV.UK Notify has placed the message in a queue, ready to be sent to the provider. It should only remain in this state for a few seconds.
+sending	GOV.UK Notify has sent the message to the provider. The provider will try to deliver the message to the recipient for up to 72 hours. GOV.UK Notify is waiting for delivery information.
+pending	GOV.UK Notify is waiting for more delivery information.
+GOV.UK Notify received a callback from the provider but the recipient’s device has not yet responded. Another callback from the provider determines the final status of the text message.
+sent	The message was sent to an international number. The mobile networks in some countries do not provide any more delivery information. The GOV.UK Notify website displays this status as ‘Sent to an international number’.
+delivered	The message was successfully delivered. If a recipient blocks your sender ID or mobile number, your message will still show as delivered.
+permanent-failure	The provider could not deliver the message. This can happen if the phone number was wrong or if the network operator rejects the message. If you’re sure that these phone numbers are correct, you should contact GOV.UK Notify support. If not, you should remove them from your database. You’ll still be charged for text messages that cannot be delivered.
+temporary-failure	The provider could not deliver the message. This can happen when the recipient’s phone is off, has no signal, or their text message inbox is full. You can try to send the message again. You’ll still be charged for text messages to phones that are not accepting messages.
+technical-failure	Your message was not sent because there was a problem between Notify and the provider.
+You’ll have to try sending your messages again. You will not be charged for text messages that are affected by a technical failure.
+Letter status descriptions
+Status	Description
+accepted	GOV.UK Notify has sent the letter to the provider to be printed.
+received	The provider has printed and dispatched the letter.
+cancelled	Sending cancelled. The letter will not be printed or dispatched.
+technical-failure	GOV.UK Notify had an unexpected error while sending the letter to our printing provider.
+permanent-failure	The provider cannot print the letter. Your letter will not be dispatched.
+Precompiled letter status descriptions
+Status	Description
+accepted	GOV.UK Notify has sent the letter to the provider to be printed.
+received	The provider has printed and dispatched the letter.
+cancelled	Sending cancelled. The letter will not be printed or dispatched.
+pending-virus-check	GOV.UK Notify has not completed a virus scan of the precompiled letter file.
+virus-scan-failed	GOV.UK Notify found a potential virus in the precompiled letter file.
+validation-failed	Content in the precompiled letter file is outside the printable area. See the GOV.UK Notify letter specification for more information.
+technical-failure	GOV.UK Notify had an unexpected error while sending the letter to our printing provider.
+permanent-failure	The provider cannot print the letter. Your letter will not be dispatched.
+Get a PDF for a letter notification
+Method
+This returns the PDF contents of a letter.
+
+GET /v2/notifications/{notification_id}/pdf
+URL parameters
+notification_id (required)
+The ID of the notification. To find the notification ID, you can either:
+
+check the response to the original notification POST call
+sign in to GOV.UK Notify and go to the API integration page
+3d1ce039-5476-414c-99b2-fac1e6add62c
+Response
+If the request to the API is successful, the API will return bytes representing the raw PDF data.
+
+Error codes
+If the request is not successful, the API returns json containing the relevant error code. To learn more about error structure, go to Errors section.
+
+Error message	How to fix
+ValidationError (status code 400)
+
+id is not a valid UUID	Check the notification ID.
+Notification is not a letter	Check that you are looking up the correct notification.
+PDFNotReadyError (status code 400)	
+PDF not available yet, try again later	Wait for the letter to finish processing. This usually takes a few seconds.
+BadRequestError (status code 400)	
+File did not pass the virus scan	You cannot retrieve the contents of a letter that contains a virus.
+PDF not available for letters in technical-failure	You cannot retrieve the contents of a letter in technical-failure.
+Notification is not a letter	Check that you are looking up the correct notification.
+NoResultFound (status code 404)	
+No result found	Check the notification ID.
+In addition to the above, you may also encounter:
+
+various schema validation errors, for example when you forget to pass in an argument, or pass in an argument of a wrong type.
+errors that are not related to getting a PDF for a letter, but instead are related to things like authentication and rate limits. You can find a list of these errors in General errors
+Get a template
+Get a template by ID
+Method
+This returns the latest version of the template.
+
+GET /v2/template/{template_id}
+URL parameters
+template_id (required)
+The ID of the template. Sign in to GOV.UK Notify and go to the Templates page to find it.
+
+f33517ff-2a88-4f6e-b855-c550268ce08a
+Response
+If the request is successful, the response body is json and the status code is 200.
+
+{
+    "id": "f33517ff-2a88-4f6e-b855-c550268ce08a", // required string - template ID
+    "name": "Pigeon registration - appointment email", // required string - template name
+    "type": "sms / email / letter" , // required string
+    "created_at": "2024-05-10 10:30:31.142535", // required string - date and time template created
+    "updated_at": "2024-08-25 13:00:09.123234", // required string - date and time template last updated
+    "version": 2, // required integer - template version
+    "created_by": "charlie.smith@pigeons.gov.uk", // required string
+    "subject": "Your upcoming pigeon registration appointment",  // required string for email and letter - subject of email / heading of letter
+    "body": "Dear ((first_name))\r\n\r\nYour pigeon registration appointment is scheduled for ((appointment_date)).\r\n\r\nPlease bring:\r\n\n\n((required_documents))\r\n\r\nYours,\r\nPigeon Affairs Bureau",  // required string - body of notification
+    "letter_contact_block": "Pigeons Affairs Bureau\n10 Whitechapel High Street\nLondon\nE1 8EF" // optional string - present for letter templates where contact block is set, otherwise null
+}
+Error codes
+If the request is not successful, the API returns json containing the relevant error code. To learn more about error structure, go to Errors section.
+
+Error message	How to fix
+NoResultFound (status code 404)
+
+No Result Found	Check your template ID.
+In addition to the above, you may also encounter:
+
+various schema validation errors, for example when you forget to pass in an argument, or pass in an argument of a wrong type.
+errors that are not related to getting a template, but instead are related to things like authentication and rate limits. You can find a list of these errors in General errors
+Get a template by ID and version
+Method
+GET /v2/template/{template_id}/version/{version}
+URL parameters
+template_id (required)
+The ID of the template. Sign in to GOV.UK Notify and go to the Templates page to find it.
+
+f33517ff-2a88-4f6e-b855-c550268ce08a
+version (required)
+The version number of the template.
+
+1
+Response
+If the request is successful, the response body is json and the status code is 200.
+
+{
+    "id": "f33517ff-2a88-4f6e-b855-c550268ce08a", // required string - template ID
+    "name": "Pigeon registration - appointment email", // required string - template name
+    "type": "sms / email / letter" , // required string
+    "created_at": "2024-05-10 10:30:31.142535", // required string - date and time template created
+    "updated_at": "2024-08-25 13:00:09.123234", // required string - date and time template last updated
+    "version": 1, // required integer - template version
+    "created_by": "charlie.smith@pigeons.gov.uk", // required string
+    "subject": "Your upcoming pigeon registration appointment",  // required string for email and letter - subject of email / heading of letter
+    "body": "Dear ((first_name))\r\n\r\nYour pigeon registration appointment is scheduled for ((appointment_date)).\r\n\r\nPlease bring:\r\n\n\n((required_documents))\r\n\r\nYours,\r\nPigeon Affairs Bureau",  // required string - body of notification
+    "letter_contact_block": "Pigeons Affairs Bureau\n10 Whitechapel High Street\nLondon\nE1 8EF" // optional string - present for letter templates where contact block is set, otherwise null
+}
+Error codes
+If the request is not successful, the API returns json containing the relevant error code. To learn more about error structure, go to Errors section.
+
+Error message	How to fix
+NoResultFound (status code 404)
+
+No Result Found	Check your template ID.
+In addition to the above, you may also encounter:
+
+various schema validation errors, for example when you forget to pass in an argument, or pass in an argument of a wrong type.
+errors that are not related to getting a template, but instead are related to things like authentication and rate limits. You can find a list of these errors in General errors
+Get all templates
+Method
+This returns the latest version of all templates.
+
+GET /v2/templates
+Query parameters
+template_type (optional)
+If you leave out this argument, the method returns all templates. Otherwise you can filter by:
+
+email
+sms
+letter
+Response
+If the request is successful, the response body is json and the status code is 200.
+
+{
+    "templates": [
+        {
+            "id": "f33517ff-2a88-4f6e-b855-c550268ce08a", // required string - template ID
+            "name": "Pigeon registration - appointment email", // required string - template name
+            "type": "sms / email / letter" , // required string
+            "created_at": "2024-05-10 10:30:31.142535", // required string - date and time template created
+            "updated_at": "2024-08-25 13:00:09.123234", // required string - date and time template last updated
+            "version": 2, // required integer - template version
+            "created_by": "charlie.smith@pigeons.gov.uk", // required string
+            "subject": "Your upcoming pigeon registration appointment",  // required string for email and letter - subject of email / heading of letter
+            "body": "Dear ((first_name))\r\n\r\nYour pigeon registration appointment is scheduled for ((appointment_date)).\r\n\r\nPlease bring:\r\n\n\n((required_documents))\r\n\r\nYours,\r\nPigeon Affairs Bureau",  // required string - body of notification
+            "letter_contact_block": "Pigeons Affairs Bureau\n10 Whitechapel High Street\nLondon\nE1 8EF" // optional string - present for letter templates where contact block is set, otherwise null
+        },
+        {
+            ...another template
+        }
+    ]
+}
+If no templates exist for a template type or there no templates for a service, the API returns a json object with a templates key for an empty array:
+
+{
+    "templates": []
+}
+Generate a preview template
+Method
+This generates a preview version of a template.
+
+POST /v2/template/{template_id}/preview
+URL parameters
+template_id (required)
+The ID of the template. Sign in to GOV.UK Notify and go to the Templates page to find it.
+
+f33517ff-2a88-4f6e-b855-c550268ce08a
+Request body
+{
+  "personalisation": {
+    "first_name": "Amala",
+    "appointment_date": "1 January 2018 at 1:00pm",
+  }
+}
+Arguments
+personalisation (required)
+If a template has placeholder fields for personalised information such as name or reference number, you need to provide their values in a dictionary with key value pairs. For example:
+
+{
+  "personalisation": {
+    "first_name": "Amala",
+    "appointment_date": "1 January 2018 at 1:00PM",
+    "required_documents": ["passport", "utility bill", "other id"],
+  }
+}
+The keys in the personalisation argument must match the placeholder fields in the actual template. The API will ignore any extra keys in the personalisation argument.
+
+Response
+If the request is successful, the response body is json and the status code is 200.
+
+{
+    "id": "740e5834-3a29-46b4-9a6f-16142fde533a", // required string - notification ID
+    "type": "sms / email / letter" , // required string
+    "version": 3,
+    // required string - body of notification
+    "body": "Dear Amala\r\n\r\nYour pigeon registration appointment is scheduled for 1 January 2018 at 1:00PM.\r\n\r\n Here is a link to your invitation document:\r\n\n\n* passport\n* utility bill\n* other id\r\n\r\nPlease bring the invite with you to the appointment.\r\n\r\nYours,\r\nPigeon Affairs Bureau",
+    // required string for emails, empty for sms and letters - html version of the email body
+    "html": '<p style="Margin: 0 0 20px 0; font-size: 19px; line-height: 25px; color: #0B0C0C;">Dear Amala</p> ... [snippet truncated for readability]',
+    // required string for email and letter - subject of email / heading of letter
+    "subject": 'Your upcoming pigeon registration appointment',
+    'postage': null, // required string for letters, empty for sms and emails - letter postage
+}
+Error codes
+If the request is not successful, the API returns json containing the relevant error code. To learn more about error structure, go to Errors section.
+
+Error message	How to fix
+BadRequestError (status code 400)
+
+Missing personalisation: [PERSONALISATION FIELD]	Check that the personalisation arguments in the method match the placeholder fields in the template.
+NoResultFound (status code 404)	
+No Result Found	Check your template ID.
+In addition to the above, you may also encounter:
+
+various schema validation errors, for example when you forget to pass in an argument, or pass in an argument of a wrong type.
+errors that are not related to generating a preview template, but instead are related to things like authentication and rate limits. You can find a list of these errors in General errors
+Get received text messages
+This API call returns one page of up to 250 received text messages. You can get either the most recent messages, or get older messages by specifying a particular notification ID in the older_than query parameter.
+
+You can only get the data for messages that are 7 days old or newer.
+
+Enable received text messages
+To receive text messages:
+
+Go to the Text message settings section of the Settings page.
+Select Change on the Receive text messages row.
+Get a page of received text messages
+Method
+GET /v2/received-text-messages
+You can specify which text messages to receive by inputting the ID of a received text message into the older_than argument.
+
+Query parameters
+older_than (optional)
+Input the ID of a received text message into this argument. If you use this argument, the method returns the next 250 received text messages older than the given ID.
+
+?older_than=740e5834-3a29-46b4-9a6f-16142fde533a // optional string - notification ID
+Response
+If the request is successful, the response body is json and the status code is 200.
+
+{
+  "received_text_messages":
+  [
+    {
+      "id": "'b51f638b-4295-46e0-a06e-cd41eee7c33b", // required string - ID of received text message
+      "user_number": "447700900123", // required string - number of the end user who sent the message
+      "notify_number": "07700900456", // required string - your receiving number
+      "created_at": "2024-12-12 18:39:16.123346", // required string - date and time template created
+      "service_id": "26785a09-ab16-4eb0-8407-a37497a57506", // required string - service ID
+      "content": "STRING" // required string - text content
+    },
+    {
+      ...another received text message
+    }
+  ],
+  "links": {
+    "current": "https://api.notifications.service.gov.uk/v2/received-text-messages",
+    "next": "https://api.notifications.service.gov.uk/v2/received-text-messages?other_than=last_id_in_list"
+  }
+}
+Error codes
+If the request is not successful, the API returns json containing the relevant error code. To learn more about error structure, go to Errors section.
+
+There are no errors specific to this endpoint, but you may encounter:
+
+various schema validation errors, for example when you forget to pass in an argument, or pass in an argument of a wrong type.
+errors that are not related to generating a preview template, but instead are related to things like authentication and rate limits. You can find a list of these errors in General errors
+Errors
+Error handling
+If the request is not successful, the API returns json containing:
+
+a status code, for example 403
+an error type, for example AuthError
+a message, for example Invalid token: service not found
+For example:
+
+{
+    "errors": [
+        {
+            "error": "AuthError",
+            "message": "Invalid token: service not found"
+        }
+    ],
+    "status_code": 403
+}
+Do not use the content of the messages in your code. These can sometimes change, which may affect your API integration.
+
+Use the status code or the error type instead, as these will not change.
+
+General errors
+You may encounter following errors when making requests to a number of Notify’s API endpoints.
+
+Error message	How to fix
+BadRequestError (status code 400)	
+Cannot send to this recipient using a team-only API key.	Use a live API key, or add recipient to Guest list (located in API Integration section)
+Cannot send to this recipient when service is in trial mode – see https://www.notifications.service.gov.uk/trial-mode	You need to request for your service to go live before you can send messages to people outside your team.
+BadRequestError (status code 403)	
+Error: Your system clock must be accurate to within 30 seconds	Check your system clock
+Invalid token: API key not found	Use the correct API key. Refer to API keys for more information
+RateLimitError (status code 429)	
+Exceeded rate limit for key type <team/test/live> of 3000/<custom limit> requests per 60 seconds	Refer to API rate limits for more information
+TooManyRequestsError (status code 429)	
+Exceeded send limits (<sms/email/letter/international_sms>: <LIMIT SIZE>) for today	Refer to service limits for the limit size
+Exception (status code 500)	
+Internal server error	Notify was unable to process the request, resend your notification.
+Schema validation errors
+The following are a few examples of schema validation errors you may encounter when making a request to a Notify endpoint.
+
+Error message	How to fix
+ValidationError (status code 400)	
+template_id is a required property	Provide the missing argument.
+sms_sender_id is not a valid UUID	Check the argument to make sure that it is valid for the given data type.
+personalisation <data type of argument you sent> is not of type object	Provide argument in the correct type.
+reference <reference string you provided> is too long	Provide a shorter string.
+type <invalid type> is not one of [sms, email, letter]	Make sure that the argument matches one of the items in the list.
+Additional properties are not allowed (<list of unexpected properties> was unexpected)	Only provide allowed arguments for the endpoint.
+Endpoint-specific errors
+In addition to the above, you may also encounter endpoint-specific errors, which are listed under each relevant API endpoint section.
+
+Find references for endpoint-specific errors in:
+
+send a message
+get message data
+get a template
+get received text messages
+Testing
+All testing takes place in the production environment. There is no test environment for GOV.UK Notify.
+
+Smoke testing
+If you need to smoke test your integration with Notify on a regular basis, you must use the following smoke test phone numbers and email addresses.
+
+Phone numbers
+07700900000
+07700900111
+07700900222
+Email addresses
+simulate-delivered@notifications.service.gov.uk
+simulate-delivered-2@notifications.service.gov.uk
+simulate-delivered-3@notifications.service.gov.uk
+The smoke test phone numbers and email addresses will validate the request and simulate a successful response, but will not send a real message, produce a delivery receipt or persist the notification to the database.
+
+You can use these smoke test numbers and addresses with any type of API key.
+
+You can smoke test all Notify API client functions except:
+
+Get the data for one message
+Get the status of all messages
+You cannot use the smoke test phone numbers or email address with these functions because they return a fake notification_ID. If you need to test these functions, use a test API key and any other phone number or email.
+
+Other testing
+You must use a test API key to do non-smoke testing such as performance or integration testing. You can use any non-smoke testing phone numbers or email addresses. You do not need a specific Notify testing account.
+
+API keys
+There are three different types of API keys:
+
+test
+team and guest list
+live
+When you set up a new service it will start in trial mode. A service in trial mode can create test and team and guest list keys. You must have a live service to create a live key.
+
+To create an API key:
+
+Sign in to GOV.UK Notify.
+Go to the API integration page.
+Select API keys.
+Select Create an API key.
+Test
+Use a test key to test the performance of your service and its integration with GOV.UK Notify.
+
+Messages sent using a test key:
+
+generate realistic responses
+result in a delivered status
+are not actually delivered to a recipient
+do not appear on your dashboard
+do not count against your text message and email allowances
+To test failure responses with a test key, use the following numbers and addresses:
+
+Phone number/Email address	Response
+07700900003	temporary-failure
+07700900002	permanent-failure
+temp-fail@simulator.notify	temporary-failure
+perm-fail@simulator.notify	permanent-failure
+any other valid number or address	delivered
+You do not have to revoke test keys.
+
+Team and guest list
+A team and guest list key lets you send real messages to your team members and 5 other email addresses or phone numbers while you’re still in trial mode.
+
+You will get an error if you use these keys to send messages to anyone who is not on your team or your guest list.
+
+Messages sent with a team and guest list key appear on your dashboard and count against your text message and email allowances.
+
+You do not have to revoke team and guest list keys.
+
+Live
+You can only create live keys once your service is live. You can use live keys to send messages to anyone.
+
+Messages sent with a live key appear on your dashboard and count against your text message and email allowances.
+
+You should revoke and re-create these keys on a regular basis. To revoke a key:
+
+Sign in to GOV.UK Notify.
+Go to the API integration page.
+Select API keys.
+Select Revoke for the API key you want to revoke.
+You can have more than one active key at a time.
+
+You should never send test messages to invalid numbers or addresses using a live key.
+
+Limits
+Rate limits
+You’re limited to sending 3,000 messages per minute. You should avoid sending messages in large spikes.
+
+This limit is calculated on a rolling basis, per API key type. If you exceed the limit, you will get a 429 error RateLimitError.
+
+Daily limits
+There’s a limit to the number of messages you can send each day:
+
+Service status	Type of API key	Daily limit
+Live	Team or live	
+250,000 emails
+250,000 text messages, including a default 100 international text messages
+20,000 letters
+Trial	Team	50 emails or text messages
+Live or trial	Test	
+250,000 emails
+250,000 text messages, including a default 100 international text messages
+20,000 letters
+GP surgeries cannot send any text messages in trial mode.
+
+While your service is in trial mode, you can only send messages to yourself and your team members.
+
+These limits reset at midnight UTC.
+
+Phone network limits
+If you repeatedly send text messages to the same number the phone networks will block them.
+
+There’s an hourly limit of:
+
+20 messages with the same content
+100 messages with any content
+Your messages may not be delivered if you exceed these limits.
+
+Callbacks
+Callbacks are when GOV.UK Notify sends POST requests to your service. You can get callbacks when:
+
+a text message or email you’ve sent is delivered or fails
+your service receives a text message
+a letter you sent is returned
+Set up callbacks
+You must provide:
+
+a URL where Notify will post the callback to
+a bearer token which Notify will put in the authorisation header of the requests
+To do this:
+
+Sign in to GOV.UK Notify.
+Go to the API integration page.
+Select Callbacks.
+Retry callbacks
+If Notify sends a POST request to your service, but the request fails then we will retry.
+
+We will retry every 5 minutes, up to a maximum of 5 times.
+
+Delivery receipts
+When you send an email or text message, Notify will send a receipt to your callback URL with the status of the message. This is an automated method to get the status of messages.
+
+This functionality works with test API keys, but does not work with smoke testing phone numbers or email addresses.
+
+The callback message is formatted in JSON. All of the values are strings, apart from the template version, which is a number. The key, description and format of the callback message arguments will be:
+
+Key	Description	Format
+id	Notify’s id for the status receipts	UUID
+reference	The reference sent by the service	12345678 or null
+to	The email address or phone number of the recipient	hello@gov.uk or 07700912345
+status	The status of the notification	delivered, permanent-failure, temporary-failure or technical-failure
+created_at	The time the service sent the request	2017-05-14T12:15:30.000000Z
+completed_at	The last time the status was updated	2017-05-14T12:15:30.000000Z or null
+sent_at	The time the notification was sent	2017-05-14T12:15:30.000000Z or null
+notification_type	The notification type	email or sms
+template_id	The id of the template that was used	UUID
+template_version	The version number of the template that was used	1
+Received text messages
+If your service receives text messages in Notify, Notify can forward them to your callback URL as soon as they arrive.
+
+Find out how to let people send text messages to your service.
+
+The callback message is formatted in JSON. All of the values are strings. The key, description and format of the callback message arguments will be:
+
+Key	Description	Format
+id	Notify’s id for the received message	UUID
+source_number	The phone number the message was sent from	447700912345
+destination_number	The number the message was sent to (your number)	07700987654
+message	The received message	Hello Notify!
+date_received	The UTC datetime that the message was received by Notify	2017-05-14T12:15:30.000000Z
+Returned letters
+When a letter you sent is returned, Notify will send details of the returned letter to your callback URL.
+
+Find more information about returned letters. It can take a few weeks to receive information about a returned letter.
+
+The callback message is formatted in JSON. The key, description and format of the callback message arguments will be:
+
+Key	Description	Format
+notification_id	Notify’s ID for the returned letter	UUID
+reference	The reference sent by the service	12345678 or null
+date_sent	The time the letter was sent	2017-05-14T12:15:30.000000Z
+sent_by	The email address of the service member who sent the letter	hello@gov.uk or null
+template_name	The name of the template that was used	Template name
+template_id	The id of the template that was used	UUID
+template_version	The version number of the template that was used	1
+spreadsheet_file_name	The name of the uploaded spreadsheet	contact_list.csv or null
+spreadsheet_row_number	The row in the spreadsheet	2 or null
+upload_letter_file_name	The name of the uploaded letter	uploaded_letter.pdf or null
+API architecture
+Architecture for sending a text message
+
+
+The service sends a text message notification to Notify.
+Notify sends the text message to the provider.
+The provider delivers the text message to the recipient.
+The recipient receives the text message and sends a delivery receipt to the provider.
+The provider sends the delivery receipt to Notify.
+Notify receives the delivery receipt and sends an API response to the service.
+The service receives the API response.
+Architecture for sending an email
+
+
+The service sends an email notification to Notify.
+Notify sends the email to the provider.
+The provider delivers the email to the recipient.
+The recipient receives the email and sends a delivery receipt to the provider.
+The provider sends the delivery receipt to Notify.
+Notify receives the delivery receipt and sends an API response to the service.
+The service receives the API response.
+Architecture for sending a letter
+
+
+The service sends a letter notification to Notify.
+Notify sends the letter to the provider.
+The provider prints the letter and posts it.
+The postal service delivers the letter.
+The recipient receives the letter.
+Architecture for getting the status of a message
+
+
+The service requests a notification status from Notify.
+Notify queries the database and retrieves the notification status.
+Notify sends the API response with the notification status to the service.
+The service receives the API response.
+Architecture for getting received text messages
+
+
+Recipients send text messages.
+Notify receives the text messages.
+The service requests all or specific received text messages from Notify.
+Notify receives the request for received text messages.
+Notify sends the received text messages to the service.
+The service receives the received text messages.

@@ -34,6 +34,52 @@ const menuSections: NavSection[] = [
     ],
   },
   {
+    title: 'Services',
+    icon: '🩺',
+    expandable: true,
+    items: [
+      { to: '/services', icon: '📋', label: 'Services' },
+      { to: '/services/library', icon: '📚', label: 'Library' },
+    ],
+  },
+  {
+    title: 'Appointments',
+    icon: '📅',
+    expandable: true,
+    items: [
+      { to: '/appointments', icon: '📅', label: 'Calendar' },
+      { to: '/appointments/slots', icon: '⏰', label: 'Slots' },
+      { to: '/patients', icon: '👥', label: 'Patients' },
+    ],
+  },
+  {
+    title: 'Logs',
+    icon: '📓',
+    expandable: true,
+    items: [
+      { to: '/logs', icon: '📓', label: 'My Logs' },
+      { to: '/logs/library', icon: '📚', label: 'Log Library' },
+    ],
+  },
+  {
+    title: 'Video',
+    icon: '📹',
+    expandable: false,
+    items: [
+      { to: '/video', icon: '📹', label: 'Video Consults' },
+    ],
+  },
+  {
+    title: 'Messaging',
+    icon: '💬',
+    expandable: true,
+    items: [
+      { to: '/messaging', icon: '💬', label: 'Hub' },
+      { to: '/messaging/compose', icon: '✏️', label: 'Compose' },
+      { to: '/messaging/broadcasts', icon: '📢', label: 'Broadcasts' },
+    ],
+  },
+  {
     title: 'Utilities',
     icon: '🛠',
     expandable: true,

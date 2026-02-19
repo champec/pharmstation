@@ -1,0 +1,55 @@
+Daily React
+Daily React is a helper library for handling common patterns when building custom Daily applications in React. It makes it easier to manage state and integrate daily-js methods and events in any React app.
+
+While it is not required to use daily-react when building with Daily and React, it is strongly recommended. We use the library internally: Daily Prebuilt, our ready-to-use embeddable video chat interface, uses daily-react. We've tested the library extensively, and it is our preferred way to handle Daily events.
+
+Using daily-react
+Install the library
+Install Daily React from the npm public registry.
+
+npm install @daily-co/daily-react @daily-co/daily-js jotai
+
+The reason for installing @daily-co/daily-js and jotai separately is that they are peer dependencies. This ensures that if you want to use either jotai or daily-js in addition to daily-react, such as to create your own call object, both your manual usage and daily-react will utilize the same version of each library.
+
+DailyProvider component
+DailyProvider is a component which gives every other component in your application access to the Daily call object.
+
+Available components
+DailyAudio
+DailyAudioTrack
+DailyVideo
+Available hooks
+useActiveParticipant
+useActiveSpeakerId
+useAppMessage
+useAudioLevel
+useAudioLevelObserver
+useCPULoad
+useCallFrame
+useCallObject
+useDaily
+useDailyError
+useDailyEvent
+useDevices
+useInputSettings
+useLiveStreaming
+useLocalParticipant
+useLocalSessionId
+useMediaTrack
+useMeetingSessionState
+useMeetingState
+useNetwork
+useParticipant
+useParticipantCounts
+useParticipantIds
+useParticipantProperty
+usePermissions
+useReceiveSettings
+useRecording
+useRoom
+useRoomExp
+useScreenShare
+useSendSettings
+useThrottledDailyEvent
+useTranscription
+useWaitingParticipants
