@@ -71,8 +71,8 @@ Thumbs.db
 .LSOverride
 ._*
 
-# Logs
-logs/
+# Logs (only root-level logs directory, not app pages)
+/logs/
 *.log
 
 # Database
