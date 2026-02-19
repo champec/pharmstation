@@ -805,6 +805,24 @@ export interface ServiceFormField {
 }
 
 // ============================================
+// Expansion Types — Service Deliveries
+// ============================================
+
+export interface ServiceDelivery {
+  id: string
+  org_id: string
+  service_id: string
+  patient_id: string | null
+  form_id: string | null
+  form_data: Record<string, unknown>
+  delivered_by: string | null
+  notes: string
+  status: 'draft' | 'completed'
+  created_at: string
+  completed_at: string | null
+}
+
+// ============================================
 // Expansion Types — Appointments
 // ============================================
 

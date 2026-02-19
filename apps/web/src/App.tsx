@@ -19,6 +19,8 @@ import { ServicesPage } from './pages/services/ServicesPage'
 import { ServiceLibraryPage } from './pages/services/ServiceLibraryPage'
 import { ServiceDetailPage } from './pages/services/ServiceDetailPage'
 import { FormBuilderPage } from './pages/services/FormBuilderPage'
+import { ServiceDeliveryPage } from './pages/services/ServiceDeliveryPage'
+import { ServiceDeliveriesPage } from './pages/services/ServiceDeliveriesPage'
 // Expansion — Appointments
 import { AppointmentsCalendarPage } from './pages/appointments/AppointmentsCalendarPage'
 import { AppointmentSlotsPage } from './pages/appointments/AppointmentSlotsPage'
@@ -133,8 +135,10 @@ export function App() {
         {/* Services */}
         <Route path="/services" element={<ServicesPage />} />
         <Route path="/services/library" element={<ServiceLibraryPage />} />
+        <Route path="/services/deliveries" element={<ServiceDeliveriesPage />} />
         <Route path="/services/:serviceId" element={<ServiceDetailPage />} />
         <Route path="/services/:serviceId/form/:formId" element={<FormBuilderPage />} />
+        <Route path="/services/:serviceId/deliver" element={<ServiceDeliveryPage />} />
 
         {/* Appointments */}
         <Route path="/appointments" element={<AppointmentsCalendarPage />} />
