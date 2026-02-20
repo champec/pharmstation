@@ -74,9 +74,19 @@ const menuSections: NavSection[] = [
     icon: '💬',
     expandable: true,
     items: [
-      { to: '/messaging', icon: '💬', label: 'Hub' },
+      { to: '/messaging', icon: '💬', label: 'Patient Comms' },
       { to: '/messaging/compose', icon: '✏️', label: 'Compose' },
       { to: '/messaging/broadcasts', icon: '📢', label: 'Broadcasts' },
+    ],
+  },
+  {
+    title: 'Pharm Network',
+    icon: '🏥',
+    expandable: true,
+    items: [
+      { to: '/messaging/network', icon: '🏥', label: 'Network Hub' },
+      { to: '/messaging/network/compose', icon: '✍️', label: 'New Message' },
+      { to: '/messaging/network/onboarding', icon: '🔗', label: 'Link Pharmacy' },
     ],
   },
   {
@@ -84,7 +94,7 @@ const menuSections: NavSection[] = [
     icon: '🛠',
     expandable: true,
     items: [
-      { to: '/handover', icon: '📌', label: 'Handover Notes' },
+      { to: '/notes', icon: '📌', label: 'Notes' },
       { to: '/sops', icon: '📋', label: 'SOPs' },
     ],
   },

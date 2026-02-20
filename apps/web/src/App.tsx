@@ -44,11 +44,25 @@ import { ComposeMessagePage } from './pages/messaging/ComposeMessagePage'
 import { BroadcastsPage } from './pages/messaging/BroadcastsPage'
 import { NewBroadcastPage } from './pages/messaging/NewBroadcastPage'
 import { MessageHistoryPage } from './pages/messaging/MessageHistoryPage'
+// Pharmacy Network (P2P)
+import { NetworkHubPage } from './pages/messaging/network/NetworkHubPage'
+import { NetworkComposePage } from './pages/messaging/network/NetworkComposePage'
+import { NetworkMessageDetailPage } from './pages/messaging/network/NetworkMessageDetailPage'
+import { NetworkOnboardingPage } from './pages/messaging/network/NetworkOnboardingPage'
+import { NetworkSettingsPage } from './pages/messaging/network/NetworkSettingsPage'
 // Expansion — Patient Portal
 import { PatientLoginPage } from './pages/patient-portal/PatientLoginPage'
 import { PatientRegisterPage } from './pages/patient-portal/PatientRegisterPage'
 import { PatientAppointmentsPage } from './pages/patient-portal/PatientAppointmentsPage'
 import { PatientProfilePage } from './pages/patient-portal/PatientProfilePage'
+// Sticky Notes
+import { NotesPage } from './pages/notes/NotesPage'
+// SOP Library
+import { SOPsPage } from './pages/sops/SOPsPage'
+import { SOPEditorPage } from './pages/sops/SOPEditorPage'
+import { SOPReadPage } from './pages/sops/SOPReadPage'
+import { SOPAssignPage } from './pages/sops/SOPAssignPage'
+import { SOPProgressPage } from './pages/sops/SOPProgressPage'
 // Expansion — Public
 import { PatientVideoPage } from './pages/public/PatientVideoPage'
 import { PublicBookingHomePage } from './pages/public/PublicBookingHomePage'
@@ -161,12 +175,28 @@ export function App() {
         <Route path="/video" element={<VideoConsultsPage />} />
         <Route path="/video/:consultationId" element={<VideoRoomPage />} />
 
-        {/* Messaging */}
+        {/* Messaging — Patient */}
         <Route path="/messaging" element={<MessagingHubPage />} />
         <Route path="/messaging/compose" element={<ComposeMessagePage />} />
         <Route path="/messaging/broadcasts" element={<BroadcastsPage />} />
         <Route path="/messaging/broadcasts/new" element={<NewBroadcastPage />} />
         <Route path="/messaging/history" element={<MessageHistoryPage />} />
+        {/* Pharmacy Network */}
+        <Route path="/messaging/network" element={<NetworkHubPage />} />
+        <Route path="/messaging/network/compose" element={<NetworkComposePage />} />
+        <Route path="/messaging/network/thread/:threadId" element={<NetworkMessageDetailPage />} />
+        <Route path="/messaging/network/onboarding" element={<NetworkOnboardingPage />} />
+        <Route path="/messaging/network/settings" element={<NetworkSettingsPage />} />
+
+        {/* Notes */}
+        <Route path="/notes" element={<NotesPage />} />
+
+        {/* SOP Library */}
+        <Route path="/sops" element={<SOPsPage />} />
+        <Route path="/sops/:docId/edit" element={<SOPEditorPage />} />
+        <Route path="/sops/:docId/read" element={<SOPReadPage />} />
+        <Route path="/sops/:docId/assign" element={<SOPAssignPage />} />
+        <Route path="/sops/:docId/progress" element={<SOPProgressPage />} />
       </Route>
 
       {/* Catch all */}

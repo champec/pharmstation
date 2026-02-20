@@ -994,3 +994,198 @@ export interface Broadcast {
   created_at: string
   created_by_user_id: string
 }
+
+// ============================================
+// Sticky Notes
+// ============================================
+
+/** 1=low (yellow), 2=medium (orange), 3=high (red), 4=urgent (purple) */
+export type StickyPriority = 1 | 2 | 3 | 4
+
+export interface StickyNote {
+  id: string
+  org_id: string
+  author_id: string
+  assigned_to: string | null
+  content: string
+  pos_x: number
+  pos_y: number
+  priority: StickyPriority
+  target_date: string | null
+  is_completed: boolean
+  created_at: string
+  updated_at: string
+  // Joined
+  author?: UserProfile
+  assignee?: UserProfile
+}
+
+export interface NewStickyNote {
+  org_id: string
+  author_id: string
+  content: string
+  pos_x: number
+  pos_y: number
+  priority?: StickyPriority
+  assigned_to?: string | null
+  target_date?: string | null
+}
+
+// ============================================
+// SOP Library
+// ============================================
+
+export type SOPStatus = 'draft' | 'published' | 'archived'
+export type SOPContentType = 'rich_text' | 'pdf' | 'none'
+
+export interface SOPDocument {
+  id: string
+  org_id: string
+  title: string
+  description: string | null
+  version: number
+  status: SOPStatus
+  created_by: string | null
+  updated_by: string | null
+  published_at: string | null
+  created_at: string
+  updated_at: string
+  // Joined
+  created_by_profile?: UserProfile
+  updated_by_profile?: UserProfile
+  nodes?: SOPNode[]
+  assignment?: SOPAssignment | null
+  my_completion?: SOPCompletion | null
+}
+
+export interface SOPNode {
+  id: string
+  document_id: string
+  parent_id: string | null
+  title: string
+  content_type: SOPContentType
+  rich_content: string | null  // HTML
+  pdf_storage_path: string | null
+  sort_order: number
+  created_at: string
+  updated_at: string
+  // Client-side tree helpers
+  children?: SOPNode[]
+  depth?: number
+}
+
+// member_id = null means "all org members"
+export interface SOPAssignment {
+  id: string
+  document_id: string
+  org_id: string
+  member_id: string | null
+  assigned_by: string | null
+  assigned_at: string
+}
+
+export interface SOPCompletion {
+  id: string
+  document_id: string
+  document_version: number
+  member_id: string
+  org_id: string
+  completed_at: string
+}
+
+// Rich view used in the progress page
+export interface SOPMemberProgress {
+  member: OrganisationMember
+  completion: SOPCompletion | null
+  is_current_version: boolean
+}
+
+// ============================================================
+// Pharmacy Network (P2P Messaging)
+// ============================================================
+
+export type NetworkMessageLabel = 'prescription_query' | 'community_alert' | 'stock_query' | 'other'
+
+export const NETWORK_LABEL_CONFIG: Record<NetworkMessageLabel, { label: string; icon: string; cssClass: string }> = {
+  prescription_query: { label: 'Prescription Query', icon: '💊', cssClass: 'ps-badge ps-badge-blue' },
+  community_alert:    { label: 'Community Alert',    icon: '⚠️', cssClass: 'ps-badge ps-badge-red' },
+  stock_query:        { label: 'Stock Query',         icon: '📦', cssClass: 'ps-badge ps-badge-amber' },
+  other:              { label: 'Other',               icon: '💬', cssClass: 'ps-badge' },
+}
+
+export interface NetworkMessage {
+  id: string
+  from_org_id: string
+  to_org_id: string
+  thread_id: string
+  broadcast_id: string | null
+  subject: string | null
+  body: string
+  label: NetworkMessageLabel
+  is_read: boolean
+  read_at: string | null
+  request_sms_ping: boolean
+  created_at: string
+  // Joined
+  from_org?: { id: string; name: string }
+  to_org?:   { id: string; name: string }
+}
+
+export interface OrgPharmacyLink {
+  id: string
+  org_id: string
+  pharmacy_id: number
+  linked_at: string
+  is_verified: boolean
+  // Joined — fields from the pharmacies table
+  pharmacy?: LinkedPharmacyInfo
+}
+
+export interface LinkedPharmacyInfo {
+  id: number
+  ods_code: string
+  organisation_name: string
+  address1: string | null
+  address2: string | null
+  city: string | null
+  postcode: string | null
+  latitude: number | null
+  longitude: number | null
+}
+
+export interface NetworkPharmacy {
+  pharmacy_id: number
+  ods_code: string
+  organisation_name: string
+  address1: string | null
+  address2: string | null
+  city: string | null
+  postcode: string | null
+  latitude: number | null
+  longitude: number | null
+  distance_km: number | null
+  is_on_platform: boolean
+  linked_org_id: string | null
+  linked_org_name: string | null
+}
+
+export interface NetworkSettings {
+  org_id: string
+  network_enabled: boolean
+  sms_pings_enabled: boolean
+  updated_at: string
+}
+
+export interface NetworkSmsContact {
+  id: string
+  org_id: string
+  label: string | null
+  phone_number: string
+  is_enabled: boolean
+  pause_until: string | null
+  notify_start: string   // "HH:MM"
+  notify_end: string     // "HH:MM"
+  created_at: string
+  updated_at: string
+}
+
