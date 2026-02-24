@@ -49,6 +49,14 @@ export function UserLoginPage() {
         Signed in to <strong>{organisation?.name ?? 'Unknown Pharmacy'}</strong>
       </p>
 
+      <div className="auth-quick-links">
+        <div className="auth-quick-links-title">Quick links</div>
+        <div className="auth-quick-links-list">
+          <a href="/rp">Print RP Certificate</a>
+          <a href="/about">About PharmStation</a>
+        </div>
+      </div>
+
       {error && <div className="auth-error">{error}</div>}
 
       {/* Saved staff quick-select */}

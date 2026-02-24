@@ -69,6 +69,7 @@ import { PublicBookingHomePage } from './pages/public/PublicBookingHomePage'
 import { PublicOrgPage } from './pages/public/PublicOrgPage'
 import { PublicServicePage } from './pages/public/PublicServicePage'
 import { PublicBookingConfirmPage } from './pages/public/PublicBookingConfirmPage'
+import { AboutPage } from './pages/public/AboutPage'
 
 export function App() {
   const { initialize, orgLoading, userLoading, isOrgLoggedIn, isUserLoggedIn } = useAuthStore()
@@ -96,6 +97,7 @@ export function App() {
       <Route path="/book/:orgSlug" element={<PublicOrgPage />} />
       <Route path="/book/:orgSlug/:serviceId" element={<PublicServicePage />} />
       <Route path="/book/:orgSlug/:serviceId/confirm" element={<PublicBookingConfirmPage />} />
+      <Route path="/about" element={<AboutPage />} />
 
       {/* Patient portal auth routes */}
       <Route path="/patient/login" element={<PatientLoginPage />} />
