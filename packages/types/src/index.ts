@@ -171,10 +171,15 @@ export interface RegisterEntry {
   return_drug_strength: string | null
   return_quantity: number | null
   return_reason: string | null
+  return_person_role: string | null
   return_received_by: string | null
+  return_received_signature: string | null
+  return_parent_entry_id: string | null
   disposal_date: string | null
   disposal_witness: string | null
   disposal_method: string | null
+  disposal_pharmacist_signature: string | null
+  witness_signature: string | null
   // Joined
   annotations?: EntryAnnotation[]
   entered_by_profile?: UserProfile
