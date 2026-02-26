@@ -1,0 +1,17 @@
+drug delivery system
+
+delivery life cycle - 
+patient onbourding - patient medicaiton - a list of all patient medicaiton (cruddable)
+creating new deliveries or multiple deliveries for patient - delivery being a patient and medicaiton list or container
+dlivery can consist of many patients and their medicaiton put into a single delivery 
+compatible driver module - driver is person delivering driver gets assigned to delivery 
+driver in their module - see delivery routes and can tick off delviery as they deliver and can collect signatures updating delivery route in real time. potentially maps for delivery dirvers too and maps for ongorung deliveries for central aswle to see driver rooutes and deliveries
+
+
+viewdeliveyr dashbaord, see ongoing and historic and enter for deets -- the ability to utilise our current patient tables for deliveries -- ps_patietns ithink im not sure if we have even finished created patient db for pharmstation yet, but double check for any inclient calls to a patient table, there might be some legacy tables if you look at mcp that are from pharm ex - patient has address and name - but can sometimes be changes or temp updated for a specific delivery, can include notes.
+
+anywya patients will link to our drugs db, we already ave a drugs db, see cd register to see our drugs list -- it wot be free form its more like find and enter drugs -- but the drug record asscoaites with the aptient include a drug form strength and prev dose, quantiy - these get filled in, and for easy of use previous drugs and drug records are used when patient is slectd, wit easy handy tick to deselect or select mor from passed. or add new to drug pt drug list. some drug cna also be perma deleted from the patients drug list -- 
+
+-- there is also opportunity to connect with wit nhs notificatona nd send out notificaiton to patients when their drug delivery has been created - to notifiy them when it will be dleivered. so patient should include phone nmber - nhs notify is already set up.
+
+-- 
