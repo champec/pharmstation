@@ -1,8 +1,9 @@
 import { useState, useEffect, useCallback } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { useAuthStore, useNetworkStore } from '@pharmstation/core'
 import type { NetworkPharmacy, NetworkMessageLabel } from '@pharmstation/types'
 import { NETWORK_LABEL_CONFIG } from '@pharmstation/types'
+import type { MapRecipient } from '../../../components/maps/PharmacyMapModal'
 
 type Step = 1 | 2 | 3
 
@@ -19,6 +20,7 @@ const LABEL_OPTIONS: NetworkMessageLabel[] = ['prescription_query', 'stock_query
 
 export function NetworkComposePage() {
   const navigate = useNavigate()
+  const location = useLocation()
   const { organisation } = useAuthStore()
   const {
     searchResults, searchLoading, error,
@@ -33,6 +35,15 @@ export function NetworkComposePage() {
   const [searchTerm, setSearchTerm]     = useState('')
   const [radiusKm, setRadiusKm]         = useState(10)
   const [recipients, setRecipients]     = useState<Recipient[]>([])
+
+  // Pre-populate from map navigation state
+  useEffect(() => {
+    const mapRec = (location.state as { mapRecipients?: MapRecipient[] } | null)?.mapRecipients
+    if (mapRec && mapRec.length > 0) {
+      setRecipients(mapRec)
+      setStep(2)
+    }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Step 2 — compose
   const [subject, setSubject]           = useState('')

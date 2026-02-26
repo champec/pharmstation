@@ -1,0 +1,136 @@
+Access digital onboarding
+You must tell us some details about your organisation and product to start onboarding.
+Your details
+You will be the first manager of this organisation. You can invite more developers and managers to the organisation later.
+
+Name	chronic2157@gmail.com
+Email address	chronic2157@gmail.com
+Your organisation
+Help with organisations
+Enter the name of your organisation
+You can update your organisation name later.
+Your product
+Enter the name of your product
+You can update your product name later.
+
+Select which APIs you are onboarding to, for this product
+You must select at least one API to begin onboarding.
+
+(DoS) Electronic Prescription Service Directory of Services API
+10/11 - The API Assurance is Live in Production and available for Onboarding
+Child Protection - Information Sharing - HL7 V3 API
+Use this API to access Child Protection - Information Sharing (CP-IS), the national electronic database of child protection information.
+Directory of Services - Urgent and Emergency Care - REST API
+Access information on a wide range of health and care services across England using our Directory of Services (DoS) Urgent and Emergency Care REST API.
+Directory of Services - Urgent and Emergency Care - SOAP API
+Access information on a wide range of health and care services across England using our Directory of Services (DoS) Urgent and Emergency Care SOAP API.
+Electronic Prescription Service - Dispensing FHIR API Use Case
+EPS use case form to determine whether a Dispensing System Supplier’s use case is valid for onboarding to EPS.
+Electronic Prescription Service (EPS) - Prescribing FHIR API Use Case
+PS use case form to determine whether a Prescribing System Supplier’s use case is valid for onboarding to EPS.
+Eligibility Signposting API
+This is the API for Eligibility Signposting.
+GP Registrations Management Information API
+Use this API to send real-time GP registrations metrics to NHS for service monitoring of patient EHR transfers between GP Practices.
+Health Research Data Catalogue API
+Retrieve information suitable for publication in a health research data catalogue
+Healthcare Worker - FHIR API
+Healthcare worker (HCW) API enables systems to search, retrieve and display healthcare worker data from NHS employees with a health care profile.
+Immunisation FHIR API
+Use this API to access and update a patient's immunisation record. To get early access to digital onboarding for this API, send an email to england.ImmsFhirAPiBauVDS@nhs.net
+Immunisation History - FHIR
+Access a patients immunisation history
+Message Exchange for Social Care and Health (MESH) API
+Transfer messages and large files securely across health and social care organisations using the Message Exchange for Social Care and Health (MESH) API.
+National Event Management Service - FHIR API (Consumer)
+Share information about a child's health between healthcare workers.
+National Event Management Service - FHIR API (Publisher)
+Share information about a child's health between healthcare workers.
+National Record Locator - FHIR API (Consumer)
+Locate and access patient information shared by other healthcare organisations using the National Record Locator (Consumer) FHIR API.
+National Record Locator - FHIR API (Producer)
+Publish patient information to be shared with other healthcare organisations using the National Record Locator (Producer) FHIR API.
+NHS App
+Use this API to engage with users of the NHS App - a simple and secure way for patients registered with a GP surgery in England to access a range of services on their smartphone or tablet. To integrate with NHS App your product must have an integration with NHS login.
+NHS login API
+Access multiple digital health and social care services with a single login for patients and the public.
+NHS Notify
+Send and manage communications direct to patients for direct care interventions, via the NHS App, email, SMS and letter. To get early access to digital onboarding, send an email to england.nhsnotifyonboarding@nhs.net
+NHS Website Content API
+Provides content from the NHS website as JSON data
+Organisation Data Terminology - FHIR API
+Use this API to access a dataset of health and social care organisations and sites, such as trusts or GP practices, using the Organisation Data Service (ODS).
+Patient Care Aggregator (appointments)
+Integrate a secondary care booking system with our Patient Care Aggregator.
+Patient Care Aggregator (documents)
+Integrate a secondary care booking system with our Patient Care Aggregator.
+Patient Care Aggregator (questionnaires)
+Integrate a secondary care booking system with our Patient Care Aggregator.
+Patient Data Manager API
+Enables Patient Data Manager to notify subscribers in near real-time when new or updated patient data is ingested, stored, or modified in the system. This supports downstream systems in accessing updated data for direct care and patient-facing experiences.
+Patient Flag API - Child Protection-Information Sharing
+Use this API to access Child Protection - Information Sharing (CP-IS), the national electronic database of child protection information. FHIR
+Patient Flag API - Reasonable Adjustments
+Access the Reasonable Adjustment Flag and its associated impairment, adjustments and underlying conditions.
+PDS FHIR patient access
+Select this option for patient access mode where the patient is the user. Access patients' personal information, such as name, address, date of birth, related people, registered GP and NHS number
+Personal Demographics Service - FHIR API
+Select this option for healthcare worker and application restricted modes. Access patients' personal information, such as name, address, date of birth, related people, registered GP and NHS number
+Prevention Test Results
+Sharing Clinical Data between different organisations.
+Register with a GP surgery API
+Use this API to access registration applications using the Register with a GP Surgery Service.
+Validated Relationship Service - FHIR API
+Use this API to access the Validated Relationships Service - the national electronic database of relationships that have been verified for the purpose of enabling individuals to access healthcare services on behalf of (proxy) those they care for.
+APIs available by request
+Onboarding to the following APIs is limited, email the relevant team to request early access
+Booking and Referral - FHIR API (Booking Receiver)
+Send booking and referral information between NHS service providers using our Booking and Referral FHIR API. To get early access to digital onboarding for this API, send an email to bookingandreferralstandard@nhs.net.
+Booking and Referral - FHIR API (Booking Sender)
+Send booking and referral information between NHS service providers using our Booking and Referral FHIR API. To get early access to digital onboarding for this API, send an email to bookingandreferralstandard@nhs.net.
+Booking and Referral - FHIR API (Referral Receiver 111 Emergency Department
+Send booking and referral information between NHS service providers using our Booking and Referral FHIR API. To get early access to digital onboarding for this API, send an email to bookingandreferralstandard@nhs.net.
+Booking and Referral - FHIR API (Referral Receiver 999 Clinical Assessment Service)
+Send booking and referral information between NHS service providers using our Booking and Referral FHIR API. To get early access to digital onboarding for this API, send an email to bookingandreferralstandard@nhs.net.
+Booking and Referral - FHIR API (Referral Receiver GP-Pharmacy (CPCS))
+Send booking and referral information between NHS service providers using our Booking and Referral FHIR API. To get early access to digital onboarding for this API, send an email to bookingandreferralstandard@nhs.net.
+Booking and Referral - FHIR API (Referral Sender 111 Emergency Department)
+Send booking and referral information between NHS service providers using our Booking and Referral FHIR API. To get early access to digital onboarding for this API, send an email to bookingandreferralstandard@nhs.net.
+Booking and Referral - FHIR API (Referral Sender 999 Clinical Assessment Service)
+Send booking and referral information between NHS service providers using our Booking and Referral FHIR API. To get early access to digital onboarding for this API, send an email to bookingandreferralstandard@nhs.net.
+Booking and Referral - FHIR API (Referral Sender GP-Pharmacy (CPCS))
+Send booking and referral information between NHS service providers using our Booking and Referral FHIR API. To get early access to digital onboarding for this API, send an email to bookingandreferralstandard@nhs.net.
+Booking and Referral - FHIR API (Referrals into an Ambulance Service Trust - App 6 - Receiver)
+Send booking and referral information between NHS service providers using our Booking and Referral FHIR API. To get early access to digital onboarding for this API, send an email to bookingandreferralstandard@nhs.net.
+Booking and Referral - FHIR API (Referrals into an Ambulance Service Trust - App 6 - Sender)
+Send booking and referral information between NHS service providers using our Booking and Referral FHIR API. To get early access to digital onboarding for this API, send an email to bookingandreferralstandard@nhs.net.
+Directory of Healthcare Services API - version 3
+Use this API to find information about organisations that provide NHS healthcare services, NHS organisation types, and coronavirus (COVID-19) walk-in sites. To get early access to digital onboarding for this API, send an email to ssd.nationalservicedesk@nhs.net titled "Service Search v3 API onboarding."
+DoS Search API - Search by ODS Code
+Use this API to access healthcare services details profiled in the Directory of Services. This API provides read-only access to the data held in the directory.
+Message Exchange for Social Care and Health
+Transfer messages and large files securely across health and social care organisations
+Message Exchange for Social Care and Health Exemplar flow
+Transfer messages and large files securely across health and social care organisations.
+Multicast Notification Service API (Publisher)
+Use this API to publish patient related state changes to a single centralised system for onwards distribution to Subscriber systems
+National Imaging Registry XCA Consumer
+Developer notes to follow shortly
+National Imaging Registry XCA Provider
+Developer notes to be added.
+NHS CIS2 Authentication
+The NHS Care Identity Service 2 (CIS2) Authentication is the secure authentication service used by health and care professionals in England to access national clinical information systems. To get early access to digital onboarding for this API, send an email to nhscareidentityauthentication@nhs.net.
+Patient Care Aggregator (DQM)
+If onboarding to Patient Care Aggregator (DQM), you must as a minimum, complete Patient Care Aggregator (appointments) or Patient Care Aggregator (questionnaires), before or during the same delivery cycle.
+Patient Care Aggregator (IPDC)
+If onboarding to Patient Care Aggregator (IPDC), you must as a minimum, complete Patient Care Aggregator (appointments), before or during the same delivery cycle.
+Patient Care Aggregator (Mental Health)
+If onboarding to Patient Care Aggregator (Mental Health), you must as a minimum, complete Patient Care Aggregator (appointments), before or during the same delivery cycle.
+Patient Portal MIv2
+A mechanism for gathering and consolidation of data and KPIs from the NHS App, the Patient Care Aggregator, and Patient-Facing Systems for the purpose of service delivery improvement and optimisation, monitoring, business case and benefits case measurement.
+Patient Portal Paperless
+Patients can access their hospital appointment documents in the NHS App without the need for a paper copy.
+Summary Care Record - FHIR API
+Use this API to access or update a patient's Summary Care Record (SCR) - an electronic record of important patient information, created from GP medical records. To get early access to digital onboarding for this API, send an email to api.management@nhs.net.
+Summary Care Record - FHIR API (Consumer)
+Use this API to access a patient's Summary Care Record (SCR) - an electronic record of important patient information, created from GP medical records. To get early access to digital onboarding for this API, send an email to api.management@nhs.net.

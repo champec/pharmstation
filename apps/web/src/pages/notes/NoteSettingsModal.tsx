@@ -38,7 +38,7 @@ export function NoteSettingsModal({ note, orgId, currentUserId, onClose }: Props
       setLoadingMembers(true)
       const { data } = await getUserClient()
         .from('ps_organisation_members')
-        .select('user_id, user_profile:ps_user_profiles(id, full_name)')
+        .select('user_id, user_profile:ps_user_profiles!user_id(id, full_name)')
         .eq('organisation_id', orgId)
         .eq('status', 'active')
         .order('user_id')

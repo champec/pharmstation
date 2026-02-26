@@ -43,7 +43,7 @@ export function SOPAssignPage() {
     setMembersLoading(true)
     getUserClient()
       .from('ps_organisation_members')
-      .select('*, user_profile:ps_user_profiles(*)')
+      .select('*, user_profile:ps_user_profiles!user_id(*)')
       .eq('organisation_id', organisation.id)
       .eq('status', 'active')
       .order('created_at')

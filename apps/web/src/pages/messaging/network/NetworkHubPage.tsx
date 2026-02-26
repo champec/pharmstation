@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useAuthStore, useNetworkStore } from '@pharmstation/core'
 import { NETWORK_LABEL_CONFIG } from '@pharmstation/types'
 import type { NetworkMessage } from '@pharmstation/types'
+import { PharmacyMapModal } from '../../../components/maps/PharmacyMapModal'
 
 function relativeTime(iso: string): string {
   const diff = Date.now() - new Date(iso).getTime()
@@ -29,6 +30,7 @@ export function NetworkHubPage() {
   } = useNetworkStore()
 
   const [tab, setTab] = useState<Tab>('inbox')
+  const [showMap, setShowMap] = useState(false)
 
   const load = useCallback(async () => {
     if (!organisation?.id) return
@@ -110,6 +112,13 @@ export function NetworkHubPage() {
           <div style={{ display: 'flex', gap: 'var(--ps-space-sm)' }}>
             <button className="ps-btn ps-btn-ghost" onClick={() => navigate('/messaging/network/settings')}>
               ⚙️ Settings
+            </button>
+            <button
+              className="ps-btn ps-btn-ghost"
+              onClick={() => setShowMap(true)}
+              title="Open pharmacy map"
+            >
+              🗺 Map
             </button>
             <button
               className="ps-btn ps-btn-primary"
@@ -251,6 +260,8 @@ export function NetworkHubPage() {
           </table>
         )}
       </div>
+
+      <PharmacyMapModal isOpen={showMap} onClose={() => setShowMap(false)} />
     </div>
   )
 }

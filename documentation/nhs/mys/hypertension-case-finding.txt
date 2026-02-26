@@ -1,0 +1,800 @@
+NHS Community Pharmacy Hypertension Case-Finding Advanced
+Service
+Developer Guide to the NHS Business Services Authority API for CVD claims
+ChangeLog
+Version Control Date Purpose
+0.1 30 July 2021 Initial Draft
+0.2 21 Oct 2021 Updated with latest data fields
+1.0 1 Nov 2021 description and json structure update
+2.0 6 Mar 2022 Removed FHIR mapping and updated json structure to latest spec
+2.1 27 July 2022 Use generic error message, remove Gender, update SIGNPOSTED_TO
+2.2 21 October 2022 Separate service type options for Clinic and ABPM
+2.3 16 March 2023 Added new and updated existing data fields
+Table of Contents
+NHS Community Pharmacy Hypertension Case-Finding Advanced Service
+Developer Guide to the NHS Business Services Authority API for CVD claims
+ChangeLog
+Table of Contents
+NHS Community Pharmacy Hypertension Case-Finding Advanced Service
+Document Background
+API Connectivity
+Current test endpoints are:
+API Access Process Flow
+Create Process Flow
+Update Process Flow
+Get Process Flow
+Delete Process Flow
+Developer Guide to set up CVD Claim
+Developer Guide to Create CVD claim for a new submission
+Step 1: Gather your materials
+Step 2: Prepare the request JSON
+Step 3: Send the create request message
+Step 4: Receive your response
+Response Headers:
+Response Body:
+Other potential responses:
+403: Forbidden
+500: Unexpected error
+400: Bad Request
+Developer Guide to Update existing CVD submission
+Step 1: Gather your materials
+Step 2: Prepare the request JSON
+Step 3: Send the update request message
+Step 4: Receive your response
+Other potential responses:
+403: Forbidden
+500: Unexpected error
+400: Bad Request
+422: Unprocessable Entity (json parseable but not conformant)
+404: Not Found
+Developer Guide To Delete CVD Submission
+Step 1: Gather your materials
+Step 2: Send the delete request message
+Step 3: Receive your response
+Other potential responses:
+403: Forbidden
+500: Unexpected error
+404: Not Found
+Developer Guide to Get a CVD submission
+Step 1: Gather your materials
+Step 2: Send the Get Submission Message
+Step 3: Receive your response
+Other potential responses:
+403: Forbidden
+500: Unexpected error
+404: Not Found
+Annex: NHS Number
+Annex: Service Type
+Annex: Source of referral
+Annex: Blood Pressure Rating
+Annex: ABPM Rating
+Annex: Advice or information given
+Annex: Signposted to
+Annex: Escalated to
+Annex: Professional Roles
+NHS Community Pharmacy Hypertension Case-Finding Advanced Service
+Use this service to claim payment for the provision of the NHS Community Pharmacy Hypertension Case-Finding Advanced Service.
+Document Background
+This document is intended to provide pharmacy clinical service platform providers with the information necessary to submit details of
+service provisions to the NHS Business Services Authority (NHS BSA), to pre-populate claims to be made by community pharmacy
+providers.
+API Connectivity
+Connection to the NHS BSA API has the following criteria, as patient data is present and being transmitted:
+Over HTTPS on port 443
+Using TLSv1.2 only
+Authentication
+IP whitelisting
+Current test endpoints are:
+POST https://stg.api.cvd.pharmacy.mys.nhsbsa.nhs.uk/v1/claim
+GET https://stg.api.cvd.pharmacy.mys.nhsbsa.nhs.uk/v1/claim/{{ID}}
+PUT https://stg.api.cvd.pharmacy.mys.nhsbsa.nhs.uk/v1/claim/{{ID}}
+DELETE https://stg.api.cvd.pharmacy.mys.nhsbsa.nhs.uk/v1/claim/{{ID}}
+[DN: These are subject to many changes going forward – just a placeholder really]
+API Access Process Flow
+Create Process Flow
+Update Process Flow
+Get Process Flow
+Delete Process Flow
+Developer Guide to set up CVD Claim
+Below JSON contains a CVD claim object with all the fields and their corresponding given options. Based on which you can build your
+claim object in the create (POST) or update (PUT) request.
+{
+"platformDepositId":"{{PLATFORM_DEPOSIT_ID}}",
+"patient": {
+"nhsNumber":"{{PATIENT_NHSNO}}",
+"gpOdsCode":"{{PATIENT_GPODS}}"
+},
+"orgOdsCode":"{{CLAIMANT_ODS}}",
+"yearMonth":"{{CLAIM_YEAR_MONTH}}",
+"clinicTestProvided":"{{CLINIC_BP_PROVIDED}}",
+"clinicTestDetails": {
+"serviceType":"{{BP_SERVICE_TYPE}}",
+"referralSource":"{{BP_REFERRAL_SOURCE}}",
+"assessmentDate":"{{BP_ASSESSMENT_DATE}}",
+"systolicBP":{{BP_SYSTOLIC}},
+"diastolicBP":{{BP_DIASTOLIC}},
+"bpRating":"{{BP_RATING}}",
+"irregularPulse":"{{IRREGULAR_PULSE}}",
+"abpmOffered":"{{WAS_ABPM_OFFERED}}",
+"pulseRate":"{{PULSE_RATE}}",
+"healthyLivingAdvice":["{{BP_HEALTHY_LIVING_ADVICE}}",
+"{{BP_HEALTHY_LIVING_ADVICE}}",
+"{{BP_HEALTHY_LIVING_ADVICE}}"
+]
+},
+"abpmUndertaken":"{{WAS_ABPM_UNDERTAKEN}}",
+"abpmDetails":{
+"serviceType":"{{ABPM_SERVICE_TYPE}}",
+"referralSource":"{{ABPM_REFERRAL_SOURCE}}",
+"assessmentDate":"{{ABPM_ASSESSMENT_DATE}}",
+"systolicBP":{{ABPM_SYSTOLIC}},
+"diastolicBP":{{ABPM_DIASTOLIC}},
+"abpmRating":"{{ABPM_RATING}}",
+"pulseRate":"{{PULSE_RATE}}",
+"healthyLivingAdvice":["{{ABPM_HEALTHY_LIVING_ADVICE}}",
+"{{ABPM_HEALTHY_LIVING_ADVICE}}",
+"{{ABPM_HEALTHY_LIVING_ADVICE}}"
+]
+},
+"signpostedTo":"{{SIGNPOSTED_TO}}",
+"signpostedToOther":"{{SIGNPOSTED_TO_OTHER_VALUE}}",
+"escalatedTo":"{{ESCALATED_TO}}",
+"escalatedToOther":"{{ESCALATED_TO_OTHER_VALUE}}",
+"referredOrgOds":"{{REFERRED_ORG_ODS}}",
+"referrerCaseReference":"{{REFERRER_CASE_REFERENCE}}",
+"referrerOds":"{{REFERRER_ORG_ODS}}",
+"professionalRole":"{{PROFESSIONAL_ROLE}}",
+"onwardReferralDate":"{{ONWARD_REFERRAL_DATE}}"
+}
+Developer Guide to Create CVD claim for a new submission
+Step 1: Gather your materials
+You will need the following to follow through this walkthrough:
+Field Mandatory / Optional Type Description
+PLATFORM_DEPOSIT_ID M String
+A string that uniquely identifies this claim.
+Each platform will be provided with a pattern to
+use. For example, PharmOutcomes uses the
+pattern PEM-nnnnnnnnn and Sonar uses the
+pattern SON-nnnnnnnn to uniquely identify this
+deposit in audits and CRUD operations. Max.
+size 255. For example XXX-0000000012334
+PATIENT_GP_ODS M String
+The ODS code of the patient’s GP surgery. This
+can be the ODS code of the practice and not
+of the branch surgery.Use dummy code
+X99999 when ODS code is not
+known/unavailable. Size max. 10.
+PATIENT_NHS_NUMBER M String
+The patient’s NHS Number (not non-England
+national identifiers). If the NHS Number is not
+provided, provide one of the values mentioned
+in Annex: NHS Number Size must be 10.
+CLAIMANT_ODS M String
+The Organisational Data Service (ODS) code of
+the pharmacy provider who provided the
+service and is therefore making the claim.
+Regex for format [A-Za-z0-9]{1,10}. For
+example FXXXX
+CLAIM_YEAR_MONTH M String
+Year and month for which this submission
+belongs to in yyyy-MM format. For example
+2021-06.
+CLINIC_BP_PROVIDED M String
+Confirmation whether clinic test was provided.
+Yes / No value.
+BP_SERVICE_TYPE
+O (required if
+CLINIC_BP_PROVIDED is
+Yes)
+String
+The service that was provided. Provide code
+for 'Clinic test' mentioned in Annex: Service
+Type Clinic
+BP_REFERRAL_SOURCE
+O (required if
+CLINIC_BP_PROVIDED is
+Yes)
+String
+The origin of the clinic test referral. With one
+of the values mentioned in Annex: Source of
+referral
+BP_ASSESSMENT_DATE
+O (required if
+CLINIC_BP_PROVIDED is
+Yes)
+String
+The date the initial BP test was done in yyyyMM-dd format. for example 2021-05-10
+BP_SYSTOLIC
+O (required if
+CLINIC_BP_PROVIDED is
+Yes)
+Numeric
+The value of the systolic blood pressure
+reading.(0-9) max 3 char
+BP_DIASTOLIC
+O (required if
+CLINIC_BP_PROVIDED is
+Yes)
+Numeric
+The value of the diastolic blood pressure
+reading. (0-9) max 3 char
+BP_RATING O (required if String The value of the blood pressure rating. One of
+CLINIC_BP_PROVIDED is
+Yes)
+the values given in Annex: Blood Pressure
+Rating
+IRREGULAR_PULSE
+O (required if
+CLINIC_BP_PROVIDED is
+Yes)
+String
+Confirmation of whether patient has an
+irregular pulse. Yes / No value. Default No.
+WAS_ABPM_OFFERED
+O (required if
+CLINIC_BP_PROVIDED is
+Yes)
+String
+Confirmation of whether ABPM was offered.
+Yes / No value
+BP_PULSE_RATE
+O (required if
+CLINIC_BP_PROVIDED is
+Yes)
+Numeric
+The value of the pulse rate reading. (0-9) max
+3 char,upper limit of 199.
+BP_HEALTHY_LIVING_ADVICE
+O (required if
+CLINIC_BP_PROVIDED is
+Yes)
+Array
+Details of advice that was provided. Any of the
+values given in Annex: Advice or information
+given
+WAS_ABPM_UNDERTAKEN M String
+Confirmation of whether ABPM measurement
+was undertaken. Yes / No value
+ABPM_SERVICE_TYPE
+O (required if
+WAS_ABPM_UNDERTAKEN
+is Yes)
+String
+The service that was provided. Provide code
+for 'ABPM' mentioned in Annex: Service Type
+ABPM
+ABPM_REFERRAL_SOURCE
+O (required if
+WAS_ABPM_UNDERTAKEN
+is Yes)
+String
+The origin of the ABPM referral. With one of
+the values mentioned in Annex: Source of
+referral
+ABPM_ASSESSMENT_DATE
+O (required if
+WAS_ABPM_UNDERTAKEN
+is Yes)
+String
+The date the ABPM examination was
+performed in yyyy-MM-dd format. for example
+2021-05-10
+ABPM_SYSTOLIC
+O (required if
+WAS_ABPM_UNDERTAKEN
+is Yes)
+Numeric
+The value of the systolic blood pressure
+reading. (0-9) max 3 char
+ABPM_DIASTOLIC
+O (required if
+WAS_ABPM_UNDERTAKEN
+is Yes)
+Numeric
+The value of the diastolic blood pressure
+reading. (0-9) max 3 char
+ABPM_RATING
+O (required if
+WAS_ABPM_UNDERTAKEN
+is Yes)
+String
+The value of the ABPM blood pressure rating.
+One of the value given in Annex: ABPM Rating
+ABPM_PULSE_RATE
+O (required if
+WAS_ABPM_UNDERTAKEN
+is Yes)
+Numeric
+The value of the pulse rate reading. (0-9) max
+3 char,upper limit of 199.
+ABPM_HEALTHY_LIVING_ADVICE
+O (required if
+WAS_ABPM_UNDERTAKEN
+is Yes)
+Array
+Details of advice that was provided. Any of the
+values given in Annex: Advice or information
+given
+SIGNPOSTED_TO O String
+Details of where patient has been signposted
+to. With one of the values in Annex:
+Signposted to
+SIGNPOSTED_TO_OTHER_VALUE
+M if SIGNPOSTED_TO is
+OTHER
+String
+Free text value for other signposted to details.
+Max 250 chars
+ESCALATED_TO O String Details of where patient has been escalated
+to. With one of the values in Annex: Escalated
+to
+ESCALATED_TO_OTHER_VALUE
+M if ESCALATED_TO is
+OTHER
+String
+Free text value for other escalated to details.
+Max 250 chars
+REFERRED_ORG_ODS
+O (required if either
+SIGNPOSTED_TO or
+ESCALATED_TO is
+selected)
+String
+The ODS code, of the organisation being
+signposted to.
+REFERRER_ORG_ODS M String
+The ODS code, of the referrer organisation.
+Use dummy code X99999 when ODS code is
+not known/unavailable.
+REFERRER_CASE_REFERENCE O String
+The Case ID from the referring organisation.
+Supported regex a-zA-Z0-9/,-. Max 50 chars
+PROFESSIONAL_ROLE M String
+Professional role given in Annex: Professional
+Roles
+ONWARD_REFERRAL_DATE
+O (required if either
+SIGNPOSTED_TO or
+ESCALATED_TO is
+selected)
+String
+The date the onward referral was made, in
+yyyy-MM-dd format. for example 2021-05-10
+Step 2: Prepare the request JSON
+The message containing the CVD Service Details i.e claim information should follow json schema distributed by email.
+The message must be utf-8 encoded. No XML messages are accepted.
+{
+"platformDepositId":"SUP-nnnnnnnnn",
+"patient": {
+"nhsNumber":"0000000000",
+"gpOdsCode":"GPXXX"
+},
+"orgOdsCode":"FXXXX",
+"yearMonth":"2022-04",
+"clinicTestProvided":"Yes",
+"clinicTestDetails": {
+"serviceType":"CLINIC",
+"referralSource":"PHARMACY",
+"assessmentDate":"2022-01-01",
+"systolicBP":110,
+"diastolicBP":70,
+"bpRating":"NORMAL",
+"irregularPulse":"Yes",
+"abpmOffered":"Yes",
+"pulseRate":80,
+"healthyLivingAdvice":[ "DN", "ALC", "SMK" ]
+},
+"abpmUndertaken":"Yes",
+"abpmDetails":{
+"serviceType":"ABPM",
+"referralSource":"GP",
+"assessmentDate":"2022-01-15",
+"systolicBP":120,
+"diastolicBP":80,
+"abpmRating":"S1_HT",
+"pulseRate":80,
+"healthyLivingAdvice":[ "DN", "ALC" ]
+},
+"signpostedTo":"OTHER",
+"signpostedToOther":"other reference",
+"escalatedTo":"OTHER",
+"escalatedToOther":"other reference",
+"referredOrgOds":"FXXXX",
+"referrerCaseReference":"29578",
+"referrerOds":"FAAXX",
+"professionalRole":"PHARMACIST",
+"onwardReferralDate":"2022-01-20"
+}
+Step 3: Send the create request message
+You can now prepare and make a POST call to the NHSBSA API with the following pattern.
+Type Description
+URL https://stg.api.cvd.pharmacy.mys.nhsbsa.nhs.uk/v1/claim
+Http Headers Content-Type: application/json, Accept: application/json, Cache-Control: no-cache
+Body JSON representation prepared in Step 2 above
+Step 4: Receive your response
+A successful response will be sent synchronously within 30 seconds [DN: To check] with an http code 201 (Created) and contain a
+JSON representation of an object in the body of the response, containing the claim ID.
+Response Headers:
+Type Description
+Status 201 Created
+Location
+Location of the newly created resource. For example:
+https://stg.api.cvd.pharmacy.mys.nhsbsa.nhs.uk/v1/claim/123e4567-e89b-12d3-a456-426614174000
+Response Body:
+{
+"id" : "123e4567-e89b-12d3-a456-426614174000",
+"platformDepositId":"SUP-nnnnnnnnn",
+"patient": {
+"nhsNumber":"0000000000",
+"gpOdsCode":"GPXXX"
+},
+"orgOdsCode":"FXXXX",
+"yearMonth":"2022-04",
+"clinicTestProvided":"Yes",
+"clinicTestDetails": {
+"serviceType":"CLINIC",
+"referralSource":"PHARMACY",
+"assessmentDate":"2022-01-01",
+"systolicBP":110,
+"diastolicBP":70,
+"bpRating":"NORMAL",
+"irregularPulse":"Yes",
+"abpmOffered":"Yes",
+"pulseRate":80,
+"healthyLivingAdvice":[ "DN", "ALC", "SMK" ]
+},
+"abpmUndertaken":"Yes",
+"abpmDetails":{
+"serviceType":"ABPM",
+"referralSource":"GP",
+"assessmentDate":"2022-01-15",
+"systolicBP":120,
+"diastolicBP":80,
+"abpmRating":"S1_HT",
+"pulseRate":80,
+"healthyLivingAdvice":[ "DN", "ALC" ]
+},
+"signpostedTo":"OTHER",
+"signpostedToOther":"other reference",
+"escalatedTo":"OTHER",
+"escalatedToOther":"other reference",
+"referredOrgOds":"FXXXX",
+"referrerCaseReference":"29578",
+"referrerOds":"FAAXX",
+"professionalRole":"PHARMACIST",
+"onwardReferralDate":"2022-01-20"
+}
+Other potential responses:
+403: Forbidden
+Contains a JSON representation of the error response:
+Scenarios:
+User is not allowed to perform certain operations or don't have access to certain resources.
+{
+"message": "string",
+"details": [
+"string"
+]
+}
+500: Unexpected error
+Contains a JSON representation of the error response:
+{
+"message": "string",
+"details": [
+"string"
+]
+}
+400: Bad Request
+Contains a JSON representation of the error response:
+Scenarios:
+Invalid request body, field names or field values
+{
+"message": "string",
+"details": [
+"string"
+]
+}
+Developer Guide to Update existing CVD submission
+Step 1: Gather your materials
+You will need the data described in section Developer Guide to CVD Claim Create.
+Apart from that the additional data needed:
+Property Description
+ID Id of the Claim. Generated when the record is saved. Included in the response of POST (create).
+Step 2: Prepare the request JSON
+In the example below, we changed few details in the existing Claim Response record with given ID.
+{
+"platformDepositId":"SUP-nnnnnnnnn",
+"patient": {
+"nhsNumber":"0000000000",
+"gpOdsCode":"GPXXX"
+},
+"orgOdsCode":"FXXXX",
+"yearMonth":"2022-04",
+"clinicTestProvided":"Yes",
+"clinicTestDetails": {
+"serviceType":"CLINIC",
+"referralSource":"PHARMACY",
+"assessmentDate":"2022-01-01",
+"systolicBP":110,
+"diastolicBP":70,
+"bpRating":"NORMAL",
+"irregularPulse":"Yes",
+"abpmOffered":"Yes",
+"pulseRate":80,
+"healthyLivingAdvice":[ "DN", "ALC", "SMK" ]
+},
+"abpmUndertaken":"No",
+"signpostedTo":"GP",
+"escalatedTo":"A_AND_E"
+"referredOrgOds":"FXXXX",
+"referrerCaseReference":"29578",
+"referrerOds":"FAAXX",
+"professionalRole":"PHARMACIST",
+"onwardReferralDate":"2022-01-20"
+}
+Step 3: Send the update request message
+You can now prepare and make a PUT call to the NHSBSA API with the following pattern.
+Type Description
+URL https://stg.api.cvd.pharmacy.mys.nhsbsa.nhs.uk/v1/claim/{{ID}}
+Http Headers Content-Type: application/json, Accept: application/json, Cache-Control: no-cache
+Body JSON representation prepared in Step 2 above
+Step 4: Receive your response
+A successful response will be sent synchronously within 30 seconds [DN: To check] with an http code 200 (OK) and contain a JSON
+representation of the updated object in the body of the
+response:
+{
+"id" : "123e4567-e89b-12d3-a456-426614174000",
+"platformDepositId":"SUP-nnnnnnnnn",
+"patient": {
+"nhsNumber":"0000000000",
+"gpOdsCode":"GPXXX"
+},
+"orgOdsCode":"FXXXX",
+"yearMonth":"2022-04",
+"clinicTestProvided":"Yes",
+"clinicTestDetails": {
+"serviceType":"CLINIC",
+"referralSource":"PHARMACY",
+"assessmentDate":"2022-01-01",
+"systolicBP":110,
+"diastolicBP":70,
+"bpRating":"NORMAL",
+"irregularPulse":"Yes",
+"abpmOffered":"Yes",
+"pulseRate":80,
+"healthyLivingAdvice":[ "DN", "ALC", "SMK" ]
+},
+"abpmUndertaken":"No",
+"signpostedTo":"GP",
+"escalatedTo":"A_AND_E"
+"referredOrgOds":"FXXXX",
+"referrerCaseReference":"29578",
+"referrerOds":"FAAXX",
+"professionalRole":"PHARMACIST",
+"onwardReferralDate":"2022-01-20"
+}
+Other potential responses:
+403: Forbidden
+Contains a JSON representation of the error response:
+Scenarios:
+User is not allowed to perform certain operations or dont have access to certain resources.
+{
+"message": "string",
+"details": [
+"string"
+]
+}
+500: Unexpected error
+Contains a JSON representation of the error response:
+{
+"message": "string",
+"details": [
+"string"
+]
+}
+400: Bad Request
+Contains a JSON representation of the error response:
+Scenarios:
+Invalid request body, field names or field values
+{
+"message": "string",
+"details": [
+"string"
+]
+}
+422: Unprocessable Entity (json parseable but not conformant)
+Contains a JSON representation of the error response.
+Scenarios:
+if the CLAIMANT_ODS is not registered for CVD claims.
+if the monthly submission is already declared.
+Cannot change the CLAIMANT_ODS
+Cannot change the PLATFORM_DEPOSIT_ID
+Cannot change the CLAIM_YEAR_MONTH
+{
+"message": "string",
+"details": [
+"string"
+]
+}
+404: Not Found
+Contains a JSON representation of the error response:
+Scenarios:
+ClaimResponse record not found with given ID
+{
+"message": "string",
+"details": [
+"string"
+]
+}
+Developer Guide To Delete CVD Submission
+Step 1: Gather your materials
+data needed:
+Property Description
+ID Id of the Claim Response. Generated when the record is saved. Included in the response of POST (create).
+Step 2: Send the delete request message
+You can now prepare and make a DELETE call to the NHSBSA API with the following pattern.
+Type Description
+URL https://stg.api.cvd.pharmacy.mys.nhsbsa.nhs.uk/v1/claim/{{ID}}
+Http Headers Content-Type: application/json, Accept: application/json, Cache-Control: no-cache
+Body N/A
+Step 3: Receive your response
+A successful response will be sent synchronously within 30 seconds [DN: To check] with an http code 204 (No Content) and not
+contain a response body.
+Other potential responses:
+403: Forbidden
+Contains a JSON representation of the error response:
+Scenarios:
+User is not allowed to perform certain operations or dont have access to certain resources.
+{
+"message": "string",
+"details": [
+"string"
+]
+}
+500: Unexpected error
+Contains a JSON representation of the error response:
+{
+"message": "string",
+"details": [
+"string"
+]
+}
+404: Not Found
+Contains a JSON representation of the error response:
+Scenarios:
+Submission record not found with given ID
+{
+"message": "string",
+"details": [
+"string"
+]
+}
+Developer Guide to Get a CVD submission
+Step 1: Gather your materials
+You will need:
+Property Description
+ID Id of the CVD submission. Generated when the record is saved. Included in the response of POST (create).
+Step 2: Send the Get Submission Message
+You can now prepare and make a GET call to the NHSBSA API with the following pattern.
+Type Description
+URL https://stg.api.cvd.pharmacy.mys.nhsbsa.nhs.uk/v1/claim/{{ID}}
+Http Headers Content-Type: application/json, Accept: application/json, Cache-Control: no-cache
+Body N/A
+Step 3: Receive your response
+A successful response will be sent synchronously within 30 seconds with an http code 200 (OK) with a response body.
+{
+"id" : "123e4567-e89b-12d3-a456-426614174000",
+"platformDepositId":"SUP-nnnnnnnnn",
+"patient": {
+"nhsNumber":"0000000000",
+"gpOdsCode":"GPXXX"
+},
+"orgOdsCode":"FXXXX",
+"yearMonth":"2022-04",
+"clinicTestProvided":"Yes",
+"clinicTestDetails": {
+"serviceType":"CLINIC",
+"referralSource":"PHARMACY",
+"assessmentDate":"2022-01-01",
+"systolicBP":110,
+"diastolicBP":70,
+"bpRating":"NORMAL",
+"irregularPulse":"Yes",
+"abpmOffered":"Yes",
+"pulseRate":80,
+"healthyLivingAdvice":[ "DN", "ALC", "SMK" ]
+},
+"abpmUndertaken":"No",
+"signpostedTo":"GP",
+"escalatedTo":"A_AND_E"
+"referredOrgOds":"FXXXX",
+"referrerCaseReference":"29578",
+"referrerOds":"FAAXX",
+"professionalRole":"PHARMACIST",
+"onwardReferralDate":"2022-01-20"
+}
+Other potential responses:
+403: Forbidden
+Contains a JSON representation of the error response:
+Scenarios:
+User is not allowed to perform certain operations or dont have access to certain resources.
+{
+"message": "string",
+"details": [
+"string"
+]
+}
+500: Unexpected error
+Contains a JSON representation of the error response:
+{
+"message": "string",
+"details": [
+"string"
+]
+}
+404: Not Found
+Contains a JSON representation of the error response:
+Scenarios:
+ClaimResponse record not found with given ID
+{
+"message": "string",
+"details": [
+"string"
+]
+}
+Annex: NHS Number
+Code Display
+1111111111 Non-registered UK resident
+2222222222 Non UK resident
+3333333333 Data sharing consent not given
+4444444444 NHS number not found
+Annex: Service Type Clinic
+Code Display
+CLINIC Clinic test
+Annex: Service Type ABPM
+Code Display
+ABPM ABPM
+Annex: Source of referral
+Code Display
+GP GP Practice
+PHARMACY Patient identified in the pharmacy
+SELF_REFERRAL Self referral
+VACCINATION_CENTRE Covid Vaccination Centre
+OPTICIAN Optician
+DENTIST Dentist
+Annex: Blood Pressure Rating
+Code Display
+LOW Low
+HIGH High
+NORMAL Normal
+VERY_HIGH Very high
+Annex: ABPM Rating
+Code Display
+NORMAL Normal
+S1_HT Stage 1 Hypertension
+S2_HT Stage 2 Hypertension
+Annex: Advice or information given
+Code Display
+DN Diet and nutrition
+PA Physical activity
+ALC Alcohol
+SMK Smoking
+CAF Caffeine
+SOD Sodium
+HLIG Local healthy living initiatives / groups
+Annex: Signposted to
+Code Display
+GP GP Practice
+OH_GP Out of hours GP/IUC
+CP Community Pharmacy
+OTHER Other
+Annex: Escalated to
+Code Display
+GP GP Practice
+OH_GP Out of Hours GP/IUC
+A_AND_E A&E
+999 999
+OTHER Other
+Annex: Professional Roles
+Code Display
+PHARMACIST Pharmacist
+PHARMACY_TECNICIAN Pharmacy Technician

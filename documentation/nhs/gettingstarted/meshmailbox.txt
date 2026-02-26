@@ -1,0 +1,83 @@
+Digital
+
+Search
+Search	Magnifying glass
+    
+NHS DigitalRight arrow icon ServicesRight arrow icon Message Exchange for Social Care and Health (MESH)Right arrow icon Messaging exchange for social care and health: apply for a mailbox
+Apply for a MESH mailbox
+NHS organisations, IT specialists, adult social care teams and individuals can use this form to apply for a MESH mailbox.
+
+
+If you are GP practice staff or a health informatics provider, contact your clinical system supplier, such as Cegedim, TPP or EMIS.
+
+These suppliers usually manage these MESH mailboxes, so check with them in the first instance before you complete this form.
+
+Before you begin
+To complete this form you need to know:
+
+Do you require a MESH mailbox for the Live environment or for one of the Testing (Path to Live) environments?
+As an end user, you might use a test environment for training.
+As a developer, you would use a test environment to test your software with the MESH API.
+(You can test with the MESH client or API in the Path to Live Integration environment without applying for a MESH mailbox. You can also use the MESH-sandbox to test against MESH locally)
+Your organisation type - one of:
+health authority
+NHS trust
+GP practice
+system supplier
+other - described by you
+The organisation data service (ODS) code for the mailbox owner. You can search for an existing ODS code by organisation name or geographic location or get a new ODS code by applying for one.
+The contact name, email and phone number of a nominated representative within your organisation to be the NHS Digital administrative contact for the mailbox.
+Will a third party be managing your mailbox on your behalf, such as a system supplier or third-party organisation?
+If applicable, the ODS code of the third party organisation managing the mailbox on your behalf.
+If applicable, the contact name, email and phone number of the third-party managing the mailbox on your behalf.
+Will the mailbox be used for National Events Management Service (NEMS) messages?
+Which version of MESH you plan to use:
+a web browser version - the UI which you can use over HSCN or internet connections. Once you have a mailbox ID, you must apply for a MESH UI account to use it.
+an installable client application
+an API for software developers - you must complete API onboarding before you can apply for a live MESH API mailbox
+Details of the workflow IDs required for this new mailbox, associated with the messages and files you are transferring.
+Before completing this section, we recommend you read the Guidance on Workflow Groups and Workflow IDs and download the list of existing workflow IDs. 
+If the workflow IDs that you require do not currently exist, then you must request a new workflow ID before you can submit this form.
+You must describe the business flow for the messages and files, for example:
+file transfer FROM your organisation TO another organisation
+RECEIPT of a file sent from a different organisation
+RECEIPT of a file from another organisation and ability to RETURN the updated file to the originator
+If applicable, the name of an existing mailbox that transfers similar data, that you want to clone for this one.
+The approximate sizes of the files you plan to send - one of:
+less than 50MB
+50MB to 100MB
+100MB to 20GB
+For API users, testing in a Path to Live environment, you need to create a certificate sign request (CSR) for it.
+Tell us the common name from your CSR 'Subject' using the format  local_id.ods_code.api.mesh-client.nhs.uk where local_id is a local identifier such as a server name and ods_code is your ODS code, for example, SERVER001.X26.api.mesh-client.nhs.uk. Do not include other elements in your 'Subject' such as country code, state, organisation and so on.
+
+For MESH client users, for testing (Path to Live) environments, you need the appropriate keystore and password for the environment.
+For MESH UI users, for testing (Path to Live) environments, you need a smartcard for access via HSCN as these environments are not available over the internet.
+You can accept the statement on use of Patient Identifiable Data.
+You can confirm you’re not a robot.
+
+Do not send any medical information using this form.
+
+Submit this form to request a new MESH mailbox from the MESH service team. You must complete all fields marked with an asterisk *
+
+Your organisation and contact information
+Mailbox required *
+Organisation type *
+Organisation Data Service (ODS) code of the organisation that owns the mailbox *
+Organisation contact name *
+Contact telephone number *
+Contact email address *
+Is mailbox managed by a 3rd party such as a system supplier on behalf of the mailbox owning organisation? *
+Is this mailbox for National Events Management Service (NEMS) use?
+MESH mailbox type
+Type of MESH mailbox you'll be using *
+Your data usage
+Please specify the workflow group you require associating to your mailbox *
+What type of data will you be sending or receiving via MESH? *
+A current mailbox ID that sends and receives similar data, for example, if you want to clone an existing mailbox
+Approximate file sizes *
+Statement on patient identifiable data
+This service allows you to access patient identifiable data from SPINE. All your existing confidentiality responsibilities apply as well as established privacy and security policies and procedures. In particular, data extracted must be protected appropriately, whether stored locally, on servers, on removable media or paper, and destroyed when no longer needed for the original purpose for which it was obtained. If you are unsure of your responsibilities, or need to refer to relevant documentation, contact your local information governance team.
+
+*
+You must complete all fields marked with an asterisk *
+

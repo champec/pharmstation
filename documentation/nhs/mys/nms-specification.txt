@@ -1,0 +1,683 @@
+NHS New Medicines Service (NMS)
+Developer Guide to the NHS Business Services Authority API for NMS claims
+ChangeLog
+Version
+Control
+Date Purpose
+0.1
+03 Nov
+2022
+Initial Draft
+1.0
+27 Feb
+2023
+Removed Matter Identified,Onward_Referral_Reason. Added Referrer Case Reference,Professional
+Role. Made Not_Using_Medicine_Reason as optional
+1.1
+08 Mar
+2023
+Add regex and length validation to Referrer Case Reference
+1.2
+13 Mar
+2023
+Change CONSULT_METHOD to mandatory,Seperate two FTF option and typo in
+PATIENT_REQ_ADDITIONAL_FOLL_UP desciption
+1.3
+16 Mar
+2023
+Remove additional follow up stage and related fields
+Table of Contents
+NHS Community Pharmacy NMS Service
+Developer Guide to the NHS Business Services Authority API for NMS claims
+ChangeLog
+Table of Contents
+NHS Community Pharmacy NMS Service
+Document Background
+API Connectivity
+Current test endpoints are:
+API Access Process Flow
+Create Process Flow
+Update Process Flow
+Get Process Flow
+Delete Process Flow
+Developer Guide to set up NMS Claim
+Developer Guide to Create NMS claim for a new submission
+Step 1: Gather your materials
+Step 2: Prepare the request JSON
+Step 3: Send the create request message
+Step 4: Receive your response
+Response Headers:
+Response Body:
+Other potential responses:
+403: Forbidden
+500: Unexpected error
+400: Bad Request
+Developer Guide to Update existing NMS submission
+Step 1: Gather your materials
+Step 2: Prepare the request JSON
+Step 3: Send the update request message
+Step 4: Receive your response
+Other potential responses:
+403: Forbidden
+500: Unexpected error
+400: Bad Request
+422: Unprocessable Entity (json parseable but not conformant)
+404: Not Found
+Developer Guide To Delete NMS Submission
+Step 1: Gather your materials
+Step 2: Send the delete request message
+Step 3: Receive your response
+Other potential responses:
+403: Forbidden
+500: Unexpected error
+404: Not Found
+Developer Guide to Get a NMS submission
+Step 1: Gather your materials
+Step 2: Send the Get Submission Message
+Step 3: Receive your response
+Other potential responses:
+403: Forbidden
+500: Unexpected error
+404: Not Found
+Annex: NHS Number
+Annex: Service Type
+Annex: Referrer organisation type
+Annex: Non Provision Of Service Reason
+Annex: Not Using Medicine Reason
+Annex: Consultation method
+Annex: Follow Up Consultation Outcome
+Annex: Condition
+Annex: Array of NMS product
+Annex: Signposted to
+Annex: Professional Role
+NHS Community Pharmacy NMS Service
+Use this service to claim payment for the provision of the NHS Community Pharmacy NMS Service.
+Document Background
+This document is intended to provide pharmacy clinical service platform providers with the information necessary to submit details of
+service provisions to the NHS Business Services Authority (NHS BSA), to pre-populate claims to be made by community pharmacy
+providers.
+API Connectivity
+Connection to the NHS BSA API has the following criteria, as patient data is present and being transmitted:
+Over HTTPS on port 443
+Using TLSv1.2 only
+Authentication
+IP whitelisting
+Current test endpoints are:
+POST https://stg.api.nms.pharmacy.mys.nhsbsa.nhs.uk/v1/claim
+GET https://stg.api.nms.pharmacy.mys.nhsbsa.nhs.uk/v1/claim/{{ID}}
+PUT https://stg.api.nms.pharmacy.mys.nhsbsa.nhs.uk/v1/claim/{{ID}}
+DELETE https://stg.api.nms.pharmacy.mys.nhsbsa.nhs.uk/v1/claim/{{ID}}
+[DN: These are subject to many changes going forward – just a placeholder really]
+API Access Process Flow
+Create Process Flow
+Update Process Flow
+Get Process Flow
+Delete Process Flow
+Developer Guide to set up NMS Claim
+Below JSON contains a NMS claim object with all the fields and their corresponding given options. Based on which you can build your
+claim object in the create (POST) or update (PUT) request.
+{
+"platformDepositId":"{{PLATFORM_DEPOSIT_ID}}",
+"patient": {
+"nhsNumber":"{{PATIENT_NHSNO}}",
+"gpOdsCode":"{{PATIENT_GPODS}}"
+},
+"orgOdsCode":"{{CLAIMANT_ODS}}",
+"yearMonth":"{{CLAIM_YEAR_MONTH}}",
+"referralDate": "{{REFERRAL_DATE}}",
+"referrerOrgType": "{{REFERRER_ORG_TYPE}}",
+"referrerOrgOdsCode": "{{REFERRER_ORG_ODS}}",
+"referrerCaseReference": "{{REFERRER_CASE_REFERENCE}}",
+"assessmentDate":"{{ASSESSMENT_DATE}}",
+"professionalRole":"{{PROFESSIONAL_ROLE}}",
+"prescriptionDate":"{{PRESCRIPTION_DATE}}",
+"serviceType": "{{SERVICE_TYPE}}",
+"nonProvisionOfServiceReason": "{{NON_PROVISION_OF_SERVICE_REASON}}",
+"conditions": ["{{CONDITION}}","{{CONDITION}}"],
+"notUsingPrescribeMedicineReason" : ["{{NOT_USING_MEDICINE_REASON}}","{{NOT_USING_MEDICINE_REASON}}"],
+"consultationMethod": "{{CONSULT_METHOD}}",
+"consultationOutcome": "{{CONSULT_OUTCOME}}",
+"products": ["{{NMS_PRODUCT}}","{{NMS_PRODUCT}}"],
+"signpostedTo":"{{SIGNPOSTED_TO}}",
+"signpostedToOther":"{{SIGNPOSTED_TO_OTHER_VALUE}}",
+"referredOrgOds":"{{REFERRED_ORG_ODS}}"
+}
+Developer Guide to Create NMS claim for a new submission
+Step 1: Gather your materials
+You will need the following to follow through this walkthrough:
+Field
+Mandatory /
+Optional
+Type Description
+PLATFORM_DEPOSIT_ID M String
+A string that uniquely identifies this claim. Each
+platform will be provided with a pattern to use. For
+example, PharmOutcomes uses the pattern PEMnnnnnnnnn and Sonar uses the pattern SONnnnnnnnn to uniquely identify this deposit in audits
+and CRUD operations. Max. size 255. For example
+XXX-0000000012334
+PATIENT_GP_ODS M String
+The ODS code of the patient’s GP surgery. This can
+be the ODS code of the practice and not of the
+branch surgery.Use dummy code X99999 when
+ODS code is not known/unavailable. Size max. 10.
+PATIENT_NHS_NUMBER M String
+The patient’s NHS Number (not non-England
+national identifiers). If the NHS Number is not
+provided, provide one of the values mentioned in
+Annex: NHS Number Size must be 10.
+CLAIMANT_ODS M String
+The Organisational Data Service (ODS) code of the
+pharmacy provider who provided the service and is
+therefore making the claim. Regex for format [A-Zaz0-9]{1,10}. For example FXXXX
+CLAIM_YEAR_MONTH M String
+Year and month for which this submission belongs
+to in yyyy-MM format. For example 2021-06.
+REFERRAL_DATE M String
+The date of referral, Standardised format yyyy-MMdd (e.g. 2021-08-27)
+REFERRER_ORG_TYPE M string
+The details of the referrer that is making the
+referral. With one of the values in Annex: Referrer
+organisation type
+REFERRER_ORG_ODS M String
+The ODS code, of the referrer organisation. Use
+dummy code X99999 when ODS code is not
+known/unavailable.
+REFERRER_CASE_REFERENCE O String
+The case reference number from the referring
+organisation.Format defined by referring
+organisation. Regex for format [A-Za-z0-9/-]{60}
+ASSESSMENT_DATE M String
+The date of assessment in yyyy-MM-dd format (e.g.
+2021-08-27)
+PROFESSIONAL_ROLE M String
+The role of the person providing the service.With
+one of the value mentioned in Annex: Professional
+Role
+PRESCRIPTION_DATE M String
+The date on which the medication or medical
+device was prescribed. In yyyy-MM-dd format (e.g.
+2021-08-27)
+SERVICE_TYPE M String The service that was provided. With one of the
+value mentioned in Annex: Service type
+NON_PROVISION_OF_SERVICE_REASON O String
+Reason the patient was not provided with the
+service. With one of the value mentioned in Annex:
+Non Provision Of Service Reason
+CONDITION M Array
+Array of strings of condition / reason for medication
+being prescribed. With one of the value mentioned
+in Annex: Condition
+NOT_USING_MEDICINE_REASON O String
+Reason why patient reports not using the medicine
+as prescribed. With one of the value mentioned in
+Annex: Not Using Medicine Reason
+CONSULT_METHOD M String
+The type of consultation conducted. With one of the
+value mentioned in Annex: Consultation method
+CONSULT_OUTCOME
+O ( M If the
+SERVICE_TYPE
+is 'Follow up' )
+String
+The final outcome of NMS to Community Pharmacy.
+If the SERVICE_TYPE is 'Follow up' then choose of
+the values in Annex: Follow Up Consultation
+Outcome
+NMS_PRODUCT M Array
+Consist (NMS) product details. Example mentioned
+in Annex: Array of NMS product
+SNOMED_CODE M String Unique code identifier for the product
+MEDICATION_NAME M String
+Name of the medication used. Generic name or
+brand name.
+SIGNPOSTED_TO O String
+Details of where patient has been signposted to.
+With one of the values in Annex: Signposted to
+SIGNPOSTED_TO_OTHER_VALUE
+O ( M if
+SIGNPOSTED_TO
+is OTHER )
+String
+Free text value for other signposted to details. Max
+250 chars
+REFERRED_ORG_ODS
+O ( M if
+SIGNPOSTED_TO
+present )
+String
+The ODS code, of the organisation being
+signposted to.
+Step 2: Prepare the request JSON
+The message containing the NMS Service Details i.e claim information should follow json schema distributed by email.
+The message must be utf-8 encoded. No XML messages are accepted.
+{
+"platformDepositId":"SUP-nnnnnnnnn",
+"patient": {
+"nhsNumber":"0000000000",
+"gpOdsCode":"GPXXX"
+},
+"orgOdsCode":"FXXXX",
+"yearMonth":"2022-04",
+"referralDate": "2021-08-02",
+"referrerOrgType": "GPP",
+"referrerOrgOdsCode": "YXXXX",
+"referrerCaseReference" : "AA4G-BB23-HH78",
+"assessmentDate":"2021-08-02",
+"professionalRole" : "PHARMACIST",
+"prescriptionDate":"2021-08-02",
+"serviceType": "FOLLOW_UP",
+"nonProvisionOfServiceReason": "ONWARD_REFERAL",
+"conditions": ["OO","03"],
+"notUsingPrescribeMedicineReason" : ["PATIENT_NOT_STARTED_MEDICINE"],
+"consultationMethod": "TELEPHONE",
+"consultationOutcome": "NO_ACTION",
+"products": [
+{
+"snomedCode":"xxxxx",
+"medicationName":"Test Product2"
+}
+],
+"signpostedTo":"OTHER",
+"signpostedToOther":"other reference",
+"referredOrgOds":"FXXXX"
+}
+Step 3: Send the create request message
+You can now prepare and make a POST call to the NHSBSA API with the following pattern.
+Type Description
+URL https://stg.api.nms.pharmacy.mys.nhsbsa.nhs.uk/v1/claim
+Http Headers Content-Type: application/json, Accept: application/json, Cache-Control: no-cache
+Body JSON representation prepared in Step 2 above
+Step 4: Receive your response
+A successful response will be sent synchronously within 30 seconds [DN: To check] with an http code 201 (Created) and contain a
+JSON representation of an object in the body of the response, containing the claim ID.
+Response Headers:
+Type Description
+Status 201 Created
+Location
+Location of the newly created resource. For example:
+https://stg.api.nms.pharmacy.mys.nhsbsa.nhs.uk/v1/claim/123e4567-e89b-12d3-a456-426614174000
+Response Body:
+{
+"id" : "123e4567-e89b-12d3-a456-426614174000",
+"platformDepositId":"SUP-nnnnnnnnn",
+"patient": {
+"nhsNumber":"0000000000",
+"gpOdsCode":"GPXXX"
+},
+"orgOdsCode":"FXXXX",
+"yearMonth":"2022-04",
+"referralDate": "2021-08-02",
+"referrerOrgType": "GPP",
+"referrerOrgOdsCode": "YXXXX",
+"referrerCaseReference" : "AA4G-BB23-HH78",
+"assessmentDate":"2021-08-02",
+"professionalRole" : "PHARMACIST",
+"prescriptionDate":"2021-08-02",
+"serviceType": "FOLLOW_UP",
+"nonProvisionOfServiceReason": "ONWARD_REFERAL",
+"conditions": ["OO","03"],
+"notUsingPrescribeMedicineReason" : ["PATIENT_NOT_STARTED_MEDICINE"],
+"consultationMethod": "TELEPHONE",
+"consultationOutcome": "NO_ACTION",
+"products": [
+{
+"snomedCode":"xxxxx",
+"medicationName":"Test Product2"
+}
+],
+"signpostedTo":"OTHER",
+"signpostedToOther":"other reference",
+"referredOrgOds":"FXXXX"
+}
+Other potential responses:
+403: Forbidden
+Contains a JSON representation of the error response:
+Scenarios:
+User is not allowed to perform certain operations or don't have access to certain resources.
+{
+"message": "string",
+"details": [
+"string"
+]
+}
+500: Unexpected error
+Contains a JSON representation of the error response:
+{
+"message": "string",
+"details": [
+"string"
+]
+}
+400: Bad Request
+Contains a JSON representation of the error response:
+Scenarios:
+Invalid request body, field names or field values
+{
+"message": "string",
+"details": [
+"string"
+]
+}
+Developer Guide to Update existing NMS submission
+Step 1: Gather your materials
+You will need the data described in section Developer Guide to NMS Claim Create.
+Apart from that the additional data needed:
+Property Description
+ID Id of the Claim. Generated when the record is saved. Included in the response of POST (create).
+Step 2: Prepare the request JSON
+In the example below, we changed few details in the existing Claim Response record with given ID.
+{
+"platformDepositId":"SUP-nnnnnnnnn",
+"patient": {
+"nhsNumber":"0000000000",
+"gpOdsCode":"GPXXX"
+},
+"orgOdsCode":"FXXXX",
+"yearMonth":"2022-04",
+"referralDate": "2021-08-02",
+"referrerOrgType": "GPP",
+"referrerOrgOdsCode": "YXXXX",
+"referrerCaseReference" : "AA4G-BB23-HH78",
+"assessmentDate":"2021-08-02",
+"professionalRole" : "PHARMACIST",
+"prescriptionDate":"2021-08-02",
+"serviceType": "FOLLOW_UP",
+"nonProvisionOfServiceReason": "ONWARD_REFERAL",
+"conditions": ["OO","03"],
+"notUsingPrescribeMedicineReason" : ["PATIENT_NOT_STARTED_MEDICINE"],
+"consultationMethod": "TELEPHONE",
+"consultationOutcome": "NO_ACTION",
+"products": [
+{
+"snomedCode":"xxxxx",
+"medicationName":"Test Product2"
+}
+],
+"signpostedTo":"OTHER",
+"signpostedToOther":"other reference",
+"referredOrgOds":"FXXXX"
+}
+Step 3: Send the update request message
+You can now prepare and make a PUT call to the NHSBSA API with the following pattern.
+Type Description
+URL https://stg.api.nms.pharmacy.mys.nhsbsa.nhs.uk/v1/claim/{{ID}}
+Http Headers Content-Type: application/json, Accept: application/json, Cache-Control: no-cache
+Body JSON representation prepared in Step 2 above
+Step 4: Receive your response
+A successful response will be sent synchronously within 30 seconds [DN: To check] with an http code 200 (OK) and contain a JSON
+representation of the updated object in the body of the
+response:
+{
+"id" : "123e4567-e89b-12d3-a456-426614174000",
+"platformDepositId":"SUP-nnnnnnnnn",
+"patient": {
+"nhsNumber":"0000000000",
+"gpOdsCode":"GPXXX"
+},
+"orgOdsCode":"FXXXX",
+"yearMonth":"2022-04",
+"referralDate": "2021-08-02",
+"referrerOrgType": "GPP",
+"referrerOrgOdsCode": "YXXXX",
+"referrerCaseReference" : "AA4G-BB23-HH78",
+"assessmentDate":"2021-08-02",
+"professionalRole" : "PHARMACIST",
+"prescriptionDate":"2021-08-02",
+"serviceType": "FOLLOW_UP",
+"nonProvisionOfServiceReason": "ONWARD_REFERAL",
+"conditions": ["OO","03"],
+"notUsingPrescribeMedicineReason" : ["PATIENT_NOT_STARTED_MEDICINE"],
+"consultationMethod": "TELEPHONE",
+"consultationOutcome": "NO_ACTION",
+"products": [
+{
+"snomedCode":"xxxxx",
+"medicationName":"Test Product2"
+}
+],
+"signpostedTo":"OTHER",
+"signpostedToOther":"other reference",
+"referredOrgOds":"FXXXX"
+}
+Other potential responses:
+403: Forbidden
+Contains a JSON representation of the error response:
+Scenarios:
+User is not allowed to perform certain operations or dont have access to certain resources.
+{
+"message": "string",
+"details": [
+"string"
+]
+}
+500: Unexpected error
+Contains a JSON representation of the error response:
+{
+"message": "string",
+"details": [
+"string"
+]
+}
+400: Bad Request
+Contains a JSON representation of the error response:
+Scenarios:
+Invalid request body, field names or field values
+{
+"message": "string",
+"details": [
+"string"
+]
+}
+422: Unprocessable Entity (json parseable but not conformant)
+Contains a JSON representation of the error response.
+Scenarios:
+if the CLAIMANT_ODS is not registered for NMS claims.
+if the monthly submission is already declared.
+Cannot change the CLAIMANT_ODS
+Cannot change the PLATFORM_DEPOSIT_ID
+Cannot change the CLAIM_YEAR_MONTH
+{
+"message": "string",
+"details": [
+"string"
+]
+}
+404: Not Found
+Contains a JSON representation of the error response:
+Scenarios:
+ClaimResponse record not found with given ID
+{
+"message": "string",
+"details": [
+"string"
+]
+}
+Developer Guide To Delete NMS Submission
+Step 1: Gather your materials
+data needed:
+Property Description
+ID Id of the Claim Response. Generated when the record is saved. Included in the response of POST (create).
+Step 2: Send the delete request message
+You can now prepare and make a DELETE call to the NHSBSA API with the following pattern.
+Type Description
+URL https://stg.api.nms.pharmacy.mys.nhsbsa.nhs.uk/v1/claim/{{ID}}
+Http Headers Content-Type: application/json, Accept: application/json, Cache-Control: no-cache
+Body N/A
+Step 3: Receive your response
+A successful response will be sent synchronously within 30 seconds [DN: To check] with an http code 204 (No Content) and not
+contain a response body.
+Other potential responses:
+403: Forbidden
+Contains a JSON representation of the error response:
+Scenarios:
+User is not allowed to perform certain operations or dont have access to certain resources.
+{
+"message": "string",
+"details": [
+"string"
+]
+}
+500: Unexpected error
+Contains a JSON representation of the error response:
+{
+"message": "string",
+"details": [
+"string"
+]
+}
+404: Not Found
+Contains a JSON representation of the error response:
+Scenarios:
+Submission record not found with given ID
+{
+"message": "string",
+"details": [
+"string"
+]
+}
+Developer Guide to Get a NMS submission
+Step 1: Gather your materials
+You will need:
+Property Description
+ID Id of the NMS submission. Generated when the record is saved. Included in the response of POST (create).
+Step 2: Send the Get Submission Message
+You can now prepare and make a GET call to the NHSBSA API with the following pattern.
+Type Description
+URL https://stg.api.nms.pharmacy.mys.nhsbsa.nhs.uk/v1/claim/{{ID}}
+Http Headers Content-Type: application/json, Accept: application/json, Cache-Control: no-cache
+Body N/A
+Step 3: Receive your response
+A successful response will be sent synchronously within 30 seconds with an http code 200 (OK) with a response body.
+{
+"id" : "123e4567-e89b-12d3-a456-426614174000",
+"platformDepositId":"SUP-nnnnnnnnn",
+"patient": {
+"nhsNumber":"0000000000",
+"gpOdsCode":"GPXXX"
+},
+"orgOdsCode":"FXXXX",
+"yearMonth":"2022-04",
+"referralDate": "2021-08-02",
+"referrerOrgType": "GPP",
+"referrerOrgOdsCode": "YXXXX",
+"referrerCaseReference" : "AA4G-BB23-HH78",
+"assessmentDate":"2021-08-02",
+"professionalRole" : "PHARMACIST",
+"prescriptionDate":"2021-08-02",
+"serviceType": "FOLLOW_UP",
+"nonProvisionOfServiceReason": "ONWARD_REFERAL",
+"conditions": ["OO","03"],
+"notUsingPrescribeMedicineReason" : ["PATIENT_NOT_STARTED_MEDICINE"],
+"consultationMethod": "TELEPHONE",
+"consultationOutcome": "NO_ACTION",
+"products": [
+{
+"snomedCode":"xxxxx",
+"medicationName":"Test Product2"
+}
+],
+"signpostedTo":"OTHER",
+"signpostedToOther":"other reference",
+"referredOrgOds":"FXXXX"
+}
+Other potential responses:
+403: Forbidden
+Contains a JSON representation of the error response:
+Scenarios:
+User is not allowed to perform certain operations or dont have access to certain resources.
+{
+"message": "string",
+"details": [
+"string"
+]
+}
+500: Unexpected error
+Contains a JSON representation of the error response:
+{
+"message": "string",
+"details": [
+"string"
+]
+}
+404: Not Found
+Contains a JSON representation of the error response:
+Scenarios:
+ClaimResponse record not found with given ID
+{
+"message": "string",
+"details": [
+"string"
+]
+}
+Annex: NHS Number
+Code Display
+1111111111 Non-registered UK resident
+2222222222 Non UK resident
+3333333333 Data sharing consent not given
+4444444444 NHS number not found
+Annex: Service Type
+Code Display
+ENGAGEMENT Engagement
+INTERVENTION Intervention
+FOLLOW_UP Follow up
+Annex: Referrer Organisation Type
+Code Display
+GPP GP Practice
+HOS Hospital
+OHP Other health professional
+PIP Patient identified in the pharmacy
+Annex: Non Provision Of Service Reason
+Code Display
+DECLINED Declined
+DID_NOT_ATTEND Did not attend
+Annex: Not Using Medicine Reason
+Code Display
+PATIENT_NOT_STARTED_MEDICINE Patient has not started using the medicine
+PRESCRIBER_STOP_NEW_MEDICINE Prescriber has stopped new medicine
+PATIENT_MEDICINE_NOT_IN_LINE Patient is not using the medicine in line with the directions of the prescriber
+Annex: Consultation method
+Code Display
+FTF_PHARMACY Face to face in the pharmacy
+FTF_PATIENT_HOME Face to face in the patient's home
+TELEPHONE Telephone
+TELEMEDICINE Telemedicine
+Annex: Follow Up Consultation Outcome
+Code Display
+NO_ACTION No action needed
+PHARMACIST_PATIENT_AGREE Pharmacist and patient agree solution
+REFFERAL_TO_GP Referral to GP practice for review
+REFFERAL_TO_OTHER_PRESC_ORG Referral to other prescribing organisation
+Annex: Professional Role
+Code Display
+PHARMACIST Pharmacist
+PHARMACY_TECHNICIAN Pharmacy Technician
+Annex: Condition
+Code Display
+00 Asthma
+01 Chronic Obstructive Pulmonary Disease
+02 Diabetes (Type 2)
+03 Hypertension
+04 Hypercholesterolaemia
+05 Osteoporosis
+06 Gout
+07 Glaucoma
+08 Epilepsy
+09 Parkinson’s disease
+10 Urinary incontinence/retention
+11 Heart failure
+12 Acute coronary syndromes
+13 Atrial fibrillation
+14 Long term risks of venous thromboembolism/embolism
+15 Stroke / transient ischemic attack
+16 Coronary heart disease
+17 Depression
+Annex: Array of NMS Product
+NMS_PRODUCT should consist of array of following object
+{
+"snomedCode":"{{SNOMED_CODE}}",
+"medicationName":"{{MEDICATION_NAME}}"
+}
+Annex: Signposted to
+Code Display
+GP GP Practice
+OTHER Other

@@ -1,0 +1,58 @@
+Overview
+If you are building healthcare software, and need to integrate with our APIs, this guide is for you.
+
+Whether you're a product owner, delivery lead, architect, software developer or a business analyst, you'll have a part to play in this process.
+
+If you need to build an API, see building healthcare APIs.
+
+1. Learn about our APIs
+Before designing your software, you should:
+
+get an overview of healthcare technology, integration and APIs by reading our introduction to healthcare technology
+learn about specific functional areas or care settings by reading our non-technical guides to building healthcare software
+find out how easy it is to integrate with our APIs by reading our case studies
+find out what APIs are available in our API and integration catalogue
+learn about security and authorisation
+try our hands-on tutorials and open-access sandboxes
+learn how we are making integration easier
+see if there are any other data standards relevant to your project by checking the NHS Data Standards Directory
+2. Create a developer account
+If you create a developer account on our API platform, and tell us which APIs you are interested in, we can let you know of any updates.
+
+You'll also be able to manage your applications and teams, contribute to our developer community, and get access to security credentials for testing and production for some of our newer APIs.
+
+3. Confirm your use case
+Our APIs are provided to support the delivery of health and social care, primarily in England. 
+
+For some of our APIs, you must check you have a valid use case. You’ll need to give us details of your product and what it does.
+
+You should do this before you go too far with your development.
+
+For more details on how to confirm your use case for a particular API, read its API specification in our API and integration catalogue.
+
+4. Design and build your software
+When designing and building your software you can:
+
+refer back to our API documentation
+
+get help and support from us
+
+5. Test your software
+We provide test environments for you to test your software with our APIs. There are different environments depending on which APIs you are using.
+
+For more details see testing your software.
+
+6. Get your software assured
+To use NHS APIs, your organisation must complete our assurance process and have your application approved. This confirms your service is secure, compliant, and authorised to access NHS data.
+
+For more details see the assurance process for APIs.
+
+7. Put your software live
+Once you’ve completed software onboarding you’re ready to go live.
+
+Get help and support
+If you have any issues, either during development or once your software is live, you can get help and support from us.
+
+Please join our Developer Community to collaborate with us and other service users about integrating with our products and services. 
+
+Last edited: 17 February 2026 4:04 pm

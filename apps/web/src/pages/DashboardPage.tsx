@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { getUserClient } from '@pharmstation/supabase-client'
 import { useAuthStore } from '@pharmstation/core'
 import type { RegisterEntry, RegisterLedger } from '@pharmstation/types'
+import { PharmacyMapModal } from '../components/maps/PharmacyMapModal'
 
 function toIsoDateLocal(date: Date) {
   const local = new Date(date.getTime() - date.getTimezoneOffset() * 60000)
@@ -185,14 +186,24 @@ export function DashboardPage() {
   }
 
   const canPromptRpSignIn = membership?.role === 'pharmacist' || membership?.role === 'locum'
+  const [showMap, setShowMap] = useState(false)
 
   return (
     <div>
       <div className="page-header">
-        <h1>Dashboard</h1>
-        <p style={{ color: 'var(--ps-slate)', marginTop: '4px' }}>
-          Welcome back, {activeUser?.full_name ?? 'User'} — {organisation?.name ?? ''}
-        </p>
+        <div>
+          <h1>Dashboard</h1>
+          <p style={{ color: 'var(--ps-slate)', marginTop: '4px' }}>
+            Welcome back, {activeUser?.full_name ?? 'User'} — {organisation?.name ?? ''}
+          </p>
+        </div>
+        <button
+          className="ps-btn ps-btn-secondary"
+          onClick={() => setShowMap(true)}
+          style={{ whiteSpace: 'nowrap' }}
+        >
+          🗺 Open Maps
+        </button>
       </div>
 
       <div className="ps-card" style={{ marginBottom: 'var(--ps-space-md)', padding: 'var(--ps-space-md)' }}>
@@ -241,6 +252,8 @@ export function DashboardPage() {
           </div>
         ))}
       </div>
+
+      <PharmacyMapModal isOpen={showMap} onClose={() => setShowMap(false)} />
     </div>
   )
 }

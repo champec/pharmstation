@@ -1,0 +1,724 @@
+Community Pharmacy
+Advanced Service Specification - NHS Smoking Cessation Service
+(SCS)
+Developer Guide to the NHS Business Services Authority API for smoking cessation
+claims
+ChangeLog
+Version
+Control
+Date Purpose
+0.1
+26 Nov
+2021
+Initial Draft
+1.0
+9 Feb
+2022
+Updated as per latest version
+1.1
+16 May
+2022
+Minor Fixes and Updated Error Message Format
+2.0
+27 May
+2022
+New API for NRT Product list, Allow multiple NRT Product and Update Forbidden error format
+2.1
+30 Nov
+2022
+Allow special charaters for PATIENT_FULL_NAME and PATIENT_ADDRESS,Scenario for already
+declared claim while creating claim.
+Table of Contents
+Advanced Service Specification - NHS Smoking Cessation Service (SCS)
+Developer Guide to the NHS Business Services Authority API for smoking cessation claims
+ChangeLog
+Table of Contents
+NHS Smoking Cessation Service
+Document Background
+API Connectivity
+Current test endpoints
+API Access Process Flow
+Create Process Flow
+Update Process Flow
+Get Process Flow
+Delete Process Flow
+Developer guide to Create a new submission
+Step 1: Gather your materials
+Step 2: Prepare the request JSON
+Step 3: Send the create request message
+Step 4: Receive your response
+Other potential responses:
+403: Forbidden
+500: Unexpected error
+400: Bad Request
+422: Unprocessable Entity (json parseable but not conformant)
+Developer Guide to Update an existing submission
+Step 1: Gather your materials
+Step 2: Prepare the request JSON
+Step 3: Send the update request message
+Step 4: Receive your response
+Other potential responses:
+403: Forbidden
+500: Unexpected error
+400: Bad Request
+422: Unprocessable Entity (json parseable but not conformant)
+404: Not Found
+Developer Guide To Delete a submission
+Step 1: Gather your materials
+Step 2: Send the delete request Message
+Step 3: Receive your response
+Other potential responses:
+403: Forbidden
+500: Unexpected error
+404: Not Found
+Developer Guide to Get a submission
+Step 1: Gather your materials
+Step 2: Send the Get Submission Message
+Step 3: Receive your response
+Other potential responses:
+403: Forbidden
+500: Unexpected error
+404: Not Found
+Developer Guide to Get list of NRT Products
+Step 1: Gather your materials
+Step 2: Send the Get NRT Products Message
+Step 3: Receive your response
+Other potential responses:
+403: Forbidden
+500: Unexpected error
+404: Not Found
+Annex: Consultation method
+Annex: Treatments and interventions
+NHS Smoking Cessation Service
+Use this service to claim payment for the provision of the NHS Community Pharmacy Smoking Cessation Service.
+Document Background
+This document is intended to provide pharmacy clinical service platform providers with the information necessary to submit details of
+service provisions to the NHS Business Services Authority (NHS BSA), to pre-populate claims to be made by community pharmacy
+providers.
+API Connectivity
+Connection to the NHS BSA API has the following criteria, as patient data is present and being transmitted:
+Over HTTPS on port 443
+Using TLSv1.2 only
+Authentication
+IP whitelisting
+Current test endpoints
+POST : https://stg.api.scs.pharmacy.mys.nhsbsa.nhs.uk/v1/claims
+GET : https://stg.api.scs.pharmacy.mys.nhsbsa.nhs.uk/v1/claims/{{ID}}
+PUT : https://stg.api.scs.pharmacy.mys.nhsbsa.nhs.uk/v1/claims/{{ID}}
+DELETE : https://stg.api.scs.pharmacy.mys.nhsbsa.nhs.uk/v1/claims/{{ID}}
+API Access Process Flow
+Create Process Flow
+Update Process Flow
+Get Process Flow
+Delete Process Flow
+Developer guide to Create a new submission
+Step 1: Gather your materials
+You will need the following to follow through this walkthrough:
+Field
+Mandatory
+/ Optional
+Type Description
+PLATFORM_DEPOSIT_ID M String
+A string that uniquely identifies this claim. Each platform will
+be provided with a pattern to use. For example,
+PharmOutcomes uses the pattern PEM-nnnnnnnnn and Sonar
+uses the pattern SON-nnnnnnnn to uniquely identify this
+deposit in audits and CRUD operations. Max. size 255. For
+example XXX-0000000012334
+CLAIM_YEAR_MONTH M String
+Year and month for which this submission belongs to in yyyyMM format. For example 2021-06.
+PATIENT_FULL_NAME M String
+The full name of the person in text representation,length to
+be 60. Regex for format [ \r\n\t\S]+
+PATIENT_DOB M String The date of birth of the person in yyyy-MM-dd format
+PATIENT_GENDER O String
+The person's stated gender. Any value from Male, Female,
+Indeterminate, Unknown
+PATIENT_ADDRESS O Array
+Person’s usual place of residence, and where relevant
+temporary and correspondence addresses. Entered as array
+of line1, line2, line3. Upto 5 lines. Regex for format [
+\r\n\t\S]+
+PATIENT_POSTCODE O String The person's postcode
+PATIENT_NHSNO M String
+The patient’s NHS Number (not non-England national
+identifiers). If the NHS Number is not available, provide a
+category mentioned in Annex: Non NHS Number. Valid NHS
+number by common bsa validation. Size must be 10.
+PATIENT_GPODS O String
+The ODS code of the patient’s GP surgery (not mandatory).
+This can be the ODS code of the practice and not of the
+branch surgery. Size max. 10.
+REFERRAL_DATE M String
+The date of referral, Standardised format yyyy-MM-dd (e.g.
+2021-08-27)
+REFERRER_ODS M String
+The identifier/ODS code of the referring organisation. NHS
+data dictionary :- Organisation Data Service Codes. Size max.
+10.
+CLAIMANT_ODS M String
+The Organisational Data Service (ODS) code of the pharmacy
+provider who provided the service and is therefore making the
+claim. Regex for format [A-Za-z0-9]{1,10}. For example FXXXX
+ASSESSMENT_DATE M String
+The date of assessment in yyyy-MM-dd format (e.g. 2021-08-
+27)
+SERVICE_TYPE M String
+The service that was provided. With one of the value
+mentioned in Annex: Service type
+CONSULT_METHOD M String
+The type of consultation conducted. With one of the value
+mentioned in Annex: Consultation method
+QUIT_DATE M String Designated 4 week quit date in yyyy-MM-dd format (e.g.
+2021-08-27) Date is set in hospital or it is the date of
+discharge from hospital.
+SMOKING_STATUS M String
+Smoking Status On Hospital Discharge. SMOKER /
+NON_SMOKER values
+NUMBER_OF_CONSULTATIONS M Numeric
+No. of total consultations undertaken by community
+pharmacist including the initial and final consultation.
+NUMBER_OF_SUPPORT_WEEKS M Numeric
+Duration of community pharmacy support in weeks calculated
+from the "Date" of initial assessment.
+4_WEEKS_POST_QUIT O String
+An indication of whether the person has quit smoking for 4
+weeks. YES / NO value
+12_WEEKS_POST_QUIT O String
+An indication of whether the person has quit smoking for 12
+weeks. YES / NO value
+PREGNANCY_STATUS O String
+An indication of whether the person is pregnant. With one of
+the value mentioned in Annex: Pregnancy status
+E_CIGARETTES_USED O String
+A record of whether e-cigarettes are used. With one of the
+value mentioned in Annex: Electronic cigarettes use
+NRT_USED O String
+A record of whether nicotine replacement therapy (NRT) is
+currently used or prescribed in this appointment. With one of
+the value mentioned in Annex: NRT Usage
+NRT_PRODUCT O Array
+Consist (NRT) product details. Example mentioned in Annex:
+Array of NRT Product
+SNOMED_CODE M String Unique code identifier for the product
+MEDICATION_NAME M String Name of the medication used. Generic name.
+QUANTITY_SUPPLIED M Numeric
+The pack size of medication ( e.g if the pack size of
+medication is 60 and you provide two packs, then
+QUANTITY_SUPPLIED will be 120 ) provided to the person.
+PRESCRIPTION_CHARGE_EXEMPT O String
+A record of whether the patient is exempt from NHS
+prescription charges. YES / NO value.
+REFERRED_ORG_ODS O String
+The identifier / ODS code, of the organisation being referred
+to.
+ONWARD_REFERRAL_DATE O String Date of onward referral. Format. yyyy-MM-dd
+Step 2: Prepare the request JSON
+The message containing the SCS claim information should follow json schema distributed by email.
+The message must be utf-8 encoded. No XML messages are accepted.
+{
+"platformDepositId":"{{PLATFORM_DEPOSIT_ID}}",
+"yearMonth":"{{CLAIM_YEAR_MONTH}}",
+"patient": {
+"fullName":"{{PATIENT_FULL_NAME}}",
+"dob":"{{PATIENT_DOB}}",
+"gender":"{{PATIENT_GENDER}}",
+"address":["{{PATIENT_ADDRESS}}",
+"{{PATIENT_ADDRESS}}",
+"{{PATIENT_ADDRESS}}"
+],
+"postcode":"{{PATIENT_POSTCODE}}",
+"nhsNumber":"{{PATIENT_NHSNO}}",
+"gpOdsCode":"{{PATIENT_GPODS}}"
+},
+"referralDate":"{{REFERRAL_DATE}}",
+"referrerOdsCode":"{{REFERRER_ODS}}",
+"orgOdsCode":"{{CLAIMANT_ODS}}",
+"assessmentDate":"{{ASSESSMENT_DATE}}",
+"serviceType":"{{SERVICE_TYPE}}",
+"consultationMethod":"{{CONSULT_METHOD}}",
+"quitDate":"{{QUIT_DATE}}",
+"smokingStatus":"{{SMOKING_STATUS}}",
+"numberOfConsultations":{{NUMBER_OF_CONSULTATIONS}},
+"numberOfSupportWeeks":{{NUMBER_OF_SUPPORT_WEEKS}},
+"fourWeeksPostQuit":"{{4_WEEKS_POST_QUIT}}",
+"twelveWeeksPostQuit":"{{12_WEEKS_POST_QUIT}}",
+"pregnancyStatus":"{{PREGNANCY_STATUS}}",
+"eCigarettesUsed":"{{E_CIGARETTES_USED}}",
+"nrtUsed":"{{NRT_USED}}",
+"nrtProducts":[{{NRT_PRODUCT}},{{NRT_PRODUCT}}],
+"prescriptionChargeExempt":"{{PRESCRIPTION_CHARGE_EXEMPT}}",
+"referredOrgOds":"{{REFERRED_ORG_ODS}}",
+"onwardReferralDate":"{{ONWARD_REFERRAL_DATE}}"
+}
+Step 3: Send the create request message
+You can now prepare and make a POST call to the NHSBSA API with the following pattern.
+Type Description
+URL https://stg.api.scs.pharmacy.mys.nhsbsa.nhs.uk/v1/claims
+Http Headers Content-Type: application/json, Accept: application/json, Cache-Control: no-cache
+Body JSON
+Step 4: Receive your response
+A successful response will be sent synchronously within 30 seconds [DN: To check] with an http code 201 (Created) and contain a
+JSON representation of an object in the body of the response, containing the claim ID.
+Response Headers:
+Type Description
+Status 201 Created
+Location
+Location of the newly created resource. For example:
+https://stg.api.scs.pharmacy.mys.nhsbsa.nhs.uk/v1/claims/123e4567-e89b-12d3-a456-426614174000
+Response Body:
+{
+"submissionId": "123e4567-e89b-12d3-a456-426614174000",
+"platformDepositId":"XXX-01092029201922810",
+"yearMonth":"2021-08",
+"patient": {
+"fullName":"John Lewis",
+"dob":"1988-10-10",
+"gender":"Male",
+"address":["Test address", "test town"],
+"postcode":"XXX XXX",
+"nhsNumber":"0000000000",
+"gpOdsCode":"GXXXX"
+},
+"referralDate":"2021-08-02",
+"referrerOdsCode":"RXXX",
+"orgOdsCode":"FXXXX",
+"assessmentDate":"2021-08-02",
+"serviceType":"Initial",
+"consultationMethod":"TELEPHONE",
+"quitDate":"2021-08-30",
+"smokingStatus":"NON_SMOKER",
+"numberOfConsultations":2,
+"numberOfSupportWeeks":2,
+"fourWeeksPostQuit":"YES",
+"twelveWeeksPostQuit":"NO",
+"pregnancyStatus":"NO",
+"eCigarettesUsed":"722499006",
+"nrtUsed":"PRESCRIBED",
+"nrtProducts":[
+{
+"snomedCode":"xxxxx"
+"medicationName":"Test Product2",
+"quantitySupplied":3
+}
+],
+"prescriptionChargeExempt":"Yes",
+"referredOrgOds":"RXXXX",
+"onwardReferralDate":"2021-08-25"
+}
+Other potential responses:
+201: Created
+Scenarios:
+If the claim for given yearMonth and ODS is already declared then the yearMonth is updated to current month and the claim
+is created.
+403: Forbidden
+Contains a JSON representation of the error response:
+Scenarios:
+User is not allowed to perform certain operations or dont have access to certain resources.
+if PLATFORM_DEPOSIT_ID already exists (as it should be unique)
+if the submission period is out of the allowed range.
+{
+"error": {
+"message": "combined message",
+"details": [
+"error message 1",
+"error message 2"
+]
+}
+}
+500: Unexpected error
+Contains a JSON representation of the error response:
+"Error message in detail"
+400: Bad Request
+Contains a JSON representation of the error response:
+Scenarios:
+Invalid request body, field names or field values
+{
+"error": {
+"message": "combined message",
+"details": [
+"error message 1",
+"error message 2"
+]
+}
+}
+422: Unprocessable Entity (json parseable but not conformant)
+Contains a JSON representation of the error response.
+{
+"error": {
+"message": "combined message",
+"details": [
+"error message 1",
+"error message 2"
+]
+}
+}
+Developer Guide to Update an existing submission
+Step 1: Gather your materials
+You will need the data described in section Developer guide to Create a new submission.
+Apart from that the additional data needed:
+Property Description
+ID Id of the submission. Generated when the record is saved. Included in the response of POST (create).
+Step 2: Prepare the request JSON
+In the example below, we changed few details in the existing submission record with given ID.
+{
+"platformDepositId":"XXX-01092029201922810",
+"yearMonth":"2021-08",
+"patient": {
+"fullName":"John Other",
+"dob":"1988-10-10",
+"gender":"Male",
+"address":["Test address", "test town"],
+"postcode":"XXX XXX",
+"nhsNumber":"0000000000",
+"gpOdsCode":"GXXXX"
+},
+"referralDate":"2021-08-02",
+"referrerOdsCode":"RXXX",
+"orgOdsCode":"FXXXX",
+"assessmentDate":"2021-08-02",
+"serviceType":"Interim",
+"consultationMethod":"TELEPHONE",
+"quitDate":"2021-08-30",
+"smokingStatus":"NON_SMOKER",
+"numberOfConsultations":3,
+"numberOfSupportWeeks":3,
+"fourWeeksPostQuit":"YES",
+"eCigarettesUsed":"722499006",
+"nrtUsed":"PRESCRIBED",
+"nrtProducts":[
+{
+"snomedCode":"xxxxx",
+"medicationName":"Test Product2",
+"quantitySupplied":3
+}
+],
+"prescriptionChargeExempt":"Yes",
+"referredOrgOds":"RXXXX",
+"onwardReferralDate":"2021-08-25"
+}
+Step 3: Send the update request message
+You can now prepare and make a PUT call to the NHSBSA API with the following pattern.
+Type Description
+URL https://stg.api.scs.pharmacy.mys.nhsbsa.nhs.uk/v1/claims/{{ID}}
+Http Headers Content-Type: application/json, Accept: application/json, Cache-Control: no-cache
+Body JSON representation prepared in Step 2 above
+Step 4: Receive your response
+A successful response will be sent synchronously within 30 seconds [DN: To check] with an http code 200 (OK) and contain a JSON
+representation of the updated object in the body of the
+response:
+{
+"submissionId": "{{ID}}",
+"platformDepositId":"XXX-01092029201922810",
+"yearMonth":"2021-08",
+"patient": {
+"fullName":"John Other",
+"dob":"1988-10-10",
+"gender":"Male",
+"address":["Test address", "test town"],
+"postcode":"XXX XXX",
+"nhsNumber":"0000000000",
+"gpOdsCode":"GXXXX"
+},
+"referralDate":"2021-08-02",
+"referrerOdsCode":"RXXX",
+"orgOdsCode":"FXXXX",
+"assessmentDate":"2021-08-02",
+"serviceType":"Interim",
+"consultationMethod":"TELEPHONE",
+"quitDate":"2021-08-30",
+"smokingStatus":"NON_SMOKER",
+"numberOfConsultations":3,
+"numberOfSupportWeeks":3,
+"fourWeeksPostQuit":"YES",
+"eCigarettesUsed":"722499006",
+"nrtUsed":"PRESCRIBED",
+"nrtProducts":[
+{
+"snomedCode":"xxxxx",
+"medicationName":"Test Product2",
+"quantitySupplied":3
+}
+],
+"prescriptionChargeExempt":"Yes",
+"referredOrgOds":"RXXXX",
+"onwardReferralDate":"2021-08-25"
+}
+Other potential responses:
+403: Forbidden
+Contains a JSON representation of the error response:
+Scenarios:
+User is not allowed to perform certain operations or dont have access to certain resources.
+{
+"error": {
+"message": "combined message",
+"details": [
+"error message 1",
+"error message 2"
+]
+}
+}
+500: Unexpected error
+Contains a JSON representation of the error response:
+"Error message in detail"
+400: Bad Request
+Contains a JSON representation of the error response:
+Scenarios:
+Invalid request body, field names or field values
+{
+"error": {
+"message": "combined message",
+"details": [
+"error message 1",
+"error message 2"
+]
+}
+}
+422: Unprocessable Entity (json parseable but not conformant)
+Contains a JSON representation of the error response.
+Scenarios:
+Cannot change the CLAIMANT_ODS
+Cannot change the PLATFORM_DEPOSIT_ID
+Cannot change the CLAIM_YEAR_MONTH
+{
+"error": {
+"message": "combined message",
+"details": [
+"error message 1",
+"error message 2"
+]
+}
+}
+404: Not Found
+Contains a JSON representation of the error response:
+Scenarios:
+Submission record not found with given ID
+{
+"error": {
+"message": "combined message",
+"details": [
+"error message 1",
+"error message 2"
+]
+}
+}
+Developer Guide To Delete a submission
+Step 1: Gather your materials
+data needed:
+Property Description
+ID Id of the submission. Generated when the record is saved. Included in the response of POST (create).
+Step 2: Send the delete request message
+You can now prepare and make a DELETE call to the NHSBSA API with the following pattern.
+Type Description
+URL https://stg.api.scs.pharmacy.mys.nhsbsa.nhs.uk/v1/claims/{{ID}}
+Http Headers Content-Type: application/json, Accept: application/json, Cache-Control: no-cache
+Body N/A
+Step 3: Receive your response
+A successful response will be sent synchronously within 30 seconds [DN: To check] with an http code 204 (No Content) and not
+contain a response body.
+Other potential responses:
+403: Forbidden
+Contains a JSON representation of the error response:
+Scenarios:
+User is not allowed to perform certain operations or dont have access to certain resources.
+{
+"error": {
+"message": "combined message",
+"details": [
+"error message 1",
+"error message 2"
+]
+}
+}
+500: Unexpected error
+Contains a JSON representation of the error response:
+"Error message in detail"
+404: Not Found
+Contains a JSON representation of the error response:
+Scenarios:
+Submission record not found with given ID
+{
+"error": {
+"message": "combined message",
+"details": [
+"error message 1",
+"error message 2"
+]
+}
+}
+Developer Guide to Get a submission
+Step 1: Gather your materials
+You will need:
+Property Description
+ID Id of the SCS submission. Generated when the record is saved. Included in the response of POST (create).
+Step 2: Send the Get Submission Message
+You can now prepare and make a GET call to the NHSBSA API with the following pattern.
+Type Description
+URL https://stg.api.scs.pharmacy.mys.nhsbsa.nhs.uk/v1/claims/{{ID}}
+Http Headers Content-Type: application/json, Accept: application/json, Cache-Control: no-cache
+Body N/A
+Step 3: Receive your response
+A successful response will be sent synchronously within 30 seconds with an http code 200 (OK) with a response body.
+{
+"submissionId": "{{ID}}",
+"platformDepositId":"XXX-01092029201922810",
+"yearMonth":"2021-08",
+"patient": {
+"fullName":"John Other",
+"dob":"1988-10-10",
+"gender":"Male",
+"address":["Test address", "test town"],
+"postcode":"XXX XXX",
+"nhsNumber":"0000000000",
+"gpOdsCode":"GXXXX"
+},
+"referralDate":"2021-08-02",
+"referrerOdsCode":"RXXX",
+"orgOdsCode":"FXXXX",
+"assessmentDate":"2021-08-02",
+"serviceType":"Interim",
+"consultationMethod":"TELEPHONE",
+"quitDate":"2021-08-30",
+"smokingStatus":"NON_SMOKER",
+"numberOfConsultations":3,
+"numberOfSupportWeeks":3,
+"fourWeeksPostQuit":"YES",
+"eCigarettesUsed":"722499006",
+"nrtUsed":"PRESCRIBED",
+"nrtProducts":[
+{
+"snomedCode":"xxxxx",
+"medicationName":"Test Product2",
+"quantitySupplied":3
+}
+],
+"prescriptionChargeExempt":"Yes",
+"referredOrgOds":"RXXXX",
+"onwardReferralDate":"2021-08-25"
+}
+Other potential responses:
+403: Forbidden
+Contains a JSON representation of the error response:
+Scenarios:
+User is not allowed to perform certain operations or dont have access to certain resources.
+{
+"error": {
+"message": "combined message",
+"details": [
+"error message 1",
+"error message 2"
+]
+}
+}
+500: Unexpected error
+Contains a JSON representation of the error response:
+"Error message in detail"
+404: Not Found
+Contains a JSON representation of the error response:
+Scenarios:
+Submission record not found with given ID
+{
+"error": {
+"message": "combined message",
+"details": [
+"error message 1",
+"error message 2"
+]
+}
+}
+Developer Guide to Get list of NRT Products
+Step 1: Gather your materials
+You won't need any data because the API will return a list of all the products.
+Step 2: Send the Get NRT Products Message
+You can now prepare and make a GET call to the NHSBSA API with the following pattern.
+Type Description
+URL https://stg.api.scs.pharmacy.mys.nhsbsa.nhs.uk/v1/nrtproducts
+Http Headers Content-Type: application/json, Accept: application/json, Cache-Control: no-cache
+Body N/A
+Step 3: Receive your response
+A successful response will be sent synchronously within 30 seconds with an http code 200 (OK) with a response body.
+[
+{
+"snomedCode":"xxxxx",
+"medicationName":"Test Product1",
+"quantity":60
+},
+{
+"snomedCode":"xxxxx",
+"medicationName":"Test Product2",
+"quantity":40
+},
+{
+"snomedCode":"xxxxx",
+"medicationName":"Test Product3",
+"quantity":100
+},
+]
+Other potential responses:
+403: Forbidden
+Contains a JSON representation of the error response:
+Scenarios:
+User is not allowed to perform certain operations or dont have access to certain resources.
+{
+"error": {
+"message": "combined message",
+"details": [
+"error message 1",
+"error message 2"
+]
+}
+}
+500: Unexpected error
+Contains a JSON representation of the error response:
+"Error message in detail"
+404: Not Found
+Contains a JSON representation of the error response:
+Scenarios:
+Submission record not found with given ID
+{
+"error": {
+"message": "combined message",
+"details": [
+"error message 1",
+"error message 2"
+]
+}
+}
+Annex: Non NHS Number
+Code Display
+1111111111 Non-registered UK resident
+2222222222 Non UK resident
+3333333333 Data sharing consent not given
+4444444444 NHS number not found
+Annex: Service type
+Code Display
+INITIAL Initial consultation
+INTERIM Interim consultation
+FINAL Final consultation
+Annex: Consultation method
+Code Display
+FTF Face to face communication
+TELEPHONE Telephone
+TELEMEDICINE Telemedicine
+Annex: NRT Usage
+Code Display
+USED NRT currently used
+NOT_USED NRT not currently used
+PRESCRIBED NRT prescribed at this appointment
+Annex: Electronic cigarettes use
+Code Display
+000000001 Electronic cigarettes not currently used
+722499006 Electronic cigarette user
+000000002 Not stated
+Annex: Pregnancy status
+Code Display
+YES Pregnant
+NO Not pregnant
+NOT_STATED Not stated
+Annex: Array of NRT Product
+NRT_PRODUCT should consist of array of following object
+{
+"snomedCode":{{SNOMED_CODE}},
+"medicationName":"{{MEDICATION_NAME}}",
+"quantitySupplied":{{QUANTITY_SUPPLIED}}
+}

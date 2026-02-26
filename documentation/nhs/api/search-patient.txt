@@ -1,0 +1,675 @@
+get /Patient
+Overview
+Use this endpoint to search for a patient in PDS.
+
+You can search using various combinations of:
+
+given name
+family name
+gender
+postcode
+date of birth - which can be a range
+date of death - which can be a range
+registered GP practice
+email address
+phone number
+There are various search options, such as fuzzy search, exact match, history and wildcards. Wildcard searches using the PDS FHIR API return information differently to the FHIR framework standards.
+
+The behaviour of this endpoint depends on which access mode you are using:
+
+Access mode	Behaviour
+Application-restricted access	Only a single unique match returned
+Healthcare worker access	Up to 50 matching patient records returned
+Patient access	Not yet available
+Patient data returned
+The patient data returned on a search is not the full set of data that is returned on a retrieval by NHS number. The following data is included:
+
+NHS number
+names - usual, nickname and temporary
+gender
+birth information, apart from place of birth
+death information
+address - home address
+contact details
+registered GP
+restricted patient flag
+The following data is excluded:
+
+place of birth
+names, apart from usual, nickname and temporary
+addresses, apart from home address
+pharmacy details
+communication details
+contact preferences
+Restricted patients
+Some patients are tagged as restricted and are sometimes known as sensitive patients. When performing a search, restricted patients can be returned; however, location sensitive fields such as address, telecom, contact and generalPractitioner are removed.
+
+If address-postalcode, address-postcode, or general-practitioner are included in the search parameters, no restricted patients are returned even if a match is identified.
+
+The restricted flag can be found in the data under meta/security on the patient resource.
+
+Invalidated patients
+Some patients are marked as invalidated in PDS - also known as redacted in FHIR terminology. Invalidated patient records are not returned in search results. If an invalidated patient record has been superseded, the superseding record is returned.
+
+Scoring
+Every matched patient in the result list includes a score to indicate how closely the patient matched the search parameters.
+
+A score of 1.0 indicates an exact match. A score of less than 1.0 indicates a partial match.
+
+The result list is sorted in descending score order - best match first.
+
+Use the _exact-match query parameter to return exact matches only - where the score is 1.0.
+
+Clinical safety and privacy
+This endpoint can return multiple matching patients for a given search, including partial matches.
+
+Ensure that you design your software to minimise the following risks:
+
+an end user selects the wrong patient from the results presented, so there is a risk of clinical harm; for example due to retrieval of the wrong clinical data
+the end user has access to patients' personal data, so there is a risk to patient privacy
+Note that:
+
+we record an access request in our audit trail for all patients matched in a PDS search
+it is almost certainly a good idea to display search results in descending score order - best match first
+Please consider the information your application returns to users. For example a patient's temporary address can be used to perform a successful search. The home address will be included in the response. For citizen facing services please be aware of this behaviour and do not present a different address to the patient, unless they are logged in at a sufficiently high proof point.
+
+Search options
+The following sections explain the various search options. Which options you choose depends very much on your use case, and getting it right is really important. If you need help, contact us.
+
+Application-restricted access mode
+In this access mode, you only get a single matching patient record, and only if it's a unique match.
+
+Use search options that are likely to find a unique match. In our experience, the following is a good starting point:
+
+search on given name, family name, postcode and date of birth - this combination should uniquely identify a patient
+for given name, use the first three characters and a wildcard, for example to search for Annabel, use Ann* - this caters for different name spellings and abbreviations
+for postcode, use the first two characters and a wildcard, for example to search for LS11 6AD, use LS* - this caters for people who have moved locally but not updated PDS
+use a non-fuzzy search - this reduces the chance of multiple matches
+use a non-exact match - an exact match does not work with wildcards
+include history - this increases the chance of a match
+For more details, see the following sections.
+
+Healthcare worker access mode
+In this access mode - where the end user is a strongly authenticated healthcare worker - you can get up to 50 matching patient records. This allows the end user to choose the best match.
+
+Use search parameters that are relevant to your use case - for example date of death is not always appropriate.
+
+To protect patient privacy, design your search to minimise the number of matching patients. For example, you could:
+
+encourage users to enter as many search parameters as they can
+force users to try a non-fuzzy search first and then only offer a fuzzy search if they cannot find the patient
+For more details, see the following sections.
+
+Non-fuzzy search
+A non-fuzzy search:
+
+allows wildcards in names and postcodes
+does not match homophones or transposed names
+can optionally search history, such as previous names and addresses
+It is less likely to return multiple matches than a fuzzy search, so is more suitable for finding a unique match.
+
+The minimum search parameters are:
+
+family name - which can include wildcards
+date of birth - which can be a range
+Fuzzy search
+A fuzzy search:
+
+matches common homophones, such as Smith and Smythe, using the Soundex algorithm
+checks for transposed names, such as Adam Thomas and Thomas Adam
+always searches history, such as previous names and addresses
+It is more likely to include multiple matches than a non-fuzzy search, so is not ideal for finding a unique match.
+
+It is also more likely to include false positives - other patients that match the search criteria. Therefore, for privacy reasons, it is better to use it only if a non-fuzzy match has failed.
+
+You must use one of the following search parameter combinations:
+
+given name, family name and date of birth
+family name, date of birth, gender and postcode
+given name, date of birth, gender and postcode
+If you include the date of death or registered GP practice query parameters, they are not used in the search. However they do affect the patient's matching score - a mismatch reduces the returned score.
+
+History
+PDS holds historic information, including previous names and addresses.
+
+A fuzzy search always includes history. For a non-fuzzy search, you can request to include history.
+
+Searching history can match patients when only a previous name or address is known, or if a patient provides a previous name or address on the assumption that their record hasn't been updated. When a search done on historic data results in a match, the patient's current data will be returned in the response message, not the historic data used to identify the match.
+
+Exact match
+You can request an exact match. This might be useful if you are verifying an NHS number against details you already believe to be correct. It is unlikely to work well with wildcards or fuzzy search.
+
+Names
+Matching names can be difficult when a person has multiple given names, including:
+
+given names that include middle names, such as in Jane Anne Smith
+compound given names, such as in John Paul Smith
+Matching names can also be difficult when a name has:
+
+multiple or double-barrelled surnames, such as in Michael Smith-Jones
+homophones, such as Smith and Smythe or Ann and Anne
+abbreviated names, such as Bob instead of Robert
+transposed names, such as Adam Thomas instead of Thomas Adam
+previous names, such as maiden names
+special characters such as in O'Reilly, Jones-Smith or KociÅski
+spelling mistakes, either in the search criteria or in PDS
+To deal with some of these issues:
+
+we search across all types of name - usual, nickname and temporary
+a fuzzy search matches homophones, transposed names and previous names
+for a non fuzzy search, you can optionally search previous names and use wildcards. Wildcards will match against the start of the name string, for example the start of a compound name.
+Gender
+PDS has four options for gender - male, female, other and unknown. This is the gender that is recorded on official documents, for example a birth certificate or passport. For some people, the gender held in PDS might not match the gender they identify with.
+
+In these cases, searching by gender might not find the patient. These are edge cases but are important to consider because gender can be a sensitive issue for the people in question.
+
+In general, we recommend not including gender as a search parameter.
+
+Date of birth and death
+Sometimes, the exact date of birth or death is not known when doing a search. Sometimes, the date of birth or death is not accurate in PDS. For example, if only the year of birth is known, the day and month of birth might be recorded as the first of January - for example, 01/01/1932.
+
+In such cases, searching a range of dates can help. This can result in multiple matches, so might not work well when searching for a unique match.
+
+Postcode
+People sometimes move locally, meaning the postcode in PDS is out of date, but does at least match on the first two characters.
+
+Searching for the first two characters of the postcode and a wildcard can work well. For example, to search for LS11 6AD, use LS*. This is only possible for a non-fuzzy search.
+
+This can result in multiple matches, but it has been known to work well in some cases - even for unique matches.
+
+General practitioner
+This is an ODS code. If you use it, it must match exactly.
+
+Phone number and email address
+If you use phone number and/or email address, only exact matches will be returned.
+
+Wildcards are not supported
+Only current data will be searched, unless a history search is also requested in which case the match will take into account both current and historic data
+Email addresses are not case-sensitive.
+Differences between the matching types at a glance
+Search	Non-fuzzy matching	Fuzzy matching
+History	Optional	Always
+Names	Allows wildcards	Matches homophones, transposed names and previous names. Does not allow wildcards.
+Postcode	Allows wildcards	Does not allow wildcards
+Sandbox testing
+You can test the following scenarios in our sandbox environment:
+
+Scenario	Request	Response
+Basic search with phone & email positive	family=Smith, gender=female, birthdate=eq2010-10-22, email=jane.smith@example.com, phone=01632960587	HTTP Status 200 with single search result.
+Basic search with phone & email negative	family=Smith, gender=female, birthdate=eq2010-10-22, email=deb.trotter@example.com, phone=0121111111	HTTP Status 200 with no search results.
+Wildcard search without phone/email	family=Sm*, gender=female, birthdate=eq2010-10-22	HTTP Status 200 with search result of two.
+Wildcard search with email and phone	family=Sm*, gender=female, birthdate=eq2010-10-22, email=jane.smith@example.com, phone=01632960587	HTTP Status 200 with single search result.
+Search with limited results	family=Sm*, gender=female, birthdate=eq2010-10-22, email=jane.smith@example.com, phone=01632960587, _max-results=1	HTTP Status 200 with single search result.
+Search with date range	family=Smith, gender=female, birthdate=ge2010-10-21, birthdate=le2010-10-23, email=jane.smith@example.com, phone=01632960587	HTTP Status 200 with single search result.
+Fuzzy search with phone and email	family=Smith, given=Jane, gender=female, birthdate=eq2010-10-22, email=jane.smith@example.com, phone=01632960587, _fuzzy-match=true	HTTP Status 200 with single search result.
+Fuzzy search without phone or email	family=Smith, given=Jane, gender=female, birthdate=eq2010-10-22, _fuzzy-match=true	HTTP Status 200 with single search result.
+Restricted patient search	family=Smythe, given=Janet, gender=female, birthdate=eq2005-06-16, email=janet.smythe@example.com, phone=01632960587	HTTP Status 200 with single search result with restricted data omitted.
+Compound name search	family=Smith, given=John Paul, given=James, gender=male, birthdate=eq2010-10-22, email=johnp.smith@example.com, phone=01632960587	HTTP Status 200 with single search result.
+Unsuccessful search	Any other valid search query parameters	HTTP Status 200 with a warning that the search parameters do not have an example response.
+Valid/invalid search criteria	family=Sm*, gender=female, 'invalidParam'='123', birthdate=eq2010-10-22, email=j.smith@example.com, phone=0163	HTTP Status 400 with problem description.
+Unsuccessful search on email/phone only	email=j.smith@example.com, phone=0163	HTTP Status 400 with problem description.
+Invalid date format	birthdate or death-date query parameters with values not in format YYYY-MM-DD	HTTP Status 400 with problem description.
+Too few search parameters	Any invalid combination of query parameters	HTTP Status 400 with problem description.
+Missing X-Request-ID	id=9000000009 (or any other valid NHS number)	HTTP Status 400 with problem description.
+You can try out the sandbox by selecting the 'Try' button at the end of the schema.
+
+Alternatively, you can try out the sandbox using our Postman collection:
+
+Run in Postman
+
+REQUEST
+QUERY-STRING PARAMETERS
+_fuzzy-match
+boolean
+false
+Default: false
+A fuzzy search is performed, including checks for homophones, transposed names and historic information.
+
+You cannot use wildcards with a fuzzy search.
+
+Examples: false
+_exact-match
+boolean
+false
+Default: false
+The search only returns results where the score field is 1.0. Use this with care - it is unlikely to work with fuzzy search or wildcards.
+
+Examples: false
+_history
+boolean
+false
+Default: false
+The search looks for matches in historic information such as previous names and addresses.
+
+This parameter has no effect for a fuzzy search, which always includes historic information.
+
+Examples: false
+_max-results
+int32
+1
+The maximum number of matching patients to return. For healthcare worker access, this must be between 1 and 50, and the default is 50. For application-restricted access, this must be 1, and the default is 1. If too many patients match the search criteria, we return a TOO_MANY_MATCHES error.
+
+Examples: 1
+family
+string
+Smith
+The patient's family name (surname).
+
+Not case sensitive. Max 35 characters. Use * as a wildcard but not in the first two characters and not in fuzzy search mode. Must be URL encoded, for example a space must be represented by either %20 or + and a wildcard must be encoded as %2A.
+
+Examples:
+Smith (Matches Smythe if `_fuzzy-match` is specified.)
+Sm*t* (Wildcards must contain at least two characters, this matches Smith, Smythe)
+given
+array of string
+Jane
+add-multiple ↩
+The patient's given names, including their first and middle names.
+
+Not case sensitive. Max 35 characters. Use * as a wildcard but not in the first two characters and not in fuzzy search mode. Wildcard searches will match the start of the first given name and not subsequent given names, for example the given names "Alan Michael" can be searched with "Ala*" but not "Mic*". Must be URL encoded, for example a space must be represented by either %20 or + and a wildcard must be encoded as %2A.
+
+A patient may have more than one given name, for example because they have a first name and a middle name. Specify multiple given names by repeating this parameter. To search for Jane Anne Smith use given=Jane&given=Anne&family=Smith.
+
+The first name may be a compound name, for example John Paul. To search for John Paul James Smith (where John Paul is the first name, James is the middle name, and Smith the family name) use given=John%20Paul&given=James&family=Smith.
+
+It is not necessary to specify subsequent given names, and doing so may impact your search results if they are not recorded in the PDS.
+
+Examples: [ Jane ]
+gender
+enum
+female
+Allowed: male ┃ female ┃ other ┃ unknown
+This is the gender that is recorded on official documents, for example a birth certificate or passport. For some people, the gender held in PDS might not match the gender they identify with.
+
+Examples: female
+birthdate
+array of string
+eq2010-10-22
+add-multiple ↩
+Date of birth in the format <eq|ge|le>yyyy-mm-dd. To specify a range, use birthdate=geyyyy-mm-dd&birthdate=leyyyy-mm-dd.
+
+Examples:
+[ eq2010-10-22 ]
+Exact match date
+
+
+[ ge2010-10-22 ]
+Greater than or equals match, which matches 2010-10-22 or 2010-10-23
+
+
+[ le2010-10-22 ]
+Less than or equals match, which matches 2010-10-22 or 2010-10-21
+
+
+death-date
+date
+eq2010-10-22
+Date of death in the format <eq|ge|le>yyyy-mm-dd. To specify a range, use death-date=geyyyy-mm-dd&death-date=leyyyy-mm-dd.
+
+For a fuzzy search, this is ignored for matching but included in the score calculation.
+
+Examples:
+eq2010-10-22
+Exact match date
+
+
+ge2010-10-22
+Greater than or equals match which matches 2010-10-22 or 2010-10-23
+
+
+le2010-10-22
+Less than or equals match, which matches 2010-10-22 or 2010-10-21
+
+
+address-postalcode
+string
+LS1 6AE
+The postcode of any of the patient's known addresses.
+
+Not case sensitive. Spaces are ignored, for example LS16AE and LS1 6AE both match LS1 6AE. Use * as a wildcard but not in the first two characters and not in fuzzy search mode. Must be URL encoded, for example a space must be represented by either %20 or + and a wildcard must be encoded as %2A.
+
+Examples:
+LS1 6AE (Spaces ignored, would match LS16AE)
+LS1* (Matches 'LS16AE', 'LS1 6AE' and 'LS1 6AB')
+address-postcode
+string
+LS1 6AE
+N.B. that address-postcode will be deprecated in the future, address-postalcode should be used instead. If both address-postcode and address-postalcode are provided, an INVALID_SEARCH_DATA error will be returned. The postcode of any of the patient's known addresses.
+
+Not case sensitive. Spaces are ignored, for example LS16AE and LS1 6AE both match LS1 6AE. Use * as a wildcard but not in the first two characters and not in fuzzy search mode. Must be URL encoded, for example a space must be represented by either %20 or + and a wildcard must be encoded as %2A.
+
+Examples:
+LS1 6AE (Spaces ignored, would match LS16AE)
+LS1* (Matches 'LS16AE', 'LS1 6AE' and 'LS1 6AB')
+general-practitioner
+string
+Y12345
+The Organisation Data Service (ODS) code of the patient's registered GP practice.
+
+Not case sensitive. For a fuzzy search, this is ignored for matching but included in the score calculation.
+
+Examples: Y12345
+email
+string
+jane.smith@example.com
+Email address
+
+Examples: jane.smith@example.com
+phone
+string
+01632960587
+Phone number
+
+Examples: 01632960587
+REQUEST HEADERS
+Authorization
+^Bearer\ [[:ascii:]]+$
+An OAuth 2.0 bearer token.
+
+Required in all environments except sandbox.
+
+Examples: Bearer g1112R_ccQ1Ebbb4gtHBP1aaaNM
+NHSD-Session-URID
+string
+555254240100
+Pattern: ^[0-9]+$
+The user role ID (URID) for the current session. Also known as a user role profile ID (URPID).
+
+This header is optional.
+
+In Application-restricted and Patient access mode this header is ignored.
+
+In Healthcare worker access mode if you send this header it must be valid for the logged-in user. See determine the user's role for guidance.
+
+Examples: 555254240100
+X-Request-ID
+string
+required
+60E0B220-8136-4CA5-AE46-1D97EF59D068
+Pattern: ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$
+A globally unique identifier (GUID) for the request, which we use to de-duplicate repeated requests and to trace the request if you contact our helpdesk.
+
+Must be a universally unique identifier (UUID) (ideally version 4).
+
+Mirrored back in a response header.
+
+This is a mandatory header.
+
+If you re-send a failed request, use the same value in this header.
+
+Examples: 60E0B220-8136-4CA5-AE46-1D97EF59D068
+X-Correlation-ID
+string
+11C46F5F-CDEF-4865-94B2-0EE0EDCC26DA
+An optional ID which you can use to track transactions across multiple systems. It can take any value, but we recommend avoiding . characters.
+
+Mirrored back in a response header.
+
+Examples: 11C46F5F-CDEF-4865-94B2-0EE0EDCC26DA
+NHSD-End-User-Organisation-ODS
+string
+Y12345
+The ODS code of the user.
+
+Mandatory for client applications which service multiple end user organisations (EUO). This will allow the calls to be attributed to the correct EUO.
+
+Examples: Y12345
+API Server
+https://sandbox.api.service.nhs.uk/personal-demographics/FHIR/R4
+Authentication
+Not Required
+curl -X GET "https://sandbox.api.service.nhs.uk/personal-demographics/FHIR/R4/Patient?_fuzzy-match=false&_exact-match=false&_history=false&_max-results=1&family=Smith&given=Jane&gender=female&birthdate=eq2010-10-22&death-date=eq2010-10-22&address-postalcode=LS1+6AE&address-postcode=LS1+6AE&general-practitioner=Y12345&email=jane.smith%40example.com&phone=01632960587" \
+ -H "accept: application/fhir+json"\
+ -H "nhsd-end-user-organisation-ods: Y12345"\
+ -H "nhsd-session-urid: 555254240100"\
+ -H "x-correlation-id: 11C46F5F-CDEF-4865-94B2-0EE0EDCC26DA"\
+ -H "x-request-id: 60E0B220-8136-4CA5-AE46-1D97EF59D068" 
+RESPONSE
+A completed search. This might contain zero, one, or many matching patients, or it might contain a 'TOO_MANY_MATCHES' error.
+
+HTTP status	Error code	Description
+200	TOO_MANY_MATCHES	Too many matches were found - user should refine their search parameters.
+RESPONSE HEADERS
+X-Correlation-Id	string	
+The X-Correlation-ID from the request header, if supplied, mirrored back.
+
+11C46F5F-CDEF-4865-94B2-0EE0EDCC26DA
+X-Request-Id	string	
+The X-Request-ID from the request header, if supplied, mirrored back.
+
+60E0B220-8136-4CA5-AE46-1D97EF59D068
+EXAMPLE
+SCHEMA
+application/fhir+json
+{
+"resourceType": "Bundle",
+"type": "searchset",
+"timestamp": "2019-12-25T12:00:00+00:00",
+"total": 1,
+"entry": [
+{
+"fullUrl": "https://api.service.nhs.uk/personal-demographics/FHIR/R4/Patient/9000000009",
+"search": {
+"score": 0.75
+},
+"resource": {
+"resourceType": "Patient",
+"id": "9000000009",
+"identifier": [
+{
+"system": "https://fhir.nhs.uk/Id/nhs-number",
+"value": "9000000009",
+"extension": [
+{
+"url": "https://fhir.hl7.org.uk/StructureDefinition/Extension-UKCore-NHSNumberVerificationStatus",
+"valueCodeableConcept": {
+"coding": [
+{
+"system": "https://fhir.hl7.org.uk/CodeSystem/UKCore-NHSNumberVerificationStatus",
+"version": "1.0.0",
+"code": "01",
+"display": "Number present and verified"
+}
+]
+}
+}
+]
+}
+],
+"meta": {
+"versionId": "2",
+"security": [
+{
+"system": "http://terminology.hl7.org/CodeSystem/v3-Confidentiality",
+"code": "U",
+"display": "unrestricted"
+}
+]
+},
+"name": [
+{
+"id": "123",
+"use": "usual",
+"period": {
+"start": "2024-01-01",
+"end": "2025-12-31"
+},
+"given": [
+"Jane"
+],
+"family": "Smith",
+"prefix": [
+"Mrs"
+],
+"suffix": [
+"MBE"
+]
+}
+],
+"gender": "female",
+"birthDate": "2010-10-22",
+"multipleBirthInteger": 1,
+"deceasedDateTime": "2010-10-22T00:00:00+00:00",
+"address": [
+{
+"id": "456",
+"period": {
+"start": "2024-01-01",
+"end": "2025-12-31"
+},
+"use": "home",
+"line": [
+"1 Trevelyan Square",
+"Boar Lane",
+"City Centre",
+"Leeds",
+"West Yorkshire"
+],
+"postalCode": "LS1 6AE",
+"extension": [
+{
+"url": "https://fhir.hl7.org.uk/StructureDefinition/Extension-UKCore-AddressKey",
+"extension": [
+{
+"url": "type",
+"valueCoding": {
+"system": "https://fhir.hl7.org.uk/CodeSystem/UKCore-AddressKeyType",
+"code": "PAF"
+}
+},
+{
+"url": "value",
+"valueString": "12345678"
+}
+]
+},
+{
+"url": "https://fhir.hl7.org.uk/StructureDefinition/Extension-UKCore-AddressKey",
+"extension": [
+{
+"url": "type",
+"valueCoding": {
+"system": "https://fhir.hl7.org.uk/CodeSystem/UKCore-AddressKeyType",
+"code": "UPRN"
+}
+},
+{
+"url": "value",
+"valueString": "123456789012"
+}
+]
+}
+]
+}
+],
+"telecom": [
+{
+"id": "789",
+"period": {
+"start": "2024-01-01",
+"end": "2025-12-31"
+},
+"system": "phone",
+"value": "01632960587",
+"use": "home"
+},
+{
+"id": "790",
+"period": {
+"start": "2019-01-01",
+"end": "2022-12-31"
+},
+"system": "email",
+"value": "jane.smith@example.com",
+"use": "home"
+},
+{
+"id": "OC789",
+"period": {
+"start": "2024-01-01",
+"end": "2025-12-31"
+},
+"system": "other",
+"value": "01632960587",
+"use": "home",
+"extension": [
+{
+"url": "https://fhir.hl7.org.uk/StructureDefinition/Extension-UKCore-OtherContactSystem",
+"valueCoding": {
+"system": "https://fhir.hl7.org.uk/CodeSystem/UKCore-OtherContactSystem",
+"code": "textphone",
+"display": "Minicom (Textphone)"
+}
+}
+]
+}
+],
+"contact": [
+{
+"id": "C123",
+"period": {
+"start": "2024-01-01",
+"end": "2025-12-31"
+},
+"relationship": [
+{
+"coding": [
+{
+"system": "http://terminology.hl7.org/CodeSystem/v2-0131",
+"code": "C",
+"display": "Emergency Contact"
+}
+]
+}
+],
+"telecom": [
+{
+"system": "phone",
+"value": "01632960587"
+}
+]
+}
+],
+"generalPractitioner": [
+{
+"id": "254406A3",
+"type": "Organization",
+"identifier": {
+"system": "https://fhir.nhs.uk/Id/ods-organization-code",
+"value": "Y12345",
+"period": {
+"start": "2024-01-01",
+"end": "2025-12-31"
+}
+}
+}
+],
+"extension": [
+{
+"url": "https://fhir.hl7.org.uk/StructureDefinition/Extension-UKCore-DeathNotificationStatus",
+"extension": [
+{
+"url": "deathNotificationStatus",
+"valueCodeableConcept": {
+"coding": [
+{
+"system": "https://fhir.hl7.org.uk/CodeSystem/UKCore-DeathNotificationStatus",
+"version": "1.0.0",
+"code": "2",
+"display": "Formal - death notice received from Registrar of Deaths"
+}
+]
+}
+},
+{
+"url": "systemEffectiveDate",
+"valueDateTime": "2010-10-22T00:00:00+00:00"
+}
+]
+}
+]
+}
+}
+]
+}
+Back to top

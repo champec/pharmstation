@@ -1,0 +1,80 @@
+MYS – Pharmacy
+Access MYS
+Once you have registered for the service, you can access the MYS portal.
+
+Log in to MYS
+
+What our aims are
+Pharmacy staff spend a lot of time processing end of month claims and use several different methods to complete a range of services with us.
+
+We aim to reduce this administrative burden by providing one portal to complete reimbursement and remuneration tasks.
+
+Examples of services available via the MYS portal are:
+
+pharmacy prescription batch submission forms
+referred back and disallowed items
+Pharmacy Quality Scheme (formerly Quality Payment Scheme)
+NHS Community Pharmacist Consultation Service (CPCS) claim
+Pharmacies can also request information reports providing more visibility of claims made.
+
+This will create savings that we can reinvest in frontline patient care.
+
+How this will benefit your pharmacy
+The MYS portal allows you to complete your end of month submission online.
+
+This means:
+
+there’ll be less room for error in the submission process
+you’ll be able to view all your past submissions in one place
+you’ll be able to manage your submissions more easily
+verifying your prescriptions after processing and payment will be much easier
+You’ll still need to send your paper prescriptions to us as normal.
+
+You can also request to receive your referred back and disallowed items using the portal instead of them being posted to you.
+
+This means:
+
+you’ll receive your referred back items sooner
+you can provide the information required to process the items faster
+you can track the progress of your referred back items throughout until the point they are processed
+there is no risk of losing them in transit
+If you’d like more information about MYS, you can contact us by:
+
+Email: mys@nhsbsa.nhs.uk
+Telephone: 0300 330 1368
+Sign up for MYS
+MYS registration is for pharmacies in England only.
+
+To register your pharmacy and authorise individuals’ access to MYS, you must be the business owner, director or an individual previously registered through our Information Services Portal. 
+
+Complete the MYS access authorisation form (Word: 244KB)
+
+Once we have received your completed access authorisation form, we'll start the process of creating accounts for your users. This usually takes 2 to 5 working days to complete.
+
+As part of this process, users will get an email from 'Microsoft Invitations' inviting them to access applications in our organisation by a member of our support team. 
+
+The MYS registration and log-in guide (Word: 1.69MB) is available to help with this process.
+
+Information for IT Suppliers
+MYS has a number of APIs available that can allow you to send data on behalf of your customers. This will allow us to automatically fill in customer claim forms for payment.
+
+APIs are currently available for:
+
+NHS Community Pharmacist Consultation Service (CPCS)
+Seasonal Influenza Vaccination Service
+Covid-19 Vaccination Service
+NHS Smoking Cessation Services (SCS)
+NHS Community Pharmacy Contraception Service
+NHS Community Pharmacy Hypertension Case-Finding Advanced Service
+NHS New Medicines Service
+The following documents provide details of the APIs available and how to integrate with them:
+
+NHSBSA Claim Interface Guide (PDF: 1.25MB)
+NHSBSA SCS API client specification (PDF:724KB)
+NHSBSA contraception API client specification (PDF:384KB)
+NHSBSA Hypertension Case-Finding API client specification (PDF: 482KB)
+NHSBSA NMS API client specification (PDF: 365KB)
+
+Note that the CPCS, Seasonal Influenza Vaccination Service and Covid-19 Vaccination Service specifications are included in the NHSBSA Claim Interface Guide.
+
+If suppliers would like more information on our API’s, email us at mys-platform@nhsbsa.nhs.uk.

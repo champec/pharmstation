@@ -1,0 +1,854 @@
+NHS Community Pharmacy Contraception Service
+Developer Guide to the NHS Business Services Authority API for Contraception claims
+ChangeLog
+Version Control Date Purpose
+0.1 21 Oct 2022 Initial Draft
+1.0 31 Jan 2023 Version Updated
+1.1 04 Apr 2023 Update condition for NO_SUPPLY_REASON and added N/A for dose duration
+1.2 28 Jun 2023 Updated PROFESSIONAL_ROLE, REFERRER_ORG_TYPE and Consultation outcome
+Table of Contents
+NHS Community Pharmacy Contraception Service
+Developer Guide to the NHS Business Services Authority API for Contraception claims
+ChangeLog
+Table of Contents
+NHS Community Pharmacy Contraception Service
+Document Background
+API Connectivity
+Current test endpoints are:
+API Access Process Flow
+Create Process Flow
+Update Process Flow
+Get Process Flow
+Delete Process Flow
+Developer Guide to set up Contraception Claim
+Developer Guide to Create Contraception claim for a new submission
+Step 1: Gather your materials
+Step 2: Prepare the request JSON
+Step 3: Send the create request message
+Step 4: Receive your response
+Response Headers:
+Response Body:
+Other potential responses:
+403: Forbidden
+500: Unexpected error
+400: Bad Request
+Developer Guide to Update existing Contraception submission
+Step 1: Gather your materials
+Step 2: Prepare the request JSON
+Step 3: Send the update request message
+Step 4: Receive your response
+Other potential responses:
+403: Forbidden
+500: Unexpected error
+400: Bad Request
+422: Unprocessable Entity (json parseable but not conformant)
+404: Not Found
+Developer Guide To Delete Contraception Submission
+Step 1: Gather your materials
+Step 2: Send the delete request message
+Step 3: Receive your response
+Other potential responses:
+403: Forbidden
+500: Unexpected error
+404: Not Found
+Developer Guide to Get a Contraception submission
+Step 1: Gather your materials
+Step 2: Send the Get Submission Message
+Step 3: Receive your response
+Other potential responses:
+403: Forbidden
+500: Unexpected error
+404: Not Found
+Annex: NHS Number
+Annex: Service Type
+Annex: Referrer organisation type
+Annex: Ongoing monitoring service reason
+Annex: Initiation service reason
+Annex: Professional role
+Annex: Consultation method
+Annex: Consultation outcome
+Annex: No supply reason
+Annex: Contraception method
+Annex: Array of Contraception product
+Annex: Dose duration
+Annex: Product supply type
+Annex: Signposted to
+Annex: Escalated to
+NHS Community Pharmacy Contraception Service
+Use this service to claim payment for the provision of the NHS Community Pharmacy Contraception Service.
+Document Background
+This document is intended to provide pharmacy clinical service platform providers with the information necessary to submit details of
+service provisions to the NHS Business Services Authority (NHS BSA), to pre-populate claims to be made by community pharmacy
+providers.
+API Connectivity
+Connection to the NHS BSA API has the following criteria, as patient data is present and being transmitted:
+Over HTTPS on port 443
+Using TLSv1.2 only
+Authentication
+IP whitelisting
+Current test endpoints are:
+POST https://stg.api.contraception.pharmacy.mys.nhsbsa.nhs.uk/v1/claim
+GET https://stg.api.contraception.pharmacy.mys.nhsbsa.nhs.uk/v1/claim/{{ID}}
+PUT https://stg.api.contraception.pharmacy.mys.nhsbsa.nhs.uk/v1/claim/{{ID}}
+DELETE https://stg.api.contraception.pharmacy.mys.nhsbsa.nhs.uk/v1/claim/{{ID}}
+[DN: These are subject to changes going forward]
+API Access Process Flow
+Create Process Flow
+Update Process Flow
+Get Process Flow
+Delete Process Flow
+Developer Guide to set up Contraception Claim
+Below JSON contains a Contraception claim object with all the fields and their corresponding given options. Based on which you can
+build your claim object in the create (POST) or update (PUT) request.
+{
+"platformDepositId":"{{PLATFORM_DEPOSIT_ID}}",
+"patient": {
+"nhsNumber":"{{PATIENT_NHSNO}}",
+"gpOdsCode":"{{PATIENT_GPODS}}"
+},
+"orgOdsCode":"{{CLAIMANT_ODS}}",
+"yearMonth":"{{CLAIM_YEAR_MONTH}}",
+"referralDate": "{{REFERRAL_DATE}}",
+"referrerOrgType": "{{REFERRER_ORG_TYPE}}",
+"referrerOrgOdsCode": "{{REFERRER_ORG_ODS}}",
+"assessmentDate":"{{ASSESSMENT_DATE}}",
+"serviceType": "{{SERVICE_TYPE}}",
+"reasonForServiceType": "{{REASON_FOR_SERVICE}}",
+"professionalRole": "{{PROFESSIONAL_ROLE}}",
+"professionalIdentifier": "{{PROFESSIONAL_IDENTIFIER}}",
+"consultationMethod": "{{CONSULT_METHOD}}",
+"consultationOutcome": "{{CONSULT_OUTCOME}}",
+"contraceptionMethod": ["{{CONTRACEPTION_METHOD}}","{{CONTRACEPTION_METHOD}}"],
+"contraceptionMethodOther": "{{CONTRACEPTION_METHOD_OTHER_VALUE}}",
+"products": ["{{CONTRACEPTION_PRODUCT}}","{{CONTRACEPTION_PRODUCT}}"],
+"productSupplyType": "{{PRODUCT_SUPPLY_TYPE}}",
+"noSupplyReason": ["{{NO_SUPPLY_REASON}}", "{{NO_SUPPLY_REASON}}"],
+"noSupplyReasonOther": "{{NO_SUPPLY_REASON_OTHER_VALUE}}",
+"signpostedTo":"{{SIGNPOSTED_TO}}",
+"signpostedToOther":"{{SIGNPOSTED_TO_OTHER_VALUE}}",
+"escalatedTo":"{{ESCALATED_TO}}",
+"escalatedToOther":"{{ESCALATED_TO_OTHER_VALUE}}",
+"referredOrgOds":"{{REFERRED_ORG_ODS}}",
+"onwardReferralDate":"{{ONWARD_REFERRAL_DATE}}"
+}
+Developer Guide to Create Contraception claim for a new submission
+Step 1: Gather your materials
+You will need the following to follow through this walkthrough:
+Field Mandatory / Optional Type Description
+PLATFORM_DEPOSIT_ID M String
+A string that uniquely
+identifies this claim. Each
+platform will be provided with
+a pattern to use. For example,
+PharmOutcomes uses the
+pattern PEM-nnnnnnnnn and
+Sonar uses the pattern SONnnnnnnnn to uniquely identify
+this deposit in audits and
+CRUD operations. Max. size
+255. For example XXX0000000012334
+PATIENT_GP_ODS O String
+The ODS code of the patient’s
+GP surgery. This can be the
+ODS code of the practice and
+not of the branch surgery. Size
+max. 10.
+PATIENT_NHS_NUMBER M String
+The patient’s NHS Number
+(not non-England national
+identifiers). If the NHS Number
+is not provided, provide one of
+the values mentioned in
+Annex: NHS Number Size
+must be 10.
+CLAIMANT_ODS M String
+The Organisational Data
+Service (ODS) code of the
+pharmacy provider who
+provided the service and is
+therefore making the claim.
+Regex for format [A-Za-z0-9]
+{1,10}. For example FXXXX
+CLAIM_YEAR_MONTH M String
+Year and month for which this
+submission belongs to in yyyyMM format. For example
+2021-06.
+REFERRAL_DATE M String
+The date of referral,
+Standardised format yyyy-MMdd (e.g. 2021-08-27)
+REFERRER_ORG_TYPE M string
+The details of the referrer that
+is making the referral. With
+one of the values in Annex:
+Referrer organisation type
+REFERRER_ORG_ODS M String
+The ODS code, of the referrer
+organisation.
+ASSESSMENT_DATE M String The date of assessment in
+yyyy-MM-dd format (e.g. 2021-
+08-27)
+SERVICE_TYPE M String
+The service that was provided.
+With one of the value
+mentioned in Annex: Service
+type
+REASON_FOR_SERVICE M String
+The reason why the person
+has been provided the service.
+If the SERVICE_TYPE is
+'Ongoing monitoring' then
+choose of the values in Annex:
+Ongoing monitoring service
+reason. Or If the
+SERVICE_TYPE is 'Initiation'
+then choose of the values in
+Annex: Initiation service
+reason
+PROFESSIONAL_ROLE M String
+The role of the person
+providing the service. With one
+of the values in Annex:
+Professional role
+PROFESSIONAL_IDENTIFIER M Number
+The GPhC registration number
+of the person providing the
+service. Regex for format [0-9]
+{1,7}
+CONSULT_METHOD M String
+The type of consultation
+conducted. With one of the
+value mentioned in Annex:
+Consultation method
+CONSULT_OUTCOME M String
+The patient's outcome of the
+referral to Community
+Pharmacy. With one of the
+value mentioned in Annex:
+Consultation outcome
+NO_SUPPLY_REASON
+O ( M If CONSULT_OUTCOME is
+NO_SUPPLY_ESCALATED or
+NO_SUPPLY_SIGNPOSTED or
+NO_SUPPLY_PATIENT_DECLINED
+or NO_SUPPLY_OTHER )
+Array
+Array of strings of
+contraception exclusion
+reason. With one of the value
+mentioned in Annex: No
+supply reason
+NO_SUPPLY_REASON_OTHER_VALUE
+O ( M if NO_SUPPLY_REASON is
+OTHER )
+String
+Free text value for other no
+supply reason details. Max
+250 chars
+CONTRACEPTION_METHOD M Array
+Current method of
+contraception used by patient.
+With one of the value
+mentioned in Annex:
+Contraception method
+CONTRACEPTION_METHOD_OTHER_VALUE O ( M If
+CONTRACEPTION_METHOD is
+String Free text value for other
+contraception method details.
+OTHER ) Max 250 chars
+CONTRACEPTION_PRODUCT
+O ( M if CONSULT_OUTCOME is
+SUPPLY_MADE or Supply Made
+& Referred/Signposted )
+Array
+Consist (Contraception)
+product details. Example
+mentioned in Annex: Array of
+Contraception product
+SNOMED_CODE M String
+Unique code identifier for the
+product
+MEDICATION_NAME M String
+Name of the medication used.
+Generic name.
+QUANTITY_SUPPLIED M Numeric
+The pack size of medication (
+e.g if the pack size of
+medication is 60 and you
+provide two packs, then
+QUANTITY_SUPPLIED will be
+120 ) provided to the person.
+DOSE_DURATION M String
+Number of months supply.
+With one of the value
+mentioned in Annex: Dose
+duration
+PRODUCT_SUPPLY_TYPE
+O ( M if CONSULT_OUTCOME is
+SUPPLY_MADE or
+SUPPLY_MADE_SIGNPOSTED )
+String
+Confirmation of the type of
+supply (over the counter
+medication, patient group
+direction, MAS etc). With one
+of the value mentioned in
+Annex: Product supply type
+SIGNPOSTED_TO
+O ( M if CONSULT_OUTCOME is
+SUPPLY_MADE_SIGNPOSTED or
+NO_SUPPLY_SIGNPOSTED )
+String
+Details of where patient has
+been signposted to. With one
+of the values in Annex:
+Signposted to
+SIGNPOSTED_TO_OTHER_VALUE M if SIGNPOSTED_TO is OTHER String
+Free text value for other
+signposted to details. Max
+250 chars
+ESCALATED_TO
+O ( M if CONSULT_OUTCOME is
+NO_SUPPLY_ESCALATED )
+String
+Details of where patient has
+been escalated to. With one of
+the values in Annex: Escalated
+to
+ESCALATED_TO_OTHER_VALUE M if ESCALATED_TO is OTHER String
+Free text value for other
+escalated to details. Max 250
+chars
+REFERRED_ORG_ODS
+O ( M if SIGNPOSTED_TO or
+ESCALATED_TO is present )
+String
+The ODS code, of the
+organisation being signposted
+to.
+ONWARD_REFERRAL_DATE
+O ( M if SIGNPOSTED_TO or
+ESCALATED_TO is present )
+String
+The date the onward referral
+was made, in yyyy-MM-dd
+format. for example 2021-05-
+10
+Step 2: Prepare the request JSON
+The message containing the Contraception Service Details i.e claim information should follow json schema distributed by email.
+The message must be utf-8 encoded. No XML messages are accepted.
+{
+"platformDepositId":"SUP-nnnnnnnnn",
+"patient": {
+"nhsNumber":"0000000000",
+"gpOdsCode":"GPXXX"
+},
+"orgOdsCode":"FXXXX",
+"yearMonth":"2022-04",
+"referralDate": "2021-08-02",
+"referrerOrgType": "GPP",
+"referrerOrgOdsCode": "YXXXX",
+"assessmentDate":"2021-08-02",
+"serviceType": "ONGOING_MONITORING",
+"reasonForServiceType": "ONGOING_PHARMACIST_INITIATED",
+"professionalRole": "PHARMACIST",
+"professionalIdentifier": 1234567,
+"consultationMethod": "TELEPHONE",
+"consultationOutcome": "NO_SUPPLY_OTHER",
+"contraceptionMethod": ["00","15"],
+"contraceptionMethodOther": "other contraception method",
+"products": [
+{
+"snomedCode":"xxxxx"
+"medicationName":"Test Product2",
+"quantitySupplied":3,
+"doseDuration": "3M"
+}
+],
+"productSupplyType": "OTC",
+"noSupplyReason": ["A", "T"],
+"noSupplyReasonOther": "other no supply reason",
+"signpostedTo":"OTHER",
+"signpostedToOther":"other reference",
+"escalatedTo":"OTHER",
+"escalatedToOther":"other reference",
+"referredOrgOds":"FXXXX",
+"onwardReferralDate":"2022-01-20"
+}
+Step 3: Send the create request message
+You can now prepare and make a POST call to the NHSBSA API with the following pattern.
+Type Description
+URL https://stg.api.contraception.pharmacy.mys.nhsbsa.nhs.uk/v1/claim
+Http Headers Content-Type: application/json, Accept: application/json, Cache-Control: no-cache
+Body JSON representation prepared in Step 2 above
+Step 4: Receive your response
+A successful response will be sent synchronously within 30 seconds [DN: To check] with an http code 201 (Created) and contain a
+JSON representation of an object in the body of the response, containing the claim ID.
+Response Headers:
+Type Description
+Status 201 Created
+Location
+Location of the newly created resource. For example:
+https://stg.api.contraception.pharmacy.mys.nhsbsa.nhs.uk/v1/claim/123e4567-e89b-12d3-a456-
+426614174000
+Response Body:
+{
+"id" : "123e4567-e89b-12d3-a456-426614174000",
+"platformDepositId":"SUP-nnnnnnnnn",
+"patient": {
+"nhsNumber":"0000000000",
+"gpOdsCode":"GPXXX"
+},
+"orgOdsCode":"FXXXX",
+"yearMonth":"2022-04",
+"referralDate": "2021-08-02",
+"referrerOrgType": "GPP",
+"referrerOrgOdsCode": "YXXXX",
+"assessmentDate":"2021-08-02",
+"serviceType": "ONGOING_MONITORING",
+"reasonForServiceType": "ONGOING_PHARMACIST_INITIATED",
+"professionalRole": "PHARMACIST",
+"professionalIdentifier": 1234567,
+"consultationMethod": "TELEPHONE",
+"consultationOutcome": "NO_SUPPLY_OTHER",
+"contraceptionMethod": ["00","15"],
+"contraceptionMethodOther": "other contraception method",
+"products": [
+{
+"snomedCode":"xxxxx"
+"medicationName":"Test Product2",
+"quantitySupplied":3,
+"doseDuration": "3M"
+}
+],
+"productSupplyType": "OTC",
+"noSupplyReason": ["A", "T"],
+"noSupplyReasonOther": "other no supply reason",
+"signpostedTo":"OTHER",
+"signpostedToOther":"other reference",
+"escalatedTo":"OTHER",
+"escalatedToOther":"other reference",
+"referredOrgOds":"FXXXX",
+"onwardReferralDate":"2022-01-20"
+}
+Other potential responses:
+403: Forbidden
+Contains a JSON representation of the error response:
+Scenarios:
+User is not allowed to perform certain operations or don't have access to certain resources.
+{
+"message": "string",
+"details": [
+"string"
+]
+}
+500: Unexpected error
+Contains a JSON representation of the error response:
+{
+"message": "string",
+"details": [
+"string"
+]
+}
+400: Bad Request
+Contains a JSON representation of the error response:
+Scenarios:
+Invalid request body, field names or field values
+{
+"message": "string",
+"details": [
+"string"
+]
+}
+Developer Guide to Update existing Contraception submission
+Step 1: Gather your materials
+You will need the data described in section Developer Guide to Contraception Claim Create.
+Apart from that the additional data needed:
+Property Description
+ID Id of the Claim. Generated when the record is saved. Included in the response of POST (create).
+Step 2: Prepare the request JSON
+In the example below, we changed few details in the existing Claim Response record with given ID.
+{
+"platformDepositId":"SUP-nnnnnnnnn",
+"patient": {
+"nhsNumber":"0000000000",
+"gpOdsCode":"GPXXX"
+},
+"orgOdsCode":"FXXXX",
+"yearMonth":"2022-04",
+"referralDate": "2021-08-02",
+"referrerOrgType": "GPP",
+"referrerOrgOdsCode": "YXXXX",
+"assessmentDate":"2021-08-02",
+"serviceType": "ONGOING_MONITORING",
+"reasonForServiceType": "ONGOING_PHARMACIST_INITIATED",
+"professionalRole": "PHARMACIST",
+"professionalIdentifier": 1234567,
+"consultationMethod": "TELEPHONE",
+"consultationOutcome": "NO_SUPPLY_OTHER",
+"contraceptionMethod": ["00","15","12"],
+"contraceptionMethodOther": "other contraception method",
+"products": [
+{
+"snomedCode":"xxxxx"
+"medicationName":"Test Product2",
+"quantitySupplied":3,
+"doseDuration": "3M"
+}
+],
+"productSupplyType": "OTC",
+"noSupplyReason": ["A", "T"],
+"noSupplyReasonOther": "other no supply reason",
+"signpostedTo":"OTHER",
+"signpostedToOther":"other reference",
+"escalatedTo":"OTHER",
+"escalatedToOther":"other reference",
+"referredOrgOds":"FXXXX",
+"onwardReferralDate":"2022-01-20"
+}
+Step 3: Send the update request message
+You can now prepare and make a PUT call to the NHSBSA API with the following pattern.
+Type Description
+URL https://stg.api.contraception.pharmacy.mys.nhsbsa.nhs.uk/v1/claim/{{ID}}
+Http Headers Content-Type: application/json, Accept: application/json, Cache-Control: no-cache
+Body JSON representation prepared in Step 2 above
+Step 4: Receive your response
+A successful response will be sent synchronously within 30 seconds [DN: To check] with an http code 200 (OK) and contain a JSON
+representation of the updated object in the body of the
+response:
+{
+"id" : "123e4567-e89b-12d3-a456-426614174000",
+"platformDepositId":"SUP-nnnnnnnnn",
+"patient": {
+"nhsNumber":"0000000000",
+"gpOdsCode":"GPXXX"
+},
+"orgOdsCode":"FXXXX",
+"yearMonth":"2022-04",
+"referralDate": "2021-08-02",
+"referrerOrgType": "GPP",
+"referrerOrgOdsCode": "YXXXX",
+"assessmentDate":"2021-08-02",
+"serviceType": "ONGOING_MONITORING",
+"reasonForServiceType": "ONGOING_PHARMACIST_INITIATED",
+"professionalRole": "PHARMACIST",
+"professionalIdentifier": 1234567,
+"consultationMethod": "TELEPHONE",
+"consultationOutcome": "NO_SUPPLY_OTHER",
+"contraceptionMethod": ["00","15","12"],
+"contraceptionMethodOther": "other contraception method",
+"products": [
+{
+"snomedCode":"xxxxx"
+"medicationName":"Test Product2",
+"quantitySupplied":3,
+"doseDuration": "3M"
+}
+],
+"productSupplyType": "OTC",
+"noSupplyReason": ["A", "T"],
+"noSupplyReasonOther": "other no supply reason",
+"signpostedTo":"OTHER",
+"signpostedToOther":"other reference",
+"escalatedTo":"OTHER",
+"escalatedToOther":"other reference",
+"referredOrgOds":"FXXXX",
+"onwardReferralDate":"2022-01-20"
+}
+Other potential responses:
+403: Forbidden
+Contains a JSON representation of the error response:
+Scenarios:
+User is not allowed to perform certain operations or dont have access to certain resources.
+{
+"message": "string",
+"details": [
+"string"
+]
+}
+500: Unexpected error
+Contains a JSON representation of the error response:
+{
+"message": "string",
+"details": [
+"string"
+]
+}
+400: Bad Request
+Contains a JSON representation of the error response:
+Scenarios:
+Invalid request body, field names or field values
+{
+"message": "string",
+"details": [
+"string"
+]
+}
+422: Unprocessable Entity (json parseable but not conformant)
+Contains a JSON representation of the error response.
+Scenarios:
+if the CLAIMANT_ODS is not registered for Contraception claims.
+if the monthly submission is already declared.
+Cannot change the CLAIMANT_ODS
+Cannot change the PLATFORM_DEPOSIT_ID
+Cannot change the CLAIM_YEAR_MONTH
+{
+"message": "string",
+"details": [
+"string"
+]
+}
+404: Not Found
+Contains a JSON representation of the error response:
+Scenarios:
+ClaimResponse record not found with given ID
+{
+"message": "string",
+"details": [
+"string"
+]
+}
+Developer Guide To Delete Contraception Submission
+Step 1: Gather your materials
+data needed:
+Property Description
+ID Id of the Claim Response. Generated when the record is saved. Included in the response of POST (create).
+Step 2: Send the delete request message
+You can now prepare and make a DELETE call to the NHSBSA API with the following pattern.
+Type Description
+URL https://stg.api.contraception.pharmacy.mys.nhsbsa.nhs.uk/v1/claim/{{ID}}
+Http Headers Content-Type: application/json, Accept: application/json, Cache-Control: no-cache
+Body N/A
+Step 3: Receive your response
+A successful response will be sent synchronously within 30 seconds [DN: To check] with an http code 204 (No Content) and not
+contain a response body.
+Other potential responses:
+403: Forbidden
+Contains a JSON representation of the error response:
+Scenarios:
+User is not allowed to perform certain operations or dont have access to certain resources.
+{
+"message": "string",
+"details": [
+"string"
+]
+}
+500: Unexpected error
+Contains a JSON representation of the error response:
+{
+"message": "string",
+"details": [
+"string"
+]
+}
+404: Not Found
+Contains a JSON representation of the error response:
+Scenarios:
+Submission record not found with given ID
+{
+"message": "string",
+"details": [
+"string"
+]
+}
+Developer Guide to Get a Contraception submission
+Step 1: Gather your materials
+You will need:
+Property Description
+ID
+Id of the Contraception submission. Generated when the record is saved. Included in the response of POST
+(create).
+Step 2: Send the Get Submission Message
+You can now prepare and make a GET call to the NHSBSA API with the following pattern.
+Type Description
+URL https://stg.api.contraception.pharmacy.mys.nhsbsa.nhs.uk/v1/claim/{{ID}}
+Http Headers Content-Type: application/json, Accept: application/json, Cache-Control: no-cache
+Body N/A
+Step 3: Receive your response
+A successful response will be sent synchronously within 30 seconds with an http code 200 (OK) with a response body.
+{
+"id" : "123e4567-e89b-12d3-a456-426614174000",
+"platformDepositId":"SUP-nnnnnnnnn",
+"patient": {
+"nhsNumber":"0000000000",
+"gpOdsCode":"GPXXX"
+},
+"orgOdsCode":"FXXXX",
+"yearMonth":"2022-04",
+"referralDate": "2021-08-02",
+"referrerOrgType": "GPP",
+"referrerOrgOdsCode": "YXXXX",
+"assessmentDate":"2021-08-02",
+"serviceType": "ONGOING_MONITORING",
+"reasonForServiceType": "ONGOING_PHARMACIST_INITIATED",
+"professionalRole": "PHARMACIST",
+"professionalIdentifier": 1234567,
+"consultationMethod": "TELEPHONE",
+"consultationOutcome": "NO_SUPPLY_OTHER",
+"contraceptionMethod": ["00","15","12"],
+"contraceptionMethodOther": "other contraception method",
+"products": [
+{
+"snomedCode":"xxxxx"
+"medicationName":"Test Product2",
+"quantitySupplied":3,
+"doseDuration": "3M"
+}
+],
+"productSupplyType": "OTC",
+"noSupplyReason": ["A", "T"],
+"noSupplyReasonOther": "other no supply reason",
+"signpostedTo":"OTHER",
+"signpostedToOther":"other reference",
+"escalatedTo":"OTHER",
+"escalatedToOther":"other reference",
+"referredOrgOds":"FXXXX",
+"onwardReferralDate":"2022-01-20"
+}
+Other potential responses:
+403: Forbidden
+Contains a JSON representation of the error response:
+Scenarios:
+User is not allowed to perform certain operations or dont have access to certain resources.
+{
+"message": "string",
+"details": [
+"string"
+]
+}
+500: Unexpected error
+Contains a JSON representation of the error response:
+{
+"message": "string",
+"details": [
+"string"
+]
+}
+404: Not Found
+Contains a JSON representation of the error response:
+Scenarios:
+ClaimResponse record not found with given ID
+{
+"message": "string",
+"details": [
+"string"
+]
+}
+Annex: NHS Number
+Code Display
+1111111111 Non-registered UK resident
+2222222222 Non UK resident
+3333333333 Data sharing consent not given
+4444444444 NHS number not found
+Annex: Service Type
+Code Display
+ONGOING_MONITORING Ongoing monitoring
+INITIATION Initiation
+Annex: Referrer Organisation Type
+Code Display
+GPP GP Practice
+SHS Sexual Health Service
+CP Community Pharmacy
+GPCPS GP Practice CPCS
+111 111
+Annex: Ongoing Monitoring Service Reason
+Code Display
+ONGOING_GP_SRHC_INITIATED Ongoing monitoring / supply - GP/SRHC initiated
+ONGOING_PHARMACIST_INITIATED Ongoing monitoring / supply - Pharmacist initiated
+Annex: Initiation Service Reason
+Code Display
+INITIATION_ORAL_FIRST_TIME Initiation of oral contraception - First time pill user
+RE_INITIATION_BEEN_BEFORE Re-initiation of oral contraception - has been on pill before
+SWITCHING_ORAL Switching oral contraception
+Annex: Professional Role
+Code Display
+PHARMACIST Pharmacist
+INDEPENDENT_PRESCRIBER Independent Prescriber
+PHARMACY_TECHNICIAN Pharmacy Technician
+Annex: Consultation method
+Code Display
+FTF Face to face communication
+TELEPHONE Telephone
+TELEMEDICINE Telemedicine
+Annex: Consultation Outcome
+Code Display
+SUPPLY_MADE Supply Made
+SUPPLY_MADE_SIGNPOSTED Supply Made & Referred/Signposted
+NO_SUPPLY_SIGNPOSTED No Supply - Clinically inappropriate & Referred/Signposted
+NO_SUPPLY_PATIENT_DECLINED No Supply - Declined by Patient
+NO_SUPPLY_OTHER No Supply - Other reason (please state)
+NO_SUPPLY_ESCALATED No Supply - Escalated
+Annex: Product Supply Type
+Code Display
+OTC Over the counter medication (OTC)
+PGD Patient Group Direction (PGD)
+RX Independent Prescriber (Rx)
+Annex: No Supply Reason
+Code Display
+A Consent not given
+B Individuals under 16 years of age and assessed as not competent using Fraser Guidelines
+C Individuals 16 years of age and over and assessed as lacking capacity to consent
+D Known or suspected pregnancy
+E Known hypersensitivity to the active ingredient or to any constituent of the product
+F Fewer than 21 days after childbirth
+G
+Fewer than 5 days after miscarriage, abortion, ectopic pregnancy or uterine evacuation for gestational trophoblastic
+disease (GTD)
+H Breastfeeding and less than six weeks postpartum
+I Interacting medicines
+J Cardiovascular disease related
+K Neurological condition related
+L Cancer related
+M Gastro-intestinal condition related
+N Related to other health conditions
+O DVT risk concerns
+P Above target blood pressure or BMI
+Q Patient outside approved PGD age range
+R Requires oral contraception not covered by PGD
+S Requires initiation onto oral contraception
+T Other (please state)
+Annex: Dose Duration
+Code Display
+3M 3 months
+6M 6 months
+9M 9 months
+12M 12 months
+Annex: Array of Contraception product
+CONTRACEPTION_PRODUCT should consist of array of following object
+{
+"snomedCode":"{{SNOMED_CODE}}",
+"medicationName":"{{MEDICATION_NAME}}",
+"quantitySupplied":{{QUANTITY_SUPPLIED}}
+"doseDuration" : "{{DOSE_DURATION}}"
+}
+Annex: Contraception Method
+Code Display
+00 None
+01 Injectable Contraception
+02 Implant
+03 Intrauterine Device (IUD)
+04 Intrauterine System (IUS)
+05 Vaginal Ring
+06 Contraception Patch
+07 Combined Pill
+08 Progesterone Only Pill
+09 Cap/Diaphragm
+10 Spermicides
+11 Natural Family Planning
+12 Condom (Male)
+13 Condom (Female)
+14 Emergency contraception
+15 Other (please state)
+Annex: Signposted to
+Code Display
+GP GP Practice
+OH_GP Out of hours GP/IUC
+SHC Sexual Health Clinic
+ACP Alternative Community Pharmacy
+OTHER Other
+Annex: Escalated to
+Code Display
+GP GP Practice
+OH_GP Out of Hours GP/IUC
+A_AND_E A&E
+999 999
+UTC Urgent Treatment Centre
+OTHER Other

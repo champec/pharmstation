@@ -1,0 +1,5133 @@
+NHS BSA Interoperability
+Developer Guide to the NHS Business Services Authority API for Community Pharmacy
+Claims
+ChangeLog
+Version
+Control
+Date Author Purpose
+0.01
+07
+Sep
+2019
+Gary Warner Initial Draft
+0.02
+13
+Sep
+2019
+Gary Warner Telecon update
+0.04
+04
+Oct
+2019
+Kornel Berec Update / Delete
+0.05
+08
+Oct
+2019
+Kornel Berec Added schema and diagram, resolved some TBC labelled items
+0.06
+10
+Oct
+2019
+Kornel Berec Added note about no exemptions in MIN_ILL type claims, changed URL’s
+0.07
+17
+Oct
+2019
+Kornel Berec
+Added performance test output. Replaced MA certificates with IP address whitelisting.
+Note about GP practice instead of branch surgery.
+0.08
+28
+Oct
+2019
+Kornel Berec Added validation details from a separated document
+0.09
+31
+March
+2020
+Kornel Berec Added new Exemption category “U” and changed description of category “A”
+0.10
+20
+April
+2020
+Kornel Berec Draft - Added FluVacc
+0.11 15
+May
+Kornel Berec Draft - Added postcode validation details. Added Read operation. Removed schemas
+2020
+0.12
+21
+May
+2020
+Kornel Berec Draft - Added error details and list of 2019/2020 flu vaccines
+0.13
+11
+June
+2020
+Kornel Berec Formatting
+0.13
+14
+Aug
+2020
+Kornel Berec Added 2020/2021 vaccines
+0.14
+1 Oct
+2020
+Chris Wilson Added support for GP Referral Engagement Pathway claims.
+0.15
+10
+Nov
+2020
+Chris Wilson Appended accepted claim interface for COVID, introduced COVID_VAC claim type.
+0.16
+24
+Nov
+2020
+Chris Wilson
+Renamed VACCINE_ORDER to DOSE_NUMBER and changes to its corresponding value
+definition for claims under COVID_VAC type.
+0.17
+20
+Jan
+2021
+Chris Wilson
+Added GP_COVID_VAC type, TREATMENT_SUPPLEMENT under supportInfo object,
+example of organization extended with ‘partOf’, used for passing gp site ODS code
+under a PCN ODS code.
+0.18
+25
+Jan
+2021
+Chris Wilson Remove ‘partOf’ section under Organisation
+0.19
+8 FEB
+2021
+Chris Wilson Add HOME_BOUND enum for treatment supplement
+0.20
+16
+Feb
+2021
+Stephen
+Shephard
+Add OTHER_RESIDENTIAL enum for treatment supplement
+0.21
+16
+Feb
+2021
+Robert
+Bulmer
+Moved the api documentation to a Swagger OpenAPI project and markdown format
+hosted in S3
+0.22
+03
+Aug
+2021
+Sunil Natikar Added new fields : PROCEDURE_CODE, VACCINATION_SITE_ODS
+0.23
+10
+Aug
+2021
+Sunil Natikar Updated facility object structure
+0.24
+11
+Aug
+2021
+Sunil Natikar Correction to facility object structure
+0.25
+15
+Sep
+2021
+Sunil Natikar Updated CPCS API with new fields
+0.26 08
+Nov
+Sunil Natikar Updated CPCS API with new claim type: EMG_MED_YEC and MIN_ILL_UEC
+2021
+0.27
+07
+Feb
+2022
+Dhanashree
+Dixit
+Added new fields : REFERRER_ORG_ODS, REFERRED_ODS, ONWARD_REFERRAL_DATE
+0.28
+31
+Oct
+2022
+Prathamesh
+Mhatre
+Removed Sections : Performance testing, Future Workstreams, list of approved
+Vaccines
+0.29
+21
+June
+2023
+Pravin
+Kulkarni
+Added new field: DATE_RECORDED
+0.30
+17
+Aug
+2023
+Prathamesh
+Mhatre
+Made DATE_RECORDED field as optional
+0.31
+24
+Aug
+2023
+Rajesh
+Vishwakarma
+Added new annex professional role options and Added new value Independent
+Prescriber to medication Supply type (code RX)
+0.32
+16
+Sep
+2023
+Prathamesh
+Mhatre
+Added ETHNICITY, SIGNPOSTED_FROM, SELF_REFERRAL_FROM,
+REFERRER_CONTACT_DETAILS,
+CCS_PRESENTING_COMPLAINT_OR_ISSUE,PROFESSIONAL_IDENTIFIER,
+CCS_NO_SUPPLY_REASON, PRESCRIPTION_EXEMPT, URGENCY_OF_REFERRAL.
+Updated PATIENT_GPODS, REFERRER_ORG_TYPE, CONSULTATION_METHOD,
+MEDICATION_SUPPLY_TYPE,CONSULTATION_OUTCOME, DATE_RECORDED,
+SUPPLY_REQUEST_REASON, PROVISION_DATE.
+Renamed SIGNPOSTED_TO to REFERRED_TO_ROUTINE, ESCALATED_TO to
+REFERRED_TO_URGENT.
+Removed DRUG_UNIT, REFERRER_CASE_REF
+0.33
+25
+Sep
+2023
+Prathamesh
+Mhatre
+Added ASSESSMENT_DATE, Medicine list API.
+Updated REFERRER_ORG_TYPE, DATE_RECORDED, PATIENT_NHSNO,
+CONSULTATION_METHOD, Signposted from, Levy Exemption codes,
+MEDICATION_SUPPLY_TYPE, REFERRED_TO_ROUTINE, REFERRED_TO_URGENT,
+REFERRED_TO_URGENT, ONWARD_REFERRAL_DATE,
+CCS_PRESENTING_COMPLAINT_OR_ISSUE,CCS_NO_SUPPLY_REASON.
+Removed INCIDENT
+0.34
+30
+Nov
+2023
+Prathamesh
+Mhatre
+Updated descriptions for REFERRED_TO_ROUTINE, REFERRED_TO_URGENT,
+CCS_NO_SUPPLY_REASON, SIGNPOSTED_FROM, SELF_REFERRAL_FROM,
+REFERRER_CONTACT_DETAILS ( update spelling ), URGENCY_OF_REFERRAL,
+ONWARD_REFERRAL_REASON, CCS_NO_SUPPLY_REASON_OTHER,
+CCS_CRITERIA_NOT_MET_REASON, CCS_EXCLUDED_REASON,
+CCS_NO_CONSENT_REASON, OTHER_CONSULTATION_OUTCOME,
+SIGNPOSTED_FROM_OTHER, SELF_REFERRAL_FROM_OTHER ,
+REFERRED_TO_URGENT_OTHER, OTHER_REFERRED_TO_ROUTINE, Annex –
+Consultation outcomes ( ONWARD_REFERRAL ). Added DRUG_UNIT
+Table of Contents
+NHS BSA Interoperability
+Developer Guide to the NHS Business Services Authority API for Community Pharmacy Claims
+ChangeLog
+Table of Contents
+NHS BSA and Pharmacy Claims Interoperability
+Document Background
+Seasonal Influenza Advanced Service
+Storyboard
+API Connectivity
+API Access Process Flow
+Create Process Flow
+Update Process Flow
+Get Process Flow
+Delete Process Flow
+Developer Guide to Pharmacy Claim Create
+Step 1: Gather your materials
+Step 2: Prepare the Claim JSON
+Step 3: Send the Claim Message
+Step 4: Receive your response
+Other potential responses:
+400 – Bad Request (unparseable or other major issue).
+422 – Unprocessable Entity (json parseable but not conformant).
+500 – Unexpected error.
+Developer Guide to Pharmacy Claim Amendments
+Step 1: Gather your materials
+Step 2: Prepare the Claim JSON
+Step 3: Send the Update Claim Message
+Step 4: Receive your response
+Other potential responses:
+400 – Bad Request (unparseable or other major issue).
+422 – Unprocessable Entity (json parseable but not conformant).
+500 – Unexpected error.
+Developer Guide to Pharmacy Claim Deletions
+Step 1: Gather your materials
+Step 2: Prepare the Claim JSON
+Step 3: Send the Delete Claim Message
+Step 4: Receive your response
+Other potential responses:
+400 – Bad Request (unparseable or other major issue).
+422 – Unprocessable Entity (json parseable but not conformant).
+500 – Unexpected error.
+Developer Guide to Pharmacy Claim Reads
+Step 1: Gather your materials
+Step 2: Send the Read Claim Message
+Step 3: Receive your response
+Other potential responses:
+400 – Bad Request (missing header, CLAIM_ID and PLATFORM_DEPOSIT_ID mismatch or other
+major issue).
+404 – Not Found (claim cannot be found by the provided Ids).
+500 – Unexpected error.
+Developer Guide to medicine list
+Step 1: Gather your materials
+Step 2: Send the GET medicines Message
+Step 3: Receive your response
+Other potential responses:
+403 – Forbidden
+500 – Unexpected error
+Fields used in different services
+Annex – Message Profiles
+Annex – Levy Exemption Codes
+Annex – Referrer organisation type
+Annex – Disposition codes
+Annex – Consultation methods
+Annex – Consultation outcomes
+Annex – No supply reasons
+Annex – Supply request reasons
+Annex – Medication supply types
+Annex – Referred To Routine
+Annex – Referred To Urgent
+Annex - Validation
+Patient Postcode
+Patient GP Postcode
+Annex: Professional Role
+Annex: Signposted From
+Annex: Self Referral From
+Annex: Ccs Presenting Complaint Or Issue
+Annex: Ccs No Supply Reason
+Annex: Urgency Of Referral
+Annex: Ethnicity
+Annex: NHS Number
+Annex - Details Of Errors
+NHS BSA and Pharmacy Claims Interoperability
+This document is intended to provide pharmacy clinical service platform providers with the information necessary to submit details of
+service provisions to the NHS Business Services Authority (NHS BSA), to pre-populate claims to be made by community pharmacy
+providers.
+Document Background
+NHS England and Improvements announced at the end of July 2019 their five-year arrangements with community pharmacy through
+the national Community Pharmacy Contractual Framework (CPCF).
+One of the cornerstones of the announcement was the introduction of a new Community Pharmacist Consultation Service (CPCS)
+which has two initial strands:
+Emergency Medicines, formalising the previous national pilot of NUMSAS; and
+Minor Illness, formalising the previous local pilots of DMIRS.
+Both currently announced strands are triggered by a referral from NHS 111 telephony or NHS 111 Online. The start date of the CPCS
+was subsequently announced to be 29th October 2019.
+The detail of the service requires that claims are made through the Manage Your Service (MYS) platform provided by the NHS BSA to
+community pharmacy. To ensure the maximum accuracy and efficiency of processing those claims, an API has been developed to
+allow software providers with the ability to populate the claims on the MYS platform through interoperable messages sent with each
+provision of the service with a patient.
+As of 30th October 2020 this service also provides support for GP referrals, under a similar claim format to DMIRS, with cpcs type
+“MIN_ILL” but with a different referral identifier format. This is supported under the CPCS claims mechanism within the MYS platform.
+Seasonal Influenza Advanced Service
+Additionally, the NHS Community Pharmacy Seasonal Influenza Advanced Service currently has a claim mecha-nism through MYS.
+This service utilise the same API and messaging as current services.
+Storyboard
+This storyboard is presented as an illustration of how a workflow might be undertaken within a pharma-cy clinical system
+interoperating with the NHS BSA. Every system connecting will have different re-quirements and potential user experiences and this is
+intended to be considered as one potential sce-nario for correspondents to build and reflect on.
+Gregory Jones’ pharmacy has a clinical service platform that is a web-based application used to record national service provisions
+together with locally commissioned services.
+Gregory has a patient, Daniel Davies, who suffers from asthma and eczema. Gregory saw Daniel last month where he checked
+Daniel’s inhaler technique and discussed his use of emollients. The records for that interven-tion were made on his PMR and saved
+locally. During that consultation, Gregory reminded Daniel that ‘flu sea-son was coming and that he was eligible for a seasonal
+influenza vaccination provided by the NHS and that he could attend the pharmacy at any time that was convenient for him.
+Daniel arrives in the pharmacy in early September having failed to order his inhaler from the GP practice in good time and has run out
+of his reliever medication. He has phoned NHS 111 who have send a referral to the pharmacy that Daniel selected with a request to
+the pharmacy to consider an emergency supply for Daniel. Gregory invites him into the consultation room and identifies himself to his
+clinical services platform. Gregory brings up the list of outstanding referral, selects Daniel’s referral record on the platform and
+selects the “CPCS – Emergency” to start a new intervention and provision for through the national service.
+Gregory performs the normal legal, clinical and ethical checks on Daniel’s request and decides that a supply of a single inhaler is
+appropriate and records the details on the clinical service platform.
+When the service provision is complete, Gregory saves the record in on the platform and a message to the NHS BSA API is queued
+automatically to provide the required information for this service to populate a future claim, such as Daniel’s details and the
+medication supplied.
+Gregory then counsels Daniel on how to avoid having this problem in the future and suggests that as his condi-tion is stable that me
+might be suitable for electronic repeat dispensing. Daniel thanks him and leaves the con-sultation room.
+Before leaving the pharmacy, Daniel approaches Gregory and says that his address has changed from the one he gave NHS 111 as
+he was moving this weekend – which was why he had not requested his repeat in good time. Gregory writes down his new address
+and puts on one side to make the change to the record in due course.
+A little while later, Gregory has the chance to update Daniel’s consultation record and saves the consultation. Once again, a message
+to the NHS BSA API is queued automatically to provide the required information for this service to populate a future claim but
+replaces the original record at the NHS BSA.
+API Connectivity
+Connection to the NHS BSA API has the following criteria, as patient data is present and being transmitted:
+Over HTTPS on port 443
+Using TLSv1.2 only
+From a whitelisted set of IP addresses
+Current test endpoints are:
+GET https://stg.services.nhsbsa.nhs.uk/pharmacy-cpcs-api/resources/metadata
+POST https://stg.services.nhsbsa.nhs.uk/pharmacy-cpcs-api/resources/Claim
+PUT https://stg.services.nhsbsa.nhs.uk/pharmacy-cpcs-api/resources/Claim/{{CLAIM_ID}}
+DELETE https://stg.services.nhsbsa.nhs.uk/pharmacy-cpcs-api/resources/Claim/{{CLAIM_ID}}
+API Access Process Flow
+Create Process Flow
+Update Process Flow
+Get Process Flow
+Delete Process Flow
+Developer Guide to Pharmacy Claim Create
+Step 1: Gather your materials
+You will need the following to follow through this walkthrough:
+Field
+Mandatory /
+Optional
+Description
+MESSAGE_PROFILE M
+Currently there is only one message profile:
+https://fhir.nhsbsa.nhs.uk/StructureDefinition/CpcsToken
+CLAIM_TYPE_CODE M
+Each sub-type of service claim has a specific code (see
+Annex – Message Profiles)
+CLAIM_TYPE_DESC M
+Each sub-type of service claim has a description (see Annex
+– Message Profiles)
+PLATFORM_DEPOSIT_ID M
+A string that uniquely identified this claim. Each platform
+will be provided with a pattern to use. For example,
+PharmOutcomes uses the pattern PEM-nnn-SPID-nnnnnn
+and Sonar uses the pattern SON-nnnnnnnn to uniquely
+identify this deposit in audits and CRUD operations. Max.
+size 255.
+PROVISION_DATE
+EMG_MED: O
+MIN_ILL: O
+EMG_MED_UEC:
+O
+MIN_ILL_UEC: O
+CCS: O
+FLU_VAC: M
+COVID_VAC: M
+GP_COVID_VAC:
+M
+The date when the medicine was supplied.Optional for
+EMG_MED, MIN_ILL, EMG_MED_UEC, MIN_ILL_UEC and
+CCS, But Mandatory of if medication supplied.Mandatory for
+FLU_VAC,COVID_VAC and GP_COVID_VAC.Cannot be in the
+month after CLAIM_MONTH_START. Min. value:
+29.10.2019.
+CLAIM_MONTH_START M
+The first day of the month when the medicine was supplied.
+Min. value: 01.10.2019.
+CLAIMANT_ODS M
+The Organisational Data Service (ODS) code of the
+pharmacy provider who provided the service and is
+therefore making the claim. Additional information can be
+provided such as the name of the claimant, their address or
+phone number but these are optional currently. Regex for
+format [A-Za-z0-9]{1,10}. CPCS registration record
+declaration should exists for the pharmacy provider.
+PATIENT_GIVEN M
+The patient’s given name (first name for European naming
+conventions). Multiple given names can be provided but
+should be in the appropriate order. Size max 50.
+PATIENT_FAMILY M
+The patient’s family name (surname for European naming
+conventions). Size max 50.
+PATIENT_DOB M
+The patient’s date of birth in RFC3339 Full Date format
+(yyyy-mm-dd). Must be date in the past.
+PATIENT_GENDER O
+Administrative Gender - the gender that the patient is
+considered to have for administration and record keeping
+purposes. Values: male/female/other/unknown
+ETHNICITY_CODE EMG_MED: O
+MIN_ILL: O
+EMG_MED_UEC:
+O
+MIN_ILL_UEC: O
+CCS: O
+FLU_VAC: N/A
+COVID_VAC:
+N/A
+GP_COVID_VAC:
+N/A
+The ethnicity of the person as specified by the person.Use
+code from annex, Optional-required if given. Annex: Ethnicity
+ETHNICITY_DISPLAY
+EMG_MED: O
+MIN_ILL: O
+EMG_MED_UEC:
+O
+MIN_ILL_UEC: O
+CCS: O
+FLU_VAC: N/A
+COVID_VAC:
+N/A
+GP_COVID_VAC:
+N/A
+The ethnicity of the person as specified by the person.Use
+display from annex, Optional-required if given. Annex:
+Ethnicity
+PATIENT_NHSNO M
+The patient’s NHS Number (not non-England national
+identifiers). If the NHS Number is not provided, provide one
+of the values mentioned in Annex: NHS Number Size must
+be 10.
+PATIENT_ADDRESS M - first line
+The patient’s address. This can be a list of multiple lines,
+but only the first four lines will be utilised by the API.
+Mandatory, size max 255.
+PATIENT_POSTCODE M
+The patient’s postcode of their address. Size max. 10, Valid
+postcode by common bsa validation. If not available use
+Z99 3CZ - valid postcode: 'England UK - not specified’
+PRESCRIPTION_EXEMPT
+EMG_MED: O
+MIN_ILL: N/A
+EMG_MED_UEC:
+O
+MIN_ILL_UEC:
+N/A
+CCS: O
+FLU_VAC: N/A
+COVID_VAC:
+N/A
+GP_COVID_VAC:
+N/A
+Will have Yes or No value.Required if DRUG_CODE &
+DRUG_DESC present. If Yes is selected then the user must
+select one of the existing options from
+PATIENT_EXEMPT_CODE
+PATIENT_EXEMPT_CODE EMG_MED: O
+MIN_ILL: N/A
+EMG_MED_UEC:
+O
+MIN_ILL_UEC:
+N/A
+CCS : O
+FLU_VAC: N/A
+For type EMG_MED and CCS only.
+The coded reason that a patient did not pay for their
+medication (see Annex – Levy Exemption Codes). It will be
+treated as paid if this ele-ment missing.
+NB: Claim with type “MIN_ILL” or "MIN_ILL_UEC" does not
+have this in it because no medicines are supplied so there
+is no levy to pay.
+Should not be supplied for type FLU_VAC, COVID_VAC.
+COVID_VAC:
+N/A
+PATIENT_EXEMPT_DISPLAY
+EMG_MED: O
+MIN_ILL: N/A
+EMG_MED_UEC:
+O
+MIN_ILL_UEC:
+N/A
+CCS : O
+FLU_VAC: N/A
+COVID_VAC:
+N/A
+For type EMG_MED only.
+A description of the coded reason that a patient did not
+pay.
+NB: Claim with type “MIN_ILL” or "MIN_ILL_UEC" does not
+have this in it because no medicines are supplied so there
+is no levy to pay.
+Should not be supplied for type FLU_VAC, COVID_VAC.
+PATIENT_GPODS M
+The ODS code of the patient’s GP surgery. This can be the
+ODS code of the practice and not of the branch surgery.
+Use dummy code X99999 when ODS code is not
+known/unavailable. Size max. 10
+PATIENT_GPPRACTICE O
+The name of the patient’s GP surgery (not mandatory). This
+can be the ODS code of the practice and not of the branch
+surgery. Size max. 255.
+PATIENT_GPADDRESS O
+The address of patient’s GP surgery. This can be a list of
+multiple lines, but only the first four lines will be utilised by
+the API (not mandatory). Size max. 255.
+PATIENT_GPPOSTCODE O
+The postcode of patient’s GP surgery (not mandatory). Size
+max. 10, Valid postcode by common bsa validation.
+REFERRAL_REFERENCE
+EMG_MED: M
+MIN_ILL: M
+EMG_MED_UEC:
+M
+MIN_ILL_UEC: M
+CCS : O
+FLU_VAC: N/A
+COVID_VAC:
+N/A
+GP_COVID_VAC:
+N/A
+The NHS 111 call centre or online reference for the referral.
+A human-readable reference given to the person to use
+when contacting or going to the service referred on to. It is
+generated by the receiving service and supplied to the
+referrer as part of the Booking and Referral Standard
+(BaRS) messaging. Format defined by the referring
+organisation - no local interpretation. Size max. 255.
+Mandatory for types EMG_MED, MIN_ILL, EMG_MED_UEC
+and MIN_ILL_UEC. Mandatory for CCS if
+REFERRER_ORG_TYPE is NHS_111_SERVICE,
+NHS_111_ONLINE, AMBULANCE, GP_PRACTICE,
+GP_ONLINE, EMERGENCY, UTC and WALK_IC.
+Should not be supplied for type FLU_VAC, COVID_VAC.
+For GP Referrals should be supplied as “GP-“ +
+{Unique_identifier}. Recommended format: “GP-“ +
+{Caller_Identifier} + “-” + {generated_identifier}, e.g. GPNHSBSA-123456XYZ
+REFERRER_ORG_ODS
+EMG_MED: M
+MIN_ILL: M
+EMG_MED_UEC:
+M
+MIN_ILL_UEC: M
+CCS : M
+FLU_VAC: N/A
+COVID_VAC:
+N/A
+GP_COVID_VAC:
+N/A
+ODS code for referral. Size max. 10. Use dummy code
+X99999 when ODS code is not known/unavailable
+ASSESSMENT_DATE EMG_MED: M
+MIN_ILL: M
+EMG_MED_UEC:
+M
+MIN_ILL_UEC: M
+CCS: M
+FLU_VAC: N/A
+COVID_VAC:
+N/A
+GP_COVID_VAC:
+N/A
+The date of assessment. Format for the date should be
+YYYY-MM-DD
+The following fields are required where a
+drug WAS supplied.
+Note: no information regarding drugs that
+were not supplied is required to be sent.
+DRUG_CODE M
+The AMPP SNOMED CT code of the medicine supplied. Max
+size 20.
+DRUG_DESC M
+The AMPP SNOMED CT full description of the medicine
+supplied. Size max. 255.
+DRUG_QTY M
+Quantity of the drug supplied. Decimal with scale of two
+decimal numbers. Max 999999999.99.
+DRUG_UNIT
+EMG_MED: N/A
+MIN_ILL: N/A
+EMG_MED_UEC:
+N/A
+MIN_ILL_UEC:
+N/A
+CCS : N/A
+FLU_VAC: M
+COVID_VAC: M
+GP_COVID_VAC:
+M
+The units of the quantity of the drug supplied. Max size 50.
+DOSE_NUMBER
+EMG_MED: N/A
+MIN_ILL: N/A
+EMG_MED_UEC:
+N/A
+MIN_ILL_UEC:
+N/A
+CCS : N/A
+FLU_VAC: N/A
+COVID_VAC: M
+GP_COVID_VAC:
+M
+For Covid-19 vacations which require multiple dosages to
+be administered, used to determine any additional costs
+involved depending on vaccination visit type.
+Value should be declared as a numerical string (>0)
+defining the sequence order of doses, i.e. 1 for the initial
+dose, and >1 for booster dose(s).
+TREATMENT_SUPPLEMENT EMG_MED: N/A
+MIN_ILL: N/A
+EMG_MED_UEC:
+N/A
+MIN_ILL_UEC:
+N/A
+CCS : N/A
+FLU_VAC: N/A
+COVID_VAC: O
+For Covid-19 vaccinations which have additional information
+surrounding the claim which may impact the claims value.
+Value should be declared as a string, i.e. CARE_HOME,
+HOME_BOUND, OTHER_RESIDENTIAL etc.
+GP_COVID_VAC:
+O
+VACCINATION_SITE_ODS O
+ODS code of the site administering the Vaccination. Max
+size 25. Not applicable for EMG_MED, MIN_ILL,CCS
+PROCEDURE_CODE O
+The SNOMED code for the vaccination Procedure, Max size
+18. Not applicable for EMG_MED, MIN_ILL,CCS
+NO_SUPPLY_REASON
+EMG_MED: O
+MIN_ILL: N/A
+EMG_MED_UEC:
+O
+MIN_ILL_UEC:
+N/A
+CCS : N/A
+FLU_VAC: N/A
+COVID_VAC:
+N/A
+GP_COVID_VAC:
+N/A
+Reason for no supply. Mandatory if medication dispense
+status is cancelled. Annex – No supply reasons
+OTHER_NO_SUPPLY_REASON O
+Free text value of reasons for no supply and mandatory only
+if value of NO_SUPPLY_REASON is selected as G (Other).
+CCS_NO_SUPPLY_REASON
+EMG_MED: N/A
+MIN_ILL: N/A
+EMG_MED_UEC:
+N/A
+MIN_ILL_UEC:
+N/A
+CCS: O
+FLU_VAC: N/A
+COVID_VAC:
+N/A
+GP_COVID_VAC:
+N/A
+The reason that medication has not been supplied.
+Required if DRUG_CODE and DRUG_DESC are not provided.
+Reject claim if DRUG_CODE and DRUG_DESC and
+CCS_NO_SUPPLY_REASON are provided Annex: Ccs No
+Supply Reason
+CCS_NO_SUPPLY_REASON_OTHER O
+Free text value of reason(s) for non supply of medication.
+Required when CCS_NO_SUPPLY_REASON is Other. Reject
+claim if CCS_NO_SUPPLY_REASON_OTHER is provided and
+CCS_NO_SUPPLY_REASON is NOT Other
+CCS_CRITERIA_NOT_MET_REASON O
+Free text value of reason(s) for patient not meeting the
+inclusion criteria. Required when
+CCS_NO_SUPPLY_REASON is A. Reject claim if
+CCS_CRITERIA_NOT_MET_REASON is provided and
+CCS_NO_SUPPLY_REASON is B, C, D, E or F
+CCS_EXCLUDED_REASON O
+Free text value of reason(s) for patient exclusion. Required
+when CCS_NO_SUPPLY_REASON is B. Reject claim if
+CCS_EXCLUDED_REASON is provided and
+CCS_NO_SUPPLY_REASON is A, C, D, E or F
+CCS_NO_CONSENT_REASON O
+Free text value of reason(s) for patient not consenting to
+treatment. Required when CCS_NO_SUPPLY_REASON is C.
+Reject claim if CCS_NO_CONSENT_REASON is provided and
+CCS_NO_SUPPLY_REASON is A, B, D, E or F.
+SUPPLY_REQUEST_REASON EMG_MED: M Reason for supply request. Annex – Supply request reasons
+MIN_ILL: N/A
+EMG_MED_UEC:
+M
+MIN_ILL_UEC:
+N/A
+CCS : N/A
+FLU_VAC: N/A
+COVID_VAC:
+N/A
+GP_COVID_VAC:
+N/A
+OTHER_SUPPLY_REQUEST_REASON O
+Free text value of reasons for medication supply request
+and mandatory only if value of SUPPLY_REQUEST_REASON
+is selected as OTHER (Other).
+MEDICATION_SUPPLY_TYPE
+EMG_MED: N/A
+MIN_ILL: O
+EMG_MED_UEC:
+N/A
+MIN_ILL_UEC: O
+CCS : O
+FLU_VAC: N/A
+COVID_VAC:
+N/A
+GP_COVID_VAC:
+N/A
+Medication supply type.Required if medication is supplied
+(DRUG_CODE & DRUG_DESC present). Annex – Medication
+supply types
+REFERRER_ORG_TYPE
+EMG_MED: M
+MIN_ILL: M
+EMG_MED_UEC:
+M
+MIN_ILL_UEC: M
+CCS : M
+FLU_VAC: N/A
+COVID_VAC:
+N/A
+GP_COVID_VAC:
+N/A
+Referrer organisation type. Annex – Referrer organisation
+type
+REFERRER_ORG_TYPE_OTHER O
+Free text value for other REFERRER_ORG_TYPE and
+mandatory only if value of REFERRER_ORG_TYPE is
+selected as option OTHER.
+DISPOSITION_CODE
+EMG_MED: O
+MIN_ILL: O
+EMG_MED_UEC:
+O
+MIN_ILL_UEC: O
+CCS : N/A
+FLU_VAC: N/A
+COVID_VAC:
+N/A
+GP_COVID_VAC:
+N/A
+Dx code from the 111 system resulting from the NHS
+Pathways (CDSS) assessment. Annex – Disposition codes
+CONSULTATION_METHOD EMG_MED: M
+MIN_ILL: M
+EMG_MED_UEC:
+Type of consultation conducted.For CCS If
+CCS_PRESENTING_COMPLAINT_OR_ISSUE is Acute Otitis
+M
+MIN_ILL_UEC: M
+CCS : M
+FLU_VAC: N/A
+COVID_VAC:
+N/A
+GP_COVID_VAC:
+N/A
+Media then only Face to face is allowed Annex –
+Consultation methods
+CONSULTATION_OUTCOME
+EMG_MED: M
+MIN_ILL: M
+EMG_MED_UEC:
+M
+MIN_ILL_UEC: M
+CCS : M
+FLU_VAC: N/A
+COVID_VAC:
+N/A
+GP_COVID_VAC:
+N/A
+Outcome of the consultation conducted. Annex –
+Consultation outcomes
+OTHER_CONSULTATION_OUTCOME O
+Free text value for outcome consultation other. Required if
+CONSULTATION_OUTCOME is Other. Reject claim if
+OTHER_CONSULTATION_OUTCOME is provided and
+CONSULTATION_OUTCOME is NOT Other
+REFERRED_TO_ROUTINE
+EMG_MED: O
+MIN_ILL: O
+EMG_MED_UEC:
+O
+MIN_ILL_UEC: O
+CCS : O
+FLU_VAC: N/A
+COVID_VAC:
+N/A
+GP_COVID_VAC:
+N/A
+Details of where patient has been referred to. Required if
+URGENCY_OF_REFERRAL is Routine. Reject if
+URGENCY_OF_REFERRAL not provided or is of a unexpected
+value Annex – Referred To Routine
+OTHER_REFERRED_TO_ROUTINE O
+Free text value for referred to routine other. Required if
+REFERRED_TO_ROUTINE is Other. Reject claim if
+OTHER_REFERRED_TO_ROUTINE is provided and
+REFERRED_TO_ROUTINE is NOT Other
+REFERRED_TO_URGENT
+EMG_MED: O
+MIN_ILL: O
+EMG_MED_UEC:
+O
+MIN_ILL_UEC: O
+CCS : O
+FLU_VAC: N/A
+COVID_VAC:
+N/A
+GP_COVID_VAC:
+N/A
+Details of where patient has been referred to. Required if
+URGENCY_OF_REFERRAL is Urgent. Reject claim if
+URGENCY_OF_REFERRAL not provided or is of an
+unexpected value Annex – Referred To Urgent
+REFERRED_TO_URGENT_OTHER O
+Free text value for referred to urgent other. Required if
+REFERRED_TO_URGENT is Other. Reject claim if
+REFERRED_TO_URGENT_OTHER is provided and
+REFERRED_TO_URGENT is NOT Other
+PRESENTING_COMPLAINT_OR_ISSUES EMG_MED: N/A
+MIN_ILL: O
+EMG_MED_UEC:
+N/A
+MIN_ILL_UEC: O
+CCS : N/A
+FLU_VAC: N/A
+COVID_VAC:
+N/A
+GP_COVID_VAC:
+N/A
+The health problem or issue experienced by the patient.
+Freetext values with max size 250 chars.
+CCS_PRESENTING_COMPLAINT_OR_ISSUE
+EMG_MED: N/A
+MIN_ILL: N/A
+EMG_MED_UEC:
+N/A
+MIN_ILL_UEC:
+N/A
+CCS: M
+FLU_VAC: N/A
+COVID_VAC:
+N/A
+GP_COVID_VAC:
+N/A
+The health problem or issue experienced by the
+patient.Annex: Ccs Presenting Complaint Or Issue
+ONWARD_REFERRAL_REASON
+EMG_MED: O
+MIN_ILL: O
+EMG_MED_UEC:
+O
+MIN_ILL_UEC: O
+CCS : O
+FLU_VAC: N/A
+COVID_VAC:
+N/A
+GP_COVID_VAC:
+N/A
+Reason (free text value) for onward referral. Required if
+URGENCY_OF_REFERRAL is provided. Reject claim if
+ONWARD_REFERRAL_REASON is provided and
+URGENCY_OF_REFERRAL is NOT provided. Max size 250.
+REFERRED_ODS
+EMG_MED: O
+MIN_ILL: O
+EMG_MED_UEC:
+O
+MIN_ILL_UEC: O
+CCS : O
+FLU_VAC: N/A
+COVID_VAC:
+N/A
+GP_COVID_VAC:
+N/A
+The ODS code, of the organisation being referred
+to.Mandatory If REFERRED_TO_URGENT or
+REFERRED_TO_ROUTINE are selected. Size max. 10. Use
+dummy code X99999 when ODS code is not
+known/unavailable
+ONWARD_REFERRAL_DATE EMG_MED: O
+MIN_ILL: O
+EMG_MED_UEC:
+O
+MIN_ILL_UEC: O
+CCS : O
+FLU_VAC: N/A
+COVID_VAC:
+N/A
+Date of onward referral. Format. YYYY-MM-DD
+GP_COVID_VAC:
+N/A
+DATE_RECORDED
+EMG_MED: M
+MIN_ILL: M
+EMG_MED_UEC:
+M
+MIN_ILL_UEC: M
+CCS : M
+FLU_VAC: N/A
+COVID_VAC: O
+GP_COVID_VAC:
+O
+Date that the patient interaction was input into the
+contractor’s IT system. Format for the date should be YYYYMM-DD
+PROFESSIONAL_ROLE
+EMG_MED: M
+MIN_ILL: M
+EMG_MED_UEC:
+M
+MIN_ILL_UEC: M
+CCS : M
+FLU_VAC: N/A
+COVID_VAC:
+N/A
+GP_COVID_VAC:
+N/A
+The role of the person providing the service. Annex:
+Professional Role
+SIGNPOSTED_FROM
+EMG_MED: O
+MIN_ILL: O
+EMG_MED_UEC:
+N/A
+MIN_ILL_UEC:
+N/A
+CCS: O
+FLU_VAC: N/A
+COVID_VAC:
+N/A
+GP_COVID_VAC:
+N/A
+Where the patient was signposted from. Required if
+REFERRER_ORG_TYPE is Signposted.Reject claim if
+SIGNPOSTED_FROM is provided and REFERRER_ORG_TYPE
+is NOT Signposted Annex: Signposted From
+SIGNPOSTED_FROM_OTHER O
+Free text value of reasons for signposted from other.
+Required if SIGNPOSTED_FROM is Other. Reject claim if
+SIGNPOSTED_FROM_OTHER is provided and
+SIGNPOSTED_FROM is NOT Other
+SELF_REFERRAL_FROM
+EMG_MED: O
+MIN_ILL: O
+EMG_MED_UEC:
+N/A
+MIN_ILL_UEC:
+N/A
+CCS: O
+FLU_VAC: N/A
+COVID_VAC:
+N/A
+GP_COVID_VAC:
+N/A
+Where the patient would have gone instead of coming to
+Pharmacy. Required if REFERRER_ORG_TYPE is Self
+referral. Reject claim if SIGNPOSTED_FROM is provided and
+REFERRER_ORG_TYPE is NOT Self referral. Annex: Self
+Referral From
+SELF_REFERRAL_FROM_OTHER O Free text value of reasons for self referral from other.
+Required if SELF_REFERRAL_FROM is Other. Reject claim if
+SELF_REFERRAL_FROM_OTHER is provided and
+SELF_REFERRAL_FROM is NOT Other.
+REFERRER_CONTACT_DETAILS
+EMG_MED: O
+MIN_ILL: O
+EMG_MED_UEC:
+O
+MIN_ILL_UEC: O
+CCS: O
+FLU_VAC: N/A
+COVID_VAC:
+N/A
+GP_COVID_VAC:
+N/A
+The contact details of the organisation making the referral.
+For example a phone number, NHSmail address etc.
+Required if REFERRER_ORG_TYPE is other than signposted
+or self referral.Reject claim if
+REFERRER_CONTACT_DETAILS are provided and
+REFERRER_ORG_TYPE is signposted or self referral
+PROFESSIONAL_IDENTIFIER
+EMG_MED: M
+MIN_ILL: M
+EMG_MED_UEC:
+M
+MIN_ILL_UEC: M
+CCS: M
+FLU_VAC: N/A
+COVID_VAC:
+N/A
+GP_COVID_VAC:
+N/A
+Professional identifier for the professional providing the
+service e.g. General Medical Council (GMC), Nursing
+Medical Council (NMC) number etc, or the personal
+identifier used by the local organisation
+URGENCY_OF_REFERRAL
+EMG_MED: O
+MIN_ILL: O
+EMG_MED_UEC:
+O
+MIN_ILL_UEC: O
+CCS: O
+FLU_VAC: N/A
+COVID_VAC:
+N/A
+GP_COVID_VAC:
+N/A
+The details of the urgency of referral. Required if
+CONSULTATION_OUTCOME is MAS_REFERRAL,
+LOCAL_COMMISSIONED_REFERRAL, ONWARD_REFERRAL,
+NON_URGENT or URGENT. Reject claim if
+URGENCY_OF_REFERRAL is provided and
+CONSULTATION_OUTCOME is ADVICE_ONLY,
+OTC_MEDICINE_SALE, SUPPLY_NO_SUPPLY or OTHER
+Annex: Urgency Of Referral
+ASSESSMENT_DATE
+EMG_MED: M
+MIN_ILL: M
+EMG_MED_UEC:
+M
+MIN_ILL_UEC: M
+CCS: M
+FLU_VAC: N/A
+COVID_VAC:
+N/A
+GP_COVID_VAC:
+N/A
+The date of assessment. Format for the date should be
+YYYY-MM-DD
+Step 2: Prepare the Claim JSON
+The message containing the claim information should follow the FHIR R4 schema distributed by email.
+Important: The NHS Digital standard is currently FHIR STU3 for all messaging; but the NHS BSA interface uses FHIR Release 4 (R4)
+and there are element types within the profile that are not present in FHIR STU3.
+The message must be utf-8 encoded. No XML messages are accepted.
+In the example below, two medications were provided for a patient who was exempt from paying a prescription levy charge. In the
+example, UUIDs have been populated – these should be generated on the wire in a normal production environment.
+Not all system identifiers, such as “https://fhir.nhsbsa.nhs.uk/Id/UrgentCareReference” in the example below, are available from the
+API server as accessible schemas and should be used verbatim
+{
+"resourceType": "Claim",
+"meta": {
+"profile": [
+"{{MESSAGE_PROFILE}}"
+]
+},
+"contained": [
+{
+"resourceType": "PractitionerRole",
+"id": "5412c16e-d9e7-46ea-86cb-65fcdc19fcdb",
+"code": [
+{
+"coding": [
+{
+"system": "http://snomed.info/sct",
+"code": "{{PROFESSIONAL_ROLE}}"
+}
+]
+}
+]
+},
+{
+"resourceType": "Organization",
+"id": "308d7201-ed47-4360-ac5b-0d523001c6d5",
+"meta": {
+"profile": [
+"http://hl7.org/fhir/StructureDefinition/Organization"
+]
+},
+"identifier": [
+{
+"system": "https://fhir.nhs.uk/Id/ods-organization-code",
+"value": "{{CLAIMANT_ODS}}"
+}
+]
+},
+{
+"resourceType": "Organization",
+"id": "6306ddeb-ad11-43fc-b6ed-de47dfc9e0ef",
+"meta": {
+"profile": [
+"http://hl7.org/fhir/StructureDefinition/Organization"
+]
+},
+"identifier": [
+{
+"system": "https://fhir.nhs.uk/Id/ods-organization-code",
+"value": "{{PATIENT_GPODS}}"
+}
+],
+"name": "{{PATIENT_GPPRACTICE}}",
+"address": [
+{
+"line": [
+"{{ PATIENT_GPADDRESS }}"
+],
+"postalCode": "{{PATIENT_GPPOSTCODE}}"
+}
+]
+},
+{
+"resourceType": "Patient",
+"id": "4812c16e-d9e7-46ea-86cb-65fcdc19faab",
+"meta": {
+"profile": [
+"http://hl7.org/fhir/StructureDefinition/Patient"
+]
+},
+"identifier": [
+{
+"system": "https://fhir.nhs.uk/Id/nhs-number",
+"value": "{{PATIENT_NHSNO}}"
+}
+],
+"name": [
+{
+"use": "official",
+"family": "{{PATIENT_FAMILY}}",
+"given": [
+"{{PATIENT_GIVEN}}"
+]
+}
+],
+"birthDate": "{{PATIENT_DOB}}",
+"gender": "{{PATIENT_GENDER}}",
+"address": [
+{
+"use": "home",
+"line": [
+"{{ PATIENT_ADDRESS }}"
+],
+"postalCode": "{{PATIENT_POSTCODE}}"
+}
+],
+"generalPractitioner": [
+{
+"reference": "#6306ddeb-ad11-43fc-b6ed-de47dfc9e0ef"
+}
+]
+},
+{
+"resourceType": "ServiceRequest",
+"id": "75a9f2ad-fdaf-4661-a7ce-f1098547d322",
+"meta": {
+"profile": [
+"https://fhir.nhsbsa.nhs.uk/StructureDefinition/ServiceRequest"
+]
+},
+"identifier": [
+{
+"system": "https://fhir.nhsbsa.nhs.uk/Id/UrgentCareReference",
+"value": "{{REFERRAL_REFERENCE}}"
+}
+],
+"locationCode": {
+"coding": [
+{
+"system": "https://fhir.nhs.uk/Id/ods-organization-code",
+"code": "{{REFERRER_ORG_ODS}}"
+}
+]
+}
+},
+{
+"resourceType": "MedicationDispense",
+"id": "1",
+"meta": {
+"profile": [
+"http://hl7.org/fhir/StructureDefinition/MedicationDispense"
+]
+},
+"status": "cancelled",
+"medicationCodeableConcept": {
+"coding": [
+{
+"system": "http://snomed.info/sct",
+"code": "{{DRUG_CODE1}}",
+"display": "{{DRUG_DESC1}}"
+}
+]
+},
+"statusReasonCodeableConcept": {
+"coding": [
+{
+"system": "https://fhir.nhsbsa.nhs.uk/StructureDefinition/Extension-NoSupplyType",
+"code": "{{NO_SUPPLY_REASON}}",
+"display": "Patient/Patient's representative did not make contact "
+}
+],
+"text": "{{OTHER_NO_SUPPLY_REASON}}"
+}
+},
+{
+"resourceType": "MedicationDispense",
+"id": "2",
+"meta": {
+"profile": [
+"http://hl7.org/fhir/StructureDefinition/MedicationDispense"
+]
+},
+"contained": [
+{
+"resourceType": "ServiceRequest",
+"id": "supplyRequest1",
+"meta": {
+"profile": [
+"https://fhir.nhsbsa.nhs.uk/StructureDefinition/ServiceRequest"
+]
+},
+"reasonCode": [
+{
+"coding": [
+{
+"system": "http://terminology.hl7.org/CodeSystem/medication-supply-request-reasons",
+"code": "{{SUPPLY_REQUEST_REASON}}"
+}
+],
+"text": "{{OTHER_SUPPLY_REQUEST_REASON}}"
+}
+]
+}
+],
+"status": "completed",
+"medicationCodeableConcept": {
+"coding": [
+{
+"system": "http://snomed.info/sct",
+"code": "{{DRUG_CODE}}",
+"display": "{{DRUG_DESC}}"
+}
+]
+},
+"quantity": {
+"value": "{{DRUG_QTY}}",
+"unit": "{{DRUG_UNIT}}",
+"system": "http://unitsofmeasure.org"
+},
+"whenHandedOver": "{{PROVISION_DATE}}",
+"type": {
+"coding": [
+{
+"system": "http://terminology.hl7.org/CodeSystem/medication-supply-type",
+"code": "{{MEDICATION_SUPPLY_TYPE}}"
+}
+]
+},
+"supportingInformation": [
+{
+"reference": "#supplyRequest1"
+}
+]
+}
+],
+"extension": [
+{
+"url": "https://fhir.nhsbsa.nhs.uk/StructureDefinition/Extension-ExemptionType",
+"valueCodeableConcept": {
+"coding": [
+{
+"system": "https://fhir.nhsbsa.nhs.uk/Id/ExemptionType",
+"code": "F",
+"display": "Prescription pre-payment certificate (PPC)"
+}
+]
+}
+},
+{
+"url": "https://fhir.nhsbsa.nhs.uk/StructureDefinition/Extension-MedicationDispense",
+"valueReference": {
+"reference": "#b782e4e8-3901-464a-a3dc-2c286c0a6964"
+}
+},
+{
+"url": "https://fhir.nhsbsa.nhs.uk/StructureDefinition/Extension-MedicationDispense",
+"valueReference": {
+"reference": "#79345ce6-afb3-4929-b76c-6c7993ff4f4b"
+}
+},
+{
+"url": "https://fhir.nhsbsa.nhs.uk/StructureDefinition/Extension-EthnicityType",
+"valueCodeableConcept": {
+"coding": [
+{
+"system": "https://fhir.nhsbsa.nhs.uk/Id/EthnicityType",
+"code": "{{ETHNICITY_CODE}}",
+"display": "{{ETHNICITY_DISPLAY}}"
+}
+]
+}
+}
+],
+"type": {
+"coding": [
+{
+"system": "https://fhir.nhsbsa.nhs.uk/Id/CpcsType",
+"code": "{{CLAIM_TYPE_CODE}}",
+"display": "{{CLAIM_TYPE_DESC}}"
+}
+]
+},
+"identifier": [
+{
+"system": "https://fhir.nhsbsa.nhs.uk/Id/CpcsClientReference",
+"value": "{{DEPOSIT_ID}}"
+}
+],
+"patient": {
+"reference": "#4812c16e-d9e7-46ea-86cb-65fcdc19faab"
+},
+"provider": {
+"reference": "#308d7201-ed47-4360-ac5b-0d523001c6d5"
+},
+"referral": {
+"reference": "#75a9f2ad-fdaf-4661-a7ce-f1098547d322"
+},
+"billablePeriod": {
+"start": "{{CLAIM_MONTH_START}}"
+},
+"created": "{{DATE_RECORDED}}",
+"facility": {
+"type": "Location",
+"identifier": {
+"system": "https://fhir.nhs.uk/Id/ods-organization-code",
+"value": "{{VACCINATION_SITE_ODS}}"
+}
+},
+"careTeam": [
+{
+"sequence": 1,
+"provider": {
+"reference": "#5412c16e-d9e7-46ea-86cb-65fcdc19fcdb"
+}
+}
+],
+"supportingInfo": [
+{
+"sequence": 1,
+"category": {
+"coding": [
+{
+"system": "http://terminology.hl7.org/CodeSystem/claiminformationcategory",
+"code": "DOSE_NUMBER"
+}
+]
+},
+"valueString": "{{1,2,3…}}"
+},
+{
+"sequence": 2,
+"category": {
+"coding": [
+{
+"system": "http://terminology.hl7.org/CodeSystem/claiminformationcategory",
+"code": "TREATMENT_SUPPLEMENT"
+}
+]
+},
+"valueString": "{{CARE_HOME,HOME_BOUND,OTHER_RESIDENTIAL}}"
+},
+{
+"sequence": 3,
+"category": {
+"coding": [
+{
+"system": "http://terminology.hl7.org/CodeSystem/claiminformationcategory",
+"code": "PROCEDURE_CODE"
+}
+]
+},
+"valueString": "{{PROCEDURE_CODE}}"
+},
+{
+"sequence": 4,
+"category": {
+"coding": [
+{
+"system": "http://terminology.hl7.org/CodeSystem/claiminformationcategory",
+"code": "REFERRER_ORG_TYPE"
+}
+]
+},
+"code": {
+"coding": [
+{
+"system": "http://terminology.hl7.org/CodeSystem/referrer-organisation-type",
+"code": "{{REFERRER_ORG_TYPE}}"
+}
+],
+"text": "{{REFERRER_ORG_TYPE_OTHER}}"
+}
+},
+{
+"sequence": 5,
+"category": {
+"coding": [
+{
+"system": "http://terminology.hl7.org/CodeSystem/claiminformationcategory",
+"code": "DISPOSITION_CODE"
+}
+]
+},
+"valueString": "{{DISPOSITION_CODE}}"
+},
+{
+"sequence": 6,
+"category": {
+"coding": [
+{
+"system": "http://terminology.hl7.org/CodeSystem/claiminformationcategory",
+"code": "CONSULTATION_METHOD"
+}
+]
+},
+"code": {
+"coding": [
+{
+"system": "http://terminology.hl7.org/CodeSystem/consultation-method",
+"code": "{{CONSULTATION_METHOD}}"
+}
+]
+}
+},
+{
+"sequence": 7,
+"category": {
+"coding": [
+{
+"system": "http://terminology.hl7.org/CodeSystem/claiminformationcategory",
+"code": "CONSULTATION_OUTCOME"
+}
+]
+},
+"code": {
+"coding": [
+{
+"system": "http://terminology.hl7.org/CodeSystem/consultation-outcome",
+"code": "{{CONSULTATION_OUTCOME}}"
+}
+],
+"text": "{{OTHER_CONSULTATION_OUTCOME}}"
+}
+},
+{
+"sequence": 8,
+"category": {
+"coding": [
+{
+"system": "http://terminology.hl7.org/CodeSystem/claiminformationcategory",
+"code": "REFERRED_TO_ROUTINE"
+}
+]
+},
+"code": {
+"coding": [
+{
+"system": "http://terminology.hl7.org/CodeSystem/referred-to-routine",
+"code": "{{REFERRED_TO_ROUTINE}}"
+}
+],
+"text": "{{OTHER_REFERRED_TO_ROUTINE}}"
+}
+},
+{
+"sequence": 9,
+"category": {
+"coding": [
+{
+"system": "http://terminology.hl7.org/CodeSystem/claiminformationcategory",
+"code": "REFERRED_TO_URGENT"
+}
+]
+},
+"code": {
+"coding": [
+{
+"system": "http://terminology.hl7.org/CodeSystem/referred-to-urgent",
+"code": "{{REFERRED_TO_URGENT}}"
+}
+],
+"text": "{{REFERRED_TO_URGENT_OTHER}}"
+}
+},
+{
+"sequence": 10,
+"category": {
+"coding": [
+{
+"system": "http://terminology.hl7.org/CodeSystem/claiminformationcategory",
+"code": "PRESENTING_COMPLAINT_OR_ISSUES"
+}
+]
+},
+"valueString": "{{PRESENTING_COMPLAINT_OR_ISSUES}}"
+},
+{
+"sequence": 11,
+"category": {
+"coding": [
+{
+"system": "http://terminology.hl7.org/CodeSystem/claiminformationcategory",
+"code": "ONWARD_REFERRAL_REASON"
+}
+]
+},
+"valueString": "{{ONWARD_REFERRAL_REASON}}"
+},
+{
+"sequence": 12,
+"category": {
+"coding": [
+{
+"system": "http://terminology.hl7.org/CodeSystem/claiminformationcategory",
+"code": "REFERRED_ODS"
+}
+]
+},
+"valueString": "{{REFERRED_ODS}}"
+},
+{
+"sequence": 13,
+"category": {
+"coding": [
+{
+"system": "http://terminology.hl7.org/CodeSystem/claiminformationcategory",
+"code": "ONWARD_REFERRAL_DATE"
+}
+]
+},
+"timingDate": "{{ONWARD_REFERRAL_DATE}}"
+},
+{
+"sequence": 14,
+"category": {
+"coding": [
+{
+"system": "http://terminology.hl7.org/CodeSystem/claiminformationcategory",
+"code": "SIGNPOSTED_FROM"
+}
+]
+},
+"code": {
+"coding": [
+{
+"system": "http://terminology.hl7.org/CodeSystem/signposted-from",
+"code": "{{SIGNPOSTED_FROM}}"
+}
+],
+"text": "{{SIGNPOSTED_FROM_OTHER}}"
+}
+},
+{
+"sequence": 15,
+"category": {
+"coding": [
+{
+"system": "http://terminology.hl7.org/CodeSystem/claiminformationcategory",
+"code": "SELF_REFERRAL_FROM"
+}
+]
+},
+"code": {
+"coding": [
+{
+"system": "http://terminology.hl7.org/CodeSystem/self-referral-from",
+"code": "{{SELF_REFERRAL_FROM}}"
+}
+],
+"text": "{{SELF_REFERRAL_FROM_OTHER}}"
+}
+},
+{
+"sequence": 16,
+"category": {
+"coding": [
+{
+"system": "http://terminology.hl7.org/CodeSystem/claiminformationcategory",
+"code": "REFERRER_CONTACT_DETAILS"
+}
+]
+},
+"valueString": "{{REFERRER_CONTACT_DETAILS}}"
+},
+{
+"sequence": 17,
+"category": {
+"coding": [
+{
+"system": "http://terminology.hl7.org/CodeSystem/claiminformationcategory",
+"code": "CCS_PRESENTING_COMPLAINT_OR_ISSUE"
+}
+]
+},
+"code": {
+"coding": [
+{
+"system": "http://terminology.hl7.org/CodeSystem/ccs-presenting-complaint-or-issue",
+"code": "{{CCS_PRESENTING_COMPLAINT_OR_ISSUE}}"
+}
+]
+}
+},
+{
+"sequence": 18,
+"category": {
+"coding": [
+{
+"system": "http://terminology.hl7.org/CodeSystem/claiminformationcategory",
+"code": "PROFESSIONAL_IDENTIFIER"
+}
+]
+},
+"valueString": "{{PROFESSIONAL_IDENTIFIER}}"
+},
+{
+"sequence": 19,
+"category": {
+"coding": [
+{
+"system": "http://terminology.hl7.org/CodeSystem/claiminformationcategory",
+"code": "CCS_NO_SUPPLY_REASON"
+}
+]
+},
+"code": {
+"coding": [
+{
+"system": "http://terminology.hl7.org/CodeSystem/ccs-no-supply-reason",
+"code": "{{CCS_NO_SUPPLY_REASON}}"
+}
+],
+"text": "{{CCS_NO_SUPPLY_REASON_OTHER}}"
+}
+},
+{
+"sequence": 20,
+"category": {
+"coding": [
+{
+"system": "http://terminology.hl7.org/CodeSystem/claiminformationcategory",
+"code": "CCS_CRITERIA_NOT_MET_REASON"
+}
+]
+},
+"valueString": "{{CCS_CRITERIA_NOT_MET_REASON}}"
+},
+{
+"sequence": 21,
+"category": {
+"coding": [
+{
+"system": "http://terminology.hl7.org/CodeSystem/claiminformationcategory",
+"code": "CCS_EXCLUDED_REASON"
+}
+]
+},
+"valueString": "{{CCS_EXCLUDED_REASON}}"
+},
+{
+"sequence": 22,
+"category": {
+"coding": [
+{
+"system": "http://terminology.hl7.org/CodeSystem/claiminformationcategory",
+"code": "CCS_NO_CONSENT_REASON"
+}
+]
+},
+"valueString": "{{CCS_NO_CONSENT_REASON}}"
+},
+{
+"sequence": 23,
+"category": {
+"coding": [
+{
+"system": "http://terminology.hl7.org/CodeSystem/claiminformationcategory",
+"code": "PRESCRIPTION_EXEMPT"
+}
+]
+},
+"valueString": "{{PRESCRIPTION_EXEMPT}}"
+},
+{
+"sequence": 24,
+"category": {
+"coding": [
+{
+"system": "http://terminology.hl7.org/CodeSystem/claiminformationcategory",
+"code": "URGENCY_OF_REFERRAL"
+}
+]
+},
+"code": {
+"coding": [
+{
+"system": "http://terminology.hl7.org/CodeSystem/urgency-of-referral",
+"code": "{{URGENCY_OF_REFERRAL}}"
+}
+]
+}
+},
+{
+"sequence": 25,
+"category": {
+"coding": [
+{
+"system": "http://terminology.hl7.org/CodeSystem/claiminformationcategory",
+"code": "ASSESSMENT_DATE"
+}
+]
+},
+"timingDate": "{{ASSESSMENT_DATE}}"
+}
+]
+}
+Step 3: Send the Claim Message
+You can now prepare and make a POST call to the NHSBSA API with the following pattern.
+Note: This is not an ITK3 message, so there is no Bundle or Message Header required.
+Type Description
+URL https://stg.services.nhsbsa.nhs.uk/pharmacy-cpcs-api/resources/Claim
+Http Headers Content-Type: application/json, Accept: application/json, Cache-Control: no-cache
+Body JSON
+Step 4: Receive your response
+A successful response will be sent synchronously within 30 seconds [DN: To check] with an http code 201 (Created) and contain a
+JSON representation of an object in the body of the response, containing the claim ID.
+{
+"resourceType": "Claim",
+"id": "{{CLAIM_ID}}",
+"meta": {
+"profile": [
+"{{MESSAGE_PROFILE}}"
+]
+},
+"contained": [
+{
+"resourceType": "PractitionerRole",
+"id": "5412c16e-d9e7-46ea-86cb-65fcdc19fcdb",
+"code": [
+{
+"coding": [
+{
+"system": "http://snomed.info/sct",
+"code": "{{PROFESSIONAL_ROLE}}"
+}
+]
+}
+]
+},
+{
+"resourceType": "MedicationDispense",
+"id": "1",
+"meta": {
+"profile": [
+"http://hl7.org/fhir/StructureDefinition/MedicationDispense"
+]
+},
+"status": "cancelled",
+"medicationCodeableConcept": {
+"coding": [
+{
+"system": "http://snomed.info/sct",
+"code": "{{DRUG_CODE1}}",
+"display": "{{DRUG_DESC1}}"
+}
+]
+},
+"statusReasonCodeableConcept": {
+"coding": [
+{
+"system": "https://fhir.nhsbsa.nhs.uk/StructureDefinition/Extension-NoSupplyType",
+"code": "{{NO_SUPPLY_REASON}}",
+"display": "Patient/Patient's representative did not make contact "
+}
+],
+"text": "{{OTHER_NO_SUPPLY_REASON}}"
+}
+},
+{
+"resourceType": "MedicationDispense",
+"id": "2",
+"meta": {
+"profile": [
+"http://hl7.org/fhir/StructureDefinition/MedicationDispense"
+]
+},
+"status": "completed",
+"contained": [
+{
+"resourceType": "ServiceRequest",
+"id": "supplyRequest1",
+"meta": {
+"profile": [
+"https://fhir.nhsbsa.nhs.uk/StructureDefinition/ServiceRequest"
+]
+},
+"reasonCode": [
+{
+"coding": [
+{
+"system": "http://terminology.hl7.org/CodeSystem/medication-supply-request-reasons",
+"code": "{{SUPPLY_REQUEST_REASON}}"
+}
+],
+"text": "{{OTHER_SUPPLY_REQUEST_REASON}}"
+}
+]
+}
+],
+"medicationCodeableConcept": {
+"coding": [
+{
+"system": "http://snomed.info/sct",
+"code": "{{DRUG_CODE}}",
+"display": "{{DRUG_DESC}}"
+}
+]
+},
+"quantity": {
+"value": "{{DRUG_QTY}}",
+"unit": "{{DRUG_UNIT}}",
+"system": "http://unitsofmeasure.org"
+},
+"whenHandedOver": "{{PROVISION_DATE}}",
+"type": {
+"coding": [
+{
+"system": "http://terminology.hl7.org/CodeSystem/medication-supply-type",
+"code": "{{MEDICATION_SUPPLY_TYPE}}"
+}
+]
+},
+"supportingInformation": [
+{
+"reference": "#supplyRequest1"
+}
+]
+},
+{
+"resourceType": "Patient",
+"id": "3",
+"meta": {
+"profile": [
+"http://hl7.org/fhir/StructureDefinition/Patient"
+]
+},
+"identifier": [
+{
+"system": "https://fhir.nhs.uk/Id/nhs-number",
+"value": "{{PATIENT_NHSNO}}"
+}
+],
+"name": [
+{
+"use": "official",
+"family": "{{PATIENT_FAMILY}}",
+"given": [
+"{{PATIENT_GIVEN}}"
+]
+}
+],
+"birthDate": "{{PATIENT_DOB}}",
+"gender": "{{PATIENT_GENDER}}",
+"address": [
+{
+"use": "home",
+"line": [
+"{{ PATIENT_ADDRESS }}"
+],
+"postalCode": "{{PATIENT_POSTCODE}}"
+}
+],
+"generalPractitioner": [
+{
+"reference": "#4"
+}
+]
+},
+{
+"resourceType": "Organization",
+"id": "4",
+"meta": {
+"profile": [
+"http://hl7.org/fhir/StructureDefinition/Organization"
+]
+},
+"identifier": [
+{
+"system": "https://fhir.nhs.uk/Id/ods-organization-code",
+"value": "{{PATIENT_GPODS}}"
+}
+],
+"name": "{{PATIENT_GPPRACTICE}}",
+"address": [
+{
+"line": [
+"{{ PATIENT_GPADDRESS }}"
+],
+"postalCode": "{{PATIENT_GPPOSTCODE}}"
+}
+]
+},
+{
+"resourceType": "Organization",
+"id": "5",
+"meta": {
+"profile": [
+"http://hl7.org/fhir/StructureDefinition/Organization"
+]
+},
+"identifier": [
+{
+"system": "https://fhir.nhs.uk/Id/ods-organization-code",
+"value": "{{CLAIMANT_ODS}}"
+}
+]
+},
+{
+"resourceType": "ServiceRequest",
+"id": "6",
+"meta": {
+"profile": [
+"https://fhir.nhsbsa.nhs.uk/StructureDefinition/ServiceRequest"
+]
+},
+"identifier": [
+{
+"system": "https://fhir.nhsbsa.nhs.uk/Id/UrgentCareReference",
+"value": "{{REFERRAL_REFERENCE}}"
+}
+],
+"locationCode": {
+"coding": [
+{
+"system": "https://fhir.nhs.uk/Id/ods-organization-code",
+"code": "{{REFERRER_ORG_ODS}}"
+}
+]
+}
+}
+],
+"extension": [
+{
+"url": "https://fhir.nhsbsa.nhs.uk/StructureDefinition/Extension-ExemptionType",
+"valueCodeableConcept": {
+"coding": [
+{
+"system": "https://fhir.nhsbsa.nhs.uk/Id/ExemptionType",
+"code": "{{PATIENT_EXEMPT_CODE}}",
+"display": "{{PATIENT_EXEMPT_DISPLAY}}"
+}
+]
+}
+},
+{
+"url": "https://fhir.nhsbsa.nhs.uk/StructureDefinition/Extension-MedicationDispense",
+"valueReference": {
+"reference": "#1"
+}
+},
+{
+"url": "https://fhir.nhsbsa.nhs.uk/StructureDefinition/Extension-MedicationDispense",
+"valueReference": {
+"reference": "#2"
+}
+},
+{
+"url": "https://fhir.nhsbsa.nhs.uk/StructureDefinition/Extension-EthnicityType",
+"valueCodeableConcept": {
+"coding": [
+{
+"system": "https://fhir.nhsbsa.nhs.uk/Id/EthnicityType",
+"code": "{{ETHNICITY_CODE}}",
+"display": "{{ETHNICITY_DISPLAY}}"
+}
+]
+}
+}
+],
+"identifier": [
+{
+"system": "https://fhir.nhsbsa.nhs.uk/Id/CpcsClientReference",
+"value": "{{DEPOSIT_ID}}"
+}
+],
+"type": {
+"coding": [
+{
+"system": "https://fhir.nhsbsa.nhs.uk/Id/CpcsType",
+"code": "{{CLAIM_TYPE_CODE}}",
+"display": "{{CLAIM_TYPE_DESC}}"
+}
+]
+},
+"patient": {
+"reference": "#3"
+},
+"billablePeriod": {
+"start": "{{CLAIM_MONTH_START}}"
+},
+"created": "{{DATE_RECORDED}}",
+"provider": {
+"reference": "#5"
+},
+"referral": {
+"reference": "#6"
+},
+"facility": {
+"type": "Location",
+"identifier": {
+"system": "https://fhir.nhs.uk/Id/ods-organization-code",
+"value": "{{VACCINATION_SITE_ODS}}"
+}
+},
+"careTeam": [
+{
+"sequence": 1,
+"provider": {
+"reference": "#5412c16e-d9e7-46ea-86cb-65fcdc19fcdb"
+}
+}
+],
+"supportingInfo": [
+{
+"sequence": 1,
+"category": {
+"coding": [
+{
+"system": "http://terminology.hl7.org/CodeSystem/claiminformationcategory",
+"code": "DOSE_NUMBER"
+}
+]
+},
+"valueString": "{{1,2,3…}}"
+},
+{
+"sequence": 2,
+"category": {
+"coding": [
+{
+"system": "http://terminology.hl7.org/CodeSystem/claiminformationcategory",
+"code": "TREATMENT_SUPPLEMENT"
+}
+]
+},
+"valueString": "{{CARE_HOME,HOME_BOUND,OTHER_RESIDENTIAL}}"
+},
+{
+"sequence": 3,
+"category": {
+"coding": [
+{
+"system": "http://terminology.hl7.org/CodeSystem/claiminformationcategory",
+"code": "PROCEDURE_CODE"
+}
+]
+},
+"valueString": "{{PROCEDURE_CODE}}"
+},
+{
+"sequence": 4,
+"category": {
+"coding": [
+{
+"system": "http://terminology.hl7.org/CodeSystem/claiminformationcategory",
+"code": "REFERRER_ORG_TYPE"
+}
+]
+},
+"code": {
+"coding": [
+{
+"system": "http://terminology.hl7.org/CodeSystem/referrer-organisation-type",
+"code": "{{REFERRER_ORG_TYPE}}"
+}
+],
+"text": "{{REFERRER_ORG_TYPE_OTHER}}"
+}
+},
+{
+"sequence": 5,
+"category": {
+"coding": [
+{
+"system": "http://terminology.hl7.org/CodeSystem/claiminformationcategory",
+"code": "DISPOSITION_CODE"
+}
+]
+},
+"valueString": "{{DISPOSITION_CODE}}"
+},
+{
+"sequence": 6,
+"category": {
+"coding": [
+{
+"system": "http://terminology.hl7.org/CodeSystem/claiminformationcategory",
+"code": "CONSULTATION_METHOD"
+}
+]
+},
+"code": {
+"coding": [
+{
+"system": "http://terminology.hl7.org/CodeSystem/consultation-method",
+"code": "{{CONSULTATION_METHOD}}"
+}
+]
+}
+},
+{
+"sequence": 7,
+"category": {
+"coding": [
+{
+"system": "http://terminology.hl7.org/CodeSystem/claiminformationcategory",
+"code": "CONSULTATION_OUTCOME"
+}
+]
+},
+"code": {
+"coding": [
+{
+"system": "http://terminology.hl7.org/CodeSystem/consultation-outcome",
+"code": "{{CONSULTATION_OUTCOME}}"
+}
+],
+"text": "{{OTHER_CONSULTATION_OUTCOME}}"
+}
+},
+{
+"sequence": 8,
+"category": {
+"coding": [
+{
+"system": "http://terminology.hl7.org/CodeSystem/claiminformationcategory",
+"code": "REFERRED_TO_ROUTINE"
+}
+]
+},
+"code": {
+"coding": [
+{
+"system": "http://terminology.hl7.org/CodeSystem/referred-to-routine",
+"code": "{{REFERRED_TO_ROUTINE}}"
+}
+],
+"text": "{{OTHER_REFERRED_TO_ROUTINE}}"
+}
+},
+{
+"sequence": 9,
+"category": {
+"coding": [
+{
+"system": "http://terminology.hl7.org/CodeSystem/claiminformationcategory",
+"code": "REFERRED_TO_URGENT"
+}
+]
+},
+"code": {
+"coding": [
+{
+"system": "http://terminology.hl7.org/CodeSystem/referred-to-urgent",
+"code": "{{REFERRED_TO_URGENT}}"
+}
+],
+"text": "{{REFERRED_TO_URGENT_OTHER}}"
+}
+},
+{
+"sequence": 10,
+"category": {
+"coding": [
+{
+"system": "http://terminology.hl7.org/CodeSystem/claiminformationcategory",
+"code": "PRESENTING_COMPLAINT_OR_ISSUES"
+}
+]
+},
+"valueString": "{{PRESENTING_COMPLAINT_OR_ISSUES}}"
+},
+{
+"sequence": 11,
+"category": {
+"coding": [
+{
+"system": "http://terminology.hl7.org/CodeSystem/claiminformationcategory",
+"code": "ONWARD_REFERRAL_REASON"
+}
+]
+},
+"valueString": "{{ONWARD_REFERRAL_REASON}}"
+},
+{
+"sequence": 12,
+"category": {
+"coding": [
+{
+"system": "http://terminology.hl7.org/CodeSystem/claiminformationcategory",
+"code": "REFERRED_ODS"
+}
+]
+},
+"valueString": "{{REFERRED_ODS}}"
+},
+{
+"sequence": 13,
+"category": {
+"coding": [
+{
+"system": "http://terminology.hl7.org/CodeSystem/claiminformationcategory",
+"code": "ONWARD_REFERRAL_DATE"
+}
+]
+},
+"timingDate": "{{ONWARD_REFERRAL_DATE}}"
+},
+{
+"sequence": 14,
+"category": {
+"coding": [
+{
+"system": "http://terminology.hl7.org/CodeSystem/claiminformationcategory",
+"code": "SIGNPOSTED_FROM"
+}
+]
+},
+"code": {
+"coding": [
+{
+"system": "http://terminology.hl7.org/CodeSystem/signposted-from",
+"code": "{{SIGNPOSTED_FROM}}"
+}
+],
+"text": "{{SIGNPOSTED_FROM_OTHER}}"
+}
+},
+{
+"sequence": 15,
+"category": {
+"coding": [
+{
+"system": "http://terminology.hl7.org/CodeSystem/claiminformationcategory",
+"code": "SELF_REFERRAL_FROM"
+}
+]
+},
+"code": {
+"coding": [
+{
+"system": "http://terminology.hl7.org/CodeSystem/self-referral-from",
+"code": "{{SELF_REFERRAL_FROM}}"
+}
+],
+"text": "{{SELF_REFERRAL_FROM_OTHER}}"
+}
+},
+{
+"sequence": 16,
+"category": {
+"coding": [
+{
+"system": "http://terminology.hl7.org/CodeSystem/claiminformationcategory",
+"code": "REFERRER_CONTACT_DETAILS"
+}
+]
+},
+"valueString": "{{REFERRER_CONTACT_DETAILS}}"
+},
+{
+"sequence": 17,
+"category": {
+"coding": [
+{
+"system": "http://terminology.hl7.org/CodeSystem/claiminformationcategory",
+"code": "CCS_PRESENTING_COMPLAINT_OR_ISSUE"
+}
+]
+},
+"code": {
+"coding": [
+{
+"system": "http://terminology.hl7.org/CodeSystem/ccs-presenting-complaint-or-issue",
+"code": "{{CCS_PRESENTING_COMPLAINT_OR_ISSUE}}"
+}
+]
+}
+},
+{
+"sequence": 18,
+"category": {
+"coding": [
+{
+"system": "http://terminology.hl7.org/CodeSystem/claiminformationcategory",
+"code": "PROFESSIONAL_IDENTIFIER"
+}
+]
+},
+"valueString": "{{PROFESSIONAL_IDENTIFIER}}"
+},
+{
+"sequence": 19,
+"category": {
+"coding": [
+{
+"system": "http://terminology.hl7.org/CodeSystem/claiminformationcategory",
+"code": "CCS_NO_SUPPLY_REASON"
+}
+]
+},
+"code": {
+"coding": [
+{
+"system": "http://terminology.hl7.org/CodeSystem/ccs-no-supply-reason",
+"code": "{{CCS_NO_SUPPLY_REASON}}"
+}
+],
+"text": "{{CCS_NO_SUPPLY_REASON_OTHER}}"
+}
+},
+{
+"sequence": 20,
+"category": {
+"coding": [
+{
+"system": "http://terminology.hl7.org/CodeSystem/claiminformationcategory",
+"code": "CCS_CRITERIA_NOT_MET_REASON"
+}
+]
+},
+"valueString": "{{CCS_CRITERIA_NOT_MET_REASON}}"
+},
+{
+"sequence": 21,
+"category": {
+"coding": [
+{
+"system": "http://terminology.hl7.org/CodeSystem/claiminformationcategory",
+"code": "CCS_EXCLUDED_REASON"
+}
+]
+},
+"valueString": "{{CCS_EXCLUDED_REASON}}"
+},
+{
+"sequence": 22,
+"category": {
+"coding": [
+{
+"system": "http://terminology.hl7.org/CodeSystem/claiminformationcategory",
+"code": "CCS_NO_CONSENT_REASON"
+}
+]
+},
+"valueString": "{{CCS_NO_CONSENT_REASON}}"
+},
+{
+"sequence": 23,
+"category": {
+"coding": [
+{
+"system": "http://terminology.hl7.org/CodeSystem/claiminformationcategory",
+"code": "PRESCRIPTION_EXEMPT"
+}
+]
+},
+"valueString": "{{PRESCRIPTION_EXEMPT}}"
+},
+{
+"sequence": 24,
+"category": {
+"coding": [
+{
+"system": "http://terminology.hl7.org/CodeSystem/claiminformationcategory",
+"code": "URGENCY_OF_REFERRAL"
+}
+]
+},
+"code": {
+"coding": [
+{
+"system": "http://terminology.hl7.org/CodeSystem/urgency-of-referral",
+"code": "{{URGENCY_OF_REFERRAL}}"
+}
+]
+}
+},
+{
+"sequence": 25,
+"category": {
+"coding": [
+{
+"system": "http://terminology.hl7.org/CodeSystem/claiminformationcategory",
+"code": "ASSESSMENT_DATE"
+}
+]
+},
+"timingDate": "{{ASSESSMENT_DATE}}"
+}
+]
+}
+Other potential responses:
+400 – Bad Request (unparseable or other major issue).
+Contains a JSON representation of an OperationOutcome resource in the body of the response:
+{
+"resourceType": "OperationOutcome",
+"issue": [
+{
+"severity": "error",
+"code": "processing",
+"diagnostics": "Failed to parse request body as JSON resource. Error was: Invalid attribute value \"\":
+Attribute values must not be empty (\"\")"
+}
+]
+}
+422 – Unprocessable Entity (json parseable but not conformant).
+Contains a JSON representation of an OperationOutcome resource in the body of the response.
+This can be responded also:
+if the organization has not accepted CPCS declaration.
+if the monthly submission is already done.
+if the billing period is out of the allowed range.
+if DEPOSIT_ID already exists (as it should be unique)
+{
+"resourceType": "OperationOutcome",
+"issue": [
+{
+"severity": "error",
+"code": "invalid",
+"diagnostics": "Patient address line 1 is mandatory"
+},
+{
+"severity": "error",
+"code": "invalid",
+"diagnostics": "patientAddressLine1 must not be blank"
+},
+{
+"severity": "error",
+"code": "invalid",
+"diagnostics": "patientAddressLine1 size must be between 1 and 255"
+},
+{
+"severity": "error",
+"code": "invalid",
+"details": {
+"coding": [
+{
+"system": "https://fhir.nhsbsa.nhs.uk/Id/CustomIssueType",
+"code": "MSG_DUPLICATE_DEPOSIT_ID",
+"display": "DEPOSIT_ID already exists"
+}
+]
+},
+"diagnostics": "Api client id PEM-4-SPID-12345678 already exists"
+}
+]
+}
+500 – Unexpected error.
+Contains a JSON representation of an OperationOutcome resource in the body of the response:
+{
+"resourceType": "OperationOutcome",
+"issue": [
+{
+"severity": "error",
+"code": "processing",
+"diagnostics": "Unexpected exception"
+}
+]
+}
+Developer Guide to Pharmacy Claim Amendments
+Step 1: Gather your materials
+You will need the data described in section Developer Guide to Pharmacy Claim Create.
+Apart from that the additional data needed:
+Property Description
+CLAIM_ID Id of the claim in NHSBSA. Generated when the record is saved. Included in the response of POST (create).
+Step 2: Prepare the Claim JSON
+In the example below, some of the details of the patient were changed and the resource is sent with the updated details .
+{
+"resourceType": "Claim",
+"id": "{{CLAIM_ID}}",
+"meta": {
+"profile": [
+"{{MESSAGE_PROFILE}}"
+]
+},
+"contained": [
+{
+"resourceType": "PractitionerRole",
+"id" : "5412c16e-d9e7-46ea-86cb-65fcdc19fcdb",
+"code": [
+{
+"coding": [
+{
+"system": "http://snomed.info/sct",
+"code": "{{PROFESSIONAL_ROLE}}"
+}
+]
+}
+]
+},
+{
+"resourceType": "Organization",
+"id": "308d7201-ed47-4360-ac5b-0d523001c6d5",
+"meta": {
+"profile": [
+"http://hl7.org/fhir/StructureDefinition/Organization"
+]
+},
+"identifier": [
+{
+"system": "https://fhir.nhs.uk/Id/ods-organization-code",
+"value": "{{CLAIMANT_ODS}}"
+}
+]
+},
+{
+"resourceType": "Organization",
+"id": "6306ddeb-ad11-43fc-b6ed-de47dfc9e0ef",
+"meta": {
+"profile": [
+"http://hl7.org/fhir/StructureDefinition/Organization"
+]
+},
+"identifier": [
+{
+"system": "https://fhir.nhs.uk/Id/ods-organization-code",
+"value": "{{PATIENT_GPODS}}"
+}
+],
+"name": "{{PATIENT_GPPRACTICE}}",
+"address": [
+{
+"line": [
+"{{ PATIENT_GPADDRESS }}"
+],
+"postalCode": "{{PATIENT_GPPOSTCODE}}"
+}
+]
+},
+{
+"resourceType": "Patient",
+"id": "4812c16e-d9e7-46ea-86cb-65fcdc19faab",
+"meta": {
+"profile": [
+"http://hl7.org/fhir/StructureDefinition/Patient"
+]
+},
+"identifier": [
+{
+"system": "https://fhir.nhs.uk/Id/nhs-number",
+"value": "{{PATIENT_NHSNO}}"
+}
+],
+"name": [
+{
+"use": "official",
+"family": "{{PATIENT_FAMILY}}",
+"given": [
+"{{PATIENT_GIVEN}}"
+]
+}
+],
+"birthDate": "{{PATIENT_DOB}}",
+"gender": "{{PATIENT_GENDER}}",
+"address": [
+{
+"use": "home",
+"line": [
+"{{ PATIENT_ADDRESS }}"
+],
+"postalCode": "{{PATIENT_POSTCODE}}"
+}
+],
+"generalPractitioner": [
+{
+"reference": "#6306ddeb-ad11-43fc-b6ed-de47dfc9e0ef"
+}
+]
+},
+{
+"resourceType": "ServiceRequest",
+"id": "75a9f2ad-fdaf-4661-a7ce-f1098547d322",
+"meta": {
+"profile": [
+"https://fhir.nhsbsa.nhs.uk/StructureDefinition/ServiceRequest"
+]
+},
+"identifier": [
+{
+"system": "https://fhir.nhsbsa.nhs.uk/Id/UrgentCareReference",
+"value": "{{REFERRAL_REFERENCE}}"
+}
+],
+"locationCode":{
+"coding":[
+{
+"system":"https://fhir.nhs.uk/Id/ods-organization-code",
+"code":"{{REFERRER_ORG_ODS}}"
+}
+]
+}
+},
+{
+"resourceType": "MedicationDispense",
+"id": "1",
+"meta": {
+"profile": [
+"http://hl7.org/fhir/StructureDefinition/MedicationDispense"
+]
+},
+"status": "cancelled",
+"medicationCodeableConcept": {
+"coding": [
+{
+"system": "http://snomed.info/sct",
+"code": "{{DRUG_CODE1}}",
+"display": "{{DRUG_DESC1}}"
+}
+]
+},
+"statusReasonCodeableConcept": {
+"coding": [{
+"system": "https://fhir.nhsbsa.nhs.uk/StructureDefinition/Extension-NoSupplyType",
+"code": "{{NO_SUPPLY_REASON}}",
+"display": "Patient/Patient's representative did not make contact "
+}],
+"text" : "{{OTHER_NO_SUPPLY_REASON}}"
+}
+},
+{
+"resourceType": "MedicationDispense",
+"id": "2",
+"meta": {
+"profile": [
+"http://hl7.org/fhir/StructureDefinition/MedicationDispense"
+]
+},
+"status": "completed",
+"contained":[
+{
+"resourceType": "ServiceRequest",
+"id": "supplyRequest1",
+"meta": {
+"profile": [
+"https://fhir.nhsbsa.nhs.uk/StructureDefinition/ServiceRequest"
+]
+},
+"reasonCode" : [{
+"coding": [
+{
+"system": "http://terminology.hl7.org/CodeSystem/medication-supply-request-reasons",
+"code": "{{SUPPLY_REQUEST_REASON}}"
+}
+],
+"text": "{{OTHER_SUPPLY_REQUEST_REASON}}"
+}]
+}
+],
+"medicationCodeableConcept": {
+"coding": [
+{
+"system": "http://snomed.info/sct",
+"code": "{{DRUG_CODE}}",
+"display": "{{DRUG_DESC}}"
+}
+]
+},
+"quantity": {
+"value": "{{DRUG_QTY}}",
+"unit": "{{DRUG_UNIT}}",
+"system": "http://unitsofmeasure.org"
+},
+"whenHandedOver": "{{PROVISION_DATE}}",
+"type": {
+"coding": [
+{
+"system": "http://terminology.hl7.org/CodeSystem/medication-supply-type",
+"code": "{{MEDICATION_SUPPLY_TYPE}}"
+}
+]
+},
+"supportingInformation" : [
+{
+"reference": "#supplyRequest1"
+}
+]
+}
+],
+"extension": [
+{
+"url": "https://fhir.nhsbsa.nhs.uk/StructureDefinition/Extension-ExemptionType",
+"valueCodeableConcept": {
+"coding": [
+{
+"system": "https://fhir.nhsbsa.nhs.uk/Id/ExemptionType",
+"code": "F",
+"display": "Prescription pre-payment certificate (PPC)"
+}
+]
+}
+},
+{
+"url": "https://fhir.nhsbsa.nhs.uk/StructureDefinition/Extension-MedicationDispense",
+"valueReference": {
+"reference": "#b782e4e8-3901-464a-a3dc-2c286c0a6964"
+}
+},
+{
+"url": "https://fhir.nhsbsa.nhs.uk/StructureDefinition/Extension-MedicationDispense",
+"valueReference": {
+"reference": "#79345ce6-afb3-4929-b76c-6c7993ff4f4b"
+}
+},
+{
+"url": "https://fhir.nhsbsa.nhs.uk/StructureDefinition/Extension-EthnicityType",
+"valueCodeableConcept": {
+"coding": [
+{
+"system": "https://fhir.nhsbsa.nhs.uk/Id/EthnicityType",
+"code": "{{ETHNICITY_CODE}}",
+"display": "{{ETHNICITY_DISPLAY}}"
+}
+]
+}
+}
+],
+"type": {
+"coding": [
+{
+"system": "https://fhir.nhsbsa.nhs.uk/Id/CpcsType",
+"code": "{{CLAIM_TYPE_CODE}}",
+"display": "{{CLAIM_TYPE_DESC}}"
+}
+]
+},
+"identifier": [
+{
+"system": "https://fhir.nhsbsa.nhs.uk/Id/CpcsClientReference",
+"value": "{{DEPOSIT_ID}}"
+}
+],
+"patient": {
+"reference": "#4812c16e-d9e7-46ea-86cb-65fcdc19faab"
+},
+"provider": {
+"reference": "#308d7201-ed47-4360-ac5b-0d523001c6d5"
+},
+"referral": {
+"reference": "#75a9f2ad-fdaf-4661-a7ce-f1098547d322"
+},
+"billablePeriod": {
+"start": "{{CLAIM_MONTH_START}}"
+},
+"created": "{{DATE_RECORDED}}",
+"facility": {
+"type": "Location",
+"identifier": {
+"system": "https://fhir.nhs.uk/Id/ods-organization-code",
+"value": "{{VACCINATION_SITE_ODS}}"
+}
+},
+"careTeam" : [{
+"sequence" : 1,
+"provider" : {
+"reference" : "#5412c16e-d9e7-46ea-86cb-65fcdc19fcdb"
+}
+}],
+"supportingInfo":[
+{
+"sequence": 1,
+"category": {
+"coding": [
+{
+"system": "http://terminology.hl7.org/CodeSystem/claiminformationcategory",
+"code": "DOSE_NUMBER"
+}
+]
+},
+"valueString": "{{1,2,3…}}"
+},
+{
+"sequence": 2,
+"category": {
+"coding": [
+{
+"system": "http://terminology.hl7.org/CodeSystem/claiminformationcategory",
+"code": "TREATMENT_SUPPLEMENT"
+}
+]
+},
+"valueString": "{{CARE_HOME,HOME_BOUND,OTHER_RESIDENTIAL}}"
+},
+{
+"sequence": 3,
+"category": {
+"coding": [
+{
+"system": "http://terminology.hl7.org/CodeSystem/claiminformationcategory",
+"code": "PROCEDURE_CODE"
+}
+]
+},
+"valueString": "{{PROCEDURE_CODE}}"
+},
+{
+"sequence": 4,
+"category": {
+"coding": [
+{
+"system": "http://terminology.hl7.org/CodeSystem/claiminformationcategory",
+"code": "REFERRER_ORG_TYPE"
+}
+]
+},
+"code": {
+"coding": [
+{
+"system": "http://terminology.hl7.org/CodeSystem/referrer-organisation-type",
+"code": "{{REFERRER_ORG_TYPE}}"
+}
+],
+"text": "{{REFERRER_ORG_TYPE_OTHER}}"
+}
+},
+{
+"sequence": 5,
+"category": {
+"coding": [
+{
+"system": "http://terminology.hl7.org/CodeSystem/claiminformationcategory",
+"code": "DISPOSITION_CODE"
+}
+]
+},
+"valueString": "{{DISPOSITION_CODE}}"
+},
+{
+"sequence": 6,
+"category": {
+"coding": [
+{
+"system": "http://terminology.hl7.org/CodeSystem/claiminformationcategory",
+"code": "CONSULTATION_METHOD"
+}
+]
+},
+"code": {
+"coding": [
+{
+"system": "http://terminology.hl7.org/CodeSystem/consultation-method",
+"code": "{{CONSULTATION_METHOD}}"
+}
+]
+}
+},
+{
+"sequence": 7,
+"category": {
+"coding": [
+{
+"system": "http://terminology.hl7.org/CodeSystem/claiminformationcategory",
+"code": "CONSULTATION_OUTCOME"
+}
+]
+},
+"code": {
+"coding": [
+{
+"system": "http://terminology.hl7.org/CodeSystem/consultation-outcome",
+"code": "{{CONSULTATION_OUTCOME}}"
+}
+],
+"text": "{{OTHER_CONSULTATION_OUTCOME}}"
+}
+},
+{
+"sequence": 8,
+"category": {
+"coding": [
+{
+"system": "http://terminology.hl7.org/CodeSystem/claiminformationcategory",
+"code": "REFERRED_TO_ROUTINE"
+}
+]
+},
+"code": {
+"coding": [
+{
+"system": "http://terminology.hl7.org/CodeSystem/referred-to-routine",
+"code": "{{REFERRED_TO_ROUTINE}}"
+}
+],
+"text": "{{OTHER_REFERRED_TO_ROUTINE}}"
+}
+},
+{
+"sequence": 9,
+"category": {
+"coding": [
+{
+"system": "http://terminology.hl7.org/CodeSystem/claiminformationcategory",
+"code": "REFERRED_TO_URGENT"
+}
+]
+},
+"code": {
+"coding": [
+{
+"system": "http://terminology.hl7.org/CodeSystem/referred-to-urgent",
+"code": "{{REFERRED_TO_URGENT}}"
+}
+],
+"text": "{{REFERRED_TO_URGENT_OTHER}}"
+}
+},
+{
+"sequence": 10,
+"category": {
+"coding": [
+{
+"system": "http://terminology.hl7.org/CodeSystem/claiminformationcategory",
+"code": "PRESENTING_COMPLAINT_OR_ISSUES"
+}
+]
+},
+"valueString": "{{PRESENTING_COMPLAINT_OR_ISSUES}}"
+},
+{
+"sequence": 11,
+"category": {
+"coding": [
+{
+"system": "http://terminology.hl7.org/CodeSystem/claiminformationcategory",
+"code": "ONWARD_REFERRAL_REASON"
+}
+]
+},
+"valueString": "{{ONWARD_REFERRAL_REASON}}"
+},
+{
+"sequence": 12,
+"category": {
+"coding": [
+{
+"system": "http://terminology.hl7.org/CodeSystem/claiminformationcategory",
+"code": "REFERRED_ODS"
+}
+]
+},
+"valueString": "{{REFERRED_ODS}}"
+},
+{
+"sequence": 13,
+"category": {
+"coding": [
+{
+"system": "http://terminology.hl7.org/CodeSystem/claiminformationcategory",
+"code": "ONWARD_REFERRAL_DATE"
+}
+]
+},
+"timingDate": "{{ONWARD_REFERRAL_DATE}}"
+},
+{
+"sequence": 14,
+"category": {
+"coding": [
+{
+"system": "http://terminology.hl7.org/CodeSystem/claiminformationcategory",
+"code": "SIGNPOSTED_FROM"
+}
+]
+},
+"code": {
+"coding": [
+{
+"system": "http://terminology.hl7.org/CodeSystem/signposted-from",
+"code": "{{SIGNPOSTED_FROM}}"
+}
+],
+"text": "{{SIGNPOSTED_FROM_OTHER}}"
+}
+},
+{
+"sequence": 15,
+"category": {
+"coding": [
+{
+"system": "http://terminology.hl7.org/CodeSystem/claiminformationcategory",
+"code": "SELF_REFERRAL_FROM"
+}
+]
+},
+"code": {
+"coding": [
+{
+"system": "http://terminology.hl7.org/CodeSystem/self-referral-from",
+"code": "{{SELF_REFERRAL_FROM}}"
+}
+],
+"text": "{{SELF_REFERRAL_FROM_OTHER}}"
+}
+},
+{
+"sequence": 16,
+"category": {
+"coding": [
+{
+"system": "http://terminology.hl7.org/CodeSystem/claiminformationcategory",
+"code": "REFERRER_CONTACT_DETAILS"
+}
+]
+},
+"valueString": "{{REFERRER_CONTACT_DETAILS}}"
+},
+{
+"sequence": 17,
+"category": {
+"coding": [
+{
+"system": "http://terminology.hl7.org/CodeSystem/claiminformationcategory",
+"code": "CCS_PRESENTING_COMPLAINT_OR_ISSUE"
+}
+]
+},
+"code": {
+"coding": [
+{
+"system": "http://terminology.hl7.org/CodeSystem/ccs-presenting-complaint-or-issue",
+"code": "{{CCS_PRESENTING_COMPLAINT_OR_ISSUE}}"
+}
+]
+}
+},
+{
+"sequence": 18,
+"category": {
+"coding": [
+{
+"system": "http://terminology.hl7.org/CodeSystem/claiminformationcategory",
+"code": "PROFESSIONAL_IDENTIFIER"
+}
+]
+},
+"valueString": "{{PROFESSIONAL_IDENTIFIER}}"
+},
+{
+"sequence": 19,
+"category": {
+"coding": [
+{
+"system": "http://terminology.hl7.org/CodeSystem/claiminformationcategory",
+"code": "CCS_NO_SUPPLY_REASON"
+}
+]
+},
+"code": {
+"coding": [
+{
+"system": "http://terminology.hl7.org/CodeSystem/ccs-no-supply-reason",
+"code": "{{CCS_NO_SUPPLY_REASON}}"
+}
+],
+"text": "{{CCS_NO_SUPPLY_REASON_OTHER}}"
+}
+},
+{
+"sequence": 20,
+"category": {
+"coding": [
+{
+"system": "http://terminology.hl7.org/CodeSystem/claiminformationcategory",
+"code": "CCS_CRITERIA_NOT_MET_REASON"
+}
+]
+},
+"valueString": "{{CCS_CRITERIA_NOT_MET_REASON}}"
+},
+{
+"sequence": 21,
+"category": {
+"coding": [
+{
+"system": "http://terminology.hl7.org/CodeSystem/claiminformationcategory",
+"code": "CCS_EXCLUDED_REASON"
+}
+]
+},
+"valueString": "{{CCS_EXCLUDED_REASON}}"
+},
+{
+"sequence": 22,
+"category": {
+"coding": [
+{
+"system": "http://terminology.hl7.org/CodeSystem/claiminformationcategory",
+"code": "CCS_NO_CONSENT_REASON"
+}
+]
+},
+"valueString": "{{CCS_NO_CONSENT_REASON}}"
+},
+{
+"sequence": 23,
+"category": {
+"coding": [
+{
+"system": "http://terminology.hl7.org/CodeSystem/claiminformationcategory",
+"code": "PRESCRIPTION_EXEMPT"
+}
+]
+},
+"valueString": "{{PRESCRIPTION_EXEMPT}}"
+},
+{
+"sequence": 24,
+"category": {
+"coding": [
+{
+"system": "http://terminology.hl7.org/CodeSystem/claiminformationcategory",
+"code": "URGENCY_OF_REFERRAL"
+}
+]
+},
+"code": {
+"coding": [
+{
+"system": "http://terminology.hl7.org/CodeSystem/urgency-of-referral",
+"code": "{{URGENCY_OF_REFERRAL}}"
+}
+]
+}
+},
+{
+"sequence": 25,
+"category": {
+"coding": [
+{
+"system": "http://terminology.hl7.org/CodeSystem/claiminformationcategory",
+"code": "ASSESSMENT_DATE"
+}
+]
+},
+"timingDate": "{{ASSESSMENT_DATE}}"
+}
+]
+}
+Step 3: Send the Update Claim Message
+You can now prepare and make a PUT call to the NHSBSA API with the following pattern.
+Note: This is not an ITK3 message, so there is no Bundle or Message Header required.
+Type Description
+URL https://stg.services.nhsbsa.nhs.uk/pharmacy-cpcs-api/resources/Claim/{{CLAIM_ID}}
+Http Headers Content-Type: application/json, Accept: application/json, Cache-Control: no-cache
+Body JSON representation prepared in Step 2 above
+Step 4: Receive your response
+A successful response will be sent synchronously within 30 seconds [DN: To check] with an http code 200 (OK) and contain a JSON
+representation of the updated object in the body of the response:
+{
+"resourceType": "Claim",
+"id": "{{CLAIM_ID}}",
+"meta": {
+"profile": [
+"{{MESSAGE_PROFILE}}"
+]
+},
+"contained": [
+{
+"resourceType": "PractitionerRole",
+"id": "5412c16e-d9e7-46ea-86cb-65fcdc19fcdb",
+"code": [
+{
+"coding": [
+{
+"system": "http://snomed.info/sct",
+"code": "{{PROFESSIONAL_ROLE}}"
+}
+]
+}
+]
+},
+{
+"resourceType": "MedicationDispense",
+"id": "1",
+"meta": {
+"profile": [
+"http://hl7.org/fhir/StructureDefinition/MedicationDispense"
+]
+},
+"status": "cancelled",
+"medicationCodeableConcept": {
+"coding": [
+{
+"system": "http://snomed.info/sct",
+"code": "{{DRUG_CODE1}}",
+"display": "{{DRUG_DESC1}}"
+}
+]
+},
+"statusReasonCodeableConcept": {
+"coding": [
+{
+"system": "https://fhir.nhsbsa.nhs.uk/StructureDefinition/Extension-NoSupplyType",
+"code": "{{NO_SUPPLY_REASON}}",
+"display": "Patient/Patient's representative did not make contact "
+}
+],
+"text": "{{OTHER_NO_SUPPLY_REASON}}"
+}
+},
+{
+"resourceType": "MedicationDispense",
+"id": "2",
+"meta": {
+"profile": [
+"http://hl7.org/fhir/StructureDefinition/MedicationDispense"
+]
+},
+"status": "completed",
+"contained": [
+{
+"resourceType": "ServiceRequest",
+"id": "supplyRequest1",
+"meta": {
+"profile": [
+"https://fhir.nhsbsa.nhs.uk/StructureDefinition/ServiceRequest"
+]
+},
+"reasonCode": [
+{
+"coding": [
+{
+"system": "http://terminology.hl7.org/CodeSystem/medication-supply-request-reasons",
+"code": "{{SUPPLY_REQUEST_REASON}}"
+}
+],
+"text": "{{OTHER_SUPPLY_REQUEST_REASON}}"
+}
+]
+}
+],
+"medicationCodeableConcept": {
+"coding": [
+{
+"system": "http://snomed.info/sct",
+"code": "{{DRUG_CODE}}",
+"display": "{{DRUG_DESC}}"
+}
+]
+},
+"quantity": {
+"value": "{{DRUG_QTY}}",
+"unit": "{{DRUG_UNIT}}",
+"system": "http://unitsofmeasure.org"
+},
+"whenHandedOver": "{{PROVISION_DATE}}",
+"type": {
+"coding": [
+{
+"system": "http://terminology.hl7.org/CodeSystem/medication-supply-type",
+"code": "{{MEDICATION_SUPPLY_TYPE}}"
+}
+]
+},
+"supportingInformation": [
+{
+"reference": "#supplyRequest1"
+}
+]
+},
+{
+"resourceType": "Patient",
+"id": "3",
+"meta": {
+"profile": [
+"http://hl7.org/fhir/StructureDefinition/Patient"
+]
+},
+"identifier": [
+{
+"system": "https://fhir.nhs.uk/Id/nhs-number",
+"value": "{{PATIENT_NHSNO}}"
+}
+],
+"name": [
+{
+"use": "official",
+"family": "{{PATIENT_FAMILY}}",
+"given": [
+"{{PATIENT_GIVEN}}"
+]
+}
+],
+"birthDate": "{{PATIENT_DOB}}",
+"gender": "{{PATIENT_GENDER}}",
+"address": [
+{
+"use": "home",
+"line": [
+"{{ PATIENT_ADDRESS }}"
+],
+"postalCode": "{{PATIENT_POSTCODE}}"
+}
+],
+"generalPractitioner": [
+{
+"reference": "#4"
+}
+]
+},
+{
+"resourceType": "Organization",
+"id": "4",
+"meta": {
+"profile": [
+"http://hl7.org/fhir/StructureDefinition/Organization"
+]
+},
+"identifier": [
+{
+"system": "https://fhir.nhs.uk/Id/ods-organization-code",
+"value": "{{PATIENT_GPODS}}"
+}
+],
+"name": "{{PATIENT_GPPRACTICE}}",
+"address": [
+{
+"line": [
+"{{ PATIENT_GPADDRESS }}"
+],
+"postalCode": "{{PATIENT_GPPOSTCODE}}"
+}
+]
+},
+{
+"resourceType": "Organization",
+"id": "5",
+"meta": {
+"profile": [
+"http://hl7.org/fhir/StructureDefinition/Organization"
+]
+},
+"identifier": [
+{
+"system": "https://fhir.nhs.uk/Id/ods-organization-code",
+"value": "{{CLAIMANT_ODS}}"
+}
+]
+},
+{
+"resourceType": "ServiceRequest",
+"id": "6",
+"meta": {
+"profile": [
+"https://fhir.nhsbsa.nhs.uk/StructureDefinition/ServiceRequest"
+]
+},
+"identifier": [
+{
+"system": "https://fhir.nhsbsa.nhs.uk/Id/UrgentCareReference",
+"value": "{{REFERRAL_REFERENCE}}"
+}
+],
+"locationCode": {
+"coding": [
+{
+"system": "https://fhir.nhs.uk/Id/ods-organization-code",
+"code": "{{REFERRER_ORG_ODS}}"
+}
+]
+}
+}
+],
+"extension": [
+{
+"url": "https://fhir.nhsbsa.nhs.uk/StructureDefinition/Extension-ExemptionType",
+"valueCodeableConcept": {
+"coding": [
+{
+"system": "https://fhir.nhsbsa.nhs.uk/Id/ExemptionType",
+"code": "{{PATIENT_EXEMPT_CODE}}",
+"display": "{{PATIENT_EXEMPT_DISPLAY}}"
+}
+]
+}
+},
+{
+"url": "https://fhir.nhsbsa.nhs.uk/StructureDefinition/Extension-MedicationDispense",
+"valueReference": {
+"reference": "#1"
+}
+},
+{
+"url": "https://fhir.nhsbsa.nhs.uk/StructureDefinition/Extension-MedicationDispense",
+"valueReference": {
+"reference": "#2"
+}
+},
+{
+"url": "https://fhir.nhsbsa.nhs.uk/StructureDefinition/Extension-EthnicityType",
+"valueCodeableConcept": {
+"coding": [
+{
+"system": "https://fhir.nhsbsa.nhs.uk/Id/EthnicityType",
+"code": "{{ETHNICITY_CODE}}",
+"display": "{{ETHNICITY_DISPLAY}}"
+}
+]
+}
+}
+],
+"identifier": [
+{
+"system": "https://fhir.nhsbsa.nhs.uk/Id/CpcsClientReference",
+"value": "{{DEPOSIT_ID}}"
+}
+],
+"type": {
+"coding": [
+{
+"system": "https://fhir.nhsbsa.nhs.uk/Id/CpcsType",
+"code": "{{CLAIM_TYPE_CODE}}",
+"display": "{{CLAIM_TYPE_DESC}}"
+}
+]
+},
+"patient": {
+"reference": "#3"
+},
+"billablePeriod": {
+"start": "{{CLAIM_MONTH_START}}"
+},
+"created": "{{DATE_RECORDED}}",
+"provider": {
+"reference": "#5"
+},
+"referral": {
+"reference": "#6"
+},
+"facility": {
+"type": "Location",
+"identifier": {
+"system": "https://fhir.nhs.uk/Id/ods-organization-code",
+"value": "{{VACCINATION_SITE_ODS}}"
+}
+},
+"careTeam": [
+{
+"sequence": 1,
+"provider": {
+"reference": "#5412c16e-d9e7-46ea-86cb-65fcdc19fcdb"
+}
+}
+],
+"supportingInfo": [
+{
+"sequence": 1,
+"category": {
+"coding": [
+{
+"system": "http://terminology.hl7.org/CodeSystem/claiminformationcategory",
+"code": "DOSE_NUMBER"
+}
+]
+},
+"valueString": "{{1,2,3…}}"
+},
+{
+"sequence": 2,
+"category": {
+"coding": [
+{
+"system": "http://terminology.hl7.org/CodeSystem/claiminformationcategory",
+"code": "TREATMENT_SUPPLEMENT"
+}
+]
+},
+"valueString": "{{CARE_HOME,HOME_BOUND,OTHER_RESIDENTIAL}}"
+},
+{
+"sequence": 3,
+"category": {
+"coding": [
+{
+"system": "http://terminology.hl7.org/CodeSystem/claiminformationcategory",
+"code": "PROCEDURE_CODE"
+}
+]
+},
+"valueString": "{{PROCEDURE_CODE}}"
+},
+{
+"sequence": 4,
+"category": {
+"coding": [
+{
+"system": "http://terminology.hl7.org/CodeSystem/claiminformationcategory",
+"code": "REFERRER_ORG_TYPE"
+}
+]
+},
+"code": {
+"coding": [
+{
+"system": "http://terminology.hl7.org/CodeSystem/referrer-organisation-type",
+"code": "{{REFERRER_ORG_TYPE}}"
+}
+],
+"text": "{{REFERRER_ORG_TYPE_OTHER}}"
+}
+},
+{
+"sequence": 5,
+"category": {
+"coding": [
+{
+"system": "http://terminology.hl7.org/CodeSystem/claiminformationcategory",
+"code": "DISPOSITION_CODE"
+}
+]
+},
+"valueString": "{{DISPOSITION_CODE}}"
+},
+{
+"sequence": 6,
+"category": {
+"coding": [
+{
+"system": "http://terminology.hl7.org/CodeSystem/claiminformationcategory",
+"code": "CONSULTATION_METHOD"
+}
+]
+},
+"code": {
+"coding": [
+{
+"system": "http://terminology.hl7.org/CodeSystem/consultation-method",
+"code": "{{CONSULTATION_METHOD}}"
+}
+]
+}
+},
+{
+"sequence": 7,
+"category": {
+"coding": [
+{
+"system": "http://terminology.hl7.org/CodeSystem/claiminformationcategory",
+"code": "CONSULTATION_OUTCOME"
+}
+]
+},
+"code": {
+"coding": [
+{
+"system": "http://terminology.hl7.org/CodeSystem/consultation-outcome",
+"code": "{{CONSULTATION_OUTCOME}}"
+}
+],
+"text": "{{OTHER_CONSULTATION_OUTCOME}}"
+}
+},
+{
+"sequence": 8,
+"category": {
+"coding": [
+{
+"system": "http://terminology.hl7.org/CodeSystem/claiminformationcategory",
+"code": "REFERRED_TO_ROUTINE"
+}
+]
+},
+"code": {
+"coding": [
+{
+"system": "http://terminology.hl7.org/CodeSystem/referred-to-routine",
+"code": "{{REFERRED_TO_ROUTINE}}"
+}
+],
+"text": "{{OTHER_REFERRED_TO_ROUTINE}}"
+}
+},
+{
+"sequence": 9,
+"category": {
+"coding": [
+{
+"system": "http://terminology.hl7.org/CodeSystem/claiminformationcategory",
+"code": "REFERRED_TO_URGENT"
+}
+]
+},
+"code": {
+"coding": [
+{
+"system": "http://terminology.hl7.org/CodeSystem/referred-to-urgent",
+"code": "{{REFERRED_TO_URGENT}}"
+}
+],
+"text": "{{REFERRED_TO_URGENT_OTHER}}"
+}
+},
+{
+"sequence": 10,
+"category": {
+"coding": [
+{
+"system": "http://terminology.hl7.org/CodeSystem/claiminformationcategory",
+"code": "PRESENTING_COMPLAINT_OR_ISSUES"
+}
+]
+},
+"valueString": "{{PRESENTING_COMPLAINT_OR_ISSUES}}"
+},
+{
+"sequence": 11,
+"category": {
+"coding": [
+{
+"system": "http://terminology.hl7.org/CodeSystem/claiminformationcategory",
+"code": "ONWARD_REFERRAL_REASON"
+}
+]
+},
+"valueString": "{{ONWARD_REFERRAL_REASON}}"
+},
+{
+"sequence": 12,
+"category": {
+"coding": [
+{
+"system": "http://terminology.hl7.org/CodeSystem/claiminformationcategory",
+"code": "REFERRED_ODS"
+}
+]
+},
+"valueString": "{{REFERRED_ODS}}"
+},
+{
+"sequence": 13,
+"category": {
+"coding": [
+{
+"system": "http://terminology.hl7.org/CodeSystem/claiminformationcategory",
+"code": "ONWARD_REFERRAL_DATE"
+}
+]
+},
+"timingDate": "{{ONWARD_REFERRAL_DATE}}"
+},
+{
+"sequence": 14,
+"category": {
+"coding": [
+{
+"system": "http://terminology.hl7.org/CodeSystem/claiminformationcategory",
+"code": "SIGNPOSTED_FROM"
+}
+]
+},
+"code": {
+"coding": [
+{
+"system": "http://terminology.hl7.org/CodeSystem/signposted-from",
+"code": "{{SIGNPOSTED_FROM}}"
+}
+],
+"text": "{{SIGNPOSTED_FROM_OTHER}}"
+}
+},
+{
+"sequence": 15,
+"category": {
+"coding": [
+{
+"system": "http://terminology.hl7.org/CodeSystem/claiminformationcategory",
+"code": "SELF_REFERRAL_FROM"
+}
+]
+},
+"code": {
+"coding": [
+{
+"system": "http://terminology.hl7.org/CodeSystem/self-referral-from",
+"code": "{{SELF_REFERRAL_FROM}}"
+}
+],
+"text": "{{SELF_REFERRAL_FROM_OTHER}}"
+}
+},
+{
+"sequence": 16,
+"category": {
+"coding": [
+{
+"system": "http://terminology.hl7.org/CodeSystem/claiminformationcategory",
+"code": "REFERRER_CONTACT_DETAILS"
+}
+]
+},
+"valueString": "{{REFERRER_CONTACT_DETAILS}}"
+},
+{
+"sequence": 17,
+"category": {
+"coding": [
+{
+"system": "http://terminology.hl7.org/CodeSystem/claiminformationcategory",
+"code": "CCS_PRESENTING_COMPLAINT_OR_ISSUE"
+}
+]
+},
+"code": {
+"coding": [
+{
+"system": "http://terminology.hl7.org/CodeSystem/ccs-presenting-complaint-or-issue",
+"code": "{{CCS_PRESENTING_COMPLAINT_OR_ISSUE}}"
+}
+]
+}
+},
+{
+"sequence": 18,
+"category": {
+"coding": [
+{
+"system": "http://terminology.hl7.org/CodeSystem/claiminformationcategory",
+"code": "PROFESSIONAL_IDENTIFIER"
+}
+]
+},
+"valueString": "{{PROFESSIONAL_IDENTIFIER}}"
+},
+{
+"sequence": 19,
+"category": {
+"coding": [
+{
+"system": "http://terminology.hl7.org/CodeSystem/claiminformationcategory",
+"code": "CCS_NO_SUPPLY_REASON"
+}
+]
+},
+"code": {
+"coding": [
+{
+"system": "http://terminology.hl7.org/CodeSystem/ccs-no-supply-reason",
+"code": "{{CCS_NO_SUPPLY_REASON}}"
+}
+],
+"text": "{{CCS_NO_SUPPLY_REASON_OTHER}}"
+}
+},
+{
+"sequence": 20,
+"category": {
+"coding": [
+{
+"system": "http://terminology.hl7.org/CodeSystem/claiminformationcategory",
+"code": "CCS_CRITERIA_NOT_MET_REASON"
+}
+]
+},
+"valueString": "{{CCS_CRITERIA_NOT_MET_REASON}}"
+},
+{
+"sequence": 21,
+"category": {
+"coding": [
+{
+"system": "http://terminology.hl7.org/CodeSystem/claiminformationcategory",
+"code": "CCS_EXCLUDED_REASON"
+}
+]
+},
+"valueString": "{{CCS_EXCLUDED_REASON}}"
+},
+{
+"sequence": 22,
+"category": {
+"coding": [
+{
+"system": "http://terminology.hl7.org/CodeSystem/claiminformationcategory",
+"code": "CCS_NO_CONSENT_REASON"
+}
+]
+},
+"valueString": "{{CCS_NO_CONSENT_REASON}}"
+},
+{
+"sequence": 23,
+"category": {
+"coding": [
+{
+"system": "http://terminology.hl7.org/CodeSystem/claiminformationcategory",
+"code": "PRESCRIPTION_EXEMPT"
+}
+]
+},
+"valueString": "{{PRESCRIPTION_EXEMPT}}"
+},
+{
+"sequence": 24,
+"category": {
+"coding": [
+{
+"system": "http://terminology.hl7.org/CodeSystem/claiminformationcategory",
+"code": "URGENCY_OF_REFERRAL"
+}
+]
+},
+"code": {
+"coding": [
+{
+"system": "http://terminology.hl7.org/CodeSystem/urgency-of-referral",
+"code": "{{URGENCY_OF_REFERRAL}}"
+}
+]
+}
+},
+{
+"sequence": 25,
+"category": {
+"coding": [
+{
+"system": "http://terminology.hl7.org/CodeSystem/claiminformationcategory",
+"code": "ASSESSMENT_DATE"
+}
+]
+},
+"timingDate": "{{ASSESSMENT_DATE}}"
+}
+]
+}
+Other potential responses:
+400 – Bad Request (unparseable or other major issue).
+Contains a JSON representation of an OperationOutcome resource in the body of the response:
+{
+"resourceType": "OperationOutcome",
+"issue": [
+{
+"severity": "error",
+"code": "processing",
+"diagnostics": "Can not update resource, resource body must contain an ID element which matches the request URL
+for update (PUT) operation - Resource body ID of \"32000\" does not match URL ID of \"32\""
+}
+]
+}
+422 – Unprocessable Entity (json parseable but not conformant).
+Contains a JSON representation of an OperationOutcome resource in the body of the response.
+In order to make these 422 error messages more recognizable, the most common messages include detail with the code of the error.
+See: Annex: Detailed Errors
+{
+"resourceType": "OperationOutcome",
+"issue": [
+{
+"severity": "error",
+"code": "invalid",
+"details": {
+"coding": [
+{
+"system": "https://fhir.nhsbsa.nhs.uk/Id/CustomIssueType",
+"code": "MSG_UPDATE_OF_FIELD_NOT_ALLOWED",
+"display": "Value provided is different from the value stored in the database"
+}
+]
+},
+"diagnostics": "Cannot update api client ID"
+},
+{
+"severity": "error",
+"code": "invalid",
+"details": {
+"coding": [
+{
+"system": "https://fhir.nhsbsa.nhs.uk/Id/CustomIssueType",
+"code": "MSG_UPDATE_OF_FIELD_NOT_ALLOWED",
+"display": "Value provided is different from the value stored in the database"
+}
+]
+},
+"diagnostics": "Cannot update billing period"
+},
+{
+"severity": "error",
+"code": "invalid",
+"details": {
+"coding": [
+{
+"system": "https://fhir.nhsbsa.nhs.uk/Id/CustomIssueType",
+"code": "MSG_ID_DEPOSIT_ID_MISMATCH",
+"display": "Api client ID mismatch"
+}
+]
+},
+"diagnostics": "Api client ID mismatch"
+}
+]
+}
+500 – Unexpected error.
+Contains a JSON representation of an OperationOutcome resource in the body of the response:
+{
+"resourceType": "OperationOutcome",
+"issue": [
+{
+"severity": "error",
+"code": "processing",
+"diagnostics": "Unexpected exception"
+}
+]
+}
+Developer Guide to Pharmacy Claim Deletions
+Step 1: Gather your materials
+You will need the data described in section Developer Guide to Pharmacy Claim Create.
+Apart from that the additional data needed:
+Property Description
+CLAIM_ID Id of the claim in NHSBSA. Generated when the record is saved. Included in the response of POST (create).
+Step 2: Prepare the Claim JSON
+In the example below are the details of the claim that needs to be deleted.
+{
+"resourceType": "Claim",
+"id": "{{CLAIM_ID}}",
+"meta": {
+"profile": [
+"{{MESSAGE_PROFILE}}"
+]
+},
+"contained": [
+{
+"resourceType": "PractitionerRole",
+"id": "5412c16e-d9e7-46ea-86cb-65fcdc19fcdb",
+"code": [
+{
+"coding": [
+{
+"system": "http://snomed.info/sct",
+"code": "{{PROFESSIONAL_ROLE}}"
+}
+]
+}
+]
+},
+{
+"resourceType": "Organization",
+"id": "308d7201-ed47-4360-ac5b-0d523001c6d5",
+"meta": {
+"profile": [
+"http://hl7.org/fhir/StructureDefinition/Organization"
+]
+},
+"identifier": [
+{
+"system": "https://fhir.nhs.uk/Id/ods-organization-code",
+"value": "{{CLAIMANT_ODS}}"
+}
+]
+},
+{
+"resourceType": "Organization",
+"id": "6306ddeb-ad11-43fc-b6ed-de47dfc9e0ef",
+"meta": {
+"profile": [
+"http://hl7.org/fhir/StructureDefinition/Organization"
+]
+},
+"identifier": [
+{
+"system": "https://fhir.nhs.uk/Id/ods-organization-code",
+"value": "{{PATIENT_GPODS}}"
+}
+],
+"name": "{{PATIENT_GPPRACTICE}}",
+"address": [
+{
+"line": [
+"{{ PATIENT_GPADDRESS }}"
+],
+"postalCode": "{{PATIENT_GPPOSTCODE}}"
+}
+]
+},
+{
+"resourceType": "Patient",
+"id": "4812c16e-d9e7-46ea-86cb-65fcdc19faab",
+"meta": {
+"profile": [
+"http://hl7.org/fhir/StructureDefinition/Patient"
+]
+},
+"identifier": [
+{
+"system": "https://fhir.nhs.uk/Id/nhs-number",
+"value": "{{PATIENT_NHSNO}}"
+}
+],
+"name": [
+{
+"use": "official",
+"family": "{{PATIENT_FAMILY}}",
+"given": [
+"{{PATIENT_GIVEN}}"
+]
+}
+],
+"birthDate": "{{PATIENT_DOB}}",
+"gender": "{{PATIENT_GENDER}}",
+"address": [
+{
+"use": "home",
+"line": [
+"{{ PATIENT_ADDRESS }}"
+],
+"postalCode": "{{PATIENT_POSTCODE}}"
+}
+],
+"generalPractitioner": [
+{
+"reference": "#6306ddeb-ad11-43fc-b6ed-de47dfc9e0ef"
+}
+]
+},
+{
+"resourceType": "ServiceRequest",
+"id": "75a9f2ad-fdaf-4661-a7ce-f1098547d322",
+"meta": {
+"profile": [
+"https://fhir.nhsbsa.nhs.uk/StructureDefinition/ServiceRequest"
+]
+},
+"identifier": [
+{
+"system": "https://fhir.nhsbsa.nhs.uk/Id/UrgentCareReference",
+"value": "{{REFERRAL_REFERENCE}}"
+}
+],
+"locationCode": {
+"coding": [
+{
+"system": "https://fhir.nhs.uk/Id/ods-organization-code",
+"code": "{{REFERRER_ORG_ODS}}"
+}
+]
+}
+},
+{
+"resourceType": "MedicationDispense",
+"id": "1",
+"meta": {
+"profile": [
+"http://hl7.org/fhir/StructureDefinition/MedicationDispense"
+]
+},
+"status": "cancelled",
+"medicationCodeableConcept": {
+"coding": [
+{
+"system": "http://snomed.info/sct",
+"code": "{{DRUG_CODE1}}",
+"display": "{{DRUG_DESC1}}"
+}
+]
+},
+"statusReasonCodeableConcept": {
+"coding": [
+{
+"system": "https://fhir.nhsbsa.nhs.uk/StructureDefinition/Extension-NoSupplyType",
+"code": "{{NO_SUPPLY_REASON}}",
+"display": "Patient/Patient's representative did not make contact "
+}
+],
+"text": "{{OTHER_NO_SUPPLY_REASON}}"
+}
+},
+{
+"resourceType": "MedicationDispense",
+"id": "2",
+"meta": {
+"profile": [
+"http://hl7.org/fhir/StructureDefinition/MedicationDispense"
+]
+},
+"status": "completed",
+"contained": [
+{
+"resourceType": "ServiceRequest",
+"id": "supplyRequest1",
+"meta": {
+"profile": [
+"https://fhir.nhsbsa.nhs.uk/StructureDefinition/ServiceRequest"
+]
+},
+"reasonCode": [
+{
+"coding": [
+{
+"system": "http://terminology.hl7.org/CodeSystem/medication-supply-request-reasons",
+"code": "{{SUPPLY_REQUEST_REASON}}"
+}
+],
+"text": "{{OTHER_SUPPLY_REQUEST_REASON}}"
+}
+]
+}
+],
+"medicationCodeableConcept": {
+"coding": [
+{
+"system": "http://snomed.info/sct",
+"code": "{{DRUG_CODE}}",
+"display": "{{DRUG_DESC}}"
+}
+]
+},
+"quantity": {
+"value": "{{DRUG_QTY}}",
+"unit": "{{DRUG_UNIT}}",
+"system": "http://unitsofmeasure.org"
+},
+"whenHandedOver": "{{PROVISION_DATE}}",
+"type": {
+"coding": [
+{
+"system": "http://terminology.hl7.org/CodeSystem/medication-supply-type",
+"code": "{{MEDICATION_SUPPLY_TYPE}}"
+}
+]
+},
+"supportingInformation": [
+{
+"reference": "#supplyRequest1"
+}
+]
+}
+],
+"extension": [
+{
+"url": "https://fhir.nhsbsa.nhs.uk/StructureDefinition/Extension-ExemptionType",
+"valueCodeableConcept": {
+"coding": [
+{
+"system": "https://fhir.nhsbsa.nhs.uk/Id/ExemptionType",
+"code": "F",
+"display": "Prescription pre-payment certificate (PPC)"
+}
+]
+}
+},
+{
+"url": "https://fhir.nhsbsa.nhs.uk/StructureDefinition/Extension-MedicationDispense",
+"valueReference": {
+"reference": "#b782e4e8-3901-464a-a3dc-2c286c0a6964"
+}
+},
+{
+"url": "https://fhir.nhsbsa.nhs.uk/StructureDefinition/Extension-MedicationDispense",
+"valueReference": {
+"reference": "#79345ce6-afb3-4929-b76c-6c7993ff4f4b"
+}
+},
+{
+"url": "https://fhir.nhsbsa.nhs.uk/StructureDefinition/Extension-EthnicityType",
+"valueCodeableConcept": {
+"coding": [
+{
+"system": "https://fhir.nhsbsa.nhs.uk/Id/EthnicityType",
+"code": "{{ETHNICITY_CODE}}",
+"display": "{{ETHNICITY_DISPLAY}}"
+}
+]
+}
+}
+],
+"type": {
+"coding": [
+{
+"system": "https://fhir.nhsbsa.nhs.uk/Id/CpcsType",
+"code": "{{CLAIM_TYPE_CODE}}",
+"display": "{{CLAIM_TYPE_DESC}}"
+}
+]
+},
+"identifier": [
+{
+"system": "https://fhir.nhsbsa.nhs.uk/Id/CpcsClientReference",
+"value": "{{DEPOSIT_ID}}"
+}
+],
+"patient": {
+"reference": "#4812c16e-d9e7-46ea-86cb-65fcdc19faab"
+},
+"provider": {
+"reference": "#308d7201-ed47-4360-ac5b-0d523001c6d5"
+},
+"referral": {
+"reference": "#75a9f2ad-fdaf-4661-a7ce-f1098547d322"
+},
+"billablePeriod": {
+"start": "{{CLAIM_MONTH_START}}"
+},
+"created": "{{DATE_RECORDED}}",
+"facility": {
+"type": "Location",
+"identifier": {
+"system": "https://fhir.nhs.uk/Id/ods-organization-code",
+"value": "{{VACCINATION_SITE_ODS}}"
+}
+},
+"careTeam": [
+{
+"sequence": 1,
+"provider": {
+"reference": "#5412c16e-d9e7-46ea-86cb-65fcdc19fcdb"
+}
+}
+],
+"supportingInfo": [
+{
+"sequence": 1,
+"category": {
+"coding": [
+{
+"system": "http://terminology.hl7.org/CodeSystem/claiminformationcategory",
+"code": "DOSE_NUMBER"
+}
+]
+},
+"valueString": "{{1,2,3…}}"
+},
+{
+"sequence": 2,
+"category": {
+"coding": [
+{
+"system": "http://terminology.hl7.org/CodeSystem/claiminformationcategory",
+"code": "TREATMENT_SUPPLEMENT"
+}
+]
+},
+"valueString": "{{CARE_HOME,HOME_BOUND,OTHER_RESIDENTIAL}}"
+},
+{
+"sequence": 3,
+"category": {
+"coding": [
+{
+"system": "http://terminology.hl7.org/CodeSystem/claiminformationcategory",
+"code": "PROCEDURE_CODE"
+}
+]
+},
+"valueString": "{{PROCEDURE_CODE}}"
+},
+{
+"sequence": 4,
+"category": {
+"coding": [
+{
+"system": "http://terminology.hl7.org/CodeSystem/claiminformationcategory",
+"code": "REFERRER_ORG_TYPE"
+}
+]
+},
+"code": {
+"coding": [
+{
+"system": "http://terminology.hl7.org/CodeSystem/referrer-organisation-type",
+"code": "{{REFERRER_ORG_TYPE}}"
+}
+],
+"text": "{{REFERRER_ORG_TYPE_OTHER}}"
+}
+},
+{
+"sequence": 5,
+"category": {
+"coding": [
+{
+"system": "http://terminology.hl7.org/CodeSystem/claiminformationcategory",
+"code": "DISPOSITION_CODE"
+}
+]
+},
+"valueString": "{{DISPOSITION_CODE}}"
+},
+{
+"sequence": 6,
+"category": {
+"coding": [
+{
+"system": "http://terminology.hl7.org/CodeSystem/claiminformationcategory",
+"code": "CONSULTATION_METHOD"
+}
+]
+},
+"code": {
+"coding": [
+{
+"system": "http://terminology.hl7.org/CodeSystem/consultation-method",
+"code": "{{CONSULTATION_METHOD}}"
+}
+]
+}
+},
+{
+"sequence": 7,
+"category": {
+"coding": [
+{
+"system": "http://terminology.hl7.org/CodeSystem/claiminformationcategory",
+"code": "CONSULTATION_OUTCOME"
+}
+]
+},
+"code": {
+"coding": [
+{
+"system": "http://terminology.hl7.org/CodeSystem/consultation-outcome",
+"code": "{{CONSULTATION_OUTCOME}}"
+}
+],
+"text": "{{OTHER_CONSULTATION_OUTCOME}}"
+}
+},
+{
+"sequence": 8,
+"category": {
+"coding": [
+{
+"system": "http://terminology.hl7.org/CodeSystem/claiminformationcategory",
+"code": "REFERRED_TO_ROUTINE"
+}
+]
+},
+"code": {
+"coding": [
+{
+"system": "http://terminology.hl7.org/CodeSystem/referred-to-routine",
+"code": "{{REFERRED_TO_ROUTINE}}"
+}
+],
+"text": "{{OTHER_REFERRED_TO_ROUTINE}}"
+}
+},
+{
+"sequence": 9,
+"category": {
+"coding": [
+{
+"system": "http://terminology.hl7.org/CodeSystem/claiminformationcategory",
+"code": "REFERRED_TO_URGENT"
+}
+]
+},
+"code": {
+"coding": [
+{
+"system": "http://terminology.hl7.org/CodeSystem/referred-to-urgent",
+"code": "{{REFERRED_TO_URGENT}}"
+}
+],
+"text": "{{REFERRED_TO_URGENT_OTHER}}"
+}
+},
+{
+"sequence": 10,
+"category": {
+"coding": [
+{
+"system": "http://terminology.hl7.org/CodeSystem/claiminformationcategory",
+"code": "PRESENTING_COMPLAINT_OR_ISSUES"
+}
+]
+},
+"valueString": "{{PRESENTING_COMPLAINT_OR_ISSUES}}"
+},
+{
+"sequence": 11,
+"category": {
+"coding": [
+{
+"system": "http://terminology.hl7.org/CodeSystem/claiminformationcategory",
+"code": "ONWARD_REFERRAL_REASON"
+}
+]
+},
+"valueString": "{{ONWARD_REFERRAL_REASON}}"
+},
+{
+"sequence": 12,
+"category": {
+"coding": [
+{
+"system": "http://terminology.hl7.org/CodeSystem/claiminformationcategory",
+"code": "REFERRED_ODS"
+}
+]
+},
+"valueString": "{{REFERRED_ODS}}"
+},
+{
+"sequence": 13,
+"category": {
+"coding": [
+{
+"system": "http://terminology.hl7.org/CodeSystem/claiminformationcategory",
+"code": "ONWARD_REFERRAL_DATE"
+}
+]
+},
+"timingDate": "{{ONWARD_REFERRAL_DATE}}"
+},
+{
+"sequence": 14,
+"category": {
+"coding": [
+{
+"system": "http://terminology.hl7.org/CodeSystem/claiminformationcategory",
+"code": "SIGNPOSTED_FROM"
+}
+]
+},
+"code": {
+"coding": [
+{
+"system": "http://terminology.hl7.org/CodeSystem/signposted-from",
+"code": "{{SIGNPOSTED_FROM}}"
+}
+],
+"text": "{{SIGNPOSTED_FROM_OTHER}}"
+}
+},
+{
+"sequence": 15,
+"category": {
+"coding": [
+{
+"system": "http://terminology.hl7.org/CodeSystem/claiminformationcategory",
+"code": "SELF_REFERRAL_FROM"
+}
+]
+},
+"code": {
+"coding": [
+{
+"system": "http://terminology.hl7.org/CodeSystem/self-referral-from",
+"code": "{{SELF_REFERRAL_FROM}}"
+}
+],
+"text": "{{SELF_REFERRAL_FROM_OTHER}}"
+}
+},
+{
+"sequence": 16,
+"category": {
+"coding": [
+{
+"system": "http://terminology.hl7.org/CodeSystem/claiminformationcategory",
+"code": "REFERRER_CONTACT_DETAILS"
+}
+]
+},
+"valueString": "{{REFERRER_CONTACT_DETAILS}}"
+},
+{
+"sequence": 17,
+"category": {
+"coding": [
+{
+"system": "http://terminology.hl7.org/CodeSystem/claiminformationcategory",
+"code": "CCS_PRESENTING_COMPLAINT_OR_ISSUE"
+}
+]
+},
+"code": {
+"coding": [
+{
+"system": "http://terminology.hl7.org/CodeSystem/ccs-presenting-complaint-or-issue",
+"code": "{{CCS_PRESENTING_COMPLAINT_OR_ISSUE}}"
+}
+]
+}
+},
+{
+"sequence": 18,
+"category": {
+"coding": [
+{
+"system": "http://terminology.hl7.org/CodeSystem/claiminformationcategory",
+"code": "PROFESSIONAL_IDENTIFIER"
+}
+]
+},
+"valueString": "{{PROFESSIONAL_IDENTIFIER}}"
+},
+{
+"sequence": 19,
+"category": {
+"coding": [
+{
+"system": "http://terminology.hl7.org/CodeSystem/claiminformationcategory",
+"code": "CCS_NO_SUPPLY_REASON"
+}
+]
+},
+"code": {
+"coding": [
+{
+"system": "http://terminology.hl7.org/CodeSystem/ccs-no-supply-reason",
+"code": "{{CCS_NO_SUPPLY_REASON}}"
+}
+],
+"text": "{{CCS_NO_SUPPLY_REASON_OTHER}}"
+}
+},
+{
+"sequence": 20,
+"category": {
+"coding": [
+{
+"system": "http://terminology.hl7.org/CodeSystem/claiminformationcategory",
+"code": "CCS_CRITERIA_NOT_MET_REASON"
+}
+]
+},
+"valueString": "{{CCS_CRITERIA_NOT_MET_REASON}}"
+},
+{
+"sequence": 21,
+"category": {
+"coding": [
+{
+"system": "http://terminology.hl7.org/CodeSystem/claiminformationcategory",
+"code": "CCS_EXCLUDED_REASON"
+}
+]
+},
+"valueString": "{{CCS_EXCLUDED_REASON}}"
+},
+{
+"sequence": 22,
+"category": {
+"coding": [
+{
+"system": "http://terminology.hl7.org/CodeSystem/claiminformationcategory",
+"code": "CCS_NO_CONSENT_REASON"
+}
+]
+},
+"valueString": "{{CCS_NO_CONSENT_REASON}}"
+},
+{
+"sequence": 23,
+"category": {
+"coding": [
+{
+"system": "http://terminology.hl7.org/CodeSystem/claiminformationcategory",
+"code": "PRESCRIPTION_EXEMPT"
+}
+]
+},
+"valueString": "{{PRESCRIPTION_EXEMPT}}"
+},
+{
+"sequence": 24,
+"category": {
+"coding": [
+{
+"system": "http://terminology.hl7.org/CodeSystem/claiminformationcategory",
+"code": "URGENCY_OF_REFERRAL"
+}
+]
+},
+"code": {
+"coding": [
+{
+"system": "http://terminology.hl7.org/CodeSystem/urgency-of-referral",
+"code": "{{URGENCY_OF_REFERRAL}}"
+}
+]
+}
+},
+{
+"sequence": 25,
+"category": {
+"coding": [
+{
+"system": "http://terminology.hl7.org/CodeSystem/claiminformationcategory",
+"code": "ASSESSMENT_DATE"
+}
+]
+},
+"timingDate": "{{ASSESSMENT_DATE}}"
+}
+]
+}
+Step 3: Send the Delete Claim Message
+You can now prepare and make a DELETE call to the NHSBSA API with the following pattern.
+Note: This is not an ITK3 message, so there is no Bundle or Message Header required.
+Type Description
+URL https://stg.services.nhsbsa.nhs.uk/pharmacy-cpcs-api/resources/Claim/{{CLAIM_ID}}
+Http Headers Content-Type: application/json, Accept: application/json, Cache-Control: no-cache
+Body JSON representation prepared in Step 2 above
+Step 4: Receive your response
+A successful response will be sent synchronously within 30 seconds [DN: To check] with an http code 204 (No Content) and not
+contain a response body.
+Other potential responses:
+400 – Bad Request (unparseable or other major issue).
+Contains a JSON representation of an OperationOutcome resource in the body of the response:
+{
+"resourceType": "OperationOutcome",
+"issue": [
+{
+"severity": "error",
+"code": "processing",
+"diagnostics": "Failed to parse request body as JSON resource. Error was: Invalid attribute value \"\":
+Attribute values must not be empty (\"\")"
+}
+]
+}
+422 – Unprocessable Entity (json parseable but not conformant).
+Contains a JSON representation of an OperationOutcome resource in the body of the response.
+In order to make these 422 error messages more recognizable, the most common messages include detail with the code of the error.
+See: Annex: Detailed Errors
+{
+"resourceType": "OperationOutcome",
+"issue": [
+{
+"severity": "error",
+"code": "invalid",
+"diagnostics": "Api client ID mismatch",
+"details": {
+"coding": [
+{
+"system": "https://fhir.nhsbsa.nhs.uk/Id/CustomIssueType",
+"code": "MSG_ID_DEPOSIT_ID_MISMATCH",
+"display": "Api client ID mismatch"
+}
+]
+}
+}
+]
+}
+500 – Unexpected error.
+Contains a JSON representation of an OperationOutcome resource in the body of the response:
+{
+"resourceType": "OperationOutcome",
+"issue": [
+{
+"severity": "error",
+"code": "processing",
+"diagnostics": "Unexpected exception"
+}
+]
+}
+Developer Guide to Pharmacy Claim Reads
+Step 1: Gather your materials
+You will need:
+Property Description
+CLAIM_ID
+Id of the claim in NHSBSA. Generated when the record is saved. Included in the response of POST
+(create).
+PLATFORM_DEPOSIT_ID
+A string that uniquely identified this claim. Each platform will be provided with a pattern to use. For
+example, PharmOutcomes uses the pattern PEM-nnn-SPID-nnnnnn and Sonar uses the pattern
+SON-nnnnnnnn to uniquely identify this deposit in audits and CRUD operations. Max. size 255.
+Step 2: Send the Read Claim Message
+You can now prepare and make a GET call to the NHSBSA API with the following pattern.
+Note: This is not an ITK3 message, so there is no Bundle or Message Header required.
+Type Description
+URL https://stg.services.nhsbsa.nhs.uk/pharmacy-cpcs-api/resources/Claim/{{CLAIM_ID}}
+Http Headers
+Content-Type: application/json
+Accept: application/json
+Cache-Control: no-cache
+Client-Id: {{PLATFORM_DEPOSIT_ID}}
+Body N/A
+Step 3: Receive your response
+A successful response will be sent synchronously within 30 seconds with an http code 200 (OK) with a re-sponse body.
+Other potential responses:
+400 – Bad Request (missing header, CLAIM_ID and PLATFORM_DEPOSIT_ID mismatch or other major issue).
+Contains a JSON representation of an OperationOutcome resource in the body of the response:
+{
+"resourceType": "OperationOutcome",
+"issue": [
+{
+"severity": "error",
+"code": "invalid",
+"details": {
+"coding": [
+{
+"system": "https://fhir.nhsbsa.nhs.uk/Id/CustomIssueType",
+"code": "MSG_ID_DEPOSIT_ID_MISMATCH",
+"display": "Api client ID mismatch"
+}
+]
+},
+"diagnostics": "Api client ID mismatch"
+}
+]
+}
+404 – Not Found (claim cannot be found by the provided Ids).
+This includes scenarios when the claim did exist in the past but it is now deleted.
+{
+"resourceType": "OperationOutcome",
+"issue": [
+{
+"severity": "error",
+"code": "invalid",
+"diagnostics": "Existing claim not found"
+}
+]
+}
+500 – Unexpected error.
+Contains a JSON representation of an OperationOutcome resource in the body of the response:
+{
+"resourceType": "OperationOutcome",
+"issue": [
+{
+"severity": "error",
+"code": "processing",
+"diagnostics": "Unexpected exception"
+}
+]
+}
+Developer Guide to medicine list
+Step 1: Gather your materials
+You won't need any data because the API will return a list of all the medicines.
+Step 2: Send the GET medicines Message
+You can now prepare and make a GET call to the NHSBSA API with the following pattern.
+Type Description
+URL https://stg.services.nhsbsa.nhs.uk/pharmacy-ccs-api/resources/medicines
+Http Headers Content-Type: application/json, Accept: application/json, Cache-Control: no-cache
+Body N/A
+Step 3: Receive your response
+A successful response will be sent synchronously within 30 seconds with an http code 200 (OK) with a response body.
+[
+{
+"snomedCode":"xxxxx",
+"medicationName":"Test Product1",
+"quantity":60
+},
+{
+"snomedCode":"xxxxx",
+"medicationName":"Test Product2",
+"quantity":40
+},
+{
+"snomedCode":"xxxxx",
+"medicationName":"Test Product3",
+"quantity":100
+},
+]
+Other potential responses:
+403: Forbidden
+Contains a JSON representation of the error response:
+Scenarios:
+User is not allowed to perform certain operations or dont have access to certain resources.
+{
+"error": {
+"message": "combined message",
+"details": [
+"error message 1",
+"error message 2"
+]
+}
+}
+500: Unexpected error
+Contains a JSON representation of the error response:
+"Error message in detail"
+Fields used in different services
+Field
+CPCS NHS
+111
+Referred /
+UEC
+Emergency
+Supply
+CPCS
+NHS
+111
+Referred
+/ UEC
+Minor
+Illness
+CPCS
+GP
+Referred
+Minor
+Illness
+CCS
+Advanced
+Flu
+Service
+Covid
+Vaccination
+Service
+MESSAGE_PROFILE ✓ ✓ ✓ ✓ ✓ ✓
+PLATFORM_DEPOSIT_ID ✓ ✓ ✓ ✓ ✓ ✓
+PROVISION_DATE ✓ ✓ ✓ ✓ ✓ ✓
+CLAIM_MONTH_START ✓ ✓ ✓ ✓ ✓ ✓
+CLAIMANT_ODS ✓ ✓ ✓ ✓ ✓ ✓
+PATIENT_GIVEN ✓ ✓ ✓ ✓ ✓ ✓
+PATIENT_FAMILY ✓ ✓ ✓ ✓ ✓ ✓
+PATIENT_DOB ✓ ✓ ✓ ✓ ✓ ✓
+PATIENT_NHSNO ✓ ✓ ✓ ✓ ✓ ✓
+PATIENT_ADDRESS ✓ ✓ ✓ ✓ ✓ ✓
+PATIENT_POSTCODE ✓ ✓ ✓ ✓ ✓ ✓
+PATIENT_EXEMPT_CODE ✓ ✗ ✗ ✓ ✗ ✗
+PATIENT_EXEMPT_DISPLAY ✓ ✗ ✗ ✓ ✗ ✗
+PATIENT_GPODS ✓ ✓ ✓ ✓ ✓ ✓
+PATIENT_GPPRACTICE ✓ ✓ ✓ ✓ ✓ ✓
+PATIENT_GPADDRESS ✓ ✓ ✓ ✓ ✓ ✓
+PATIENT_GPPOSTCODE ✓ ✓ ✓ ✓ ✓ ✓
+REFERRAL_REFERENCE ✓ ✓ ✓ ✓ ✗ ✗
+REFERRER_ORG_ODS ✓ ✓ ✓ ✓ ✗ ✗
+DRUG_CODE ✓ ✗ ✗ ✓ ✓ ✓
+DRUG_DESC ✓ ✗ ✗ ✓ ✓ ✓
+DRUG_QTY ✓ ✗ ✗ ✓ ✓ ✓
+DRUG_UNIT ✗ ✗ ✗ ✗ ✓ ✓
+DOSE_NUMBER ✗ ✗ ✗ ✗ ✗ ✓
+TREATMENT_SUPPLEMENT ✗ ✗ ✗ ✗ ✗ ✓
+VACCINATION_SITE_ODS ✗ ✗ ✗ ✗ ✓ ✓
+PROCEDURE_CODE ✗ ✗ ✗ ✗ ✗ ✓
+PATIENT_GENDER ✓ ✓ ✓ ✓ ✗ ✗
+NO_SUPPLY_REASON ✓ ✗ ✗ ✗ ✗ ✗
+SUPPLY_REQUEST_REASON ✓ ✗ ✗ ✗ ✗ ✗
+MEDICATION_SUPPLY_TYPE ✗ ✓ ✓ ✓ ✗ ✗
+REFERRER_ORG_TYPE ✓ ✓ ✓ ✓ ✗ ✗
+DISPOSITION_CODE ✓ ✓ ✓ ✗ ✗ ✗
+CONSULTATION_METHOD ✓ ✓ ✓ ✓ ✗ ✗
+CONSULTATION_OUTCOME ✓ ✓ ✓ ✓ ✗ ✗
+REFERRED_TO_ROUTINE ✓ ✓ ✓ ✓ ✗ ✗
+REFERRED_TO_URGENT ✓ ✓ ✓ ✓ ✗ ✗
+PRESENTING_COMPLAINT_OR_ISSUES ✗ ✓ ✓ ✗ ✗ ✗
+ONWARD_REFERRAL_REASON ✓ ✓ ✓ ✓ ✗ ✗
+REFERRED_ODS ✓ ✓ ✓ ✓ ✗ ✗
+ONWARD_REFERRAL_DATE ✓ ✓ ✓ ✓ ✗ ✗
+DATE_RECORDED ✓ ✓ ✓ ✓ ✗ ✓
+PROFESSIONAL_ROLE ✓ ✓ ✓ ✓ ✗ ✗
+SIGNPOSTED_FROM ✓ ✓ ✓ ✓ ✗ ✗
+SELF_REFERRAL_FROM ✓ ✓ ✓ ✓ ✗ ✗
+REFERRER_CONTACT_DETAILS ✓ ✓ ✓ ✓ ✗ ✗
+CCS_PRESENTING_COMPLAINT_OR_ISSUE ✗ ✗ ✗ ✓ ✗ ✗
+PROFESSIONAL_IDENTIFIER ✓ ✓ ✓ ✓ ✗ ✗
+CCS_NO_SUPPLY_REASON ✗ ✗ ✗ ✓ ✗ ✗
+PRESCRIPTION_EXEMPT ✓ ✗ ✗ ✓ ✗ ✗
+URGENCY_OF_REFERRAL ✓ ✓ ✓ ✓ ✗ ✗
+ETHNICITY_CODE ✓ ✓ ✓ ✓ ✗ ✗
+ETHNICITY_DISPLAY ✓ ✓ ✓ ✓ ✗ ✗
+ASSESSMENT_DATE ✓ ✓ ✓ ✓ ✗ ✗
+The different CPCS and other pharmacy
+services that can be claimed for have
+different message profiles. This table is
+provided to allow platform providers to
+consider the different requirements.
+Annex – Message Profiles
+The following message profiles are available to provide claim information through the NHS BSA API.
+[DN: Subject to change]
+The following sub-types are available:
+Code Display
+https://fhir.nhsbsa.nhs.uk/StructureDefinition/CpcsToken
+EMG_MED NHS Urgent Medicines Supply
+MIN_ILL Digital Minor Illness Referral
+EMG_MED_UEC
+NHS Urgent Medicines Supply for Urgent and Emergency Care
+(UEC)
+MIN_ILL_UEC
+Digital Minor Illness Referral for Urgent and Emergency Care
+(UEC)
+https://fhir.nhsbsa.nhs.uk/StructureDefinition/Ccs
+CCS Common Conditions Service
+https://fhir.nhsbsa.nhs.uk/StructureDefinition/FluVacc
+FLU_VAC NHS Seasonal Flu Vaccination
+https://fhir.nhsbsa.nhs.uk/StructureDefinition/CovidVacc
+COVID_VAC Covid-19 Vaccination
+GP_COVID_VAC Covid-19 Vaccination for General Practitioners
+Annex – Levy Exemption Codes
+The following codes and descriptions should be used when a patient has received a medication that is subject to prescription levy or
+equivalent.
+If a levy was paid, then the message segment (extension) should be omitted from the message.
+Code Display
+A 60 years of age or over or is under 16 years of age
+B 16, 17 or 18 and in full time education
+D Maternity exemption certificate
+E Medical exemption certificate
+F Prescription prepayment Certificate (PPC)
+G Prescription exemption certificate issued by Ministry of Defence
+L HC2 (full help) certificate
+H Income Support (IS) or Income-related" "Employment and Support Allowance (ESA)
+K Income-based Jobseeker’s Allowance (JSA)
+M Tax Credit exemption certificate
+S Pension Credit Guarantee Credit
+U Universal Credit and meets the criteria
+W Hormone Replacement Therapy (HRT)
+X Free-of-charge contraceptives
+HMP Prisoner on release or released from secure accommodation
+Annex – Referrer organisation type
+Code Display
+NHS_111_SERVICE NHS 111 Service
+NHS_111_ONLINE NHS 111 online
+AMBULANCE Ambulance Service
+GP_PRACTICE GP Practice
+GP_ONLINE GP Practice (online)
+EMERGENCY Emergency Department
+UTC Urgent Treatment Centre
+WALK_IC Walk in Centre
+SELF_REFERRAL Self referral
+SIGNPOSTED Signposted (Please state)
+OTHER Other (please state)
+Annex – Disposition codes
+Code Display
+DX06 To contact a Primary Care Service within 6 hours
+DX07 To contact a Primary Care Service within 12 hours
+DX08 To contact a Primary Care Service within 24 hours
+DX09 For persistent or recurrent symptoms get in touch with the GP Practice for a non-urgent appointment
+DX10 MUST contact own GP Practice for a non-urgent appointment
+DX13 Speak to a Primary Care Service within 6 hours
+DX14 Speak to a Primary Care Service within 12 hours
+DX15 Speak to a Primary Care Service within 24 hours
+DX16 For persistent or recurrent symptoms get in touch with the GP Practice within 3 working days
+DX28 Contact Pharmacist within 24 hours
+DX29 Contact Pharmacist next working day
+DX45 Service Location Information
+DX75 MUST contact own GP Practice within 3 working days
+DX80 Repeat prescription required within 6 hours
+DX82 Medication Enquiry
+DX85 Repeat prescription required within 2 hours
+DX86 Repeat prescription required within 12 hours
+DX87 Repeat prescription required within 24 hours
+DX97 Emergency Contraception within 2 hours
+DX98 Emergency Contraception within 12 hours
+DX115 Contact Own GP Practice next working day for appointment
+Annex – Consultation methods
+Code Display
+FTF Face to face communication
+TELEPHONE Telephone
+TELEMEDICINE Telemedicine
+Annex – Consultation outcomes
+Code Display
+ADVICE_ONLY Advice given only
+OTC_MEDICINE_SALE Sale of an Over the Counter (OTC) medicine
+MAS_REFERRAL Referral into a pharmacy local minor ailments service (MAS)
+LOCAL_COMMISSIONED_REFERRAL
+Referral into an appropriate locally commissioned NHS service,
+such as a patient group direction
+SUPPLY_NO_SUPPLY Medicines supply / non-supply
+ONWARD_REFERRAL Onward referral to another CPCS pharmacy *
+NON_URGENT Non-urgent signposting to another service
+URGENT Urgent escalation to another service
+OTHER Other (please specify)
+*If message profile = CCS then return error message -
+Invalid consultation outcome for CCS
+Annex – No supply reasons
+Code Display
+A Item not able to be supplied under emergency supply regulations (e.g. Schedule 1, 2 or 3 Controlled Drug)
+B EPS prescription dispensed for patient
+C Pharmacist determined that supply not necessary (e.g. not clinically appropriate or concern about abuse of service)
+D Item not in stock
+F Patient bought the item
+G Other (please specify)
+Annex – Supply request reasons
+Code Display
+PRESCRIPTION_NOT_ORDERED Patient had not ordered their prescription
+PRESCRIPTION_ORDERED_NOT_READY Patient had ordered their prescription but it was not ready
+PRESCRIPTION_FORM_LOST Patient had lost prescription form
+LOST_OR_MISPLACED_MEDICINES Patient had lost or misplaced the medicine(s) or appliance(s)
+UNABLE_TO_COLLECT_MEDICINES
+Patient was not able to collect the medicine(s) or appliance(s) (from their usual
+pharmacy)
+AWAY_FROM_HOME
+Patient is away from home (and had forgotten/did not bring sufficient supplies of
+their medicine(s) or appliance(s))
+OTHER Other (please specify)
+Annex – Medication supply types
+Code Display
+OTC Over the counter medication
+MAS Minor ailments service
+PGD Patient Group Direction
+RX Independent Prescriber
+Annex: Professional Role
+Code Display
+46255001 Pharmacist
+159040006 Pharmacy technician
+734294007 Independent Prescriber
+Annex – Referred To Routine
+Code Display
+GP GP Practice
+OOH_GP Out of hours GP
+OCP Other Community Pharmacy
+OTHER Other (please state)
+Annex – Referred To Urgent
+Code Display
+GP GP Practice
+OOH_GP Out of hours GP
+OCP Other Community Pharmacy
+UTC Urgent Treatment Centre
+999 999
+A_AND_E A&E
+OTHER Other (please state)
+Annex - Validation
+Patient Postcode
+^([Gg][Ii][Rr] 0[Aa]{2})|((([A-Za-z][0-9]{1,2})|(([A-Za-z][A-Ha-hJ-Yj-y][0-9]{1,2})|(([A-Za-z][0-9][A-Za-z])|([A-Za-z]
+[A-Ha-hJ-Yj-y][0-9]?[A-Za-z])))) ?[0-9][A-Za-z]{2})$
+Additionally the following codes are valid:
+ZZ99 3VZ (No Fixed Abode) ZZ99 3WZ (Address Not Known) ZZ99 3CZ (England UK - not specified) ZZ99 3GZ (Wales) ZZ99 1WZ
+(Scotland) ZZ99 2WZ (Northern Ireland)
+Patient GP Postcode
+^([Gg][Ii][Rr] 0[Aa]{2})|((([A-Za-z][0-9]{1,2})|(([A-Za-z][A-Ha-hJ-Yj-y][0-9]{1,2})|(([A-Za-z][0-9][A-Za-z])|([A-Za-z]
+[A-Ha-hJ-Yj-y][0-9]?[A-Za-z])))) ?[0-9][A-Za-z]{2})$
+Annex - Details Of Errors
+Code Description
+MSG_CPCS_DECLARATION_NOT_ACCEPTED
+Organization has not accepted the CPCS declaration (for types EMG_MED and
+MIN_ILL).
+MSG_ALREADY_SUBMITTED Monthly submission is already done.
+MSG_BILLING_PERIOD_NOT_IN_RANGE Billing period is out of the allowed range.
+MSG_DUPLICATE_DEPOSIT_ID DEPOSIT_ID already exists (as it should be unique)
+MSG_UPDATE_OF_FIELD_NOT_ALLOWED
+Any of CLAIMANT_ODS, CLAIM_MONTH_START, DEPOSIT_ID or
+CLAIM_TYPE_CODE provided is different from the value stored in the database.
+MSG_ID_DEPOSIT_ID_MISMATCH Api client ID mismatch
+MSG_UNKNOWN_VACCINE Vaccine is not on the list of approved vaccines (for type FLU_VAC only)
+Annex: Signposted From
+Code Display
+NHS_111_SERVICE NHS 111 Service
+NHS_111_ONLINE NHS 111 online
+AMBULANCE Ambulance Service
+GP_PRACTICE GP Practice
+GP_ONLINE GP Practice (online)
+EMERGENCY Emergency Department
+UTC Urgent Treatment Centre
+WALK_IC Walk in Centre
+OTHER Other (please state)
+Annex: Self Referral From
+Code Display
+NHS_111_SERVICE NHS 111 Service
+NHS_111_ONLINE NHS 111 online
+AMBULANCE Ambulance Service
+GP_PRACTICE GP Practice
+GP_ONLINE GP Practice (online)
+EMERGENCY Emergency Department
+UTC Urgent Treatment Centre
+WALK_IC Walk in Centre
+OTHER Other (please state)
+Annex: Ccs Presenting Complaint Or Issue
+Code Display
+U_UTI Uncomplicated UTI
+SHG Shingles
+I_I_B Infected Insect Bites
+SNT Sinusitis
+ITG Impetigo
+A_O_M Acute Otitis Media
+A_S_T Acute Sore Throat
+Annex: Ccs No Supply Reason
+Code Display
+A Patient does not meet inclusion criteria under the terms of the PGD
+B Patient excluded under terms of PGD
+C Patient does not consent to treatment
+D Agreed through shared decision making that self-care was the preferred option
+E Agreed through shared decision making to delay treatment and return if symptoms worsen or persist
+F Other
+Annex: Urgency Of Referral
+Code Display
+ROUTINE Routine
+URGENT Urgent
+Annex: Ethnicity
+Code Display
+A White - British
+B White - Irish
+C White - Any other White background
+D Mixed - White and Black Caribbean
+E Mixed - White and Black African
+F Mixed - White and Asian
+G Mixed - Any other mixed background
+H Asian or Asian British - Indian
+J Asian or Asian British - Pakistani
+K Asian or Asian British - Bangladeshi
+L Asian or Asian British - Any other Asian background
+M Black or Black British - Caribbean
+N Black or Black British - African
+P Black or Black British - Any other Black background
+R Other Ethnic Groups - Chinese
+S Other Ethnic Groups - Any other ethnic group
+Z Not stated
+Annex: NHS Number
+Code Display
+1111111111 Non-registered UK resident
+2222222222 Non UK resident
+3333333333 Data sharing consent not given
+4444444444 NHS number not found
