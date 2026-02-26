@@ -98,6 +98,25 @@ const menuSections: NavSection[] = [
       { to: '/sops', icon: '📋', label: 'SOPs' },
     ],
   },
+  {
+    title: 'Delivery Rounds',
+    icon: '🚗',
+    expandable: true,
+    items: [
+      { to: '/delivery-rounds', icon: '📦', label: 'Rounds' },
+      { to: '/delivery-rounds/new', icon: '➕', label: 'New Round' },
+      { to: '/delivery-rounds/redelivery', icon: '🔄', label: 'Redelivery Queue' },
+      { to: '/delivery-rounds/templates', icon: '📋', label: 'Templates' },
+    ],
+  },
+  {
+    title: 'Driver',
+    icon: '🏎️',
+    expandable: false,
+    items: [
+      { to: '/driver', icon: '🚗', label: 'My Deliveries' },
+    ],
+  },
 ]
 
 export function SideNav() {

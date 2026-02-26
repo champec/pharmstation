@@ -280,14 +280,30 @@ export const useAppointmentStore = create<AppointmentState>((set, get) => ({
   },
 
   searchPatients: async (orgId, query) => {
-    const { data, error } = await getUserClient()
+    // Split query into words for fuzzy matching (e.g. "John Sm" matches first_name=John, last_name=Smith)
+    const words = query.trim().split(/\s+/).filter(Boolean)
+    let qb = getUserClient()
       .from('ps_patients')
       .select('*')
       .eq('organisation_id', orgId)
-      .or(`first_name.ilike.%${query}%,last_name.ilike.%${query}%,nhs_number.ilike.%${query}%,phone.ilike.%${query}%`)
-      .limit(20)
+
+    if (words.length === 1) {
+      // Single word: match against first_name, last_name, nhs_number, phone, or email
+      const w = words[0]
+      qb = qb.or(`first_name.ilike.%${w}%,last_name.ilike.%${w}%,nhs_number.ilike.%${w}%,phone.ilike.%${w}%,email.ilike.%${w}%`)
+    } else {
+      // Multiple words: each word must match either first_name or last_name
+      // This covers "John Smith", "Smith Jo", etc.
+      for (const w of words) {
+        qb = qb.or(`first_name.ilike.%${w}%,last_name.ilike.%${w}%`)
+      }
+    }
+
+    const { data, error } = await qb.limit(20)
     if (error) throw error
-    return (data ?? []) as Patient[]
+    const results = (data ?? []) as Patient[]
+    set({ patients: results })
+    return results
   },
 
   // --- Public ---

@@ -63,6 +63,17 @@ import { SOPEditorPage } from './pages/sops/SOPEditorPage'
 import { SOPReadPage } from './pages/sops/SOPReadPage'
 import { SOPAssignPage } from './pages/sops/SOPAssignPage'
 import { SOPProgressPage } from './pages/sops/SOPProgressPage'
+// Expansion — Delivery Rounds
+import { DeliveryRoundDashboardPage } from './pages/delivery-rounds/DeliveryRoundDashboardPage'
+import { NewDeliveryRoundPage } from './pages/delivery-rounds/NewDeliveryRoundPage'
+import { DeliveryRoundDetailPage } from './pages/delivery-rounds/DeliveryRoundDetailPage'
+import { EditDeliveryRoundPage } from './pages/delivery-rounds/EditDeliveryRoundPage'
+import { RedeliveryQueuePage } from './pages/delivery-rounds/RedeliveryQueuePage'
+import { RoundTemplatesPage } from './pages/delivery-rounds/RoundTemplatesPage'
+import { RoundTemplateDetailPage } from './pages/delivery-rounds/RoundTemplateDetailPage'
+// Expansion — Driver
+import { DriverDashboardPage } from './pages/driver/DriverDashboardPage'
+import { DriverRoutePage } from './pages/driver/DriverRoutePage'
 // Expansion — Public
 import { PatientVideoPage } from './pages/public/PatientVideoPage'
 import { PublicBookingHomePage } from './pages/public/PublicBookingHomePage'
@@ -201,6 +212,19 @@ export function App() {
         <Route path="/sops/:docId/read" element={<SOPReadPage />} />
         <Route path="/sops/:docId/assign" element={<SOPAssignPage />} />
         <Route path="/sops/:docId/progress" element={<SOPProgressPage />} />
+
+        {/* Delivery Rounds */}
+        <Route path="/delivery-rounds" element={<DeliveryRoundDashboardPage />} />
+        <Route path="/delivery-rounds/new" element={<NewDeliveryRoundPage />} />
+        <Route path="/delivery-rounds/redelivery" element={<RedeliveryQueuePage />} />
+        <Route path="/delivery-rounds/templates" element={<RoundTemplatesPage />} />
+        <Route path="/delivery-rounds/templates/:id" element={<RoundTemplateDetailPage />} />
+        <Route path="/delivery-rounds/:id" element={<DeliveryRoundDetailPage />} />
+        <Route path="/delivery-rounds/:id/edit" element={<EditDeliveryRoundPage />} />
+
+        {/* Driver */}
+        <Route path="/driver" element={<DriverDashboardPage />} />
+        <Route path="/driver/:roundId" element={<DriverRoutePage />} />
       </Route>
 
       {/* Catch all */}

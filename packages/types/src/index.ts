@@ -34,6 +34,8 @@ export type UserRole = 'owner' | 'manager' | 'pharmacist' | 'technician' | 'disp
 export interface UserProfile {
   id: string
   full_name: string
+  first_name: string | null
+  last_name: string | null
   email: string | null
   gphc_number: string | null
   phone: string | null
@@ -80,6 +82,8 @@ export interface Permissions {
   ai_scan_use?: boolean
   org_settings?: boolean
   billing?: boolean
+  delivery_manage?: boolean
+  delivery_drive?: boolean
   [key: string]: boolean | undefined
 }
 
@@ -352,6 +356,8 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, Permissions> = {
     ai_scan_use: true,
     org_settings: true,
     billing: true,
+    delivery_manage: true,
+    delivery_drive: true,
   },
   manager: {
     cd_register_read: true,
@@ -368,6 +374,8 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, Permissions> = {
     ai_scan_use: true,
     org_settings: false,
     billing: false,
+    delivery_manage: true,
+    delivery_drive: true,
   },
   pharmacist: {
     cd_register_read: true,
@@ -384,6 +392,8 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, Permissions> = {
     ai_scan_use: true,
     org_settings: false,
     billing: false,
+    delivery_manage: true,
+    delivery_drive: false,
   },
   technician: {
     cd_register_read: true,
@@ -400,6 +410,8 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, Permissions> = {
     ai_scan_use: true,
     org_settings: false,
     billing: false,
+    delivery_manage: false,
+    delivery_drive: true,
   },
   dispenser: {
     cd_register_read: false,
@@ -416,6 +428,8 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, Permissions> = {
     ai_scan_use: false,
     org_settings: false,
     billing: false,
+    delivery_manage: false,
+    delivery_drive: true,
   },
   locum: {
     cd_register_read: true,
@@ -432,6 +446,8 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, Permissions> = {
     ai_scan_use: true,
     org_settings: false,
     billing: false,
+    delivery_manage: false,
+    delivery_drive: false,
   },
 }
 
@@ -1192,5 +1208,168 @@ export interface NetworkSmsContact {
   notify_end: string     // "HH:MM"
   created_at: string
   updated_at: string
+}
+
+// ── Drug Delivery System ──────────────────────────────────────────────
+
+// Patient Medications (persistent drug list per patient)
+
+export interface PatientMedication {
+  id: string
+  organisation_id: string
+  patient_id: string
+  drug_id: string
+  drug_name: string
+  drug_form: string | null
+  drug_strength: string | null
+  dose: string | null
+  quantity: number | null
+  is_active: boolean
+  notes: string | null
+  created_at: string
+  updated_at: string
+}
+
+// Delivery Round Statuses
+
+export type DeliveryRoundStatus = 'draft' | 'scheduled' | 'in_progress' | 'completed' | 'cancelled'
+
+export type DeliveryPatientStatus =
+  | 'pending'
+  | 'delivered'
+  | 'failed'
+  | 'skipped'
+  | 'pending_redelivery'
+  | 'moved_to_round'
+  | 'returned'
+  | 'cancelled'
+
+// Delivery Round
+
+export interface DeliveryRound {
+  id: string
+  organisation_id: string
+  title: string | null
+  status: DeliveryRoundStatus
+  scheduled_date: string | null
+  scheduled_time_start: string | null
+  scheduled_time_end: string | null
+  driver_id: string | null
+  template_id: string | null
+  notes: string | null
+  created_by: string
+  started_at: string | null
+  completed_at: string | null
+  created_at: string
+  updated_at: string
+  // Joined data
+  driver?: OrganisationMember
+  patients?: DeliveryRoundPatient[]
+}
+
+// Delivery Round Patient
+
+export interface DeliveryRoundPatient {
+  id: string
+  round_id: string
+  patient_id: string
+  organisation_id: string
+  delivery_order: number
+  status: DeliveryPatientStatus
+  delivery_address_line_1: string | null
+  delivery_address_line_2: string | null
+  delivery_city: string | null
+  delivery_postcode: string | null
+  notes: string | null
+  signature_data: string | null
+  delivered_at: string | null
+  failure_reason: string | null
+  original_round_patient_id: string | null
+  moved_to_round_patient_id: string | null
+  created_at: string
+  updated_at: string
+  // Joined data
+  patient?: Patient
+  medications?: DeliveryPatientMedication[]
+}
+
+// Delivery Patient Medication
+
+export interface DeliveryPatientMedication {
+  id: string
+  delivery_round_patient_id: string
+  patient_medication_id: string
+  quantity: number | null
+  notes: string | null
+  created_at: string
+  // Joined data
+  patient_medication?: PatientMedication
+}
+
+// Delivery Round Template
+
+export interface DeliveryRoundTemplate {
+  id: string
+  organisation_id: string
+  name: string
+  notes: string | null
+  created_by: string
+  created_at: string
+  updated_at: string
+  // Joined data
+  patients?: DeliveryRoundTemplatePatient[]
+}
+
+export interface DeliveryRoundTemplatePatient {
+  id: string
+  template_id: string
+  patient_id: string
+  delivery_order: number
+  delivery_address_line_1: string | null
+  delivery_address_line_2: string | null
+  delivery_city: string | null
+  delivery_postcode: string | null
+  notes: string | null
+  include_all_active_meds: boolean
+  created_at: string
+  // Joined data
+  patient?: Patient
+  medications?: DeliveryRoundTemplateMedication[]
+}
+
+export interface DeliveryRoundTemplateMedication {
+  id: string
+  template_patient_id: string
+  patient_medication_id: string
+  default_quantity: number | null
+  created_at: string
+  // Joined data
+  patient_medication?: PatientMedication
+}
+
+// Location Update (Driver GPS)
+
+export interface DeliveryLocationUpdate {
+  id: string
+  round_id: string
+  driver_id: string
+  latitude: number
+  longitude: number
+  recorded_at: string
+}
+
+// BNF Drug Search Result (for drug picker)
+
+export interface BnfDrugSearchResult {
+  id: string
+  drug_id: string
+  name: string
+  form: string | null
+  brand_name: string | null
+  manufacturer: string | null
+  activeIngredients: string | null
+  controlledDrugSchedule: string | null
+  // Joined from bnf_drugs
+  drug_name?: string
 }
 
