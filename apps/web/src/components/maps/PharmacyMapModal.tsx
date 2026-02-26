@@ -84,8 +84,39 @@ const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY as string
 const UK_CENTER: [number, number] = [-1.5, 52.5]
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
 
+// Radius (km) → approximate Mapbox zoom level
+const RADIUS_ZOOM: Record<number, number> = { 1: 14, 2: 13, 5: 12, 10: 11, 25: 10, 50: 9 }
+const RADIUS_OPTIONS = [1, 2, 5, 10, 25, 50]
+
 function buildNhsLookupUrl(odsCode: string) {
   return `${SUPABASE_URL}/functions/v1/nhs-pharmacy-lookup?ods=${encodeURIComponent(odsCode)}`
+}
+
+// ── isOpenNow ────────────────────────────────────────────────
+
+function isOpenNow(pharmacy: BoundsPharmacy): boolean {
+  type OTRow = { Weekday?: string; OpeningTime?: string | null; ClosingTime?: string | null; IsOpen?: boolean; OpeningTimeType?: string }
+  const rows: OTRow[] = Array.isArray(pharmacy.opening_times)
+    ? (pharmacy.opening_times as OTRow[])
+    : (typeof pharmacy.opening_times === 'string'
+        ? (() => { try { return JSON.parse(pharmacy.opening_times as string) } catch { return false } })()
+        : [])
+  if (!Array.isArray(rows) || rows.length === 0) return false
+
+  // Use UK local time
+  const ukNow = new Date(new Date().toLocaleString('en-GB', { timeZone: 'Europe/London' }))
+  const weekdays = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
+  const today = weekdays[ukNow.getDay()]
+  const nowMins = ukNow.getHours() * 60 + ukNow.getMinutes()
+
+  const toMins = (t: string) => { const [h, m] = t.split(':').map(Number); return h * 60 + (m || 0) }
+
+  return rows
+    .filter((r) => r.Weekday === today && r.IsOpen === true && (r.OpeningTimeType === 'General' || !r.OpeningTimeType))
+    .some((slot) => {
+      if (!slot.OpeningTime || !slot.ClosingTime) return false
+      return nowMins >= toMins(slot.OpeningTime) && nowMins <= toMins(slot.ClosingTime)
+    })
 }
 
 // ── GeoJSON builder ─────────────────────────────────────────
@@ -132,49 +163,45 @@ const clusterCountLayer: SymbolLayer = {
   paint: { 'text-color': '#ffffff' },
 }
 
-const unclusteredPsLayer: CircleLayer = {
+// SVG sources for custom icons
+const PS_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 36 36">
+  <circle cx="18" cy="18" r="16" fill="#00E5FF" stroke="#006064" stroke-width="2.5"/>
+  <rect x="16" y="9" width="4" height="18" fill="#006064" rx="1.5"/>
+  <rect x="9" y="16" width="18" height="4" fill="#006064" rx="1.5"/>
+  <circle cx="18" cy="18" r="3.5" fill="#006064"/>
+</svg>`
+
+const NHS_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 28 28">
+  <circle cx="14" cy="14" r="12" fill="white" stroke="#546e7a" stroke-width="2"/>
+  <rect x="12.5" y="7" width="3" height="14" fill="#78909C" rx="1"/>
+  <rect x="7" y="12.5" width="14" height="3" fill="#78909C" rx="1"/>
+</svg>`
+
+const unclusteredPsLayer: SymbolLayer = {
   id: 'unclustered-ps',
-  type: 'circle',
-  source: 'pharmacies',
-  filter: ['all', ['!', ['has', 'point_count']], ['==', ['get', 'is_on_platform'], true]],
-  paint: {
-    'circle-radius': 9,
-    'circle-color': '#00E5FF',
-    'circle-stroke-color': '#006064',
-    'circle-stroke-width': 2,
-    'circle-opacity': 0.95,
-  },
-}
-
-const unclusteredNhsLayer: CircleLayer = {
-  id: 'unclustered-nhs',
-  type: 'circle',
-  source: 'pharmacies',
-  filter: ['all', ['!', ['has', 'point_count']], ['!=', ['get', 'is_on_platform'], true]],
-  paint: {
-    'circle-radius': 7,
-    'circle-color': '#ffffff',
-    'circle-stroke-color': '#546e7a',
-    'circle-stroke-width': 1.5,
-    'circle-opacity': 0.85,
-  },
-}
-
-// Cross symbol layer for PharmStation pharmacies
-const pharmacyCrossLayer: SymbolLayer = {
-  id: 'pharmacy-cross',
   type: 'symbol',
   source: 'pharmacies',
-  filter: ['!', ['has', 'point_count']],
+  filter: ['all', ['!', ['has', 'point_count']], ['==', ['get', 'is_on_platform'], true]],
   layout: {
-    'text-field': '+',
-    'text-size': ['case', ['==', ['get', 'is_on_platform'], true], 14, 11],
-    'text-font': ['DIN Offc Pro Bold', 'Arial Unicode MS Bold'],
-    'text-allow-overlap': true,
-    'text-ignore-placement': true,
+    'icon-image': 'pharmacy-ps',
+    'icon-size': 1,
+    'icon-allow-overlap': true,
+    'icon-ignore-placement': true,
+    'icon-anchor': 'center',
   },
-  paint: {
-    'text-color': ['case', ['==', ['get', 'is_on_platform'], true], '#006064', '#37474f'],
+}
+
+const unclusteredNhsLayer: SymbolLayer = {
+  id: 'unclustered-nhs',
+  type: 'symbol',
+  source: 'pharmacies',
+  filter: ['all', ['!', ['has', 'point_count']], ['!=', ['get', 'is_on_platform'], true]],
+  layout: {
+    'icon-image': 'pharmacy-nhs',
+    'icon-size': 1,
+    'icon-allow-overlap': true,
+    'icon-ignore-placement': true,
+    'icon-anchor': 'center',
   },
 }
 
@@ -225,8 +252,16 @@ function PharmacyDetailPanel({
   onClose: () => void
 }) {
   const nhs = pharmacy.nhsData
-  const localPhone = (pharmacy.contacts as { Tel?: { OrganisationContactValue?: string }[] } | null)
-    ?.Tel?.[0]?.OrganisationContactValue
+  // DB schema: contacts is a flat array of { ContactMethodType, ContactValue, ... }
+  type ContactRow = { ContactMethodType?: string; ContactValue?: string }
+  const contactRows: ContactRow[] = Array.isArray(pharmacy.contacts)
+    ? (pharmacy.contacts as ContactRow[])
+    : (typeof pharmacy.contacts === 'string'
+        ? (() => { try { return JSON.parse(pharmacy.contacts as string) } catch { return [] } })()
+        : [])
+  const localPhone = contactRows.find((c) => c.ContactMethodType === 'Telephone')?.ContactValue ?? null
+  const localEmail = contactRows.find((c) => c.ContactMethodType === 'Email')?.ContactValue ?? null
+  const localWebsite = contactRows.find((c) => c.ContactMethodType === 'Website')?.ContactValue ?? null
 
   return (
     <div className="map-detail-panel">
@@ -260,48 +295,95 @@ function PharmacyDetailPanel({
           <div style={{ color: 'var(--ps-slate)', fontSize: 'var(--ps-font-sm)', textAlign: 'center', padding: '8px 0' }}>
             Loading NHS data…
           </div>
-        ) : nhs?.found ? (
-          <>
-            {(nhs.phone ?? localPhone) && (
-              <div className="map-detail-section">
-                <div className="map-detail-label">📞 Phone</div>
-                <a href={`tel:${nhs.phone ?? localPhone}`} className="map-detail-phone">
-                  {nhs.phone ?? localPhone}
-                </a>
-              </div>
-            )}
-            {nhs.email && (
-              <div className="map-detail-section">
-                <div className="map-detail-label">✉ Email</div>
-                <a href={`mailto:${nhs.email}`} className="map-detail-phone">{nhs.email}</a>
-              </div>
-            )}
-            {nhs.url && (
-              <div className="map-detail-section">
-                <div className="map-detail-label">🌐 Website</div>
-                <a href={nhs.url} target="_blank" rel="noopener noreferrer" className="map-detail-phone">
-                  {nhs.url.replace(/^https?:\/\//, '').slice(0, 40)}
-                </a>
-              </div>
-            )}
-            {nhs.regular_hours && Object.keys(nhs.regular_hours).length > 0 && (
-              <div className="map-detail-section">
-                <div className="map-detail-label">🕐 Opening Hours</div>
-                <div className="pharmacy-hours-grid">
-                  {renderRegularHours(nhs.regular_hours)}
+        ) : (() => {
+          // Merge NHS data with local contacts — NHS data is authoritative if present
+          const phone = nhs?.phone ?? localPhone
+          const email = nhs?.email ?? localEmail
+          const url = nhs?.url ?? localWebsite
+          const hasHours = nhs?.regular_hours && Object.keys(nhs.regular_hours).length > 0
+
+          // DB opening_times is a flat array: { Weekday, OpeningTime, ClosingTime, IsOpen }
+          type OTRow = { Weekday?: string; OpeningTime?: string | null; ClosingTime?: string | null; IsOpen?: boolean; OpeningTimeType?: string }
+          const localHoursRaw: OTRow[] = Array.isArray(pharmacy.opening_times)
+            ? (pharmacy.opening_times as OTRow[])
+            : (typeof pharmacy.opening_times === 'string'
+                ? (() => { try { return JSON.parse(pharmacy.opening_times as string) } catch { return [] } })()
+                : [])
+          // Only General opening times, grouped/deduped
+          const localHours = localHoursRaw.filter((r) => r.OpeningTimeType === 'General' || !r.OpeningTimeType)
+
+          return (
+            <>
+              {phone && (
+                <div className="map-detail-section">
+                  <div className="map-detail-label">📞 Phone</div>
+                  <a href={`tel:${phone}`} className="map-detail-phone">{phone}</a>
                 </div>
-              </div>
-            )}
-          </>
-        ) : localPhone ? (
-          <div className="map-detail-section">
-            <div className="map-detail-label">📞 Phone</div>
-            <a href={`tel:${localPhone}`} className="map-detail-phone">{localPhone}</a>
-          </div>
-        ) : null}
+              )}
+              {email && (
+                <div className="map-detail-section">
+                  <div className="map-detail-label">✉ Email</div>
+                  <a href={`mailto:${email}`} className="map-detail-phone">{email}</a>
+                </div>
+              )}
+              {url && (
+                <div className="map-detail-section">
+                  <div className="map-detail-label">🌐 Website</div>
+                  <a href={url} target="_blank" rel="noopener noreferrer" className="map-detail-phone">
+                    {url.replace(/^https?:\/\//, '').slice(0, 42)}
+                  </a>
+                </div>
+              )}
+              {hasHours && (
+                <div className="map-detail-section">
+                  <div className="map-detail-label">🕐 Opening Hours</div>
+                  <div className="pharmacy-hours-grid">
+                    {renderRegularHours(nhs!.regular_hours!)}
+                  </div>
+                </div>
+              )}
+              {!hasHours && localHours && localHours.length > 0 && (
+                <div className="map-detail-section">
+                  <div className="map-detail-label">🕐 Opening Hours</div>
+                  <div className="pharmacy-hours-grid">
+                    {localHours.map((slot, i) => (
+                      <div key={i} className="pharmacy-hours-row">
+                        <span className="pharmacy-hours-day">{(slot.Weekday ?? '').slice(0, 3)}</span>
+                        {slot.IsOpen === false ? (
+                          <span className="pharmacy-hours-closed">Closed</span>
+                        ) : (
+                          <span className="pharmacy-hours-time">
+                            <span>{slot.OpeningTime ?? '?'}–{slot.ClosingTime ?? '?'}</span>
+                          </span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {!phone && !email && !url && !hasHours && (!localHours || localHours.length === 0) && (
+                <div style={{ color: 'var(--ps-slate)', fontSize: 'var(--ps-font-xs)', padding: '4px 0' }}>
+                  No contact details available from NHS records.
+                </div>
+              )}
+            </>
+          )
+        })()}
 
         {/* Actions */}
         <div className="map-detail-actions">
+          {/* Get directions — works on mobile (native maps app) and desktop (Google Maps) */}
+          {pharmacy.latitude != null && pharmacy.longitude != null && (
+            <a
+              href={`https://www.google.com/maps/dir/?api=1&destination=${pharmacy.latitude},${pharmacy.longitude}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="ps-btn ps-btn-secondary"
+              style={{ textDecoration: 'none', textAlign: 'center' }}
+            >
+              🧭 Get Directions
+            </a>
+          )}
           {pharmacy.is_on_platform && pharmacy.linked_org_id && (
             <>
               <button
@@ -341,11 +423,15 @@ export function PharmacyMapModal({ isOpen, onClose }: Props) {
     zoom: 11,
   })
   const [mapLoaded, setMapLoaded] = useState(false)
+  const [myPharmacyCoords, setMyPharmacyCoords] = useState<{ lng: number; lat: number } | null>(null)
+  const [locationStatus, setLocationStatus] = useState<'idle' | 'requesting' | 'granted' | 'denied'>('idle')
 
   // Pharmacy data
   const [pharmacies, setPharmacies] = useState<BoundsPharmacy[]>([])
   const [dataLoading, setDataLoading] = useState(false)
   const [onlyPlatform, setOnlyPlatform] = useState(false)
+  const [onlyOpen, setOnlyOpen] = useState(false)
+  const [radiusKm, setRadiusKm] = useState<number | null>(null)
   const [searchTerm, setSearchTerm] = useState('')
   const boundsTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -353,21 +439,60 @@ export function PharmacyMapModal({ isOpen, onClose }: Props) {
   const [selectedPharmacy, setSelectedPharmacy] = useState<SelectedPharmacy | null>(null)
   const [pickedOrgIds, setPickedOrgIds] = useState<string[]>([])
 
+  // Auto-request browser location on open (public users / no org pharmacy coords)
+  useEffect(() => {
+    if (!isOpen) return
+    // Org users already get centered on their pharmacy — skip
+    if (myPharmacyCoords) return
+    if (!navigator.geolocation) return
+
+    setLocationStatus('requesting')
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const { longitude, latitude } = pos.coords
+        setLocationStatus('granted')
+        setViewState((v) => ({ ...v, longitude, latitude, zoom: 14 }))
+        // If map is already loaded fly to it, otherwise viewState change handles it
+        mapRef.current?.flyTo({ center: [longitude, latitude], zoom: 14, duration: 1000 })
+      },
+      () => {
+        setLocationStatus('denied')
+      },
+      { timeout: 8000, maximumAge: 60000 }
+    )
+  // Only run once when the modal first opens
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen])
+
   // Fetch link on open
   useEffect(() => {
     if (isOpen && organisation?.id) {
       fetchMyLink(organisation.id)
     }
   }, [isOpen, organisation?.id, fetchMyLink])
-
-  // Center on user's pharmacy once link loaded
   useEffect(() => {
     if (!isOpen || !myLink) return
     const ph = (myLink as { pharmacy?: { latitude?: number; longitude?: number } }).pharmacy
     if (ph?.latitude && ph?.longitude) {
-      setViewState((v) => ({ ...v, latitude: ph.latitude!, longitude: ph.longitude!, zoom: 13 }))
+      setMyPharmacyCoords({ lng: ph.longitude!, lat: ph.latitude! })
+      setViewState((v) => ({ ...v, latitude: ph.latitude!, longitude: ph.longitude!, zoom: 15 }))
     }
   }, [isOpen, myLink])
+
+  const flyToMyPharmacy = useCallback(() => {
+    if (!myPharmacyCoords || !mapRef.current) return
+    mapRef.current.flyTo({ center: [myPharmacyCoords.lng, myPharmacyCoords.lat], zoom: 14, duration: 1200 })
+  }, [myPharmacyCoords])
+
+  // Fly to zoom level matching selected radius
+  useEffect(() => {
+    if (!radiusKm || !mapRef.current) return
+    const center: [number, number] = myPharmacyCoords
+      ? [myPharmacyCoords.lng, myPharmacyCoords.lat]
+      : [viewState.longitude, viewState.latitude]
+    mapRef.current.flyTo({ center, zoom: RADIUS_ZOOM[radiusKm] ?? 12, duration: 900 })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [radiusKm])
 
   // Reset when closed
   useEffect(() => {
@@ -375,6 +500,9 @@ export function PharmacyMapModal({ isOpen, onClose }: Props) {
       setSelectedPharmacy(null)
       setPickedOrgIds([])
       setSearchTerm('')
+      setOnlyOpen(false)
+      setRadiusKm(null)
+      setLocationStatus('idle')
     }
   }, [isOpen])
 
@@ -410,19 +538,40 @@ export function PharmacyMapModal({ isOpen, onClose }: Props) {
     }, 300)
   }, [loadInBounds])
 
-  // Load when map first renders
+  // Load custom SVG icons then fetch pharmacies
   const handleMapLoad = useCallback(() => {
     setMapLoaded(true)
     const map = mapRef.current
     if (!map) return
-    const bounds = map.getBounds()
-    if (bounds) loadInBounds(bounds)
+
+    const loadSvgIcon = (id: string, svg: string, size: number): Promise<void> =>
+      new Promise((resolve) => {
+        const img = new Image(size, size)
+        img.onload = () => {
+          if (!map.hasImage(id)) map.addImage(id, img)
+          resolve()
+        }
+        img.onerror = () => resolve() // fallback gracefully
+        img.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`
+      })
+
+    Promise.all([
+      loadSvgIcon('pharmacy-ps', PS_SVG, 36),
+      loadSvgIcon('pharmacy-nhs', NHS_SVG, 28),
+    ]).then(() => {
+      const bounds = map.getBounds()
+      if (bounds) loadInBounds(bounds)
+    }).catch(() => {
+      const bounds = map.getBounds()
+      if (bounds) loadInBounds(bounds)
+    })
   }, [loadInBounds])
 
-  // GeoJSON filtered by search + platform toggle
+  // GeoJSON filtered by search + platform toggle + open now
   const filteredPharmacies = useMemo(() => {
     return pharmacies.filter((p) => {
       if (onlyPlatform && !p.is_on_platform) return false
+      if (onlyOpen && !isOpenNow(p)) return false
       if (searchTerm) {
         const q = searchTerm.toLowerCase()
         return (
@@ -434,7 +583,7 @@ export function PharmacyMapModal({ isOpen, onClose }: Props) {
       }
       return true
     })
-  }, [pharmacies, onlyPlatform, searchTerm])
+  }, [pharmacies, onlyPlatform, onlyOpen, searchTerm])
 
   const geojsonData = useMemo(() => toGeoJson(filteredPharmacies), [filteredPharmacies])
 
@@ -581,18 +730,45 @@ export function PharmacyMapModal({ isOpen, onClose }: Props) {
               />
               <span>PharmStation only</span>
             </label>
+            <label className="pharmacy-map-toggle">
+              <input
+                type="checkbox"
+                checked={onlyOpen}
+                onChange={(e) => setOnlyOpen(e.target.checked)}
+              />
+              <span>Open now</span>
+            </label>
+            <select
+              className="ps-input"
+              style={{ width: 'auto', paddingRight: 28 }}
+              value={radiusKm ?? ''}
+              onChange={(e) => setRadiusKm(e.target.value ? Number(e.target.value) : null)}
+            >
+              <option value="">Any radius</option>
+              {RADIUS_OPTIONS.map((r) => (
+                <option key={r} value={r}>{r} km</option>
+              ))}
+            </select>
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--ps-space-sm)' }}>
             {dataLoading && (
               <span style={{ color: 'var(--ps-slate)', fontSize: 'var(--ps-font-xs)' }}>Loading…</span>
             )}
+            {locationStatus === 'requesting' && (
+              <span style={{ color: 'var(--ps-slate)', fontSize: 'var(--ps-font-xs)' }}>📍 Getting your location…</span>
+            )}
+            {locationStatus === 'denied' && (
+              <span style={{ color: 'var(--ps-slate)', fontSize: 'var(--ps-font-xs)' }} title="Enable location in your browser to start near you">📍 Location not available</span>
+            )}
             {!mapLoaded && (
               <span style={{ color: 'var(--ps-slate)', fontSize: 'var(--ps-font-xs)' }}>Initialising map…</span>
             )}
             <div className="pharmacy-map-legend">
-              <span className="legend-ps">✦</span> PharmStation
-              <span className="legend-nhs" style={{ marginLeft: 8 }}>•</span> NHS Pharmacy
+              <span style={{ display:'inline-block', width:14, height:14, borderRadius:'50%', background:'#00E5FF', border:'2px solid #006064', verticalAlign:'middle', marginRight:4 }} />
+              PharmStation
+              <span style={{ display:'inline-block', width:12, height:12, borderRadius:'50%', background:'white', border:'2px solid #546e7a', verticalAlign:'middle', margin:'0 4px 0 10px' }} />
+              NHS Pharmacy
             </div>
 
             {pickedOrgIds.length > 0 && (
@@ -621,20 +797,48 @@ export function PharmacyMapModal({ isOpen, onClose }: Props) {
           >
             <NavigationControl position="top-right" />
             <GeolocateControl position="top-right" />
+            {myPharmacyCoords && (
+              <div
+                style={{
+                  position: 'absolute',
+                  top: 175,
+                  right: 10,
+                }}
+              >
+                <button
+                  onClick={flyToMyPharmacy}
+                  title="Return to my pharmacy"
+                  style={{
+                    background: 'white',
+                    border: '1px solid rgba(0,0,0,0.2)',
+                    borderRadius: 4,
+                    width: 29,
+                    height: 29,
+                    cursor: 'pointer',
+                    fontSize: 16,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    boxShadow: '0 0 0 2px rgba(0,0,0,.1)',
+                  }}
+                >
+                  🏠
+                </button>
+              </div>
+            )}
 
             <Source
               id="pharmacies"
               type="geojson"
               data={geojsonData}
               cluster
-              clusterMaxZoom={14}
+              clusterMaxZoom={12}
               clusterRadius={50}
             >
               <Layer {...clusterCircleLayer} />
               <Layer {...clusterCountLayer} />
               <Layer {...unclusteredNhsLayer} />
               <Layer {...unclusteredPsLayer} />
-              <Layer {...pharmacyCrossLayer} />
             </Source>
           </Map>
 

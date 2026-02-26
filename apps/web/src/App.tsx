@@ -70,6 +70,7 @@ import { PublicOrgPage } from './pages/public/PublicOrgPage'
 import { PublicServicePage } from './pages/public/PublicServicePage'
 import { PublicBookingConfirmPage } from './pages/public/PublicBookingConfirmPage'
 import { AboutPage } from './pages/public/AboutPage'
+import { PublicPharmacyMapPage } from './pages/public/PublicPharmacyMapPage'
 
 export function App() {
   const { initialize, orgLoading, userLoading, isOrgLoggedIn, isUserLoggedIn } = useAuthStore()
@@ -92,6 +93,7 @@ export function App() {
     <Routes>
       {/* Public routes — no auth required */}
       <Route path="/rp" element={<RPCertificatePage />} />
+      <Route path="/maps" element={<PublicPharmacyMapPage />} />
       <Route path="/consult/:consultationId" element={<PatientVideoPage />} />
       <Route path="/book" element={<PublicBookingHomePage />} />
       <Route path="/book/:orgSlug" element={<PublicOrgPage />} />

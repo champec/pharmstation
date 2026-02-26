@@ -1,0 +1,110 @@
+Overview
+Use this API to find information about organisations that provide NHS healthcare services, NHS organisation types, and coronavirus (COVID-19) walk-in sites.
+
+You can:
+
+retrieve a list of organisation types, for example, GP practices or hospitals
+
+search for NHS organisations that provide healthcare services listed in NHS services near you, for example, Leeds General Infirmary
+
+search for coronavirus (COVID-19) walk-in sites
+
+This API was previously known as the Service Search API.
+
+
+For a non-technical overview of how to build software that deals with organisations and healthcare services, see Building healthcare software - organisations and healthcare services.
+
+Versions
+This API has multiple versions as follows:
+
+Version	Status	Documentation
+Version 3	In production	
+Directory of Healthcare Services API - version 3
+
+Version 2	In production	Service Search API - versions 1 and 2
+Version 1	In production	Service Search API - versions 1 and 2
+Version 1 and 2 of the API will be deprecated on the 2 February 2026. Partners will need to migrate to version 3 before this date. 
+
+What deprecated means
+Deprecated means:
+
+the API is still available for use until the depreciation date 
+full service levels still apply
+we will not make any updates to it
+new integrations are not allowed 
+we intend to retire the API on 2 February 2026
+
+
+Overview
+Use this API to find information about NHS services, including lists of NHS organisation types, organisations, and coronavirus (COVID 19) walk-in sites.
+
+search for NHS organisation types, for example, GP practices, hospitals
+
+search for NHS organisations that provide services listed in NHS service near you, for example, Leeds General Infirmary
+
+search for coronavirus (COVID 19) walk-in sites
+
+
+For a non-technical overview of how to build software that deals with organisations and healthcare services, see Building healthcare software - organisations and healthcare services.
+
+Who can use this API
+Both versions of this API will be deprecated on 2 February 2026. Partners will need to migrate to version 3 before this date. 
+
+What deprecated means
+Deprecated means:
+
+the API is still available for use
+full service levels still apply
+new integrations are not allowed 
+we intend to retire the API on 2 February 2026
+Related APIs
+The following APIs are related to this API:
+
+Directory of Services - Urgent and Emergency Care - SOAP API - use this SOAP API to access information on a wide range of health and care services across England
+Directory of Services - Urgent and Emergency Care - REST API - use this REST API to access information on a wide range of health and care services across England
+EPS Directory of Services - REST API - use this to access information about dispensing services, including searching for dispensers who can provide services for a patient with a given location and urgency
+Electronic Transmission of Prescriptions Web Services - SOAP API - use this to access EPS dispenser (and dispensing appliance contractor) information for a patient via NHS UK Web Services
+e-Referral Services - A010 Patient service search endpoint - use this endpoint to find services that meet the referral needs of a patient
+API status
+This API is in production.
+
+Service level
+This API is a bronze service, meaning it is operational and supported only during business hours (8am to 6pm), Monday to Friday excluding bank holidays.
+
+For more details, see service levels.
+
+Technology
+The API is RESTful.
+
+The API supports search using either HTTP GET or HTTP POST.
+
+It is not hosted on our API platform. 
+
+Network access
+This API is available on the internet and, indirectly, on the Health and Social Care Network (HSCN).
+
+For more details see Network access for APIs.
+
+Security and authorisation
+This API is application-restricted, meaning we authenticate the calling application but not the end user.
+
+Your request must include a subscription-key header with a valid subscription key. Login or register with the NHS website developer portal to get your subscription key.
+
+Environments and testing
+Environment	Base URL
+Production	https://api.nhs.uk/service-search/
+Onboarding
+For more details, see getting started.
+
+Interactions
+For further details on interactions, see:
+
+organisation types (version 1)
+
+organisations (version 1)
+
+organisations (version 2)
+
+coronavirus (COVID 19) walk-in sites (version 1)
+
+coronavirus (COVID 19) walk-in sites (version 2)
