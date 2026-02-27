@@ -75,14 +75,25 @@ export const useServiceStore = create<ServiceState>((set, get) => ({
     set({ loading: true, error: null })
     try {
       const client = getUserClient()
-      const [serviceRes, formsRes] = await Promise.all([
-        client.from('ps_services').select('*').eq('id', serviceId).single(),
-        client.from('ps_service_forms').select('*').eq('service_id', serviceId).order('created_at'),
-      ])
+      const serviceRes = await client.from('ps_services').select('*').eq('id', serviceId).single()
       if (serviceRes.error) throw serviceRes.error
+      const service = serviceRes.data as Service
+
+      // Forms live on ps_service_library (via FK), so we query both the org-level
+      // service id and the library_service_id to pick up library form templates.
+      const formServiceIds = [serviceId]
+      if (service.library_service_id) {
+        formServiceIds.push(service.library_service_id)
+      }
+      const formsRes = await client
+        .from('ps_service_forms')
+        .select('*')
+        .in('service_id', formServiceIds)
+        .order('created_at')
       if (formsRes.error) throw formsRes.error
+
       set({
-        activeService: serviceRes.data as Service,
+        activeService: service,
         activeForms: formsRes.data as ServiceForm[],
         loading: false,
       })
@@ -126,6 +137,7 @@ export const useServiceStore = create<ServiceState>((set, get) => ({
       library_service_id: libraryItemId,
       name: lib.name,
       description: lib.description,
+      is_nhs_service: lib.is_nhs_service ?? false,
     })
   },
 

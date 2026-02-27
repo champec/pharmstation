@@ -36,7 +36,7 @@ async function logAttempt(admin: ReturnType<typeof getAdminClient>, submissionId
   requestPayload: unknown; responseStatus: number; responseBody: unknown
   errorMessage?: string; succeeded: boolean
 }) {
-  await admin.from('nhs_submission_attempts').insert({
+  await admin.from('ps_nhs_submission_attempts').insert({
     submission_id:   submissionId,
     attempt_number:  opts.attemptNumber,
     http_method:     opts.httpMethod,
@@ -89,7 +89,7 @@ async function handleSubmit(body: Record<string, unknown>, userId: string) {
   }
 
   const { data: submission, error: insertError } = await admin
-    .from('nhs_claim_submissions')
+    .from('ps_nhs_claim_submissions')
     .insert({
       org_id, patient_id: patient_id ?? null,
       service_delivery_id: service_delivery_id ?? null,
@@ -116,7 +116,7 @@ async function handleSubmit(body: Record<string, unknown>, userId: string) {
   await logAttempt(admin, submission.id, { attemptNumber: 1, httpMethod: 'POST', endpointUrl: endpoint, requestPayload: nhsbsaPayload, responseStatus: nhsbsaStatus, responseBody: nhsbsaData, succeeded })
 
   const { data: updated } = await admin
-    .from('nhs_claim_submissions')
+    .from('ps_nhs_claim_submissions')
     .update({ status: succeeded ? 'submitted' : 'rejected', bsa_response: nhsbsaData, submitted_at: succeeded ? new Date().toISOString() : null, last_updated_at: new Date().toISOString() })
     .eq('id', submission.id).select().single()
 
@@ -127,14 +127,14 @@ async function handleUpdate(body: Record<string, unknown>, _userId: string) {
   const { submission_id, payload: updatedPayload } = body as { submission_id: string; payload: Record<string, unknown> }
   if (!submission_id || !updatedPayload) throw new Error('Missing submission_id or payload')
   const admin = getAdminClient()
-  const { data: submission, error } = await admin.from('nhs_claim_submissions').select('*, ps_organisations(nhs_bsa_environment)').eq('id', submission_id).single()
+  const { data: submission, error } = await admin.from('ps_nhs_claim_submissions').select('*, ps_organisations(nhs_bsa_environment)').eq('id', submission_id).single()
   if (error || !submission) throw new Error('Submission not found')
   const env = submission.ps_organisations?.nhs_bsa_environment === 'production'
   const endpoint = `${env ? NHSBSA_CVD_PROD : NHSBSA_CVD_STAGING}/${submission.platform_deposit_id}`
   const updatedFullPayload = { ...submission.payload, ...updatedPayload }
   // [STUB]
   await logAttempt(admin, submission_id, { attemptNumber: 2, httpMethod: 'PUT', endpointUrl: endpoint, requestPayload: updatedFullPayload, responseStatus: 200, responseBody: { status: 'updated', _stub: true }, succeeded: true })
-  const { data: updated } = await admin.from('nhs_claim_submissions').update({ payload: updatedFullPayload, status: 'updated', last_updated_at: new Date().toISOString() }).eq('id', submission_id).select().single()
+  const { data: updated } = await admin.from('ps_nhs_claim_submissions').update({ payload: updatedFullPayload, status: 'updated', last_updated_at: new Date().toISOString() }).eq('id', submission_id).select().single()
   return { success: true, submission: updated }
 }
 
@@ -142,11 +142,11 @@ async function handleDelete(body: Record<string, unknown>) {
   const { submission_id } = body as { submission_id: string }
   if (!submission_id) throw new Error('Missing submission_id')
   const admin = getAdminClient()
-  const { data: submission, error } = await admin.from('nhs_claim_submissions').select('*, ps_organisations(nhs_bsa_environment)').eq('id', submission_id).single()
+  const { data: submission, error } = await admin.from('ps_nhs_claim_submissions').select('*, ps_organisations(nhs_bsa_environment)').eq('id', submission_id).single()
   if (error || !submission) throw new Error('Submission not found')
   // [STUB]
   await logAttempt(admin, submission_id, { attemptNumber: 1, httpMethod: 'DELETE', endpointUrl: `${NHSBSA_CVD_STAGING}/${submission.platform_deposit_id}`, requestPayload: {}, responseStatus: 200, responseBody: { deleted: true, _stub: true }, succeeded: true })
-  await admin.from('nhs_claim_submissions').update({ status: 'deleted', last_updated_at: new Date().toISOString() }).eq('id', submission_id)
+  await admin.from('ps_nhs_claim_submissions').update({ status: 'deleted', last_updated_at: new Date().toISOString() }).eq('id', submission_id)
   return { success: true, submission_id }
 }
 
@@ -154,7 +154,7 @@ async function handleGet(body: Record<string, unknown>) {
   const { submission_id } = body as { submission_id: string }
   if (!submission_id) throw new Error('Missing submission_id')
   const admin = getAdminClient()
-  const { data, error } = await admin.from('nhs_claim_submissions').select('*').eq('id', submission_id).single()
+  const { data, error } = await admin.from('ps_nhs_claim_submissions').select('*').eq('id', submission_id).single()
   if (error || !data) throw new Error('Submission not found')
   return { submission: data }
 }

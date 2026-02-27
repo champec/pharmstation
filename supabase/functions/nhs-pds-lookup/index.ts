@@ -3,11 +3,10 @@
 // NHS Personal Demographics Service (PDS) FHIR R4 lookup
 // Verifies patient NHS numbers and retrieves demographics
 //
-// Actions: lookup | verify
+// Actions: lookup | verify | search
 //
-// [A6 SCAFFOLD] PDS API calls are STUBBED.
-// Replace stub in Phase D once NHS Developer Portal
-// API access is approved (action A2).
+// NOW LIVE against NHS Sandbox (open access, no auth).
+// Switch PDS_BASE to PDS_INT when NHS approval arrives.
 // ============================================
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.0'
@@ -18,13 +17,33 @@ const CORS_HEADERS = {
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 }
 
-// NHS PDS FHIR R4 endpoint
-// Sandbox (no real data, for development): https://sandbox.api.service.nhs.uk/personal-demographics/FHIR/R4
-// Integration (requires NHS Developer Portal approval): https://int.api.service.nhs.uk/personal-demographics/FHIR/R4
-// Production: https://api.service.nhs.uk/personal-demographics/FHIR/R4
-const PDS_SANDBOX   = 'https://sandbox.api.service.nhs.uk/personal-demographics/FHIR/R4'
-const PDS_INT       = 'https://int.api.service.nhs.uk/personal-demographics/FHIR/R4'
-const PDS_PROD      = 'https://api.service.nhs.uk/personal-demographics/FHIR/R4'
+// NHS PDS FHIR R4 endpoints
+const PDS_SANDBOX = 'https://sandbox.api.service.nhs.uk/personal-demographics/FHIR/R4'
+const PDS_INT     = 'https://int.api.service.nhs.uk/personal-demographics/FHIR/R4'
+const PDS_PROD    = 'https://api.service.nhs.uk/personal-demographics/FHIR/R4'
+
+// Current environment — sandbox is open access (no auth needed)
+const PDS_BASE = PDS_SANDBOX
+const IS_SANDBOX = PDS_BASE === PDS_SANDBOX
+
+// ============================================
+// Sandbox fake ODS code mapping
+// The PDS sandbox returns "Y12345" as the GP practice
+// for all test patients. This code does not exist in
+// any real NHS directory, so GP name resolution fails.
+//
+// For testing, we map it to a real active GP practice
+// so the downstream ODS lookup can resolve a real name.
+// This mapping is ONLY applied in sandbox mode.
+// ============================================
+const SANDBOX_ODS_REPLACEMENTS: Record<string, string> = {
+  'Y12345': 'M92040',  // Mayfield Medical Practice, Wolverhampton, WV1 2GZ
+}
+
+function fixSandboxOdsCode(odsCode: string | null): string | null {
+  if (!IS_SANDBOX || !odsCode) return odsCode
+  return SANDBOX_ODS_REPLACEMENTS[odsCode] ?? odsCode
+}
 
 // NHS number mod-11 Luhn-like validation
 function validateNHSNumber(nhsNumber: string): boolean {
@@ -34,7 +53,7 @@ function validateNHSNumber(nhsNumber: string): boolean {
   const sum = weights.reduce((acc, w, i) => acc + w * digits[i], 0)
   const remainder = sum % 11
   const checkDigit = remainder === 0 ? 0 : 11 - remainder
-  if (checkDigit === 10) return false // invalid NHS number
+  if (checkDigit === 10) return false
   return checkDigit === digits[9]
 }
 
@@ -43,11 +62,53 @@ function getAdminClient() {
 }
 
 // ============================================
-// Action: lookup
-// Look up a patient by NHS number.
-// Caches result in nhs_patient_pds_cache.
+// Parse FHIR Patient resource into our format
 // ============================================
+function parseFHIRPatient(fhir: Record<string, unknown>): Record<string, unknown> {
+  const names = fhir.name as Array<Record<string, unknown>> | undefined
+  const officialName = names?.find((n: any) => n.use === 'usual') || names?.[0]
+  const familyName = (officialName?.family as string) ?? null
+  const givenNames = (officialName?.given as string[]) ?? []
 
+  const dob = (fhir.birthDate as string) ?? null
+  const gender = (fhir.gender as string) ?? null
+
+  const addresses = fhir.address as Array<Record<string, unknown>> | undefined
+  const homeAddr = addresses?.find((a: any) => a.use === 'home') || addresses?.[0]
+  const addressLine1 = (homeAddr?.line as string[])?.[0] ?? null
+  const city = (homeAddr?.city as string) ?? null
+  const postcode = (homeAddr?.postalCode as string) ?? null
+
+  // GP ODS code from generalPractitioner[0].identifier.value
+  const gps = fhir.generalPractitioner as Array<Record<string, unknown>> | undefined
+  const gpEntry = gps?.[0]
+  const gpIdentifier = gpEntry?.identifier as Record<string, unknown> | undefined
+  let gpOds = (gpIdentifier?.value as string) ?? null
+
+  // Fix sandbox fake ODS codes so downstream GP name resolution works
+  gpOds = fixSandboxOdsCode(gpOds)
+
+  // Restricted flag from meta.security
+  const meta = fhir.meta as Record<string, unknown> | undefined
+  const security = meta?.security as Array<Record<string, unknown>> | undefined
+  const restricted = security?.some((s: any) => s.code === 'R') ?? false
+
+  return {
+    nhsNumber: (fhir.id as string) ?? null,
+    familyName,
+    givenNames,
+    dateOfBirth: dob,
+    gender,
+    address: { line: [addressLine1].filter(Boolean), city, postalCode: postcode },
+    gpPracticeOdsCode: gpOds,
+    restrictedPatient: restricted,
+  }
+}
+
+// ============================================
+// Action: lookup
+// Look up a patient by NHS number via PDS API
+// ============================================
 async function handleLookup(body: Record<string, unknown>, userId: string) {
   const { org_id, nhs_number, patient_id } = body as {
     org_id: string
@@ -58,17 +119,18 @@ async function handleLookup(body: Record<string, unknown>, userId: string) {
   if (!org_id) throw new Error('Missing required field: org_id')
   if (!nhs_number) throw new Error('Missing required field: nhs_number')
 
+  const cleanNhsNumber = nhs_number.replace(/\s/g, '')
+
   // Validate NHS number format (mod-11 check)
-  if (!validateNHSNumber(nhs_number.replace(/\s/g, ''))) {
+  if (!validateNHSNumber(cleanNhsNumber)) {
     throw new Error('Invalid NHS number: failed mod-11 validation')
   }
 
-  const cleanNhsNumber = nhs_number.replace(/\s/g, '')
   const admin = getAdminClient()
 
   // Check cache first — valid for 24 hours
   const { data: cached } = await admin
-    .from('nhs_patient_pds_cache')
+    .from('ps_nhs_patient_pds_cache')
     .select('*')
     .eq('nhs_number', cleanNhsNumber)
     .eq('org_id', org_id)
@@ -80,60 +142,60 @@ async function handleLookup(body: Record<string, unknown>, userId: string) {
       source: 'cache',
       nhs_number: cleanNhsNumber,
       patient: {
-        nhsNumber:          cached.nhs_number,
-        familyName:         cached.pds_family_name,
-        givenNames:         cached.pds_given_names,
-        dateOfBirth:        cached.pds_dob,
-        gender:             cached.pds_gender,
-        address:            { line: [cached.pds_address_line1], postalCode: cached.pds_address_postcode },
-        gpPracticeOdsCode:  cached.pds_gp_ods,
-        restrictedPatient:  cached.pds_restricted,
+        nhsNumber:         cached.nhs_number,
+        familyName:        cached.pds_family_name,
+        givenNames:        cached.pds_given_names,
+        dateOfBirth:       cached.pds_dob,
+        gender:            cached.pds_gender,
+        address:           { line: [cached.pds_address_line1], postalCode: cached.pds_address_postcode },
+        gpPracticeOdsCode: fixSandboxOdsCode(cached.pds_gp_ods),
+        restrictedPatient: cached.pds_restricted,
       },
     }
   }
 
-  // ================================================================
-  // [STUB] PDS FHIR API CALL — Replace with real API call in Phase D
-  // Requires: NHS Developer Portal API access (task A2)
-  //
-  // TODO Phase D: Replace this stub with:
-  //   const apiKey = Deno.env.get('NHS_PDS_API_KEY')!
-  //   const pdsRes = await fetch(`${PDS_INT}/Patient/${cleanNhsNumber}`, {
-  //     headers: {
-  //       'Authorization': `Bearer ${apiKey}`,
-  //       'X-Request-ID': crypto.randomUUID(),
-  //       'X-Correlation-ID': crypto.randomUUID(),
-  //     }
-  //   })
-  //   const pdsData = await pdsRes.json()
-  //   // Extract fields from FHIR R4 Patient resource
-  // ================================================================
-  const pdsData = {
-    resourceType: 'Patient',
-    id: cleanNhsNumber,
-    identifier: [{ value: cleanNhsNumber }],
-    name: [{ family: 'STUB-FAMILY', given: ['STUB-GIVEN'] }],
-    birthDate: '1990-01-01',
-    gender: 'unknown',
-    address: [{ line: ['1 Stub Street'], postalCode: 'SW1A 1AA' }],
-    generalPractitioner: [{ identifier: { value: 'A12345' } }],
-    _stub: true,
-    _note: 'PDS API access pending approval — this is a stub response',
+  // ============================================
+  // Call NHS PDS FHIR API (Sandbox = open access)
+  // For INT/PROD, add Authorization: Bearer <token>
+  // ============================================
+  const headers: Record<string, string> = {
+    'X-Request-ID': crypto.randomUUID(),
+    'Accept': 'application/fhir+json',
   }
-  // ================================================================
 
-  const familyName   = (pdsData.name?.[0]?.family as string) ?? null
-  const givenNames   = (pdsData.name?.[0]?.given as string[]) ?? []
-  const dob          = (pdsData.birthDate as string) ?? null
-  const gender       = (pdsData.gender as string) ?? null
-  const addressLine1 = (pdsData.address?.[0]?.line?.[0] as string) ?? null
-  const postcode     = (pdsData.address?.[0]?.postalCode as string) ?? null
-  const gpOds        = (pdsData.generalPractitioner?.[0]?.identifier?.value as string) ?? null
-  const restricted   = !!(pdsData as Record<string, unknown>).meta
+  // If we have an API key (for INT/PROD), add auth header
+  const apiKey = Deno.env.get('NHS_PDS_API_KEY')
+  if (apiKey) {
+    headers['Authorization'] = `Bearer ${apiKey}`
+  }
+
+  const pdsUrl = `${PDS_BASE}/Patient/${cleanNhsNumber}`
+  const pdsRes = await fetch(pdsUrl, { headers })
+
+  if (!pdsRes.ok) {
+    const errBody = await pdsRes.text()
+    if (pdsRes.status === 404) {
+      throw new Error('Patient not found in PDS')
+    }
+    throw new Error(`PDS API error (${pdsRes.status}): ${errBody.substring(0, 200)}`)
+  }
+
+  const pdsData = await pdsRes.json()
+  const patient = parseFHIRPatient(pdsData)
+
+  const familyName   = patient.familyName as string | null
+  const givenNames   = patient.givenNames as string[]
+  const dob          = patient.dateOfBirth as string | null
+  const gender       = patient.gender as string | null
+  const addr         = patient.address as Record<string, unknown>
+  const addressLine1 = (addr?.line as string[])?.[0] ?? null
+  const postcode     = (addr?.postalCode as string) ?? null
+  const gpOds        = patient.gpPracticeOdsCode as string | null
+  const restricted   = patient.restrictedPatient as boolean
 
   // Upsert PDS cache
   await admin
-    .from('nhs_patient_pds_cache')
+    .from('ps_nhs_patient_pds_cache')
     .upsert({
       nhs_number:           cleanNhsNumber,
       patient_id:           patient_id ?? null,
@@ -154,13 +216,55 @@ async function handleLookup(body: Record<string, unknown>, userId: string) {
   return {
     source: 'pds',
     nhs_number: cleanNhsNumber,
-    patient: {
-      nhsNumber: cleanNhsNumber,
-      familyName, givenNames, dateOfBirth: dob, gender,
-      address: { line: [addressLine1], postalCode: postcode },
-      gpPracticeOdsCode: gpOds,
-      restrictedPatient: restricted,
-    },
+    patient,
+  }
+}
+
+// ============================================
+// Action: search
+// Search PDS by demographics (name, DOB, etc)
+// Sandbox returns canned responses for specific searches
+// ============================================
+async function handleSearch(body: Record<string, unknown>) {
+  const { family, given, birthdate, gender: g, postcode } = body as {
+    family?: string; given?: string; birthdate?: string; gender?: string; postcode?: string
+  }
+
+  if (!family) throw new Error('At least family name is required for PDS search')
+
+  const params = new URLSearchParams()
+  params.set('family', family)
+  if (given) params.set('given', given)
+  if (birthdate) params.set('birthdate', birthdate)
+  if (g) params.set('gender', g)
+  if (postcode) params.set('address-postalcode', postcode)
+
+  const headers: Record<string, string> = {
+    'X-Request-ID': crypto.randomUUID(),
+    'Accept': 'application/fhir+json',
+  }
+
+  const apiKey = Deno.env.get('NHS_PDS_API_KEY')
+  if (apiKey) {
+    headers['Authorization'] = `Bearer ${apiKey}`
+  }
+
+  const searchUrl = `${PDS_BASE}/Patient?${params.toString()}`
+  const res = await fetch(searchUrl, { headers })
+
+  if (!res.ok) {
+    const errBody = await res.text()
+    throw new Error(`PDS search error (${res.status}): ${errBody.substring(0, 200)}`)
+  }
+
+  const bundle = await res.json()
+  // FHIR Bundle — extract entries
+  const entries = (bundle.entry || []) as Array<Record<string, unknown>>
+  const patients = entries.map((e: any) => parseFHIRPatient(e.resource))
+
+  return {
+    total: bundle.total ?? patients.length,
+    patients,
   }
 }
 
@@ -168,7 +272,6 @@ async function handleLookup(body: Record<string, unknown>, userId: string) {
 // Action: verify
 // Verify a patient's NHS number matches known demographics
 // ============================================
-
 async function handleVerify(body: Record<string, unknown>, userId: string) {
   const { org_id, nhs_number, expected_dob, expected_family_name } = body as {
     org_id: string; nhs_number: string; expected_dob?: string; expected_family_name?: string
@@ -176,7 +279,6 @@ async function handleVerify(body: Record<string, unknown>, userId: string) {
 
   if (!org_id || !nhs_number) throw new Error('Missing org_id or nhs_number')
 
-  // Do the lookup first
   const lookupResult = await handleLookup({ org_id, nhs_number, ...body }, userId) as Record<string, unknown>
   const patient = lookupResult.patient as Record<string, unknown>
 
@@ -208,8 +310,9 @@ Deno.serve(async (req) => {
     if (authError || !user) throw new Error('Unauthorized')
     let result: unknown
     switch (body.action) {
-      case 'lookup': result = await handleLookup(body, user.id); break
-      case 'verify': result = await handleVerify(body, user.id); break
+      case 'lookup':  result = await handleLookup(body, user.id); break
+      case 'search':  result = await handleSearch(body); break
+      case 'verify':  result = await handleVerify(body, user.id); break
       default: throw new Error(`Unknown action: ${body.action}`)
     }
     return new Response(JSON.stringify(result), { headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } })

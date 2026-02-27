@@ -97,7 +97,7 @@ export function NHSHubPage() {
 
       // Recent claims
       client
-        .from('nhs_claim_submissions')
+        .from('ps_nhs_claim_submissions')
         .select('*')
         .eq('org_id', organisation.id)
         .order('created_at', { ascending: false })

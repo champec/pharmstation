@@ -257,9 +257,20 @@ function ServiceCard({ service, onClick }: { service: Service; onClick: () => vo
       }}
     >
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 'var(--ps-space-sm)' }}>
-        <h3 style={{ fontSize: 'var(--ps-font-md)', fontWeight: 600, color: 'var(--ps-midnight)', margin: 0 }}>
-          {service.name}
-        </h3>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--ps-space-sm)' }}>
+          <h3 style={{ fontSize: 'var(--ps-font-md)', fontWeight: 600, color: 'var(--ps-midnight)', margin: 0 }}>
+            {service.name}
+          </h3>
+          {service.is_nhs_service && (
+            <span style={{
+              display: 'inline-flex', alignItems: 'center', gap: 3,
+              padding: '1px 8px', borderRadius: 99, fontSize: '0.7rem', fontWeight: 700,
+              background: '#005eb8', color: '#fff', whiteSpace: 'nowrap', letterSpacing: '0.02em',
+            }}>
+              🏥 NHS
+            </span>
+          )}
+        </div>
         <span className={`ps-badge ${service.is_active ? 'ps-badge-green' : 'ps-badge-red'}`}>
           {service.is_active ? 'Active' : 'Inactive'}
         </span>
@@ -300,8 +311,10 @@ function ServiceCard({ service, onClick }: { service: Service; onClick: () => vo
                 e.stopPropagation()
                 navigate(`/services/${service.id}`)
               }}
+              title="Manage service & forms"
+              style={{ padding: '4px 8px', fontSize: '1rem', lineHeight: 1 }}
             >
-              ✏️ Edit
+              ⚙️
             </button>
           )}
         </div>

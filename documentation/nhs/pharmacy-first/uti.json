@@ -1,0 +1,1078 @@
+{
+  "schema_version": "1.0.0",
+  "form_id": "pharmacy_first_clinical_pathway_uti",
+  "title": "Pharmacy First - Clinical Pathway Consultation (UTI Example)",
+  "description": "Dynamic form blueprint for Pharmacy First clinical pathway consultation using UTI nitrofurantoin PGD as example.",
+  "meta": {
+    "service": "NHS Pharmacy First",
+    "pathway": "Uncomplicated UTI",
+    "pgd_reference": "Nitrofurantoin PGD (UTI)",
+    "recording_principles": [
+      "Record same day where possible",
+      "Record consent and outcomes",
+      "Capture gateway point and rationale",
+      "Capture GP notification status and urgency"
+    ]
+  },
+  "engine": {
+    "mode": "rules-driven",
+    "outcome_field": "consultation.outcome.primary_outcome",
+    "hard_stop_behavior": "show_stop_screen_and_require_referral_or_no_supply_outcome",
+    "audit_requirements": [
+      "completed_required_fields",
+      "decision_path_trace",
+      "timestamped_user_actions",
+      "clinician_identity"
+    ]
+  },
+  "sections": [
+    {
+      "id": "consultation_context",
+      "title": "Consultation Context",
+      "fields": [
+        {
+          "id": "consultation.service_type",
+          "type": "select",
+          "label": "Service type",
+          "required": true,
+          "options": [
+            "clinical_pathway",
+            "minor_illness_referral",
+            "urgent_repeat_medicines_supply"
+          ],
+          "default": "clinical_pathway"
+        },
+        {
+          "id": "consultation.pathway",
+          "type": "select",
+          "label": "Clinical pathway",
+          "required": true,
+          "options": [
+            "uti",
+            "shingles",
+            "impetigo",
+            "infected_insect_bite",
+            "sinusitis",
+            "sore_throat",
+            "acute_otitis_media"
+          ],
+          "default": "uti",
+          "visible_if": {
+            "field": "consultation.service_type",
+            "equals": "clinical_pathway"
+          }
+        },
+        {
+          "id": "consultation.patient_route",
+          "type": "select",
+          "label": "Patient route",
+          "required": true,
+          "options": [
+            "walk_in",
+            "self_presentation_remote_contact",
+            "nhs111_referral",
+            "gp_referral",
+            "other_referral"
+          ]
+        },
+        {
+          "id": "consultation.referral_reference",
+          "type": "text",
+          "label": "Referral reference",
+          "required_if": {
+            "field": "consultation.patient_route",
+            "in": ["nhs111_referral", "gp_referral", "other_referral"]
+          }
+        },
+        {
+          "id": "consultation.date_time_assessment",
+          "type": "datetime",
+          "label": "Date/time of assessment",
+          "required": true
+        },
+        {
+          "id": "consultation.method",
+          "type": "select",
+          "label": "Consultation method",
+          "required": true,
+          "options": ["face_to_face", "remote_phone", "video", "other"]
+        },
+        {
+          "id": "consultation.location_ods",
+          "type": "text",
+          "label": "Pharmacy ODS code",
+          "required": true
+        }
+      ]
+    },
+    {
+      "id": "patient_demographics",
+      "title": "Patient Demographics",
+      "fields": [
+        { "id": "patient.name", "type": "text", "label": "Full name", "required": true },
+        { "id": "patient.dob", "type": "date", "label": "Date of birth", "required": true },
+        {
+          "id": "patient.age",
+          "type": "calculated",
+          "label": "Age",
+          "formula": "years_between(patient.dob, consultation.date_time_assessment)"
+        },
+        { "id": "patient.sex", "type": "select", "label": "Sex", "required": true, "options": ["female", "male", "intersex", "not_recorded"] },
+        { "id": "patient.gender_identity", "type": "select", "label": "Gender identity", "required": false, "options": ["cisgender_woman", "cisgender_man", "transgender_man", "transgender_woman", "non_binary", "other", "prefer_not_to_say"] },
+        { "id": "patient.nhs_number", "type": "text", "label": "NHS number", "required": false },
+        { "id": "patient.address", "type": "textarea", "label": "Address + postcode", "required": true },
+        { "id": "patient.telephone", "type": "text", "label": "Telephone", "required": true },
+        { "id": "patient.gp_name", "type": "text", "label": "GP practice name", "required": false },
+        { "id": "patient.gp_ods", "type": "text", "label": "GP ODS code", "required": false },
+        { "id": "patient.gp_address", "type": "textarea", "label": "GP practice address", "required": false }
+      ]
+    },
+    {
+      "id": "consent_information_sharing",
+      "title": "Consent & Information Sharing",
+      "fields": [
+        {
+          "id": "consent.verbal_service_consent",
+          "type": "boolean",
+          "label": "Verbal consent to receive Pharmacy First service obtained",
+          "required": true
+        },
+        {
+          "id": "consent.info_sharing_explained",
+          "type": "boolean",
+          "label": "Information sharing (NHS England / NHSBSA / service monitoring) explained",
+          "required": true
+        },
+        {
+          "id": "consent.record_access_consent",
+          "type": "boolean",
+          "label": "Consent obtained to check GP/National Care Record/alternative record",
+          "required": true
+        },
+        {
+          "id": "consent.record_checked",
+          "type": "select",
+          "label": "Clinical record checked",
+          "required": true,
+          "options": ["yes_gp_connect", "yes_national_care_record", "yes_alternative_record", "no_good_reason_not_to", "no_not_available"]
+        },
+        {
+          "id": "consent.record_not_checked_reason",
+          "type": "textarea",
+          "label": "Reason record not checked",
+          "required_if": {
+            "field": "consent.record_checked",
+            "in": ["no_good_reason_not_to", "no_not_available"]
+          }
+        }
+      ]
+    },
+    {
+      "id": "presenting_complaint_and_gateway",
+      "title": "Presenting Complaint & Gateway",
+      "fields": [
+        {
+          "id": "clinical.presenting_complaint",
+          "type": "textarea",
+          "label": "Presenting complaint / symptoms",
+          "required": true
+        },
+        {
+          "id": "clinical.clinical_summary",
+          "type": "textarea",
+          "label": "Clinical summary",
+          "required": true
+        },
+        {
+          "id": "clinical.clinical_narrative",
+          "type": "textarea",
+          "label": "Clinical narrative (free text)",
+          "required": true
+        },
+        {
+          "id": "clinical.gateway_criteria_met",
+          "type": "boolean",
+          "label": "Gateway criteria met for selected clinical pathway",
+          "required": true
+        },
+        {
+          "id": "clinical.gateway_rationale",
+          "type": "textarea",
+          "label": "Gateway rationale",
+          "required": true
+        }
+      ]
+    },
+    {
+      "id": "safeguarding_and_red_flags",
+      "title": "Safeguarding & Red Flags",
+      "fields": [
+        {
+          "id": "safety.safeguarding_concern",
+          "type": "boolean",
+          "label": "Safeguarding concern identified",
+          "required": true
+        },
+        {
+          "id": "safety.safeguarding_action",
+          "type": "textarea",
+          "label": "Safeguarding action taken",
+          "required_if": {
+            "field": "safety.safeguarding_concern",
+            "equals": true
+          }
+        },
+        {
+          "id": "safety.red_flags_present",
+          "type": "boolean",
+          "label": "Red flags present",
+          "required": true
+        },
+        {
+          "id": "safety.red_flags_detail",
+          "type": "textarea",
+          "label": "Red flag details",
+          "required_if": {
+            "field": "safety.red_flags_present",
+            "equals": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "med_history_allergies",
+      "title": "Medication History / Conditions / Allergies",
+      "fields": [
+        {
+          "id": "history.current_medications_reviewed",
+          "type": "boolean",
+          "label": "Current medicines reviewed",
+          "required": true
+        },
+        {
+          "id": "history.concurrent_conditions_reviewed",
+          "type": "boolean",
+          "label": "Medical conditions reviewed",
+          "required": true
+        },
+        {
+          "id": "history.allergy_status_confirmed",
+          "type": "boolean",
+          "label": "Allergy status confirmed",
+          "required": true
+        },
+        {
+          "id": "history.allergies",
+          "type": "repeatable_group",
+          "label": "Allergies / adverse reactions",
+          "required": false,
+          "fields": [
+            { "id": "agent", "type": "text", "label": "Causative agent" },
+            { "id": "reaction_type", "type": "text", "label": "Type of reaction" },
+            { "id": "reaction_description", "type": "textarea", "label": "Description" },
+            { "id": "severity", "type": "select", "label": "Severity", "options": ["mild", "moderate", "severe", "unknown"] }
+          ]
+        },
+        {
+          "id": "history.pregnancy_status",
+          "type": "select",
+          "label": "Pregnancy status",
+          "required": true,
+          "options": ["pregnant", "not_pregnant", "suspected_pregnancy", "unknown", "not_applicable"]
+        },
+        {
+          "id": "history.breastfeeding_status",
+          "type": "select",
+          "label": "Breastfeeding status",
+          "required": true,
+          "options": ["breastfeeding", "not_breastfeeding", "unknown", "not_applicable"]
+        }
+      ]
+    },
+    {
+      "id": "uti_specific_assessment",
+      "title": "UTI Pathway Assessment (PGD)",
+      "visible_if": {
+        "field": "consultation.pathway",
+        "equals": "uti"
+      },
+      "fields": [
+        {
+          "id": "uti.symptoms_consistent_with_lower_uti",
+          "type": "boolean",
+          "label": "Symptoms/signs consistent with lower UTI (using diagnostic tool)",
+          "required": true
+        },
+        {
+          "id": "uti.lower_uti_diagnosis_made",
+          "type": "boolean",
+          "label": "Lower UTI diagnosis made (using diagnostic tool)",
+          "required": true
+        },
+        {
+          "id": "uti.no_nitrofurantoin_last_3_months",
+          "type": "boolean",
+          "label": "No nitrofurantoin use in past 3 months",
+          "required": true
+        },
+        {
+          "id": "uti.current_or_recent_fever_within_48h",
+          "type": "boolean",
+          "label": "Current/recent fever (within past 48h)",
+          "required": true
+        },
+        {
+          "id": "uti.pyelonephritis_signs",
+          "type": "checklist",
+          "label": "Signs of pyelonephritis / upper UTI",
+          "required": true,
+          "options": [
+            "kidney_pain_or_tenderness",
+            "new_or_different_myalgia",
+            "rigors_or_temp_37_9_or_above",
+            "nausea_or_vomiting",
+            "none"
+          ]
+        },
+        {
+          "id": "uti.sepsis_suspected",
+          "type": "boolean",
+          "label": "Sepsis suspected",
+          "required": true
+        },
+        {
+          "id": "uti.sex_gender_anatomy_eligible_for_this_pgd",
+          "type": "boolean",
+          "label": "Patient falls within PGD eligible sex/gender/anatomy group",
+          "required": true
+        },
+        {
+          "id": "uti.structural_alteration_to_urethra",
+          "type": "select",
+          "label": "Structural alteration to urethra",
+          "required": true,
+          "options": ["yes", "no", "unknown", "not_applicable"]
+        },
+        {
+          "id": "uti.age_16_to_64",
+          "type": "calculated_boolean",
+          "label": "Age 16 to 64 inclusive",
+          "formula": "patient.age >= 16 && patient.age <= 64"
+        }
+      ]
+    },
+    {
+      "id": "uti_exclusions_and_cautions",
+      "title": "UTI Exclusions / Cautions",
+      "visible_if": {
+        "field": "consultation.pathway",
+        "equals": "uti"
+      },
+      "fields": [
+        {
+          "id": "uti.exclusions",
+          "type": "checklist",
+          "label": "UTI PGD exclusion criteria (tick all that apply)",
+          "required": true,
+          "options": [
+            "consent_refused",
+            "age_15_or_under",
+            "age_65_or_over",
+            "pregnant_or_suspected_pregnancy",
+            "breastfeeding",
+            "excluded_male_assigned_male_group_for_this_pgd",
+            "severe_immunosuppression",
+            "immunosuppressed",
+            "nitrofurantoin_hypersensitivity",
+            "cannot_absorb_or_swallow_oral_meds",
+            "prophylactic_antibiotics_for_uti",
+            "recurrent_uti",
+            "failed_previous_antibiotic_this_episode",
+            "treatment_for_uti_with_any_antimicrobial_past_3_months",
+            "abnormal_vaginal_discharge",
+            "suspected_sti",
+            "urethritis",
+            "genitourinary_symptoms_of_menopause",
+            "complicated_uti_or_under_urologist",
+            "known_previous_resistant_uti",
+            "urinary_catheter_device",
+            "hospitalised_abroad_last_3_months",
+            "care_home_resident",
+            "uk_hospitalisation_gt_7_days_last_6_months",
+            "porphyria",
+            "g6pd_deficiency",
+            "anaemia",
+            "diabetes",
+            "folate_deficiency",
+            "vitamin_b_deficiency",
+            "peripheral_neuropathy",
+            "electrolyte_imbalance",
+            "ckd_stage_3b_or_worse_or_egfr_lt_45",
+            "oral_typhoid_vaccine_timing_conflict",
+            "none"
+          ]
+        },
+        {
+          "id": "uti.cautions",
+          "type": "checklist",
+          "label": "Cautions (does not automatically exclude supply unless clinically inappropriate)",
+          "required": false,
+          "options": [
+            "visible_haematuria",
+            "pulmonary_disease",
+            "hepatic_dysfunction",
+            "neurological_disorder",
+            "allergic_conditions",
+            "excipients_concern_lactose_sucrose_fructose_sorbitol",
+            "pku_aspartame_concern",
+            "none"
+          ]
+        },
+        {
+          "id": "uti.cautions_action",
+          "type": "textarea",
+          "label": "Caution management / counselling / rationale",
+          "required_if": {
+            "field": "uti.cautions",
+            "not_contains": "none"
+          }
+        }
+      ]
+    },
+    {
+      "id": "decision_engine_outputs",
+      "title": "Clinical Decision",
+      "fields": [
+        {
+          "id": "decision.eligibility_status",
+          "type": "calculated_select",
+          "label": "Eligibility status",
+          "formula": {
+            "if": [
+              {
+                "or": [
+                  { "field": "consent.verbal_service_consent", "equals": false },
+                  { "field": "clinical.gateway_criteria_met", "equals": false }
+                ]
+              },
+              "not_eligible",
+              {
+                "if": [
+                  {
+                    "or": [
+                      { "field": "uti.sepsis_suspected", "equals": true },
+                      { "field": "uti.current_or_recent_fever_within_48h", "equals": true },
+                      {
+                        "field": "uti.pyelonephritis_signs",
+                        "any_in": [
+                          "kidney_pain_or_tenderness",
+                          "new_or_different_myalgia",
+                          "rigors_or_temp_37_9_or_above",
+                          "nausea_or_vomiting"
+                        ]
+                      }
+                    ]
+                  },
+                  "red_flag_urgent_referral",
+                  {
+                    "if": [
+                      {
+                        "or": [
+                          { "field": "uti.age_16_to_64", "equals": false },
+                          { "field": "uti.sex_gender_anatomy_eligible_for_this_pgd", "equals": false },
+                          { "field": "uti.symptoms_consistent_with_lower_uti", "equals": false },
+                          { "field": "uti.lower_uti_diagnosis_made", "equals": false },
+                          { "field": "uti.no_nitrofurantoin_last_3_months", "equals": false },
+                          {
+                            "and": [
+                              { "field": "uti.exclusions", "not_contains": "none" }
+                            ]
+                          }
+                        ]
+                      },
+                      "excluded_from_pgd_refer_or_self_care",
+                      "eligible_for_pgd_supply"
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "id": "decision.rationale",
+          "type": "textarea",
+          "label": "Decision rationale",
+          "required": true
+        }
+      ]
+    },
+    {
+      "id": "supply_if_eligible",
+      "title": "Medicine Supply (PGD)",
+      "visible_if": {
+        "field": "decision.eligibility_status",
+        "equals": "eligible_for_pgd_supply"
+      },
+      "fields": [
+        {
+          "id": "supply.supply_under_pgd",
+          "type": "boolean",
+          "label": "Supply made under PGD",
+          "required": true,
+          "default": true
+        },
+        {
+          "id": "supply.medicine_name",
+          "type": "select",
+          "label": "Medicine supplied",
+          "required": true,
+          "options": [
+            "nitrofurantoin_100mg_modified_release_capsules",
+            "nitrofurantoin_50mg_immediate_release_tablets_or_capsules"
+          ]
+        },
+        {
+          "id": "supply.strength_form",
+          "type": "calculated_text",
+          "label": "Strength/form",
+          "formula": "map_supply_strength_form(supply.medicine_name)"
+        },
+        {
+          "id": "supply.dose_directions",
+          "type": "calculated_text",
+          "label": "Dose directions",
+          "formula": "map_uti_directions(supply.medicine_name)"
+        },
+        {
+          "id": "supply.route",
+          "type": "text",
+          "label": "Route",
+          "required": true,
+          "default": "oral"
+        },
+        {
+          "id": "supply.duration_days",
+          "type": "number",
+          "label": "Duration (days)",
+          "required": true,
+          "default": 3
+        },
+        {
+          "id": "supply.quantity",
+          "type": "number",
+          "label": "Quantity supplied",
+          "required": true
+        },
+        {
+          "id": "supply.quantity_unit",
+          "type": "select",
+          "label": "Quantity unit",
+          "required": true,
+          "options": ["capsules", "tablets"]
+        },
+        {
+          "id": "supply.supply_type",
+          "type": "select",
+          "label": "Supply type",
+          "required": true,
+          "options": ["PGD", "OTC", "Clinical_Protocol", "No_Supply"],
+          "default": "PGD"
+        },
+        {
+          "id": "supply.best_value_product_considered",
+          "type": "boolean",
+          "label": "Best value product used (where practicable)",
+          "required": true
+        },
+        {
+          "id": "supply.date_time_supply",
+          "type": "datetime",
+          "label": "Date/time of supply",
+          "required": true
+        }
+      ]
+    },
+    {
+      "id": "no_supply_or_referral",
+      "title": "No Supply / Referral / Alternative Outcome",
+      "visible_if": {
+        "field": "decision.eligibility_status",
+        "in": [
+          "not_eligible",
+          "red_flag_urgent_referral",
+          "excluded_from_pgd_refer_or_self_care"
+        ]
+      },
+      "fields": [
+        {
+          "id": "consultation.no_supply_reason",
+          "type": "select",
+          "label": "Reason no PGD supply made",
+          "required": true,
+          "options": [
+            "gateway_not_met",
+            "consent_refused",
+            "red_flag_present",
+            "outside_pgd_inclusion",
+            "pgd_exclusion_met",
+            "clinical_judgement_not_appropriate",
+            "patient_declined_treatment",
+            "other"
+          ]
+        },
+        {
+          "id": "consultation.no_supply_reason_detail",
+          "type": "textarea",
+          "label": "No supply / exclusion details",
+          "required": true
+        },
+        {
+          "id": "referral.required",
+          "type": "boolean",
+          "label": "Onward referral required",
+          "required": true
+        },
+        {
+          "id": "referral.urgency",
+          "type": "select",
+          "label": "Referral urgency",
+          "required_if": {
+            "field": "referral.required",
+            "equals": true
+          },
+          "options": [
+            "routine",
+            "urgent_same_day_gp",
+            "nhs111_hcp_line",
+            "a_and_e",
+            "call_999"
+          ]
+        },
+        {
+          "id": "referral.destination",
+          "type": "select",
+          "label": "Referral destination",
+          "required_if": {
+            "field": "referral.required",
+            "equals": true
+          },
+          "options": [
+            "own_gp",
+            "out_of_hours",
+            "nhs111",
+            "urgent_treatment_centre",
+            "a_and_e",
+            "ambulance_999",
+            "other_pharmacy_service",
+            "other"
+          ]
+        },
+        {
+          "id": "referral.actions_taken",
+          "type": "textarea",
+          "label": "Referral / escalation action taken",
+          "required_if": {
+            "field": "referral.required",
+            "equals": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "advice_counselling_safety_netting",
+      "title": "Advice / Counselling / Safety-Netting",
+      "fields": [
+        {
+          "id": "advice.self_care_advice_given",
+          "type": "boolean",
+          "label": "Self-care advice given",
+          "required": true
+        },
+        {
+          "id": "advice.target_uti_leaflet_provided",
+          "type": "boolean",
+          "label": "TARGET UTI leaflet provided",
+          "required": true,
+          "visible_if": {
+            "field": "consultation.pathway",
+            "equals": "uti"
+          }
+        },
+        {
+          "id": "advice.pil_provided_or_advised",
+          "type": "boolean",
+          "label": "PIL provided/advised to read",
+          "required": true
+        },
+        {
+          "id": "advice.uti_counselling_checklist",
+          "type": "checklist",
+          "label": "UTI nitrofurantoin counselling points covered",
+          "required": false,
+          "visible_if": {
+            "field": "decision.eligibility_status",
+            "equals": "eligible_for_pgd_supply"
+          },
+          "options": [
+            "take_with_food_or_milk",
+            "finish_full_course",
+            "symptoms_should_improve_within_48h",
+            "seek_help_if_no_improvement_48h",
+            "urine_discolouration_warning",
+            "avoid_urinary_alkalinisers_citrate_products",
+            "avoid_magnesium_trisilicate_antacids",
+            "dizziness_drowsiness_driving_advice",
+            "seek_help_if_worsening",
+            "seek_help_if_not_improved_after_course",
+            "sepsis_999_a_and_e_advice",
+            "unused_medicines_return_to_pharmacy"
+          ]
+        },
+        {
+          "id": "advice.side_effects_discussed",
+          "type": "boolean",
+          "label": "Side effects and serious ADR warning discussed",
+          "required": true
+        },
+        {
+          "id": "advice.safety_netting_detail",
+          "type": "textarea",
+          "label": "Safety-netting advice detail",
+          "required": true
+        }
+      ]
+    },
+    {
+      "id": "charges_and_exemption",
+      "title": "Prescription Charge / Exemption",
+      "fields": [
+        {
+          "id": "finance.nhs_medicine_supplied",
+          "type": "calculated_boolean",
+          "label": "NHS medicine supplied",
+          "formula": "supply.supply_under_pgd == true"
+        },
+        {
+          "id": "finance.prescription_exemption_claimed",
+          "type": "select",
+          "label": "Prescription exemption claimed",
+          "required_if": {
+            "field": "finance.nhs_medicine_supplied",
+            "equals": true
+          },
+          "options": ["yes", "no", "unknown"]
+        },
+        {
+          "id": "finance.exemption_category",
+          "type": "text",
+          "label": "Exemption category",
+          "required_if": {
+            "field": "finance.prescription_exemption_claimed",
+            "equals": "yes"
+          }
+        },
+        {
+          "id": "finance.fp10dt_recorded",
+          "type": "boolean",
+          "label": "FP10DT EPS token details recorded (if exemption claimed)",
+          "required_if": {
+            "field": "finance.prescription_exemption_claimed",
+            "equals": "yes"
+          }
+        }
+      ]
+    },
+    {
+      "id": "outcome_and_gp_notification",
+      "title": "Outcome & GP Notification",
+      "fields": [
+        {
+          "id": "consultation.outcome.primary_outcome",
+          "type": "select",
+          "label": "Primary outcome",
+          "required": true,
+          "options": [
+            "self_care_advice_only",
+            "self_care_plus_otc_sale",
+            "pgd_medicine_supplied",
+            "no_supply_under_pgd_clinically_not_appropriate",
+            "referral_to_other_pharmacy_service",
+            "urgent_referral_gp_or_ooh",
+            "routine_referral_other_service",
+            "a_and_e_or_999_escalation"
+          ]
+        },
+        {
+          "id": "consultation.plan_actions",
+          "type": "textarea",
+          "label": "Plan and requested actions",
+          "required": true
+        },
+        {
+          "id": "gp_notification.required",
+          "type": "boolean",
+          "label": "GP post-event notification required",
+          "required": true,
+          "default": true
+        },
+        {
+          "id": "gp_notification.type",
+          "type": "select",
+          "label": "GP communication type",
+          "required_if": {
+            "field": "gp_notification.required",
+            "equals": true
+          },
+          "options": [
+            "standard_post_event_message",
+            "urgent_action_message",
+            "nhsmail_backup",
+            "hard_copy_backup"
+          ]
+        },
+        {
+          "id": "gp_notification.action_required_by_gp",
+          "type": "boolean",
+          "label": "Action required by GP team",
+          "required_if": {
+            "field": "gp_notification.required",
+            "equals": true
+          }
+        },
+        {
+          "id": "gp_notification.sent_status",
+          "type": "select",
+          "label": "Notification status",
+          "required_if": {
+            "field": "gp_notification.required",
+            "equals": true
+          },
+          "options": [
+            "sent_same_day",
+            "scheduled_next_working_day",
+            "sent_next_working_day",
+            "failed_electronic_sent_backup",
+            "pending"
+          ]
+        },
+        {
+          "id": "gp_notification.sent_datetime",
+          "type": "datetime",
+          "label": "Notification sent date/time",
+          "required_if": {
+            "field": "gp_notification.sent_status",
+            "in": ["sent_same_day", "sent_next_working_day", "failed_electronic_sent_backup"]
+          }
+        },
+        {
+          "id": "gp_notification.failure_reason",
+          "type": "textarea",
+          "label": "Electronic notification issue / fallback detail",
+          "required_if": {
+            "field": "gp_notification.sent_status",
+            "equals": "failed_electronic_sent_backup"
+          }
+        }
+      ]
+    },
+    {
+      "id": "clinician_and_signoff",
+      "title": "Clinician & Sign-off",
+      "fields": [
+        {
+          "id": "clinician.name",
+          "type": "text",
+          "label": "Clinician name",
+          "required": true
+        },
+        {
+          "id": "clinician.role",
+          "type": "select",
+          "label": "Role",
+          "required": true,
+          "options": ["pharmacist", "independent_prescriber", "other_authorised_hcp"]
+        },
+        {
+          "id": "clinician.professional_identifier",
+          "type": "text",
+          "label": "Professional identifier (e.g. GPhC number)",
+          "required": true
+        },
+        {
+          "id": "clinician.operating_under_pgd",
+          "type": "boolean",
+          "label": "Supply made under PGD (where applicable) recorded",
+          "required": true
+        },
+        {
+          "id": "record.signature_or_auth",
+          "type": "select",
+          "label": "Record authentication",
+          "required": true,
+          "options": ["password_controlled_e_record", "electronic_signature", "manual_signature"]
+        },
+        {
+          "id": "record.completed_datetime",
+          "type": "datetime",
+          "label": "Record completion timestamp",
+          "required": true
+        }
+      ]
+    }
+  ],
+  "rules": [
+    {
+      "id": "R1_consent_declined_hard_stop",
+      "when": [{ "field": "consent.verbal_service_consent", "equals": false }],
+      "then": [
+        { "action": "set", "field": "decision.eligibility_status", "value": "not_eligible" },
+        { "action": "require", "field": "consultation.no_supply_reason" },
+        { "action": "show_message", "level": "warning", "text": "Consent refused: document advice, alternatives, and referral/signposting if appropriate." }
+      ]
+    },
+    {
+      "id": "R2_gateway_not_met_hard_stop",
+      "when": [{ "field": "clinical.gateway_criteria_met", "equals": false }],
+      "then": [
+        { "action": "set", "field": "decision.eligibility_status", "value": "not_eligible" },
+        { "action": "require", "field": "clinical.gateway_rationale" },
+        { "action": "require", "field": "consultation.no_supply_reason" }
+      ]
+    },
+    {
+      "id": "R3_uti_red_flag_urgent",
+      "when": [
+        { "field": "consultation.pathway", "equals": "uti" },
+        {
+          "or": [
+            { "field": "uti.sepsis_suspected", "equals": true },
+            { "field": "uti.current_or_recent_fever_within_48h", "equals": true },
+            {
+              "field": "uti.pyelonephritis_signs",
+              "any_in": [
+                "kidney_pain_or_tenderness",
+                "new_or_different_myalgia",
+                "rigors_or_temp_37_9_or_above",
+                "nausea_or_vomiting"
+              ]
+            }
+          ]
+        }
+      ],
+      "then": [
+        { "action": "set", "field": "safety.red_flags_present", "value": true },
+        { "action": "set", "field": "decision.eligibility_status", "value": "red_flag_urgent_referral" },
+        { "action": "require", "field": "referral.required", "value": true },
+        { "action": "show_message", "level": "critical", "text": "Possible upper UTI/pyelonephritis or sepsis - urgent escalation required (A&E/999 as clinically indicated)." }
+      ]
+    },
+    {
+      "id": "R4_uti_exclusion_blocks_pgd",
+      "when": [
+        { "field": "consultation.pathway", "equals": "uti" },
+        { "field": "uti.exclusions", "not_contains": "none" }
+      ],
+      "then": [
+        { "action": "set", "field": "decision.eligibility_status", "value": "excluded_from_pgd_refer_or_self_care" },
+        { "action": "require", "field": "consultation.no_supply_reason_detail" }
+      ]
+    },
+    {
+      "id": "R5_eligible_uti_supply_defaults",
+      "when": [
+        { "field": "consultation.pathway", "equals": "uti" },
+        { "field": "decision.eligibility_status", "equals": "eligible_for_pgd_supply" }
+      ],
+      "then": [
+        { "action": "set_if_empty", "field": "supply.duration_days", "value": 3 },
+        { "action": "set_if_empty", "field": "supply.supply_type", "value": "PGD" },
+        { "action": "show_message", "level": "info", "text": "Use 100mg MR BD for 3 days, or 50mg IR QDS for 3 days if MR unavailable, with counselling and safety-netting." }
+      ]
+    },
+    {
+      "id": "R6_gp_urgent_action_message",
+      "when": [
+        { "field": "gp_notification.action_required_by_gp", "equals": true }
+      ],
+      "then": [
+        { "action": "set", "field": "gp_notification.type", "value": "urgent_action_message" }
+      ]
+    }
+  ],
+  "validations": [
+    {
+      "id": "V1_age_consistency",
+      "type": "warning",
+      "expression": "patient.age >= 0 && patient.age < 130",
+      "message": "Check date of birth / age."
+    },
+    {
+      "id": "V2_supply_quantity_matches_product",
+      "type": "error",
+      "expression": "(supply.medicine_name != 'nitrofurantoin_100mg_modified_release_capsules' || supply.quantity == 6) && (supply.medicine_name != 'nitrofurantoin_50mg_immediate_release_tablets_or_capsules' || supply.quantity == 12)",
+      "message": "Quantity should normally be 6 (100mg MR) or 12 (50mg IR) for a 3-day course unless justified."
+    },
+    {
+      "id": "V3_outcome_matches_supply",
+      "type": "error",
+      "expression": "!(consultation.outcome.primary_outcome == 'pgd_medicine_supplied' && supply.supply_under_pgd != true)",
+      "message": "Outcome says PGD supply, but PGD supply details are missing."
+    },
+    {
+      "id": "V4_redflag_requires_referral",
+      "type": "error",
+      "expression": "!(safety.red_flags_present == true && referral.required != true)",
+      "message": "Red flags present - referral/escalation details are required."
+    }
+  ],
+  "computed_mappings": {
+    "map_supply_strength_form": {
+      "nitrofurantoin_100mg_modified_release_capsules": "100mg modified release capsules",
+      "nitrofurantoin_50mg_immediate_release_tablets_or_capsules": "50mg immediate release tablets/capsules"
+    },
+    "map_uti_directions": {
+      "nitrofurantoin_100mg_modified_release_capsules": "Take ONE capsule twice daily for 3 days. Swallow whole with food or milk.",
+      "nitrofurantoin_50mg_immediate_release_tablets_or_capsules": "Take ONE 50mg tablet/capsule four times daily for 3 days. Take with food or milk."
+    }
+  },
+  "submission_payload_groups": {
+    "pharmacy_first_consultation_record": [
+      "consultation.*",
+      "patient.*",
+      "consent.*",
+      "clinical.*",
+      "safety.*",
+      "history.*",
+      "decision.*",
+      "supply.*",
+      "referral.*",
+      "advice.*",
+      "clinician.*",
+      "record.*"
+    ],
+    "gp_notification": [
+      "patient.name",
+      "patient.dob",
+      "patient.nhs_number",
+      "patient.gp_*",
+      "consultation.*",
+      "clinical.clinical_summary",
+      "clinical.clinical_narrative",
+      "consultation.outcome.*",
+      "supply.*",
+      "referral.*",
+      "gp_notification.*"
+    ],
+    "payment_reporting_minimum": [
+      "consultation.service_type",
+      "consultation.pathway",
+      "consultation.date_time_assessment",
+      "consultation.location_ods",
+      "clinical.gateway_criteria_met",
+      "consultation.outcome.primary_outcome",
+      "patient.demographics",
+      "clinician.professional_identifier"
+    ]
+  }
+}

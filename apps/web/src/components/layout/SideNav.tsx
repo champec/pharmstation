@@ -43,6 +43,15 @@ const menuSections: NavSection[] = [
     ],
   },
   {
+    title: 'NHS Services',
+    icon: '🏥',
+    expandable: true,
+    items: [
+      { to: '/nhs', icon: '🏥', label: 'NHS Hub' },
+      { to: '/nhs/claims', icon: '📝', label: 'Claims' },
+    ],
+  },
+  {
     title: 'Appointments',
     icon: '📅',
     expandable: true,

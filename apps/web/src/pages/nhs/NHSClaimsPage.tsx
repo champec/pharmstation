@@ -60,7 +60,7 @@ export function NHSClaimsPage() {
     if (!organisation?.id) return
     setLoading(true)
     const { data } = await getUserClient()
-      .from('nhs_claim_submissions')
+      .from('ps_nhs_claim_submissions')
       .select(`
         *,
         ps_patients (

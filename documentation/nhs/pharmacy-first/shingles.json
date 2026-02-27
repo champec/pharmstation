@@ -1,0 +1,842 @@
+{
+  "module_id": "pharmacy_first_shingles_pathway",
+  "schema_version": "1.0.0",
+  "title": "Pharmacy First - Shingles Pathway (2a Aciclovir / 2b Valaciclovir)",
+  "description": "Shingles clinical pathway module with shared assessment and PGD route branching to aciclovir (2a) or valaciclovir (2b).",
+  "depends_on": [
+    "core.consultation_context",
+    "core.patient_demographics",
+    "core.consent_information_sharing",
+    "core.med_history_allergies",
+    "core.outcome_gp_notification_shell"
+  ],
+  "entry_conditions": [
+    {
+      "field": "consultation.service_type",
+      "equals": "clinical_pathway"
+    },
+    {
+      "field": "consultation.pathway",
+      "equals": "shingles"
+    }
+  ],
+  "sections": [
+    {
+      "id": "shingles_core_assessment",
+      "title": "Shingles Core Assessment",
+      "fields": [
+        {
+          "id": "shingles.informed_consent_pgd",
+          "type": "boolean",
+          "label": "Informed consent for shingles PGD assessment obtained",
+          "required": true
+        },
+        {
+          "id": "shingles.age_18_or_over",
+          "type": "calculated_boolean",
+          "label": "Age 18 years or over",
+          "formula": "patient.age >= 18"
+        },
+        {
+          "id": "shingles.diagnosis_following_nice_cks",
+          "type": "boolean",
+          "label": "Shingles diagnosis made following appropriate NICE CKS guidance",
+          "required": true
+        },
+        {
+          "id": "shingles.rash_onset_date",
+          "type": "date",
+          "label": "Date rash started",
+          "required": true
+        },
+        {
+          "id": "shingles.days_since_rash_onset",
+          "type": "calculated_number",
+          "label": "Days since rash onset",
+          "formula": "days_between(shingles.rash_onset_date, consultation.date_time_assessment)"
+        },
+        {
+          "id": "shingles.within_72_hours",
+          "type": "calculated_boolean",
+          "label": "Diagnosed within 72 hours of rash onset",
+          "formula": "hours_between(shingles.rash_onset_date, consultation.date_time_assessment) <= 72"
+        },
+        {
+          "id": "shingles.within_7_days",
+          "type": "calculated_boolean",
+          "label": "Diagnosed within 7 days of rash onset",
+          "formula": "days_between(shingles.rash_onset_date, consultation.date_time_assessment) <= 7"
+        },
+        {
+          "id": "shingles.rash_distribution",
+          "type": "checklist",
+          "label": "Rash distribution / location",
+          "required": true,
+          "options": [
+            "truncal",
+            "limb",
+            "perineum",
+            "head",
+            "neck",
+            "face",
+            "ophthalmic_trigeminal_distribution_suspected",
+            "other"
+          ]
+        },
+        {
+          "id": "shingles.non_truncal_involvement",
+          "type": "calculated_boolean",
+          "label": "Non-truncal involvement present (e.g. limbs/perineum)",
+          "formula": "contains_any(shingles.rash_distribution, ['limb','perineum'])"
+        },
+        {
+          "id": "shingles.pain_severity",
+          "type": "select",
+          "label": "Pain severity",
+          "required": true,
+          "options": ["none", "mild", "moderate", "severe", "unknown"]
+        },
+        {
+          "id": "shingles.rash_severity",
+          "type": "select",
+          "label": "Rash severity",
+          "required": true,
+          "options": ["mild", "moderate", "severe", "unknown"]
+        },
+        {
+          "id": "shingles.moderate_or_severe_rash_confluent_lesions",
+          "type": "boolean",
+          "label": "Moderate/severe rash (confluent lesions)",
+          "required": true
+        },
+        {
+          "id": "shingles.continued_vesicle_formation",
+          "type": "boolean",
+          "label": "Continued vesicle formation",
+          "required": true
+        },
+        {
+          "id": "shingles.high_risk_severe_shingles",
+          "type": "boolean",
+          "label": "High risk of severe shingles (e.g. severe atopic dermatitis/eczema)",
+          "required": true
+        },
+        {
+          "id": "shingles.systemically_well",
+          "type": "boolean",
+          "label": "Systemically well",
+          "required": true
+        },
+        {
+          "id": "shingles.systemically_unwell",
+          "type": "calculated_boolean",
+          "label": "Systemically unwell",
+          "formula": "shingles.systemically_well == false"
+        }
+      ]
+    },
+    {
+      "id": "shingles_red_flags_and_complications",
+      "title": "Red Flags / Complications / Urgent Escalation",
+      "fields": [
+        {
+          "id": "shingles.hutchinson_sign",
+          "type": "boolean",
+          "label": "Hutchinson's sign present (rash on tip/side/root of nose)",
+          "required": true
+        },
+        {
+          "id": "shingles.visual_symptoms",
+          "type": "boolean",
+          "label": "Visual symptoms present",
+          "required": true
+        },
+        {
+          "id": "shingles.unexplained_red_eye",
+          "type": "boolean",
+          "label": "Unexplained red eye",
+          "required": true
+        },
+        {
+          "id": "shingles.serious_complications_suspected",
+          "type": "checklist",
+          "label": "Serious complications suspected",
+          "required": true,
+          "options": [
+            "meningitis",
+            "encephalitis",
+            "myelitis",
+            "facial_nerve_paralysis_ramsay_hunt",
+            "none"
+          ]
+        },
+        {
+          "id": "shingles.sepsis_suspected",
+          "type": "boolean",
+          "label": "Sepsis / severe life-threatening infection suspected",
+          "required": true
+        },
+        {
+          "id": "shingles.at_risk_dehydration_unable_fluids",
+          "type": "boolean",
+          "label": "At risk of dehydration and unable to maintain adequate fluid intake",
+          "required": true
+        },
+        {
+          "id": "shingles.underlying_neurological_condition",
+          "type": "boolean",
+          "label": "Underlying neurological condition present",
+          "required": true
+        },
+        {
+          "id": "shingles.head_or_neck_involvement",
+          "type": "calculated_boolean",
+          "label": "Shingles affecting head/neck",
+          "formula": "contains_any(shingles.rash_distribution, ['head','neck','face'])"
+        }
+      ]
+    },
+    {
+      "id": "shingles_immuno_adherence_screen",
+      "title": "Immunosuppression / Adherence / Suitability Screen",
+      "fields": [
+        {
+          "id": "shingles.immunosuppressed_not_severe",
+          "type": "boolean",
+          "label": "Immunosuppressed (not severely immunosuppressed)",
+          "required": true
+        },
+        {
+          "id": "shingles.severely_immunosuppressed",
+          "type": "boolean",
+          "label": "Severely immunosuppressed",
+          "required": true
+        },
+        {
+          "id": "shingles.immunosuppressed_rash_widespread_or_severe",
+          "type": "boolean",
+          "label": "Immunosuppressed + rash widespread or severe",
+          "required": true
+        },
+        {
+          "id": "shingles.assisted_with_regular_medicines",
+          "type": "boolean",
+          "label": "Assisted in taking regular medicines (e.g. visiting carers)",
+          "required": true
+        },
+        {
+          "id": "shingles.regular_medicines_count",
+          "type": "number",
+          "label": "Number of regular medicines per day",
+          "required": true,
+          "min": 0
+        },
+        {
+          "id": "shingles.aciclovir_5x_daily_adherence_likely",
+          "type": "select",
+          "label": "Would aciclovir 5-times-daily adherence be achievable?",
+          "required": true,
+          "options": ["yes", "no", "uncertain"]
+        }
+      ]
+    },
+    {
+      "id": "shingles_general_exclusions_and_cautions",
+      "title": "General Exclusions & Cautions (Shared)",
+      "fields": [
+        {
+          "id": "shingles.pregnancy_status",
+          "type": "select",
+          "label": "Pregnancy status",
+          "required": true,
+          "options": ["pregnant", "suspected_pregnancy", "not_pregnant", "unknown", "not_applicable"]
+        },
+        {
+          "id": "shingles.breastfeeding_status",
+          "type": "select",
+          "label": "Breastfeeding status",
+          "required": true,
+          "options": ["breastfeeding", "not_breastfeeding", "unknown", "not_applicable"]
+        },
+        {
+          "id": "shingles.shingles_sores_on_breast",
+          "type": "boolean",
+          "label": "Shingles sore(s) on breast",
+          "required_if": {
+            "field": "shingles.breastfeeding_status",
+            "equals": "breastfeeding"
+          }
+        },
+        {
+          "id": "shingles.hypersensitivity_aciclovir_or_valaciclovir",
+          "type": "boolean",
+          "label": "Known hypersensitivity to aciclovir/valaciclovir or formulation components",
+          "required": true
+        },
+        {
+          "id": "shingles.dress_history_with_valaciclovir",
+          "type": "boolean",
+          "label": "Previous DRESS with valaciclovir",
+          "required": true
+        },
+        {
+          "id": "shingles.cannot_start_medicine_within_eligibility_window",
+          "type": "boolean",
+          "label": "Medication cannot be started within 72h / 7-day eligibility window",
+          "required": true
+        },
+        {
+          "id": "shingles.unable_to_absorb_or_swallow_oral_solid",
+          "type": "boolean",
+          "label": "Unable to absorb or swallow oral medication",
+          "required": true
+        },
+        {
+          "id": "shingles.current_long_term_oral_aciclovir_or_valaciclovir",
+          "type": "boolean",
+          "label": "Current long-term oral aciclovir/valaciclovir use (e.g. HSV prophylaxis)",
+          "required": true
+        },
+        {
+          "id": "shingles.failed_prior_aciclovir_or_valaciclovir_this_episode",
+          "type": "boolean",
+          "label": "Failure to respond to aciclovir/valaciclovir for this shingles episode",
+          "required": true
+        },
+        {
+          "id": "shingles.rash_onset_over_7_days_ago",
+          "type": "calculated_boolean",
+          "label": "Rash onset over 7 days ago",
+          "formula": "shingles.days_since_rash_onset > 7"
+        },
+        {
+          "id": "shingles.ckd_stage",
+          "type": "select",
+          "label": "Known CKD stage",
+          "required": true,
+          "options": ["none_known", "stage_1", "stage_2", "stage_3a", "stage_3b", "stage_4", "stage_5", "unknown"]
+        },
+        {
+          "id": "shingles.egfr",
+          "type": "number",
+          "label": "Most recent eGFR (if known)",
+          "required": false
+        },
+        {
+          "id": "shingles.interacting_medicines_present",
+          "type": "boolean",
+          "label": "Concurrent interacting medicine(s) listed in PGD present",
+          "required": true
+        },
+        {
+          "id": "shingles.interacting_medicines_list",
+          "type": "checklist",
+          "label": "Known key interacting medicines present",
+          "required": false,
+          "options": [
+            "ciclosporin",
+            "tacrolimus",
+            "mycophenolate",
+            "aminophylline",
+            "theophylline",
+            "other_listed_interaction"
+          ]
+        },
+        {
+          "id": "shingles.nephrotoxic_medicine_caution",
+          "type": "boolean",
+          "label": "Potentially nephrotoxic medicine(s) present (caution; hydration advice needed)",
+          "required": true
+        },
+        {
+          "id": "shingles.tenofovir_disoproxil_fumarate",
+          "type": "boolean",
+          "label": "Taking tenofovir disoproxil fumarate (TDF) (caution; monitoring advice)",
+          "required": true
+        },
+        {
+          "id": "shingles.excipients_caution",
+          "type": "checklist",
+          "label": "Excipients caution (lactose/sucrose/fructose/sorbitol/aspartame/PKU etc.)",
+          "required": false,
+          "options": [
+            "lactose_galactose_issue",
+            "fructose_sorbitol_issue",
+            "aspartame_pku",
+            "none"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "shingles_route_selection",
+      "title": "PGD Route Selection (2a vs 2b)",
+      "fields": [
+        {
+          "id": "shingles.eligibility_window_group",
+          "type": "calculated_select",
+          "label": "Eligibility timing group",
+          "formula": {
+            "if": [
+              { "field": "shingles.within_72_hours", "equals": true },
+              "within_72h",
+              {
+                "if": [
+                  { "field": "shingles.within_7_days", "equals": true },
+                  "within_7_days_only",
+                  "outside_window"
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "id": "shingles.core_indication_met",
+          "type": "calculated_boolean",
+          "label": "Core shingles antiviral indication met",
+          "formula": "shingles.diagnosis_following_nice_cks == true && shingles.age_18_or_over == true && ( (shingles.within_72_hours == true && (shingles.non_truncal_involvement == true || shingles.pain_severity == 'moderate' || shingles.pain_severity == 'severe' || shingles.moderate_or_severe_rash_confluent_lesions == true || patient.age > 50)) || (shingles.within_7_days == true && (shingles.continued_vesicle_formation == true || shingles.pain_severity == 'severe' || shingles.high_risk_severe_shingles == true || patient.age >= 70)) )"
+        },
+        {
+          "id": "shingles.route_preference_reason",
+          "type": "checklist",
+          "label": "Reasons to route away from aciclovir towards valaciclovir (2b)",
+          "required": true,
+          "options": [
+            "assisted_medicines_and_adherence_to_5x_daily_unachievable",
+            "eight_or_more_medicines_daily_and_adherence_may_not_be_achievable",
+            "immunosuppressed_not_severe",
+            "none"
+          ]
+        },
+        {
+          "id": "shingles.route_pgd_candidate",
+          "type": "calculated_select",
+          "label": "PGD candidate route",
+          "formula": {
+            "if": [
+              {
+                "or": [
+                  { "field": "shingles.core_indication_met", "equals": false },
+                  { "field": "shingles.eligibility_window_group", "equals": "outside_window" }
+                ]
+              },
+              "no_pgd",
+              {
+                "if": [
+                  {
+                    "or": [
+                      {
+                        "field": "shingles.route_preference_reason",
+                        "any_in": [
+                          "assisted_medicines_and_adherence_to_5x_daily_unachievable",
+                          "eight_or_more_medicines_daily_and_adherence_may_not_be_achievable",
+                          "immunosuppressed_not_severe"
+                        ]
+                      },
+                      { "field": "shingles.aciclovir_5x_daily_adherence_likely", "equals": "no" }
+                    ]
+                  },
+                  "valaciclovir_2b",
+                  "aciclovir_2a"
+                ]
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "shingles_aciclovir_2a_supply",
+      "title": "PGD 2a - Aciclovir Supply",
+      "visible_if": {
+        "field": "decision.shingles.final_route",
+        "equals": "aciclovir_2a_supply"
+      },
+      "fields": [
+        {
+          "id": "shingles_2a.ckd_exclusion",
+          "type": "calculated_boolean",
+          "label": "Aciclovir CKD exclusion (stage 4/5 or eGFR <30)",
+          "formula": "contains_any([shingles.ckd_stage], ['stage_4','stage_5']) || (exists(shingles.egfr) && shingles.egfr < 30)"
+        },
+        {
+          "id": "shingles_2a.medicine_name",
+          "type": "text",
+          "label": "Medicine",
+          "default": "Aciclovir tablets/dispersible tablets",
+          "required": true
+        },
+        {
+          "id": "shingles_2a.dose",
+          "type": "text",
+          "label": "Dose",
+          "default": "800mg five times daily (4-hourly intervals during waking hours)",
+          "required": true
+        },
+        {
+          "id": "shingles_2a.duration_days",
+          "type": "number",
+          "label": "Duration (days)",
+          "default": 7,
+          "required": true
+        },
+        {
+          "id": "shingles_2a.quantity_option",
+          "type": "select",
+          "label": "Quantity supplied option",
+          "required": true,
+          "options": [
+            "35_x_800mg_tablets",
+            "70_x_400mg_tablets",
+            "140_x_200mg_tablets"
+          ]
+        },
+        {
+          "id": "shingles_2a.route_method",
+          "type": "text",
+          "label": "Route/method",
+          "default": "Oral; swallow with water or disperse tablet in minimum 50mL water before taking (if dispersible formulation used).",
+          "required": true
+        },
+        {
+          "id": "shingles_2a.pgd_interaction_blockers_confirmed_absent",
+          "type": "boolean",
+          "label": "No aciclovir PGD blocker interactions present (ciclosporin/tacrolimus/mycophenolate/aminophylline/theophylline)",
+          "required": true
+        }
+      ]
+    },
+    {
+      "id": "shingles_valaciclovir_2b_supply",
+      "title": "PGD 2b - Valaciclovir Supply",
+      "visible_if": {
+        "field": "decision.shingles.final_route",
+        "equals": "valaciclovir_2b_supply"
+      },
+      "fields": [
+        {
+          "id": "shingles_2b.ckd_exclusion",
+          "type": "calculated_boolean",
+          "label": "Valaciclovir CKD exclusion (stage 3/4/5 or eGFR <60)",
+          "formula": "contains_any([shingles.ckd_stage], ['stage_3a','stage_3b','stage_4','stage_5']) || (exists(shingles.egfr) && shingles.egfr < 60)"
+        },
+        {
+          "id": "shingles_2b.dress_exclusion",
+          "type": "calculated_boolean",
+          "label": "Valaciclovir DRESS history exclusion",
+          "formula": "shingles.dress_history_with_valaciclovir == true"
+        },
+        {
+          "id": "shingles_2b.medicine_strength_form",
+          "type": "select",
+          "label": "Valaciclovir strength supplied",
+          "required": true,
+          "options": [
+            "1g_tablets",
+            "500mg_tablets"
+          ]
+        },
+        {
+          "id": "shingles_2b.dose",
+          "type": "text",
+          "label": "Dose",
+          "default": "1g three times daily",
+          "required": true
+        },
+        {
+          "id": "shingles_2b.duration_days",
+          "type": "number",
+          "label": "Duration (days)",
+          "default": 7,
+          "required": true
+        },
+        {
+          "id": "shingles_2b.quantity_option",
+          "type": "select",
+          "label": "Quantity supplied option",
+          "required": true,
+          "options": [
+            "21_x_1g_tablets",
+            "42_x_500mg_tablets"
+          ]
+        },
+        {
+          "id": "shingles_2b.route_method",
+          "type": "text",
+          "label": "Route/method",
+          "default": "Oral; swallow whole with water.",
+          "required": true
+        },
+        {
+          "id": "shingles_2b.pgd_interaction_blockers_confirmed_absent",
+          "type": "boolean",
+          "label": "No valaciclovir PGD blocker interactions present (ciclosporin/tacrolimus/mycophenolate/aminophylline/theophylline)",
+          "required": true
+        }
+      ]
+    },
+    {
+      "id": "shingles_advice_counselling_and_referral",
+      "title": "Shingles Advice / Counselling / Safety-netting",
+      "fields": [
+        {
+          "id": "shingles.bad_leaflet_provided",
+          "type": "boolean",
+          "label": "British Association of Dermatologists (BAD) shingles leaflet provided",
+          "required": true
+        },
+        {
+          "id": "shingles.pil_provided_or_advised",
+          "type": "boolean",
+          "label": "Manufacturer PIL provided/advised",
+          "required": true
+        },
+        {
+          "id": "shingles.pain_management_advice_given",
+          "type": "boolean",
+          "label": "Pain management advice given (e.g. paracetamol +/- codeine / NSAID if suitable)",
+          "required": true
+        },
+        {
+          "id": "shingles.vaccine_signpost_after_recovery",
+          "type": "boolean",
+          "label": "Shingles vaccine signposting given (discuss with GP after recovery)",
+          "required": true
+        },
+        {
+          "id": "shingles.breastfeeding_lesion_contact_advice",
+          "type": "boolean",
+          "label": "Breastfeeding advice given to avoid infant contact with shingles sores (if applicable)",
+          "required": false
+        },
+        {
+          "id": "shingles.hydration_advice_given",
+          "type": "boolean",
+          "label": "Hydration advice given (especially if nephrotoxic medicines / renal risk)",
+          "required": true
+        },
+        {
+          "id": "shingles.safety_netting_detail",
+          "type": "textarea",
+          "label": "Safety-netting and follow-up advice details",
+          "required": true
+        }
+      ]
+    }
+  ],
+  "rules": [
+    {
+      "id": "SH_R1_hard_red_flags_ae_ambulance",
+      "when": [
+        {
+          "or": [
+            { "field": "shingles.sepsis_suspected", "equals": true },
+            {
+              "field": "shingles.serious_complications_suspected",
+              "not_contains": "none"
+            },
+            { "field": "shingles.hutchinson_sign", "equals": true },
+            { "field": "shingles.visual_symptoms", "equals": true },
+            { "field": "shingles.unexplained_red_eye", "equals": true },
+            { "field": "shingles.severely_immunosuppressed", "equals": true },
+            {
+              "and": [
+                { "field": "shingles.immunosuppressed_not_severe", "equals": true },
+                {
+                  "or": [
+                    { "field": "shingles.immunosuppressed_rash_widespread_or_severe", "equals": true },
+                    { "field": "shingles.systemically_unwell", "equals": true }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "then": [
+        { "action": "set", "field": "decision.shingles.status", "value": "urgent_ae_or_999_referral" },
+        { "action": "set", "field": "safety.red_flags_present", "value": true },
+        { "action": "show_message", "level": "critical", "text": "Urgent A&E/999 escalation indicated - ophthalmic distribution/serious complication/sepsis/severe immunosuppression red flag." }
+      ]
+    },
+    {
+      "id": "SH_R2_general_pgd_exclusion_no_supply",
+      "when": [
+        {
+          "or": [
+            { "field": "shingles.informed_consent_pgd", "equals": false },
+            { "field": "shingles.age_18_or_over", "equals": false },
+            { "field": "shingles.pregnancy_status", "in": ["pregnant", "suspected_pregnancy"] },
+            {
+              "and": [
+                { "field": "shingles.breastfeeding_status", "equals": "breastfeeding" },
+                { "field": "shingles.shingles_sores_on_breast", "equals": true }
+              ]
+            },
+            { "field": "shingles.hypersensitivity_aciclovir_or_valaciclovir", "equals": true },
+            { "field": "shingles.cannot_start_medicine_within_eligibility_window", "equals": true },
+            { "field": "shingles.unable_to_absorb_or_swallow_oral_solid", "equals": true },
+            { "field": "shingles.current_long_term_oral_aciclovir_or_valaciclovir", "equals": true },
+            { "field": "shingles.failed_prior_aciclovir_or_valaciclovir_this_episode", "equals": true },
+            { "field": "shingles.rash_onset_over_7_days_ago", "equals": true },
+            { "field": "shingles.underlying_neurological_condition", "equals": true },
+            { "field": "shingles.head_or_neck_involvement", "equals": true },
+            { "field": "shingles.at_risk_dehydration_unable_fluids", "equals": true },
+            { "field": "shingles.interacting_medicines_present", "equals": true }
+          ]
+        }
+      ],
+      "then": [
+        { "action": "set", "field": "decision.shingles.status", "value": "excluded_from_pgd" },
+        { "action": "set", "field": "consultation.no_supply_reason", "value": "pgd_exclusion_met" }
+      ]
+    },
+    {
+      "id": "SH_R3_core_indication_not_met",
+      "when": [
+        { "field": "shingles.core_indication_met", "equals": false }
+      ],
+      "then": [
+        { "action": "set", "field": "decision.shingles.status", "value": "no_antiviral_indicated_under_pgd" },
+        { "action": "set", "field": "consultation.no_supply_reason", "value": "outside_pgd_inclusion" }
+      ]
+    },
+    {
+      "id": "SH_R4_choose_valaciclovir_2b_candidate",
+      "when": [
+        { "field": "shingles.route_pgd_candidate", "equals": "valaciclovir_2b" },
+        { "field": "decision.shingles.status", "not_in": ["urgent_ae_or_999_referral", "excluded_from_pgd", "no_antiviral_indicated_under_pgd"] }
+      ],
+      "then": [
+        { "action": "set", "field": "decision.shingles.proposed_route", "value": "valaciclovir_2b" }
+      ]
+    },
+    {
+      "id": "SH_R5_choose_aciclovir_2a_candidate",
+      "when": [
+        { "field": "shingles.route_pgd_candidate", "equals": "aciclovir_2a" },
+        { "field": "decision.shingles.status", "not_in": ["urgent_ae_or_999_referral", "excluded_from_pgd", "no_antiviral_indicated_under_pgd"] }
+      ],
+      "then": [
+        { "action": "set", "field": "decision.shingles.proposed_route", "value": "aciclovir_2a" }
+      ]
+    },
+    {
+      "id": "SH_R6_aciclovir_2a_route_blockers",
+      "when": [
+        { "field": "decision.shingles.proposed_route", "equals": "aciclovir_2a" },
+        {
+          "or": [
+            { "field": "shingles_2a.ckd_exclusion", "equals": true },
+            { "field": "shingles_2a.pgd_interaction_blockers_confirmed_absent", "equals": false }
+          ]
+        }
+      ],
+      "then": [
+        { "action": "set", "field": "decision.shingles.status", "value": "aciclovir_2a_blocked_refer_prescriber" }
+      ]
+    },
+    {
+      "id": "SH_R7_valaciclovir_2b_route_blockers",
+      "when": [
+        { "field": "decision.shingles.proposed_route", "equals": "valaciclovir_2b" },
+        {
+          "or": [
+            { "field": "shingles_2b.ckd_exclusion", "equals": true },
+            { "field": "shingles_2b.dress_exclusion", "equals": true },
+            { "field": "shingles_2b.pgd_interaction_blockers_confirmed_absent", "equals": false }
+          ]
+        }
+      ],
+      "then": [
+        { "action": "set", "field": "decision.shingles.status", "value": "valaciclovir_2b_blocked_refer_prescriber" }
+      ]
+    },
+    {
+      "id": "SH_R8_finalize_aciclovir_supply",
+      "when": [
+        { "field": "decision.shingles.proposed_route", "equals": "aciclovir_2a" },
+        { "field": "decision.shingles.status", "not_exists": true }
+      ],
+      "then": [
+        { "action": "set", "field": "decision.shingles.final_route", "value": "aciclovir_2a_supply" },
+        { "action": "set", "field": "consultation.outcome.primary_outcome", "value": "pgd_medicine_supplied" }
+      ]
+    },
+    {
+      "id": "SH_R9_finalize_valaciclovir_supply",
+      "when": [
+        { "field": "decision.shingles.proposed_route", "equals": "valaciclovir_2b" },
+        { "field": "decision.shingles.status", "not_exists": true }
+      ],
+      "then": [
+        { "action": "set", "field": "decision.shingles.final_route", "value": "valaciclovir_2b_supply" },
+        { "action": "set", "field": "consultation.outcome.primary_outcome", "value": "pgd_medicine_supplied" }
+      ]
+    }
+  ],
+  "decision_outputs": [
+    {
+      "id": "decision.shingles.status",
+      "type": "select",
+      "possible_values": [
+        "urgent_ae_or_999_referral",
+        "excluded_from_pgd",
+        "no_antiviral_indicated_under_pgd",
+        "aciclovir_2a_blocked_refer_prescriber",
+        "valaciclovir_2b_blocked_refer_prescriber",
+        "eligible_for_pgd_supply"
+      ]
+    },
+    {
+      "id": "decision.shingles.proposed_route",
+      "type": "select",
+      "possible_values": ["aciclovir_2a", "valaciclovir_2b"]
+    },
+    {
+      "id": "decision.shingles.final_route",
+      "type": "select",
+      "possible_values": ["aciclovir_2a_supply", "valaciclovir_2b_supply"]
+    }
+  ],
+  "validations": [
+    {
+      "id": "SH_V1_2a_quantity_matches",
+      "type": "error",
+      "expression": "decision.shingles.final_route != 'aciclovir_2a_supply' || contains_any([shingles_2a.quantity_option], ['35_x_800mg_tablets','70_x_400mg_tablets','140_x_200mg_tablets'])",
+      "message": "Aciclovir 2a quantity must be one of the PGD-listed 7-day pack options."
+    },
+    {
+      "id": "SH_V2_2b_quantity_matches",
+      "type": "error",
+      "expression": "decision.shingles.final_route != 'valaciclovir_2b_supply' || contains_any([shingles_2b.quantity_option], ['21_x_1g_tablets','42_x_500mg_tablets'])",
+      "message": "Valaciclovir 2b quantity must be one of the PGD-listed 7-day pack options."
+    },
+    {
+      "id": "SH_V3_no_supply_requires_referral_or_advice",
+      "type": "warning",
+      "expression": "decision.shingles.final_route || referral.required == true || shingles.safety_netting_detail",
+      "message": "If no PGD supply, document referral/signposting and safety-netting."
+    }
+  ],
+  "counselling_templates": {
+    "common_shingles": [
+      "Start treatment immediately and complete full 7-day course.",
+      "Explain dose, frequency and how to take medicine.",
+      "Provide PIL and BAD shingles leaflet.",
+      "Advise pain management options if appropriate.",
+      "Safety-net for worsening symptoms, eye involvement, neurological symptoms, severe illness, or sepsis symptoms.",
+      "Signpost to shingles vaccination discussion with GP after recovery."
+    ],
+    "aciclovir_2a": [
+      "800mg five times daily at ~4-hour intervals during waking hours.",
+      "Missed dose: take when remembered unless near next dose; do not double dose.",
+      "Maintain hydration; extra caution with nephrotoxic medicines."
+    ],
+    "valaciclovir_2b": [
+      "1g three times daily for 7 days.",
+      "Maintain hydration; extra caution with nephrotoxic medicines.",
+      "Stop and seek urgent medical advice if severe reaction symptoms occur; note DRESS risk history excludes use."
+    ]
+  }
+}

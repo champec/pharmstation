@@ -778,6 +778,8 @@ export interface ServiceLibraryItem {
   description: string
   category: string
   is_active: boolean
+  is_nhs_service: boolean
+  nhs_service_type: string | null
   created_at: string
 }
 
@@ -789,6 +791,7 @@ export interface Service {
   description: string
   is_active: boolean
   is_public: boolean
+  is_nhs_service: boolean
   duration_minutes: number
   created_at: string
 }
@@ -820,7 +823,7 @@ export interface ServiceFormField {
   label: string
   field_key: string
   field_type: FieldType
-  options: Record<string, unknown> | null
+  options: string[] | Record<string, unknown> | null
   is_required: boolean
   display_order: number
 }
@@ -1371,6 +1374,48 @@ export interface BnfDrugSearchResult {
   controlledDrugSchedule: string | null
   // Joined from bnf_drugs
   drug_name?: string
+}
+
+// ============================================
+// Delivery Outcomes
+// ============================================
+
+export type OutcomeType = 'prescription' | 'referral' | 'advice' | 'no_treatment'
+
+export interface OutcomeMedication {
+  id: string
+  outcome_id: string
+  drug_id: string | null
+  drug_name: string
+  drug_form: string | null
+  drug_strength: string | null
+  dose: string | null
+  quantity: number | null
+  unit: string | null
+  directions: string | null
+  supply_type: 'dispensed' | 'owed' | 'not_supplied' | null
+  is_controlled_drug: boolean
+  sort_order: number
+  created_at: string
+}
+
+export interface DeliveryOutcome {
+  id: string
+  delivery_id: string
+  org_id: string
+  outcome_type: OutcomeType
+  // Referral fields
+  referral_to: string | null
+  referral_reason: string | null
+  referral_urgency: 'routine' | 'urgent' | 'emergency' | null
+  // Advice / notes
+  advice_given: string | null
+  // Metadata
+  created_by: string | null
+  created_at: string
+  updated_at: string
+  // Joined data
+  medications?: OutcomeMedication[]
 }
 
 // --- NHS Integration ---

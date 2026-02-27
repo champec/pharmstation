@@ -29,13 +29,13 @@ This is the **Integrated NHS Expansion** for PharmStation. The goal is to make P
 
 5. **All NHSBSA API calls must go through Supabase Edge Functions** — never from the browser. The reason is IP whitelisting — only Edge Function IPs will be registered with NHSBSA.
 
-6. **Error handling is critical** — every Edge Function must catch HTTP 400, 403, 422, 500 responses and store them in `nhs_submission_attempts`. Do not silently swallow errors. The pharmacist must know if a submission failed.
+6. **Error handling is critical** — every Edge Function must catch HTTP 400, 403, 422, 500 responses and store them in `ps_nhs_submission_attempts`. Do not silently swallow errors. The pharmacist must know if a submission failed.
 
 7. **RLS on all new tables** — every new database table must have row-level security that scopes reads/writes to the pharmacy's `org_id`.
 
 8. **Use Zod for all payload validation** — validate on the Edge Function side before calling NHSBSA. Return user-friendly error messages for missing required fields.
 
-9. **Patient data is highly sensitive** — do not log full patient records to console. The `nhs_submission_attempts` table should store payloads but this is internal audit only, not user-visible.
+9. **Patient data is highly sensitive** — do not log full patient records to console. The `ps_nhs_submission_attempts` table should store payloads but this is internal audit only, not user-visible.
 
 10. **Follow existing code patterns** — React Router 7, Zustand stores, Zod + react-hook-form, Supabase RLS. Look at the existing expansion agents (`agent-1-services.md`, etc.) for code patterns before writing new code.
 
@@ -140,7 +140,7 @@ All 7 NHS Edge Functions have been created and are scaffolded. Phase A is now **
 - `nhs-gp-search` includes ODS code format validation: `[A-Z]\d{5}`
 
 **What's real vs stubbed:**
-- ✅ REAL: auth check, field validation, DB insert to `nhs_claim_submissions`, DB insert to `nhs_submission_attempts`, all DB reads
+- ✅ REAL: auth check, field validation, DB insert to `ps_nhs_claim_submissions`, DB insert to `ps_nhs_submission_attempts`, all DB reads
 - 🔴 STUBBED: all calls to NHSBSA endpoints, all calls to PDS FHIR API, all calls to DoHS API
 
 **Next unblocked task:** A7 — NHS Settings page in UI.
@@ -200,7 +200,7 @@ The following was discovered by querying the live database — **do not trust st
 3. **Legacy `service_*` tables — IGNORE COMPLETELY** (architect decision, 26 Feb 2026):
    - `service_pfs`, `service_pharmacy_first`, `service_flu`, `service_htn`, `service_nms`, `service_dms`
    - **Do not read from, write to, join, migrate, or reference these tables in any NHS integration work.**
-   - They are dead legacy. All NHS claim work uses `ps_service_deliveries` → `nhs_claim_submissions` only.
+   - They are dead legacy. All NHS claim work uses `ps_service_deliveries` → `ps_nhs_claim_submissions` only.
 
 4. **`ps_user_profiles.gphc_number` exists** — for Pharmacy First (CCS), `PROFESSIONAL_IDENTIFIER` can be auto-populated from the logged-in user's GPhC number. Subagents building the CCS form should pre-fill this field.
 

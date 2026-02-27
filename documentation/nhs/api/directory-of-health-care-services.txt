@@ -1,0 +1,139 @@
+Overview
+Use this API to find information about organisations that provide NHS healthcare services, NHS organisation types and coronavirus (COVID-19) walk-in sites.
+
+You can:
+
+retrieve a list of organisation types, for example, GP practices or hospitals
+search for NHS organisations that provide healthcare services listed in NHS services near you for example, Leeds General Infirmary
+search for coronavirus (COVID-19) walk-in sites
+This API does not support the FHIR standard.
+
+Who can use this API
+You must agree to the Online Connection Agreement before using this API. This must be done before you can go live.
+
+Related APIs
+The following APIs are related to this API:
+
+Directory of Services - Urgent and Emergency Care - SOAP API - use this SOAP API to access information on a wide range of health and care services across England
+Directory of Services - Urgent and Emergency Care - REST API - use this REST API to access information on a wide range of health and care services across England
+Electronic Transmission of Prescriptions Web Services - SOAP API - use this to access EPS dispenser (and dispensing appliance contractor) information for a patient via NHS UK Web Services
+e-Referral Service - FHIR API - use this endpoint to find services that meet the referral needs of a patient
+API status and roadmap
+This API is in production.
+
+Roadmap
+To see our roadmap, or to suggest, comment or vote on features for this API, see our interactive product backlog. If you have any other queries, please contact us.
+
+Service level
+This API is a bronze service, meaning it is operational and supported only during business hours (8am to 6pm), Monday to Friday excluding bank holidays. For more details, see service levels.
+
+Technology
+This API is RESTful.
+
+This API does not support the FHIR standard.
+
+Network access
+This API is available on the internet and, indirectly, on the Health and Social Care Network (HSCN). For more details see Network access for APIs.
+
+Security and authorisation
+This API is application-restricted, meaning we authenticate the calling application but not the end user.
+
+To use this API, use the following security pattern:
+
+application-restricted RESTful API - API key authentication
+Environments and testing
+Environment	Base URL (GET)	Base URL (POST)
+Sandbox	https://sandbox.api.service.nhs.uk/service-search-api/	https://sandbox.api.service.nhs.uk/service-search-api/search
+Integration test	https://int.api.service.nhs.uk/service-search-api/	https://int.api.service.nhs.uk/service-search-api/search
+Production	https://api.service.nhs.uk/service-search-api	https://api.service.nhs.uk/service-search-api/search
+Sandbox testing
+Our sandbox environment:
+
+is for early developer testing
+only covers a limited set of scenarios
+is open access, so does not allow you to test authorisation
+For details of sandbox test scenarios, or to try out the sandbox using our 'Try this API' feature, see the documentation for each endpoint.
+
+Our integration test environment is for formal integration testing.
+
+Integration testing
+Our integration test environment:
+
+is for formal integration testing
+includes authorisation, with options for appliation-restricted access
+test data is a close copy of the production data
+For more details see integration testing with our RESTful APIs.
+
+Rate Limiting for integration
+The integration test environment is rate limited to 1500 requests per week and 1 request per second.
+
+Production environment
+Our production environment is to be used by your production application and has a higher rate limit of 4,000 requests per hour. It requires you to get your application or product onboarded and approved by us.
+
+Production includes authorisation via an API Key, which can be obtained from the NHS Digital Onboarding Service - Developer account. This will be different from your Integration test environment API key.
+
+Registering for the API
+You will need to create a developer account on the NHS England Developer and Integration Hub. The hub includes a step-by-step introduction to what our APIs can do and how your team can get connected.
+
+It will allow you to access our API catalogue and documentation and manage your contact details.
+
+To integrate into this API for testing and assurance purposes, you will need to use our integration environment.
+
+To access the integration environment:
+
+Select 'Environment access' on the hub home page under the 'Introduction and onboarding' heading.
+Select 'Add new application' and choose the 'Integration test' option.
+Follow the steps. Remember to name and then create the application.
+Select 'View your new application'. Review your details, including your API key. At this stage, you will have no connected APIs.
+To connect APIs, select 'Add APIs', scroll and choose 'Service search - REST API (Integration Testing Environment)', then save. You should then see a confirmation at the top which shows 'Selected APIs have been added'.
+Your account will now be set up to use the Directory of Healthcare Services API in integration.
+
+Onboarding onto the production version of the API
+You need to get your software approved by us before it can go live with this API. We call this onboarding.
+
+During this process you will be asked agree to the Online Connection Agreement.
+
+When you are ready to start the onboarding process, email the NHS website service desk on nhswebsite.servicedesk@nhs.net to raise a ticket and we will confirm your next steps.
+
+Migrating from V1 and V2 of the Directory of Healthcare Services API
+Users migrating from V1 and V2 will need to go through the onboarding process for this API.
+
+Existing partners will be able to reuse their existing queries but will need to:
+
+a) Update the query endpoint to the new version
+
+b) Include their new API key
+
+API partners can continue using the API to search for organisations by location in the query string. However, unlike V1 and V2 of the API, the equivalent query with V3 is a two-step query process.
+
+Step 1 will be to use the Ordnance Survey Places API or other commercially available software to determine the latitude or longitude from a postcode.
+
+Step 2 will be to use the search endpoint (version 3) with the GeoLocation in the âlatitudeâ and âlongitudeâ query string.
+
+Getting help and support
+Get help and support in building healthcare software to find resources for your API integration.
+
+You can also email the API management team.
+
+Errors
+We use standard HTTP status codes to show whether an API request succeeded or not. They are usually in the range:
+
+200 to 299 if it succeeded, including code 202 if it was accepted by an API that needs to wait for further action
+400 to 499 if it failed because of a client error by your application
+500 to 599 if it failed because of an error on our server
+Errors specific to each API are shown in the Endpoints section, under Response. See our reference guide for more on errors.
+
+Examples
+The Directory of Healthcare Services (Service Search) API can be used to search for services and sites based on a variety of filters.
+
+These filters can be passed as query parameters for a GET request or as part of the body for a POST request.
+
+Examples of which are:
+
+GET: Directory of Healthcare Services API - version 3 - GET
+
+POST: Directory of Healthcare Services API - version 3 - POST
+
+Back to top
+
+Last edited: 28 January 2026 4:55 pm

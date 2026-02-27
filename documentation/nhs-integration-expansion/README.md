@@ -27,9 +27,9 @@ This is a high-value, high-complexity expansion that requires NHS BSA API accred
 | `README.md` | This file — project overview |
 | `architect-findings.md` | Lead architect's full analysis of the NHS APIs, scope, and technical approach |
 | `api-reference-summary.md` | Condensed reference for all relevant NHS/BSA APIs |
-| `task-board.md` | Trackable task list for subagents — broken into phases |
+| `task-board.md` | Trackable task list for subagents — **includes architecture gotchas at the top** |
 | `agent-messages.md` | Communication log — architect leaves instructions/corrections here for subagents |
-| `db-schema.md` | Database schema design for NHS claims tables |
+| `db-schema.md` | Database schema design for NHS claims tables — **includes critical "Service Forms Architecture & RLS" section** |
 | `onboarding-checklist.md` | Step-by-step accreditation and onboarding requirements |
 
 ---

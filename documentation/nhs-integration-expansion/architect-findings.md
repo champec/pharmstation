@@ -120,7 +120,7 @@ This system was built for **custom pharmacy services** (e.g. travel vaccinations
 | `ps_services` (pharmacy enables it) | Pharmacy "subscribes" to e.g. CPCS by activating it from the library — same as any other service |
 | `ps_service_forms` + `ps_service_form_fields` | Pre-seeded from the library with all NHSBSA-required fields. Pharmacies cannot remove mandatory fields; they can add optional fields |
 | `ps_service_deliveries` | Clinical record when the service is delivered. `form_data jsonb` holds all NHSBSA required field values already |
-| **NEW: `nhs_claim_submissions`** | The submission tracking record that **links to** a `ps_service_delivery` and holds NHSBSA submission state |
+| **NEW: `ps_nhs_claim_submissions`** | The submission tracking record that **links to** a `ps_service_delivery` and holds NHSBSA submission state |
 
 ### 4.3 What Needs to Change / Be Added
 
@@ -128,9 +128,9 @@ This system was built for **custom pharmacy services** (e.g. travel vaccinations
 
 1. Add `nhs_service_type text` column to `ps_service_library` — marks which NHSBSA claim type this maps to
 2. Add `is_nhs_service boolean` flag to `ps_service_library` and `ps_services`
-3. Create `nhs_claim_submissions` table with FK back to `ps_service_deliveries` — this is the submission tracking layer
-4. Create `nhs_submission_attempts` — audit log of every API call
-5. Create `nhs_patient_pds_cache` — PDS lookup cache keyed by NHS number
+3. Create `ps_nhs_claim_submissions` table with FK back to `ps_service_deliveries` — this is the submission tracking layer
+4. Create `ps_nhs_submission_attempts` — audit log of every API call
+5. Create `ps_nhs_patient_pds_cache` — PDS lookup cache keyed by NHS number
 
 **Service library seeding:**
 - Seed all 7 NHS advanced services into `ps_service_library` with `is_nhs_service = true`
@@ -146,7 +146,7 @@ This system was built for **custom pharmacy services** (e.g. travel vaccinations
 New tables only. Existing service tables are unchanged.
 
 ```
-nhs_claim_submissions
+ps_nhs_claim_submissions
   - id (uuid PK)
   - org_id (FK ps_organisations)
   - patient_id (FK ps_patients)
@@ -162,9 +162,9 @@ nhs_claim_submissions
   - created_by (uuid FK auth.users)
   - created_at (timestamptz)
 
-nhs_submission_attempts
+ps_nhs_submission_attempts
   - id (uuid PK)
-  - submission_id (FK nhs_claim_submissions)
+  - submission_id (FK ps_nhs_claim_submissions)
   - attempt_number (int)
   - http_method (text) — POST | PUT | GET | DELETE
   - request_payload (jsonb)
@@ -173,7 +173,7 @@ nhs_submission_attempts
   - attempted_at (timestamptz)
   - succeeded (boolean)
 
-nhs_patient_pds_cache
+ps_nhs_patient_pds_cache
   - nhs_number (text PK)
   - patient_id (FK ps_patients, nullable)
   - pds_response (jsonb) — cached PDS lookup result
@@ -191,7 +191,7 @@ When a pharmacist clicks "Submit to NHS" on a delivery:
 4. Edge Function assembles the NHSBSA-shaped payload from these three sources
 5. Generate `platform_deposit_id` as `PSN-{orgODS}-{timestamp_ms}`
 6. POST to appropriate NHSBSA staging/production endpoint
-7. Store result in `nhs_claim_submissions` + `nhs_submission_attempts`
+7. Store result in `ps_nhs_claim_submissions` + `ps_nhs_submission_attempts`
 
 **Key principle:** `form_data` in `ps_service_deliveries` IS the clinical record. The NHS submission is a thin layer on top that tracks what was submitted where and what the BSA said back.
 
@@ -334,8 +334,8 @@ One Edge Function per service type, responsible for:
 1. Receiving the validated payload from the frontend
 2. Generating `PLATFORM_DEPOSIT_ID`
 3. Calling the NHSBSA staging/production endpoint
-4. Logging the attempt in `nhs_submission_attempts`
-5. Updating `nhs_claim_submissions.status` based on response
+4. Logging the attempt in `ps_nhs_submission_attempts`
+5. Updating `ps_nhs_claim_submissions.status` based on response
 6. Returning result to client
 
 **Edge Functions required:**
@@ -411,7 +411,7 @@ PharmOutcomes currently charges pharmacies a monthly fee to use their platform f
 Phase A — Foundation & Onboarding
   A1. NHSBSA & NHS developer portal onboarding (human action — email NHS BSA)
   A2. DB: Add nhs_service_type + is_nhs_service columns to ps_service_library/ps_services
-  A3. DB: nhs_claim_submissions, nhs_submission_attempts, nhs_patient_pds_cache tables
+  A3. DB: ps_nhs_claim_submissions, ps_nhs_submission_attempts, ps_nhs_patient_pds_cache tables
   A4. Seed ps_service_library with all 7 NHS advanced services + pre-configured forms/fields
   A5. TypeScript types for NHS claims, service types, PDS patient
   A6. Investigate Supabase Edge Function static egress IP (critical blocker)

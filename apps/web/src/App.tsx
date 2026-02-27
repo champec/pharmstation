@@ -63,6 +63,11 @@ import { SOPEditorPage } from './pages/sops/SOPEditorPage'
 import { SOPReadPage } from './pages/sops/SOPReadPage'
 import { SOPAssignPage } from './pages/sops/SOPAssignPage'
 import { SOPProgressPage } from './pages/sops/SOPProgressPage'
+// Expansion — NHS
+import { NHSHubPage } from './pages/nhs/NHSHubPage'
+import { NHSClaimsPage } from './pages/nhs/NHSClaimsPage'
+import { NHSClaimDetailPage } from './pages/nhs/NHSClaimDetailPage'
+import { NHSClaimFormPage } from './pages/nhs/NHSClaimFormPage'
 // Expansion — Delivery Rounds
 import { DeliveryRoundDashboardPage } from './pages/delivery-rounds/DeliveryRoundDashboardPage'
 import { NewDeliveryRoundPage } from './pages/delivery-rounds/NewDeliveryRoundPage'
@@ -168,6 +173,12 @@ export function App() {
         <Route path="/services/:serviceId" element={<ServiceDetailPage />} />
         <Route path="/services/:serviceId/form/:formId" element={<FormBuilderPage />} />
         <Route path="/services/:serviceId/deliver" element={<ServiceDeliveryPage />} />
+
+        {/* NHS Services */}
+        <Route path="/nhs" element={<NHSHubPage />} />
+        <Route path="/nhs/claims" element={<NHSClaimsPage />} />
+        <Route path="/nhs/claims/:claimId" element={<NHSClaimDetailPage />} />
+        <Route path="/nhs/claim/:serviceType" element={<NHSClaimFormPage />} />
 
         {/* Appointments */}
         <Route path="/appointments" element={<AppointmentsCalendarPage />} />

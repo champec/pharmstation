@@ -6,7 +6,7 @@
 // These types cover:
 //  - NHSBSA MYS claim submission payloads (all 7 services)
 //  - NHS PDS FHIR patient demographics
-//  - Claim submission tracking (nhs_claim_submissions table)
+//  - Claim submission tracking (ps_nhs_claim_submissions table)
 // ============================================================
 
 // ============================================================

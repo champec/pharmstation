@@ -75,7 +75,7 @@ async function logAttempt(
     succeeded: boolean
   },
 ) {
-  await admin.from('nhs_submission_attempts').insert({
+  await admin.from('ps_nhs_submission_attempts').insert({
     submission_id:    submissionId,
     attempt_number:   opts.attemptNumber,
     http_method:      opts.httpMethod,
@@ -165,9 +165,9 @@ async function handleSubmit(body: Record<string, unknown>, userId: string) {
     ...claimPayload,
   }
 
-  // Create nhs_claim_submissions record at 'pending' status
+  // Create ps_nhs_claim_submissions record at 'pending' status
   const { data: submission, error: insertError } = await admin
-    .from('nhs_claim_submissions')
+    .from('ps_nhs_claim_submissions')
     .insert({
       org_id,
       patient_id:          patient_id ?? null,
@@ -224,7 +224,7 @@ async function handleSubmit(body: Record<string, unknown>, userId: string) {
   // Update submission status
   const newStatus = succeeded ? 'submitted' : 'rejected'
   const { data: updated, error: updateError } = await admin
-    .from('nhs_claim_submissions')
+    .from('ps_nhs_claim_submissions')
     .update({
       status:         newStatus,
       bsa_response:   nhsbsaData,
@@ -262,7 +262,7 @@ async function handleUpdate(body: Record<string, unknown>, userId: string) {
   const admin = getAdminClient()
 
   const { data: submission, error: fetchError } = await admin
-    .from('nhs_claim_submissions')
+    .from('ps_nhs_claim_submissions')
     .select('*, ps_organisations(ods_code, nhs_bsa_environment)')
     .eq('id', submission_id)
     .single()
@@ -298,7 +298,7 @@ async function handleUpdate(body: Record<string, unknown>, userId: string) {
   })
 
   const { data: updated } = await admin
-    .from('nhs_claim_submissions')
+    .from('ps_nhs_claim_submissions')
     .update({
       payload:        updatedFullPayload,
       status:         succeeded ? 'updated' : 'rejected',
@@ -324,7 +324,7 @@ async function handleDelete(body: Record<string, unknown>) {
   const admin = getAdminClient()
 
   const { data: submission, error } = await admin
-    .from('nhs_claim_submissions')
+    .from('ps_nhs_claim_submissions')
     .select('*, ps_organisations(ods_code, nhs_bsa_environment)')
     .eq('id', submission_id)
     .single()
@@ -353,7 +353,7 @@ async function handleDelete(body: Record<string, unknown>) {
   })
 
   await admin
-    .from('nhs_claim_submissions')
+    .from('ps_nhs_claim_submissions')
     .update({ status: 'deleted', last_updated_at: new Date().toISOString() })
     .eq('id', submission_id)
 
@@ -372,7 +372,7 @@ async function handleGet(body: Record<string, unknown>) {
   const admin = getAdminClient()
 
   const { data: submission, error } = await admin
-    .from('nhs_claim_submissions')
+    .from('ps_nhs_claim_submissions')
     .select('*')
     .eq('id', submission_id)
     .single()

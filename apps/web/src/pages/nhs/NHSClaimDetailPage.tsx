@@ -45,8 +45,8 @@ export function NHSClaimDetailPage() {
     setLoading(true)
     const client = getUserClient()
     const [claimRes, attemptsRes] = await Promise.all([
-      client.from('nhs_claim_submissions').select('*').eq('id', claimId).single(),
-      client.from('nhs_submission_attempts').select('*').eq('submission_id', claimId).order('attempt_number'),
+      client.from('ps_nhs_claim_submissions').select('*').eq('id', claimId).single(),
+      client.from('ps_nhs_submission_attempts').select('*').eq('submission_id', claimId).order('attempt_number'),
     ])
     if (claimRes.data) {
       const c = claimRes.data as NHSClaimSubmission
