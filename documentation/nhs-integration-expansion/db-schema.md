@@ -242,6 +242,7 @@ ALTER TABLE ps_service_library
 INSERT INTO ps_service_library (name, description, category, is_nhs_service, nhs_service_type) VALUES
   ('CPCS — Emergency Medicine',      'Community Pharmacist Consultation Service: Emergency Medicine Supply', 'nhs_advanced_service', true, 'cpcs_emg_med'),
   ('CPCS — Minor Illness',           'Community Pharmacist Consultation Service: Minor Illness', 'nhs_advanced_service', true, 'cpcs_min_ill'),
+  ('Pharmacy First',                 'NHS Pharmacy First (CCS) — 7 clinical pathways: Acute Otitis Media, Shingles, Infected Insect Bites, Sinusitis, Impetigo, Uncomplicated UTI, Acute Sore Throat', 'nhs_advanced_service', true, 'cpcs_ccs'),
   ('Flu Vaccination',                'NHS Flu Vaccination Service', 'nhs_advanced_service', true, 'flu_vac'),
   ('New Medicines Service',          'NHS New Medicines Service', 'nhs_advanced_service', true, 'nms'),
   ('Hypertension Case-Finding',      'NHS Hypertension Case-Finding Service (CVD)', 'nhs_advanced_service', true, 'cvd_hypertension'),

@@ -24,7 +24,7 @@ The primary integration target. NHSBSA provides **seven distinct RESTful claim s
 
 | Service | API Base URL (staging) | Key Fields |
 |---|---|---|
-| **CPCS** (Emergency Med / Minor Illness / UEC) | `https://stg.services.nhsbsa.nhs.uk/pharmacy-cpcs-api/resources/Claim` | CLAIM_TYPE_CODE, PROVISION_DATE, CLAIMANT_ODS, PATIENT_NHSNO, REFERRAL details |
+| **CPCS + Pharmacy First** (Emergency Med / Minor Illness / UEC / Pharmacy First) | `https://stg.services.nhsbsa.nhs.uk/pharmacy-cpcs-api/resources/Claim` | CLAIM_TYPE_CODE, PROVISION_DATE, CLAIMANT_ODS, PATIENT_NHSNO, REFERRAL details |
 | **Flu Vaccination** | Same as CPCS (different CLAIM_TYPE_CODE) | DOSE_NUMBER, VACCINATION_SITE_ODS |
 | **Smoking Cessation (SCS)** | `https://stg.api.scs.pharmacy.mys.nhsbsa.nhs.uk/v1/claims` | QUIT_DATE, NRT_PRODUCT, NUMBER_OF_CONSULTATIONS |
 | **Contraception Service** | `https://stg.api.contraception.pharmacy.mys.nhsbsa.nhs.uk/v1/claim` | SERVICE_TYPE, CONTRACEPTION_METHOD, products array |
@@ -217,10 +217,39 @@ Every NHSBSA service claim requires these core fields:
 ### 5.2 Service-Specific Unique Fields
 
 **CPCS (Emergency Medicine / Minor Illness):**
-- `CLAIM_TYPE_CODE` — distinguishes EMG_MED / MIN_ILL / EMG_MED_UEC / MIN_ILL_UEC / CCS
+- `CLAIM_TYPE_CODE` — distinguishes EMG_MED / MIN_ILL / EMG_MED_UEC / MIN_ILL_UEC
 - `REFERRAL_DATE`, `REFERRER_ORG_ODS` — NHS 111 or GP referral source
 - Drug supply details: `DRUG_CODE`, `DRUG_DESC`, `QUANTITY`, `MEDICATION_SUPPLY_TYPE`
-- `URGENCY_OF_REFERRAL`, `CCS_PRESENTING_COMPLAINT_OR_ISSUE`
+- `URGENCY_OF_REFERRAL`, `DISPOSITION_CODE` (Dx code from NHS 111 CDSS)
+
+**Pharmacy First (CCS — Community Consultation Service):**
+> Launched **31 January 2024**. Uses the **same CPCS API** with `CLAIM_TYPE_CODE: CCS`. Pharmacists can consult, diagnose, and supply a POM under a Patient Group Direction (PGD) for 7 specific pathways — without a GP referral. This is a distinct patient-initiated pathway (no NHS 111 referral required).
+
+- `CLAIM_TYPE_CODE` = `CCS`
+- `CCS_PRESENTING_COMPLAINT_OR_ISSUE` — **mandatory** for CCS, selects one of the 7 conditions:
+
+  | Code | Condition |
+  |---|---|
+  | `A_O_M` | Acute Otitis Media (earache) |
+  | `SHG` | Shingles |
+  | `I_I_B` | Infected Insect Bites |
+  | `SNT` | Sinusitis |
+  | `ITG` | Impetigo |
+  | `U_UTI` | Uncomplicated UTI |
+  | `A_S_T` | Acute Sore Throat |
+
+- **Special rule:** If `CCS_PRESENTING_COMPLAINT_OR_ISSUE` = `A_O_M` (Acute Otitis Media), then `CONSULTATION_METHOD` **must be face-to-face only**. Any other method is rejected by the API.
+- `PROFESSIONAL_IDENTIFIER` — **mandatory for CCS** (GPhC or NMC registration number of the clinician supplying)
+- `PROFESSIONAL_ROLE` — mandatory (Pharmacist / IP / Pharmacy Technician)
+- `CCS_NO_SUPPLY_REASON` — if no POM was supplied, must provide one of:
+  - `A` — Patient does not meet inclusion criteria under PGD
+  - `B` — Patient excluded under PGD
+  - `C` — Patient does not consent
+  - `D` — Shared decision: self-care preferred
+  - `E` — Shared decision: delay treatment
+  - `F` — Other
+- `CONSULTATION_METHOD`, `CONSULTATION_OUTCOME`, `ONWARD_REFERRAL_REASON`, `REFERRED_ODS` — same as regular CPCS
+- No `DISPOSITION_CODE` or `REFERRAL_DATE` required (patient walks in directly)
 
 **Flu / COVID Vaccination:**
 - `DOSE_NUMBER`, `VACCINATION_SITE_ODS`
@@ -355,13 +384,13 @@ This is the **critical path** — we cannot submit live claims until NHSBSA appr
 
 | Risk | Severity | Mitigation |
 |---|---|---|
-| NHSBSA rejects IP whitelist from Supabase Edge | High | Use Supabase dedicated IPs; or proxy through a fixed IP VPS |
+| NHSBSA rejects IP whitelist from Supabase Edge | ~~High~~ **Resolved** | Using outbound proxy VPS with static IP — not Supabase Edge IPs directly |
 | PLATFORM_DEPOSIT_ID prefix not assigned | High | Email NHSBSA early; use temp prefix in staging |
 | NHS API rate limits under load | Medium | Queue submissions; retry with backoff |
 | Patient NHS number not available | Medium | Support NHSBSA fallback codes (NO_NHS_NUMBER, TRACE_FAIL, etc.) |
 | Claim rejected post-submission | Medium | Status tracking + pharmacist notification + easy re-submit UI |
 | Service spec changes (NHSBSA updates annually) | Low-Medium | Version API fields; monitor changelog; watch for annual flu vaccine list updates |
-| Supabase Edge IPs not fixed | High | Research Supabase dedicated egress IPs before starting |
+| Supabase Edge IPs not fixed | ~~High~~ **Resolved** | Outbound proxy VPS (Hetzner CX11, Nginx). Edge Functions → proxy (static IP) → NHSBSA. Proxy needed for production only; staging unaffected. |
 
 ---
 
@@ -420,7 +449,7 @@ Phase F — Production Readiness
 
 ## 12. Open Questions (To Resolve Before Build Starts)
 
-1. **Supabase Edge Function IP addresses** — Are they fixed/static for production? Can we register them with NHSBSA? *This is the most critical unresolved question.*
+1. ~~**Supabase Edge Function IP addresses**~~ **RESOLVED** — Use outbound proxy VPS (Hetzner CX11, Nginx). Edge Functions route NHSBSA calls through a cheap VPS with a fixed static IP. Only needed for production go-live; staging is unaffected.
 2. **NHSBSA staging access** — Has anyone emailed `mys-platform@nhsbsa.nhs.uk` yet?
 3. **PDS access mode** — We want application-restricted (back-end NHS number verification). Do we need to request this specifically during NHS onboarding?
 4. **PLATFORM_DEPOSIT_ID prefix** — Will NHSBSA assign `PSN-` or similar once we register?

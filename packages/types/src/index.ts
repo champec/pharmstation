@@ -1373,3 +1373,6 @@ export interface BnfDrugSearchResult {
   drug_name?: string
 }
 
+// --- NHS Integration ---
+export * from './nhs'
+

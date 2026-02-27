@@ -1,7 +1,7 @@
 # NHS Integration Expansion — Task Board
 
 > **Managed by:** Lead Architect
-> **Updated:** 26 February 2026
+> **Updated:** 26 February 2026 (A6 complete)
 >
 > This is the canonical task list for all subagents working on the Integrated NHS Expansion.
 > Each phase must be sequential. Within a phase, tasks can be parallelised where indicated.
@@ -17,15 +17,19 @@
 ### A1 — NHSBSA Supplier Onboarding (Human Action Required ⚠️)
 
 **Owner:** Business / Product team (not a subagent task)
-**Status:** 🔲 Not Started
+**Status:** � In Progress
 
 Actions:
-- [ ] Email `mys-platform@nhsbsa.nhs.uk` — request IT supplier access for all 7 services
-- [ ] Include: platform name (PharmStation), website, contact name, list of services to integrate
-- [ ] Request staging environment credentials + PLATFORM_DEPOSIT_ID prefix (request `PSN-`)
+- [x] Email `mys-platform@nhsbsa.nhs.uk` — sent **26 February 2026** by Champe Chilufya (GPhC: 2226350) ✅
+- [x] Included: platform name (PharmStation), contact details, full list of services to integrate ✅
+- [x] Requested staging environment credentials + PLATFORM_DEPOSIT_ID prefix `PSN-` ✅
+- [x] Requested IP whitelisting process and registration form ✅
+- [ ] **Awaiting response** from NHSBSA
 - [ ] Once approved: register production Supabase Edge Function IP addresses for IP whitelisting
 
-**Blocked by:** Nothing. Can start immediately.
+**Blocked by:** Nothing. ~~Can start immediately.~~ Email sent — awaiting NHSBSA response.
+
+> 📧 **Email sent 26 Feb 2026** — See `agent-messages.md` ENTRY 005 for full copy.
 
 ---
 
@@ -49,93 +53,80 @@ Actions:
 ### A3 — Investigate Supabase Edge Function IP Addresses
 
 **Owner:** Subagent / DevOps
-**Status:** 🔲 Not Started
+**Status:** ✅ Complete — Decision Made 26 February 2026
 
-**Task:** Research whether Supabase Edge Functions expose fixed/static egress IP addresses that could be registered with NHSBSA for IP whitelisting. Document findings. If not possible natively, propose an alternative (e.g., dedicated VPS proxy, Cloudflare Worker with static IP).
+**Findings:** Supabase Edge Functions (Deno Deploy) have no static egress IPs. Official Supabase docs offer three solutions:
+1. ✅ **Outbound proxy VPS** — **chosen**
+2. ❌ Header-based auth — not applicable (we don't control NHSBSA's servers)
+3. ❌ Self-host edge runtime — overkill
 
-**Output:** Written findings in `agent-messages.md` + recommendation.
+**Decision: Outbound proxy VPS (Hetzner CX11, UK region, Nginx).** Edge Functions route all NHSBSA API calls through a cheap VPS with a fixed static IP registered with NHSBSA. Zero business logic on the proxy — it's a dumb `proxy_pass`.
+
+**Does NOT block staging** — staging can be tested without the proxy. Only needed before production go-live (Phase F).
+
+**Human action required before Phase F:** Provision VPS, configure Nginx, register static IP with NHSBSA. See `agent-messages.md` ENTRY 006 for full details.
 
 ---
 
 ### A4 — Database Schema: NHS Claims Tables
 
 **Owner:** Subagent
-**Status:** 🔲 Not Started
+**Status:** ✅ Complete — 26 February 2026
 
-**Task:** Create Supabase migration file for the following tables (see `db-schema.md` for full spec):
-- `nhs_claim_submissions` — master claim record
-- `nhs_submission_attempts` — API call audit log
-- `nhs_patient_pds_cache` — PDS lookup cache
+**Delivered:**
+- Migration file: `supabase/migrations/20260226_nhs_claims_schema.sql`
+- Applied to live DB via Supabase MCP ✅
+- Tables created: `nhs_claim_submissions`, `nhs_submission_attempts`, `nhs_patient_pds_cache`
+- Columns added: `ps_organisations.ods_code`, `nhs_bsa_environment`, `nhs_ip_whitelist_registered`
+- Columns added: `ps_service_library.is_nhs_service`, `nhs_service_type`
+- Columns added: `ps_services.is_nhs_service`
+- 9 NHS services seeded into `ps_service_library` ✅
+- RLS enabled on all new tables using `ps_organisation_members` (correct table, verified live)
 
-**Files to create:**
-- `supabase/migrations/YYYYMMDD_nhs_claims_schema.sql`
-
-**Requirements:**
-- Enable RLS on all tables
-- RLS policy: org members can read/write claims for their org only
-- Use `ps_organisations` FK for org-scoping
-- Add indexes on: `org_id`, `patient_id`, `service_type`, `status`, `claim_year_month`
-- Add `platform_deposit_id` UNIQUE constraint
-
-**Blocked by:** Nothing.
+**Live DB notes discovered during build:**
+- `ps_patients.nhs_number` already exists — no change needed ✅
+- RLS uses `ps_organisation_members` not `ps_staff` — docs corrected
+- **Legacy `service_pfs`, `service_pharmacy_first`, `service_flu`, `service_htn`, `service_nms`, `service_dms` — IGNORE. Architect decision: these are dead legacy tables. Do not read, write, join, or reference them in any NHS work.**
+- `ps_user_profiles.gphc_number` exists — can auto-populate `PROFESSIONAL_IDENTIFIER` for Pharmacy First
 
 ---
 
 ### A5 — TypeScript Types: NHS Claims
 
 **Owner:** Subagent (can be parallelised with A4)
-**Status:** 🔲 Not Started
+**Status:** ✅ Complete — 26 February 2026
 
-**Task:** Add NHS claim types to `packages/types/src/`:
-
-```ts
-// packages/types/src/nhs.ts
-export type NHSServiceType =
-  | 'cpcs_emg_med' | 'cpcs_min_ill' | 'cpcs_emg_uec' | 'cpcs_min_uec'
-  | 'cpcs_ccs' | 'flu_vac' | 'covid_vac' | 'scs' | 'contraception'
-  | 'cvd_hypertension' | 'nms';
-
-export type NHSClaimStatus =
-  | 'draft' | 'pending' | 'submitted' | 'accepted' | 'rejected' | 'updated' | 'deleted';
-
-export type ConsultationMethod =
-  | 'FACE_TO_FACE' | 'TELEPHONE' | 'VIDEO' | 'ONLINE_ASYNCHRONOUS';
-
-export interface NHSClaimSubmission { ... }
-export interface NHSSubmissionAttempt { ... }
-export interface PDSPatient { ... }
-export interface CPCSClaimPayload { ... }
-export interface SCSClaimPayload { ... }
-export interface CVDClaimPayload { ... }
-export interface NMSClaimPayload { ... }
-export interface ContraceptionClaimPayload { ... }
-```
-
-**Blocked by:** Nothing. Must be done before Edge Functions or forms.
+**Delivered:**
+- New file: `packages/types/src/nhs.ts`
+- Exported from `packages/types/src/index.ts`
+- Covers: `NHSServiceType`, `NHSClaimStatus`, `ConsultationMethod`, `ProfessionalRole`
+- Payload types: `CPCSClaimPayload`, `PharmacyFirstClaimPayload`, `FluVacClaimPayload`, `NMSClaimPayload`, `SCSClaimPayload`, `ContraceptionClaimPayload`, `CVDClaimPayload`
+- DB row types: `NHSClaimSubmission`, `NHSSubmissionAttempt`, `NHSPatientPDSCache`
+- PDS type: `PDSPatient`
+- `NHS_CLAIM_TYPE_CODE` map (internal type → NHSBSA field value)
+- `NHS_NUMBER_FALLBACK` constants
+- Pharmacy First: `CCSPresentingComplaint` union type with all 7 pathways + `CCSNoSupplyReason`
+- Otitis Media constraint documented in type comment
 
 ---
 
 ### A6 — Edge Function Scaffold (Skeleton Only)
 
 **Owner:** Subagent
-**Status:** 🔲 Not Started
+**Status:** ✅ Complete — 26 February 2026
 
-**Task:** Create skeleton Edge Functions — stubbed out (no real API calls yet). Each function should:
-1. Accept a typed POST request body
-2. Validate it with Zod
-3. Return a stub 200 response with fake BSA response shape
-4. Log the attempt to `nhs_submission_attempts`
+**Delivered:**
+All 7 Edge Functions created. Pattern: action-based routing, JWT auth, `getAdminClient()` service role, manual field validation (no Zod — consistent with existing functions `ai-chat` / `nhs-notify`). NHSBSA API calls are all **STUBBED** with `_stub: true` responses and `// TODO Phase B` comments. DB writes (create submission record, log attempt) are real.
 
-**Functions to create:**
-- `supabase/functions/nhs-claim-cpcs/index.ts`
-- `supabase/functions/nhs-claim-scs/index.ts`
-- `supabase/functions/nhs-claim-contraception/index.ts`
-- `supabase/functions/nhs-claim-cvd/index.ts`
-- `supabase/functions/nhs-claim-nms/index.ts`
-- `supabase/functions/nhs-pds-lookup/index.ts`
-- `supabase/functions/nhs-gp-search/index.ts`
+- ✅ `supabase/functions/nhs-claim-cpcs/index.ts` — CPCS + Pharmacy First (CCS) + Flu + COVID. Actions: submit/update/delete/get. Includes CCS validation, Otitis Media face-to-face constraint, auto-populate `PROFESSIONAL_IDENTIFIER` hint.
+- ✅ `supabase/functions/nhs-claim-nms/index.ts` — New Medicines Service. Actions: submit/update/delete/get. Validates `CONDITIONS[]` and `NMS_PRODUCTS[]` arrays.
+- ✅ `supabase/functions/nhs-claim-scs/index.ts` — Smoking Cessation Service. Actions: submit/update/delete/get. Validates `QUIT_DATE`, `NRT_PRODUCT[]`.
+- ✅ `supabase/functions/nhs-claim-cvd/index.ts` — Hypertension / CVD Case-Finding. Actions: submit/update/delete/get. Validates CLINIC_BP or ABPM with linked detail objects.
+- ✅ `supabase/functions/nhs-claim-contraception/index.ts` — Contraception Service. Actions: submit/update/delete/get. Validates SERVICE_TYPE enum + `CONTRACEPTION_METHOD[]`.
+- ✅ `supabase/functions/nhs-pds-lookup/index.ts` — PDS FHIR R4 patient lookup. Actions: lookup/verify. Includes NHS number mod-11 validation, 24-hour cache via `nhs_patient_pds_cache`.
+- ✅ `supabase/functions/nhs-gp-search/index.ts` — DoHS GP search. Actions: search/lookup_ods. Includes ODS code format validation (`[A-Z]\d{5}`).
 
-**Blocked by:** A5 (types).
+**Blocked by:** A5 (types). ~~(now resolved)~~
 
 ---
 
@@ -177,7 +168,25 @@ export interface ContraceptionClaimPayload { ... }
 
 ---
 
-### B2 — Flu Vaccination Claim Form & Submission
+### B2 — Pharmacy First (CCS) Claim Form & Submission
+
+**Owner:** Subagent
+**Status:** 🔲 Not Started
+
+**Description:** Pharmacy First claim form. Uses the same CPCS API/Edge Function with `CLAIM_TYPE_CODE: CCS`. Launched January 2024 — allows pharmacists to consult and supply a POM under PGD for 7 specific conditions without GP referral.
+
+**Unique fields (all mandatory for CCS):**
+- `CCS_PRESENTING_COMPLAINT_OR_ISSUE` — dropdown of 7 conditions: `A_O_M`, `SHG`, `I_I_B`, `SNT`, `ITG`, `U_UTI`, `A_S_T`
+- `PROFESSIONAL_IDENTIFIER` — GPhC/NMC registration number of the supplying clinician
+- `CCS_NO_SUPPLY_REASON` — if no POM supplied, mandatory reason code (options A-F)
+- **Conditional validation:** if condition = `A_O_M` (Acute Otitis Media), `CONSULTATION_METHOD` must be `FACE_TO_FACE` only — enforce in form and Zod schema
+- No `REFERRAL_DATE` or `DISPOSITION_CODE` (patient self-presents, unlike regular CPCS)
+
+**Blocked by:** B1 (re-uses CPCS Edge Function).
+
+---
+
+### B3 — Flu Vaccination Claim Form & Submission
 
 **Owner:** Subagent
 **Status:** 🔲 Not Started
@@ -310,10 +319,10 @@ Flip Edge Functions from staging to production URLs. Monitor first submissions c
 
 | Phase | Tasks | Not Started | In Progress | Complete | Blocked |
 |---|---|---|---|---|---|
-| A — Foundation | 7 | 7 | 0 | 0 | 0 |
-| B — Core Services | 3 | 3 | 0 | 0 | 0 |
+| A — Foundation | 7 | 3 | 1 | 3 | 0 |
+| B — Core Services | 4 | 4 | 0 | 0 | 0 |
 | C — Advanced Services | 4 | 4 | 0 | 0 | 0 |
 | D — Patient Verification | 2 | 2 | 0 | 0 | 0 |
 | E — Dashboard | 2 | 2 | 0 | 0 | 0 |
 | F — Production Readiness | 3 | 3 | 0 | 0 | 0 |
-| **Total** | **21** | **21** | **0** | **0** | **0** |
+| **Total** | **22** | **18** | **1** | **3** | **0** |
