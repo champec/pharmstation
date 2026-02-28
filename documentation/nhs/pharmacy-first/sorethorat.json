@@ -1,0 +1,1126 @@
+{
+  "module_id": "pharmacy_first_acute_sore_throat_pathway",
+  "schema_version": "1.0.0",
+  "title": "Pharmacy First - Acute Sore Throat Pathway (5a/5b/5c)",
+  "description": "Shared acute sore throat assessment with 3-way routing to phenoxymethylpenicillin (5a), clarithromycin (5b), or erythromycin (5c).",
+  "depends_on": [
+    "core.consultation_context",
+    "core.patient_demographics",
+    "core.consent_information_sharing",
+    "core.med_history_allergies",
+    "core.outcome_gp_notification_shell"
+  ],
+  "entry_conditions": [
+    { "field": "consultation.service_type", "equals": "clinical_pathway" },
+    { "field": "consultation.pathway", "equals": "sore_throat" }
+  ],
+  "sections": [
+    {
+      "id": "sorethroat_core_assessment",
+      "title": "Acute Sore Throat Core Assessment",
+      "fields": [
+        {
+          "id": "sorethroat.informed_consent",
+          "type": "boolean",
+          "label": "Informed consent obtained",
+          "required": true
+        },
+        {
+          "id": "sorethroat.diagnosis_using_nice_guidance",
+          "type": "boolean",
+          "label": "Diagnosis of sore throat made using appropriate NICE guidance",
+          "required": true
+        },
+        {
+          "id": "sorethroat.age_5_or_over",
+          "type": "calculated_boolean",
+          "label": "Age 5 years or over",
+          "formula": "patient.age >= 5"
+        },
+        {
+          "id": "sorethroat.age_16_or_over",
+          "type": "calculated_boolean",
+          "label": "Age 16 years or over",
+          "formula": "patient.age >= 16"
+        },
+        {
+          "id": "sorethroat.symptom_onset_days",
+          "type": "number",
+          "label": "Days since symptom onset",
+          "required": true,
+          "min": 0
+        },
+        {
+          "id": "sorethroat.severe_symptoms_present",
+          "type": "boolean",
+          "label": "Severe symptoms present",
+          "required": true
+        }
+      ]
+    },
+    {
+      "id": "sorethroat_feverpain",
+      "title": "FeverPAIN Assessment",
+      "fields": [
+        {
+          "id": "sorethroat.feverpain.fever_last_24h",
+          "type": "boolean",
+          "label": "Fever (high temperature) in previous 24 hours",
+          "required": true
+        },
+        {
+          "id": "sorethroat.feverpain.purulent_tonsils",
+          "type": "boolean",
+          "label": "Purulent tonsils",
+          "required": true
+        },
+        {
+          "id": "sorethroat.feverpain.attend_rapidly_onset_3_days_or_less",
+          "type": "boolean",
+          "label": "Attend rapidly (symptom onset ≤3 days)",
+          "required": true
+        },
+        {
+          "id": "sorethroat.feverpain.severe_tonsillar_inflammation",
+          "type": "boolean",
+          "label": "Severe tonsillar inflammation",
+          "required": true
+        },
+        {
+          "id": "sorethroat.feverpain.no_cough_or_coryza",
+          "type": "boolean",
+          "label": "No cough/coryza",
+          "required": true
+        },
+        {
+          "id": "sorethroat.feverpain.score",
+          "type": "calculated_number",
+          "label": "FeverPAIN score",
+          "formula": "sum_booleans([sorethroat.feverpain.fever_last_24h, sorethroat.feverpain.purulent_tonsils, sorethroat.feverpain.attend_rapidly_onset_3_days_or_less, sorethroat.feverpain.severe_tonsillar_inflammation, sorethroat.feverpain.no_cough_or_coryza])"
+        },
+        {
+          "id": "sorethroat.feverpain_antibiotic_threshold_met",
+          "type": "calculated_boolean",
+          "label": "FeverPAIN threshold met for antibiotic consideration",
+          "formula": "sorethroat.feverpain.score >= 4 && sorethroat.feverpain.score <= 5 && sorethroat.severe_symptoms_present == true"
+        },
+        {
+          "id": "sorethroat.feverpain_followup_advice_category",
+          "type": "calculated_select",
+          "label": "Follow-up category (if antibiotic not indicated)",
+          "formula": {
+            "if": [
+              { "expression": "sorethroat.feverpain.score <= 1" },
+              "return_in_1_week_if_no_improvement",
+              {
+                "if": [
+                  { "expression": "sorethroat.feverpain.score >= 2 && sorethroat.feverpain.score <= 3" },
+                  "return_in_3_to_5_days_if_no_improvement",
+                  {
+                    "if": [
+                      { "expression": "sorethroat.feverpain.score >= 4 && sorethroat.feverpain.score <= 5 && sorethroat.severe_symptoms_present == false" },
+                      "return_in_3_to_5_days_if_no_improvement",
+                      "antibiotic_may_be_considered"
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "sorethroat_red_flags_referral_screen",
+      "title": "Red Flags / Urgent Referral Screen",
+      "fields": [
+        {
+          "id": "sorethroat.systemically_well",
+          "type": "boolean",
+          "label": "Systemically well",
+          "required": true
+        },
+        {
+          "id": "sorethroat.sepsis_suspected",
+          "type": "boolean",
+          "label": "Sepsis / severe life-threatening infection suspected",
+          "required": true
+        },
+        {
+          "id": "sorethroat.epiglottitis_symptoms",
+          "type": "checklist",
+          "label": "Possible epiglottitis symptoms",
+          "required": true,
+          "options": [
+            "severe_acute_sore_throat_and_fever",
+            "difficulty_breathing",
+            "muffled_or_hoarse_voice",
+            "inspiratory_stridor",
+            "pain_and_difficulty_swallowing",
+            "drooling",
+            "irritability_restlessness",
+            "none"
+          ]
+        },
+        {
+          "id": "sorethroat.scarlet_fever_symptoms",
+          "type": "checklist",
+          "label": "Possible scarlet fever symptoms",
+          "required": true,
+          "options": [
+            "high_temperature",
+            "swollen_glands_neck",
+            "white_then_strawberry_tongue",
+            "red_cheeks",
+            "sandpaper_rash",
+            "bright_red_skin_creases",
+            "none"
+          ]
+        },
+        {
+          "id": "sorethroat.quinsy_symptoms",
+          "type": "checklist",
+          "label": "Possible quinsy symptoms",
+          "required": true,
+          "options": [
+            "fever",
+            "neck_pain",
+            "trismus",
+            "muffled_voice",
+            "displaced_uvula",
+            "enlarged_displaced_tonsil",
+            "peri_tonsillar_swelling",
+            "none"
+          ]
+        },
+        {
+          "id": "sorethroat.glandular_fever_symptoms",
+          "type": "checklist",
+          "label": "Possible glandular fever symptoms",
+          "required": true,
+          "options": [
+            "very_high_temperature",
+            "severe_sore_throat",
+            "swollen_glands_neck",
+            "extreme_tiredness",
+            "tonsillitis_not_getting_better",
+            "none"
+          ]
+        },
+        {
+          "id": "sorethroat.diphtheria_symptoms",
+          "type": "checklist",
+          "label": "Possible diphtheria symptoms",
+          "required": true,
+          "options": [
+            "thick_grey_white_coating",
+            "high_temperature",
+            "sore_throat",
+            "swollen_glands_neck",
+            "difficulty_breathing_swallowing",
+            "none"
+          ]
+        },
+        {
+          "id": "sorethroat.severe_complications_suspected",
+          "type": "checklist",
+          "label": "Severe complications suspected",
+          "required": true,
+          "options": [
+            "clinical_dehydration",
+            "pharyngeal_abscess_signs",
+            "stridor_present",
+            "none"
+          ]
+        },
+        {
+          "id": "sorethroat.possible_cancer_red_flags",
+          "type": "checklist",
+          "label": "Possible cancer red flags",
+          "required": true,
+          "options": [
+            "persistent_mouth_ulcers",
+            "mass_or_unilateral_swelling",
+            "unable_to_swallow",
+            "bleeding_or_numbness_in_mouth",
+            "red_or_white_patches_in_mouth",
+            "age_over_45_unexplained_hoarse_voice_over_3_weeks",
+            "none"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "sorethroat_shared_exclusions_and_status",
+      "title": "Shared Exclusions / Risks",
+      "fields": [
+        {
+          "id": "sorethroat.severely_immunosuppressed",
+          "type": "boolean",
+          "label": "Severely immunosuppressed (Green Book definition)",
+          "required": true
+        },
+        {
+          "id": "sorethroat.immunosuppressed_not_severe",
+          "type": "boolean",
+          "label": "Immunosuppressed (not meeting severe definition)",
+          "required": true
+        },
+        {
+          "id": "sorethroat.agranulocytosis_risk_medicines_present",
+          "type": "boolean",
+          "label": "Taking medicine(s) known to cause agranulocytosis",
+          "required": true
+        },
+        {
+          "id": "sorethroat.inability_to_absorb_or_swallow_oral",
+          "type": "boolean",
+          "label": "Unable to absorb/swallow oral dosage forms",
+          "required": true
+        },
+        {
+          "id": "sorethroat.current_long_term_same_class_antibiotic",
+          "type": "boolean",
+          "label": "Current long-term use of relevant antibiotic/class (e.g. prophylaxis)",
+          "required": true
+        },
+        {
+          "id": "sorethroat.ketogenic_diet",
+          "type": "boolean",
+          "label": "Following ketogenic diet",
+          "required": true
+        },
+        {
+          "id": "sorethroat.failed_previous_antibiotic_this_episode",
+          "type": "boolean",
+          "label": "Failed previous antibiotic for this sore throat episode",
+          "required": true
+        },
+        {
+          "id": "sorethroat.recurrent_tonsillitis_pattern",
+          "type": "boolean",
+          "label": "Recurrent sore throat/tonsillitis pattern (7/5/3 rule)",
+          "required": true
+        },
+        {
+          "id": "sorethroat.previous_tonsillectomy",
+          "type": "boolean",
+          "label": "Previous tonsillectomy",
+          "required": true
+        },
+        {
+          "id": "sorethroat.post_tonsillar_or_throat_surgery_procedure",
+          "type": "boolean",
+          "label": "Post tonsillar or other throat surgery/procedure",
+          "required": true
+        },
+        {
+          "id": "sorethroat.oral_typhoid_vaccine_timing_conflict",
+          "type": "boolean",
+          "label": "Less than 3 days before / within 3 days after oral typhoid vaccine",
+          "required": true
+        }
+      ]
+    },
+    {
+      "id": "sorethroat_pregnancy_allergy_and_branching_inputs",
+      "title": "Pregnancy / Allergy / Route Inputs",
+      "fields": [
+        {
+          "id": "sorethroat.pregnancy_status",
+          "type": "select",
+          "label": "Pregnancy status",
+          "required": true,
+          "options": ["pregnant", "suspected_pregnancy", "not_pregnant", "unknown", "not_applicable"]
+        },
+        {
+          "id": "sorethroat.breastfeeding_status",
+          "type": "select",
+          "label": "Breastfeeding status",
+          "required": true,
+          "options": ["breastfeeding", "not_breastfeeding", "unknown", "not_applicable"]
+        },
+        {
+          "id": "sorethroat.penicillin_hypersensitivity_or_severe_beta_lactam_history",
+          "type": "boolean",
+          "label": "Phenoxymethylpenicillin/penicillin hypersensitivity OR severe immediate beta-lactam hypersensitivity history",
+          "required": true
+        }
+      ]
+    },
+    {
+      "id": "sorethroat_drug_specific_risks_interactions",
+      "title": "Drug-Specific Risks / Interactions",
+      "fields": [
+        {
+          "id": "sorethroat.ckd_stage",
+          "type": "select",
+          "label": "Known CKD stage",
+          "required": true,
+          "options": ["none_known", "stage_1", "stage_2", "stage_3a", "stage_3b", "stage_4", "stage_5", "unknown"]
+        },
+        {
+          "id": "sorethroat.egfr",
+          "type": "number",
+          "label": "Most recent eGFR (if known)",
+          "required": false
+        },
+        {
+          "id": "sorethroat.known_myasthenia_gravis",
+          "type": "boolean",
+          "label": "Known myasthenia gravis",
+          "required": true
+        },
+        {
+          "id": "sorethroat.known_qt_prolongation_or_ventricular_arrhythmia",
+          "type": "boolean",
+          "label": "Known QT prolongation / ventricular arrhythmia (incl torsades)",
+          "required": true
+        },
+        {
+          "id": "sorethroat.on_qt_prolonging_medicine",
+          "type": "boolean",
+          "label": "Concomitant QT-prolonging medicine present",
+          "required": true
+        },
+        {
+          "id": "sorethroat.known_electrolyte_disturbance",
+          "type": "boolean",
+          "label": "Known hypokalaemia / hypomagnesaemia",
+          "required": true
+        },
+        {
+          "id": "sorethroat.known_heart_disease",
+          "type": "boolean",
+          "label": "Known heart disease (macrolide risk)",
+          "required": true
+        },
+        {
+          "id": "sorethroat.known_or_suspected_liver_disease",
+          "type": "boolean",
+          "label": "Known or suspected liver disease",
+          "required": true
+        },
+        {
+          "id": "sorethroat.known_or_suspected_severe_liver_disease",
+          "type": "boolean",
+          "label": "Known or suspected severe liver disease",
+          "required": true
+        },
+        {
+          "id": "sorethroat.previous_macrolide_associated_jaundice_or_hepatic_dysfunction",
+          "type": "boolean",
+          "label": "Previous macrolide-associated jaundice/hepatic dysfunction",
+          "required": true
+        },
+        {
+          "id": "sorethroat.macrolide_hypersensitivity",
+          "type": "boolean",
+          "label": "Known macrolide hypersensitivity",
+          "required": true
+        },
+        {
+          "id": "sorethroat.known_porphyria",
+          "type": "boolean",
+          "label": "Known porphyria",
+          "required": true
+        },
+        {
+          "id": "sorethroat.concurrent_hepatotoxic_medicine",
+          "type": "boolean",
+          "label": "Concurrent potentially hepatotoxic medicine",
+          "required": true
+        },
+
+        {
+          "id": "sorethroat.interactions.penicillinV_blockers",
+          "type": "checklist",
+          "label": "Phenoxymethylpenicillin PGD interaction blockers",
+          "required": true,
+          "options": [
+            "methotrexate",
+            "probenecid",
+            "oral_typhoid_vaccine_timing_conflict",
+            "other_contraindicated_interaction",
+            "none"
+          ]
+        },
+        {
+          "id": "sorethroat.interactions.clarithromycin_blockers",
+          "type": "checklist",
+          "label": "Clarithromycin PGD interaction blockers",
+          "required": true,
+          "options": [
+            "simvastatin_or_lovastatin",
+            "astemizole_cisapride_domperidone_pimozide_terfenadine",
+            "ergotamine_or_dihydroergotamine",
+            "ranolazine",
+            "ticagrelor",
+            "chloroquine_or_hydroxychloroquine",
+            "colchicine",
+            "midazolam_oral",
+            "lomitapide",
+            "ivabradine",
+            "strong_cyp3a4_contraindicated_medicine",
+            "qt_prolonging_medicine",
+            "strong_cyp_inducer_may_reduce_clarithromycin",
+            "oral_typhoid_vaccine_timing_conflict",
+            "other_contraindicated_interaction",
+            "none"
+          ]
+        },
+        {
+          "id": "sorethroat.interactions.erythromycin_blockers",
+          "type": "checklist",
+          "label": "Erythromycin PGD interaction blockers",
+          "required": true,
+          "options": [
+            "simvastatin",
+            "tolterodine",
+            "amisulpride",
+            "astemizole_cisapride_mizolastine_domperidone_pimozide_terfenadine",
+            "ergotamine_or_dihydroergotamine",
+            "chloroquine_or_hydroxychloroquine",
+            "colchicine",
+            "lomitapide",
+            "moderate_cyp3a4_contraindicated_medicine",
+            "qt_prolonging_medicine",
+            "strong_cyp_inducer_may_reduce_erythromycin",
+            "other_contraindicated_interaction",
+            "oral_typhoid_vaccine_timing_conflict",
+            "none"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "sorethroat_route_selection",
+      "title": "Route Selection (5a / 5b / 5c)",
+      "fields": [
+        {
+          "id": "decision.sorethroat.red_flag_status",
+          "type": "calculated_select",
+          "label": "Red flag / escalation status",
+          "formula": {
+            "if": [
+              {
+                "or": [
+                  { "field": "sorethroat.sepsis_suspected", "equals": true },
+                  { "field": "sorethroat.severely_immunosuppressed", "equals": true },
+                  { "field": "sorethroat.epiglottitis_symptoms", "not_contains": "none" },
+                  { "field": "sorethroat.diphtheria_symptoms", "not_contains": "none" },
+                  { "field": "sorethroat.severe_complications_suspected", "any_in": ["clinical_dehydration", "pharyngeal_abscess_signs", "stridor_present"] }
+                ]
+              },
+              "urgent_ae",
+              {
+                "if": [
+                  {
+                    "or": [
+                      { "field": "sorethroat.scarlet_fever_symptoms", "not_contains": "none" },
+                      { "field": "sorethroat.quinsy_symptoms", "not_contains": "none" },
+                      { "field": "sorethroat.glandular_fever_symptoms", "not_contains": "none" },
+                      { "field": "sorethroat.immunosuppressed_not_severe", "equals": true },
+                      { "field": "sorethroat.agranulocytosis_risk_medicines_present", "equals": true },
+                      { "field": "sorethroat.systemically_well", "equals": false },
+                      { "field": "sorethroat.possible_cancer_red_flags", "not_contains": "none" }
+                    ]
+                  },
+                  "urgent_prescriber",
+                  "no_red_flags"
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "id": "decision.sorethroat.antibiotic_indication_status",
+          "type": "calculated_select",
+          "label": "Antibiotic indication status",
+          "formula": {
+            "if": [
+              { "field": "sorethroat.feverpain_antibiotic_threshold_met", "equals": true },
+              "antibiotic_may_be_considered",
+              "antibiotic_not_indicated_self_care"
+            ]
+          }
+        },
+        {
+          "id": "decision.sorethroat.route_candidate",
+          "type": "calculated_select",
+          "label": "Proposed route candidate",
+          "formula": {
+            "if": [
+              { "field": "decision.sorethroat.red_flag_status", "in": ["urgent_ae", "urgent_prescriber"] },
+              "no_pharmacy_first_treatment",
+              {
+                "if": [
+                  { "field": "decision.sorethroat.antibiotic_indication_status", "equals": "antibiotic_not_indicated_self_care" },
+                  "self_care_only",
+                  {
+                    "if": [
+                      {
+                        "or": [
+                          { "field": "sorethroat.informed_consent", "equals": false },
+                          { "field": "sorethroat.age_5_or_over", "equals": false },
+                          { "field": "sorethroat.diagnosis_using_nice_guidance", "equals": false },
+                          { "field": "sorethroat.inability_to_absorb_or_swallow_oral", "equals": true },
+                          { "field": "sorethroat.ketogenic_diet", "equals": true },
+                          { "field": "sorethroat.failed_previous_antibiotic_this_episode", "equals": true },
+                          { "field": "sorethroat.recurrent_tonsillitis_pattern", "equals": true },
+                          { "field": "sorethroat.previous_tonsillectomy", "equals": true },
+                          { "field": "sorethroat.post_tonsillar_or_throat_surgery_procedure", "equals": true }
+                        ]
+                      },
+                      "excluded_refer_prescriber",
+                      {
+                        "if": [
+                          { "field": "sorethroat.penicillin_hypersensitivity_or_severe_beta_lactam_history", "equals": false },
+                          "phenoxymethylpenicillin_5a",
+                          {
+                            "if": [
+                              {
+                                "and": [
+                                  { "field": "sorethroat.pregnancy_status", "in": ["pregnant", "suspected_pregnancy"] },
+                                  { "field": "sorethroat.age_16_or_over", "equals": true }
+                                ]
+                              },
+                              "erythromycin_5c",
+                              "clarithromycin_5b"
+                            ]
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      ]
+    },
+
+    {
+      "id": "sorethroat_5a_penicillinV_pgd",
+      "title": "5a Phenoxymethylpenicillin (Penicillin V) PGD",
+      "visible_if": { "field": "decision.sorethroat.final_route", "equals": "phenoxymethylpenicillin_5a_pgd" },
+      "fields": [
+        {
+          "id": "sorethroat_5a.age_band",
+          "type": "calculated_select",
+          "label": "Age band (5a)",
+          "formula": {
+            "if": [
+              { "expression": "patient.age == 5" },
+              "age_5",
+              {
+                "if": [
+                  { "expression": "patient.age >= 6 && patient.age <= 11" },
+                  "age_6_to_11",
+                  "age_12plus"
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "id": "sorethroat_5a.branch_blockers_present",
+          "type": "calculated_boolean",
+          "label": "Penicillin V branch blockers present",
+          "formula": "sorethroat.penicillin_hypersensitivity_or_severe_beta_lactam_history == true || (patient.age < 5) || (patient.age < 16 && (sorethroat.pregnancy_status in ['pregnant','suspected_pregnancy'])) || sorethroat.severely_immunosuppressed == true || sorethroat.immunosuppressed_not_severe == true || contains_any([sorethroat.ckd_stage], ['stage_4','stage_5']) || (exists(sorethroat.egfr) && sorethroat.egfr < 30) || sorethroat.oral_typhoid_vaccine_timing_conflict == true || (sorethroat.interactions.penicillinV_blockers && !contains(sorethroat.interactions.penicillinV_blockers, 'none'))"
+        },
+        {
+          "id": "sorethroat_5a.formulation_supplied",
+          "type": "checklist",
+          "label": "Formulation supplied",
+          "required": true,
+          "options": [
+            "250mg_tablets",
+            "125mg_per_5ml_oral_solution_or_suspension_100ml",
+            "125mg_per_5ml_sugar_free_oral_solution_or_suspension_100ml",
+            "250mg_per_5ml_oral_solution_or_suspension_100ml",
+            "250mg_per_5ml_sugar_free_oral_solution_or_suspension_100ml"
+          ]
+        },
+        {
+          "id": "sorethroat_5a.dose_regimen",
+          "type": "calculated_text",
+          "label": "Dose regimen",
+          "formula": {
+            "if": [
+              { "field": "sorethroat_5a.age_band", "equals": "age_5" },
+              "125mg four times a day for 5 days",
+              {
+                "if": [
+                  { "field": "sorethroat_5a.age_band", "equals": "age_6_to_11" },
+                  "250mg four times a day for 5 days",
+                  "500mg four times a day for 5 days"
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "id": "sorethroat_5a.route_and_food",
+          "type": "text",
+          "label": "Route/method",
+          "default": "Oral, on an empty stomach (30 minutes before food or 2 hours after food). Tablets swallowed whole with water.",
+          "required": true
+        },
+        {
+          "id": "sorethroat_5a.duration_days",
+          "type": "number",
+          "label": "Duration (days)",
+          "default": 5,
+          "required": true
+        },
+        {
+          "id": "sorethroat_5a.quantity_option",
+          "type": "select",
+          "label": "Quantity supplied (PGD-listed)",
+          "required": true,
+          "options": [
+            "age_5__1x100ml_250mg5ml_or_1x100ml_125mg5ml",
+            "age_6_to_11__20x250mg_tabs_or_1x100ml_250mg5ml_or_2x100ml_125mg5ml",
+            "age_12plus__40x250mg_tabs_or_2x100ml_250mg5ml_or_4x100ml_125mg5ml"
+          ]
+        }
+      ]
+    },
+
+    {
+      "id": "sorethroat_5b_clarithromycin_pgd",
+      "title": "5b Clarithromycin PGD",
+      "visible_if": { "field": "decision.sorethroat.final_route", "equals": "clarithromycin_5b_pgd" },
+      "fields": [
+        {
+          "id": "sorethroat_5b.weight_kg",
+          "type": "number",
+          "label": "Weight (kg) (required for children 5–11 years)",
+          "required_if": { "field": "patient.age", "lt": 12 }
+        },
+        {
+          "id": "sorethroat_5b.branch_blockers_present",
+          "type": "calculated_boolean",
+          "label": "Clarithromycin branch blockers present",
+          "formula": "(sorethroat.pregnancy_status in ['pregnant','suspected_pregnancy']) || sorethroat.macrolide_hypersensitivity == true || sorethroat.current_long_term_same_class_antibiotic == true || sorethroat.known_myasthenia_gravis == true || sorethroat.known_qt_prolongation_or_ventricular_arrhythmia == true || sorethroat.on_qt_prolonging_medicine == true || sorethroat.known_electrolyte_disturbance == true || contains_any([sorethroat.ckd_stage], ['stage_4','stage_5']) || (exists(sorethroat.egfr) && sorethroat.egfr < 30) || sorethroat.known_or_suspected_severe_liver_disease == true || sorethroat.known_heart_disease == true || sorethroat.oral_typhoid_vaccine_timing_conflict == true || (sorethroat.interactions.clarithromycin_blockers && !contains(sorethroat.interactions.clarithromycin_blockers, 'none'))"
+        },
+        {
+          "id": "sorethroat_5b.formulation_supplied",
+          "type": "select",
+          "label": "Formulation supplied",
+          "required": true,
+          "options": [
+            "250mg_tablets",
+            "500mg_tablets",
+            "125mg_per_5ml_oral_suspension_or_solution_70ml",
+            "250mg_per_5ml_oral_suspension_or_solution_70ml"
+          ]
+        },
+        {
+          "id": "sorethroat_5b.dose_regimen",
+          "type": "calculated_text",
+          "label": "Dose regimen",
+          "formula": {
+            "if": [
+              { "expression": "patient.age >= 12" },
+              "500mg twice daily (every 12 hours) for 5 days",
+              {
+                "if": [
+                  { "expression": "sorethroat_5b.weight_kg <= 8" },
+                  "7.5mg/kg twice daily (every 12 hours) for 5 days",
+                  {
+                    "if": [
+                      { "expression": "sorethroat_5b.weight_kg >= 8 && sorethroat_5b.weight_kg <= 11" },
+                      "62.5mg twice daily (every 12 hours) for 5 days",
+                      {
+                        "if": [
+                          { "expression": "sorethroat_5b.weight_kg >= 12 && sorethroat_5b.weight_kg <= 19" },
+                          "125mg twice daily (every 12 hours) for 5 days",
+                          {
+                            "if": [
+                              { "expression": "sorethroat_5b.weight_kg >= 20 && sorethroat_5b.weight_kg <= 29" },
+                              "187.5mg twice daily (every 12 hours) for 5 days",
+                              {
+                                "if": [
+                                  { "expression": "sorethroat_5b.weight_kg >= 30 && sorethroat_5b.weight_kg <= 40" },
+                                  "250mg twice daily (every 12 hours) for 5 days",
+                                  "500mg twice daily (every 12 hours) for 5 days"
+                                ]
+                              }
+                            ]
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "id": "sorethroat_5b.route_and_food",
+          "type": "text",
+          "label": "Route/method",
+          "default": "Oral, with water (with or without food). Tablets swallowed whole.",
+          "required": true
+        },
+        {
+          "id": "sorethroat_5b.duration_days",
+          "type": "number",
+          "label": "Duration (days)",
+          "default": 5,
+          "required": true
+        },
+        {
+          "id": "sorethroat_5b.quantity_option",
+          "type": "select",
+          "label": "Quantity supplied (PGD-listed)",
+          "required": true,
+          "options": [
+            "5to11_up_to_8kg__1x70ml_250mg5ml_or_1x70ml_125mg5ml",
+            "5to11_8to11kg__1x70ml_250mg5ml_or_1x70ml_125mg5ml",
+            "5to11_12to19kg__1x70ml_250mg5ml_or_1x70ml_125mg5ml",
+            "5to11_20to29kg__1x70ml_250mg5ml_or_2x70ml_125mg5ml",
+            "5to11_30to40kg__10x250mg_tabs_or_1x70ml_250mg5ml_or_2x70ml_125mg5ml",
+            "12plus__10x500mg_tabs_or_20x250mg_tabs_or_2x70ml_250mg5ml_or_3x70ml_125mg5ml"
+          ]
+        }
+      ]
+    },
+
+    {
+      "id": "sorethroat_5c_erythromycin_pgd",
+      "title": "5c Erythromycin PGD",
+      "visible_if": { "field": "decision.sorethroat.final_route", "equals": "erythromycin_5c_pgd" },
+      "fields": [
+        {
+          "id": "sorethroat_5c.confirm_criteria",
+          "type": "boolean",
+          "label": "Confirmed age 16+, pregnant/suspected pregnancy, and penicillin V not appropriate due to hypersensitivity",
+          "required": true
+        },
+        {
+          "id": "sorethroat_5c.branch_blockers_present",
+          "type": "calculated_boolean",
+          "label": "Erythromycin branch blockers present",
+          "formula": "!(patient.age >= 16) || !(sorethroat.pregnancy_status in ['pregnant','suspected_pregnancy']) || sorethroat.penicillin_hypersensitivity_or_severe_beta_lactam_history == false || sorethroat.macrolide_hypersensitivity == true || sorethroat.current_long_term_same_class_antibiotic == true || sorethroat.known_myasthenia_gravis == true || sorethroat.known_qt_prolongation_or_ventricular_arrhythmia == true || sorethroat.on_qt_prolonging_medicine == true || sorethroat.known_electrolyte_disturbance == true || contains_any([sorethroat.ckd_stage], ['stage_5']) || (exists(sorethroat.egfr) && sorethroat.egfr < 15) || sorethroat.known_or_suspected_liver_disease == true || sorethroat.concurrent_hepatotoxic_medicine == true || sorethroat.known_heart_disease == true || sorethroat.known_porphyria == true || sorethroat.oral_typhoid_vaccine_timing_conflict == true || (sorethroat.interactions.erythromycin_blockers && !contains(sorethroat.interactions.erythromycin_blockers, 'none'))"
+        },
+        {
+          "id": "sorethroat_5c.formulation_supplied",
+          "type": "select",
+          "label": "Formulation supplied",
+          "required": true,
+          "options": [
+            "250mg_tablets",
+            "250mg_gastro_resistant_tablets",
+            "500mg_tablets",
+            "125mg_per_5ml_oral_suspension_or_solution_100ml",
+            "125mg_per_5ml_sugar_free_oral_suspension_or_solution_100ml",
+            "250mg_per_5ml_oral_suspension_or_solution_100ml",
+            "250mg_per_5ml_sugar_free_oral_suspension_or_solution_100ml"
+          ]
+        },
+        {
+          "id": "sorethroat_5c.dose_regimen",
+          "type": "text",
+          "label": "Dose regimen",
+          "default": "500mg four times daily for 5 days",
+          "required": true
+        },
+        {
+          "id": "sorethroat_5c.route_and_food",
+          "type": "text",
+          "label": "Route/method",
+          "default": "Oral, with water (just before or with food). Tablets swallowed whole.",
+          "required": true
+        },
+        {
+          "id": "sorethroat_5c.duration_days",
+          "type": "number",
+          "label": "Duration (days)",
+          "default": 5,
+          "required": true
+        },
+        {
+          "id": "sorethroat_5c.quantity_option",
+          "type": "select",
+          "label": "Quantity supplied (PGD-listed)",
+          "required": true,
+          "options": [
+            "20x500mg_tablets",
+            "40x250mg_tablets",
+            "2x100ml_250mg5ml_oral_suspension_or_solution",
+            "4x100ml_125mg5ml_oral_suspension_or_solution"
+          ]
+        }
+      ]
+    },
+
+    {
+      "id": "sorethroat_decision_finalize",
+      "title": "Final Decision / Outcome",
+      "fields": [
+        {
+          "id": "decision.sorethroat.final_route",
+          "type": "select",
+          "label": "Final route",
+          "options": [
+            "phenoxymethylpenicillin_5a_pgd",
+            "clarithromycin_5b_pgd",
+            "erythromycin_5c_pgd",
+            "no_supply_self_care",
+            "no_supply_refer_prescriber",
+            "urgent_ae_referral"
+          ]
+        },
+        {
+          "id": "decision.sorethroat.final_status",
+          "type": "select",
+          "label": "Final status",
+          "options": [
+            "pgd_supply",
+            "self_care_only",
+            "urgent_prescriber_referral",
+            "urgent_ae_referral",
+            "excluded_or_not_indicated"
+          ]
+        },
+        {
+          "id": "decision.sorethroat.rationale",
+          "type": "textarea",
+          "label": "Decision rationale",
+          "required": true
+        }
+      ]
+    },
+
+    {
+      "id": "sorethroat_advice_counselling_safetynetting",
+      "title": "Advice / Counselling / Safety-netting",
+      "fields": [
+        {
+          "id": "sorethroat.target_rti_leaflet_provided",
+          "type": "boolean",
+          "label": "TARGET RTI (Treating Your Infection - RTI) leaflet provided/signposted",
+          "required": true
+        },
+        {
+          "id": "sorethroat.self_care_paracetamol_advice_given",
+          "type": "boolean",
+          "label": "Paracetamol self-care advice given (where appropriate)",
+          "required": true
+        },
+        {
+          "id": "sorethroat.self_care_ibuprofen_advice_given",
+          "type": "boolean",
+          "label": "Ibuprofen self-care advice given (where appropriate)",
+          "required": false
+        },
+        {
+          "id": "sorethroat.lozenges_sprays_advice_given",
+          "type": "boolean",
+          "label": "Lozenge/throat spray advice given (incl adverse effects and repeat-purchase red flag)",
+          "required": true
+        },
+        {
+          "id": "sorethroat.expected_duration_explained",
+          "type": "boolean",
+          "label": "Explained sore throat often lasts around 1 week and often improves without antibiotics",
+          "required": true
+        },
+        {
+          "id": "sorethroat.pil_provided_or_advised",
+          "type": "boolean",
+          "label": "PIL provided/advised (if medicine supplied)",
+          "required": true
+        },
+        {
+          "id": "sorethroat.target_antibiotic_checklist_used",
+          "type": "boolean",
+          "label": "TARGET antibiotic checklist used (if antibiotic supplied)",
+          "required": false
+        },
+        {
+          "id": "sorethroat.breastfeeding_monitoring_advice_given",
+          "type": "boolean",
+          "label": "Breastfeeding infant monitoring advice given (if applicable)",
+          "required": false
+        },
+        {
+          "id": "sorethroat.return_advice_if_no_improvement",
+          "type": "select",
+          "label": "Return/reassessment advice if no improvement",
+          "required": true,
+          "options": [
+            "return_in_1_week",
+            "return_in_3_to_5_days",
+            "seek_medical_help_if_worse_anytime",
+            "safety_net_custom"
+          ]
+        },
+        {
+          "id": "sorethroat.safety_netting_detail",
+          "type": "textarea",
+          "label": "Safety-netting / follow-up advice details",
+          "required": true
+        }
+      ]
+    }
+  ],
+
+  "rules": [
+    {
+      "id": "ST_R1_urgent_ae_redflags",
+      "when": [{ "field": "decision.sorethroat.red_flag_status", "equals": "urgent_ae" }],
+      "then": [
+        { "action": "set", "field": "decision.sorethroat.final_route", "value": "urgent_ae_referral" },
+        { "action": "set", "field": "decision.sorethroat.final_status", "value": "urgent_ae_referral" },
+        { "action": "set", "field": "referral.required", "value": true },
+        { "action": "set", "field": "referral.destination", "value": "a_and_e" },
+        { "action": "show_message", "level": "critical", "text": "Urgent A&E/ambulance referral (e.g. epiglottitis, diphtheria, sepsis, severe complication, severe immunosuppression)." }
+      ]
+    },
+    {
+      "id": "ST_R2_urgent_prescriber_redflags",
+      "when": [{ "field": "decision.sorethroat.red_flag_status", "equals": "urgent_prescriber" }],
+      "then": [
+        { "action": "set", "field": "decision.sorethroat.final_route", "value": "no_supply_refer_prescriber" },
+        { "action": "set", "field": "decision.sorethroat.final_status", "value": "urgent_prescriber_referral" },
+        { "action": "set", "field": "referral.required", "value": true },
+        { "action": "set", "field": "referral.urgency", "value": "urgent_same_day_gp" }
+      ]
+    },
+    {
+      "id": "ST_R3_antibiotic_not_indicated_selfcare",
+      "when": [
+        { "field": "decision.sorethroat.red_flag_status", "equals": "no_red_flags" },
+        { "field": "decision.sorethroat.antibiotic_indication_status", "equals": "antibiotic_not_indicated_self_care" }
+      ],
+      "then": [
+        { "action": "set", "field": "decision.sorethroat.final_route", "value": "no_supply_self_care" },
+        { "action": "set", "field": "decision.sorethroat.final_status", "value": "self_care_only" },
+        { "action": "set", "field": "consultation.outcome.primary_outcome", "value": "self_care_advice_only" }
+      ]
+    },
+    {
+      "id": "ST_R4_route_5a_or_block",
+      "when": [{ "field": "decision.sorethroat.route_candidate", "equals": "phenoxymethylpenicillin_5a" }],
+      "then": [
+        {
+          "action": "conditional_set",
+          "if": { "field": "sorethroat_5a.branch_blockers_present", "equals": true },
+          "true_value": { "field": "decision.sorethroat.final_route", "value": "no_supply_refer_prescriber" },
+          "false_value": { "field": "decision.sorethroat.final_route", "value": "phenoxymethylpenicillin_5a_pgd" }
+        }
+      ]
+    },
+    {
+      "id": "ST_R5_route_5b_or_block",
+      "when": [{ "field": "decision.sorethroat.route_candidate", "equals": "clarithromycin_5b" }],
+      "then": [
+        {
+          "action": "conditional_set",
+          "if": { "field": "sorethroat_5b.branch_blockers_present", "equals": true },
+          "true_value": { "field": "decision.sorethroat.final_route", "value": "no_supply_refer_prescriber" },
+          "false_value": { "field": "decision.sorethroat.final_route", "value": "clarithromycin_5b_pgd" }
+        }
+      ]
+    },
+    {
+      "id": "ST_R6_route_5c_or_block",
+      "when": [{ "field": "decision.sorethroat.route_candidate", "equals": "erythromycin_5c" }],
+      "then": [
+        {
+          "action": "conditional_set",
+          "if": { "field": "sorethroat_5c.branch_blockers_present", "equals": true },
+          "true_value": { "field": "decision.sorethroat.final_route", "value": "no_supply_refer_prescriber" },
+          "false_value": { "field": "decision.sorethroat.final_route", "value": "erythromycin_5c_pgd" }
+        }
+      ]
+    },
+    {
+      "id": "ST_R7_excluded_or_not_indicated",
+      "when": [{ "field": "decision.sorethroat.route_candidate", "equals": "excluded_refer_prescriber" }],
+      "then": [
+        { "action": "set", "field": "decision.sorethroat.final_route", "value": "no_supply_refer_prescriber" },
+        { "action": "set", "field": "decision.sorethroat.final_status", "value": "excluded_or_not_indicated" },
+        { "action": "set", "field": "consultation.no_supply_reason", "value": "pgd_exclusion_met" },
+        { "action": "set", "field": "referral.required", "value": true }
+      ]
+    },
+    {
+      "id": "ST_R8_any_pgd_supply_outcome",
+      "when": [
+        {
+          "field": "decision.sorethroat.final_route",
+          "in": ["phenoxymethylpenicillin_5a_pgd", "clarithromycin_5b_pgd", "erythromycin_5c_pgd"]
+        }
+      ],
+      "then": [
+        { "action": "set", "field": "decision.sorethroat.final_status", "value": "pgd_supply" },
+        { "action": "set", "field": "consultation.outcome.primary_outcome", "value": "pgd_medicine_supplied" }
+      ]
+    }
+  ],
+
+  "validations": [
+    {
+      "id": "ST_V1_5c_requires_pregnancy_age16_and_penicillin_hypersensitivity",
+      "type": "error",
+      "expression": "decision.sorethroat.final_route != 'erythromycin_5c_pgd' || ((patient.age >= 16) && (sorethroat.pregnancy_status == 'pregnant' || sorethroat.pregnancy_status == 'suspected_pregnancy') && sorethroat.penicillin_hypersensitivity_or_severe_beta_lactam_history == true)",
+      "message": "5c erythromycin requires pregnancy/suspected pregnancy, age 16+, and penicillin V not appropriate due to hypersensitivity."
+    },
+    {
+      "id": "ST_V2_5b_excludes_pregnancy",
+      "type": "error",
+      "expression": "decision.sorethroat.final_route != 'clarithromycin_5b_pgd' || !(sorethroat.pregnancy_status == 'pregnant' || sorethroat.pregnancy_status == 'suspected_pregnancy')",
+      "message": "5b clarithromycin excludes pregnancy/suspected pregnancy."
+    },
+    {
+      "id": "ST_V3_feverpain_antibiotic_rule",
+      "type": "error",
+      "expression": "decision.sorethroat.final_status != 'pgd_supply' || (sorethroat.feverpain.score >= 4 && sorethroat.severe_symptoms_present == true)",
+      "message": "Antibiotic PGD supply requires FeverPAIN 4 or 5 with severe symptoms."
+    },
+    {
+      "id": "ST_V4_redflags_require_referral",
+      "type": "error",
+      "expression": "!(decision.sorethroat.red_flag_status != 'no_red_flags' && referral.required != true)",
+      "message": "Red flags/escalation require referral documentation."
+    }
+  ],
+
+  "counselling_templates": {
+    "common_sore_throat": [
+      "Provide TARGET RTI leaflet and explain that acute sore throat often lasts around 1 week and many improve without antibiotics.",
+      "Give self-care advice (paracetamol +/- ibuprofen where appropriate; lozenges/sprays may help but can cause taste disturbance/numbness).",
+      "Safety-net for worsening symptoms, breathing/swallowing difficulty, dehydration, sepsis symptoms, or no improvement per FeverPAIN follow-up window."
+    ],
+    "phenoxymethylpenicillin_5a": [
+      "Take four times daily for 5 days and complete the course.",
+      "Take on an empty stomach (30 min before food or 2 hours after food).",
+      "Counsel on coumarin anticoagulant INR monitoring/bleeding advice if relevant."
+    ],
+    "clarithromycin_5b": [
+      "Take twice daily for 5 days and complete the course.",
+      "Can be taken with or without food.",
+      "Liquid may cause bitter after-taste; drink water/juice after dose.",
+      "Counsel on major interaction risks (e.g. statins, anticoagulants, QT-risk drugs)."
+    ],
+    "erythromycin_5c": [
+      "Take 500mg four times daily for 5 days and complete the course.",
+      "Take just before or with food.",
+      "Counsel on QT/interactions and when to seek urgent help.",
+      "Breastfeeding: monitor infant for GI disturbance/thrush/rash/drowsiness/irritability if applicable."
+    ]
+  },
+
+  "notes_for_implementation": [
+    "Route selection order matters: first rule out urgent red flags, then apply FeverPAIN antibiotic threshold, then route by penicillin allergy and pregnancy/age.",
+    "Use configurable interaction checking (BNF/SPC-backed) in production; checkbox blockers are a UI safety layer only.",
+    "Keep a free-text 'other exclusion / other interaction / other red flag' field for audit-safe overrides."
+  ]
+}

@@ -1,0 +1,1446 @@
+{
+  "module_id": "pharmacy_first_acute_otitis_media_pathway",
+  "schema_version": "1.0.0",
+  "title": "Pharmacy First - Acute Otitis Media (AOM) Pathway (7a/7b/7c/7d)",
+  "description": "Shared acute otitis media assessment with 4-route treatment selection: Otigo ear drops (symptomatic relief), amoxicillin, clarithromycin, erythromycin (pregnancy route 16-17 years).",
+  "depends_on": [
+    "core.consultation_context",
+    "core.patient_demographics",
+    "core.consent_information_sharing",
+    "core.med_history_allergies",
+    "core.outcome_gp_notification_shell"
+  ],
+  "entry_conditions": [
+    { "field": "consultation.service_type", "equals": "clinical_pathway" },
+    { "field": "consultation.pathway", "equals": "acute_otitis_media" }
+  ],
+  "sections": [
+    {
+      "id": "aom_core_assessment",
+      "title": "AOM Core Assessment",
+      "fields": [
+        {
+          "id": "aom.informed_consent",
+          "type": "boolean",
+          "label": "Informed consent obtained",
+          "required": true
+        },
+        {
+          "id": "aom.diagnosis_using_nice_cks",
+          "type": "boolean",
+          "label": "Signs/symptoms assessed and AOM diagnosis made using appropriate NICE CKS guidance",
+          "required": true
+        },
+        {
+          "id": "aom.age_years",
+          "type": "calculated_number",
+          "label": "Age in years",
+          "formula": "patient.age"
+        },
+        {
+          "id": "aom.age_1_to_under_18",
+          "type": "calculated_boolean",
+          "label": "Age 1 year and under 18 years",
+          "formula": "patient.age >= 1 && patient.age < 18"
+        },
+        {
+          "id": "aom.age_16_or_17",
+          "type": "calculated_boolean",
+          "label": "Age 16 or 17 years",
+          "formula": "patient.age == 16 || patient.age == 17"
+        },
+        {
+          "id": "aom.is_under_2_years",
+          "type": "calculated_boolean",
+          "label": "Under 2 years",
+          "formula": "patient.age >= 1 && patient.age < 2"
+        },
+
+        {
+          "id": "aom.earache_present_older_child",
+          "type": "boolean",
+          "label": "Earache present (older child/young person)",
+          "required": true
+        },
+        {
+          "id": "aom.younger_child_ear_behaviour_present",
+          "type": "boolean",
+          "label": "Holding/tugging/rubbing ear(s) present (younger child)",
+          "required": true
+        },
+        {
+          "id": "aom.nonspecific_symptoms_present",
+          "type": "checklist",
+          "label": "Non-specific symptoms (may be present)",
+          "required": true,
+          "options": [
+            "fever",
+            "crying",
+            "poor_feeding",
+            "restlessness",
+            "behavioural_changes",
+            "cough",
+            "rhinorrhoea",
+            "none"
+          ]
+        },
+
+        {
+          "id": "aom.otoscopy_distinctly_red_yellow_cloudy_tm",
+          "type": "boolean",
+          "label": "Otoscopy: distinctly red/yellow/cloudy tympanic membrane",
+          "required": true
+        },
+        {
+          "id": "aom.otoscopy_moderate_severe_bulging_tm_with_loss_of_landmarks_or_air_fluid_level",
+          "type": "boolean",
+          "label": "Otoscopy: moderate-severe bulging tympanic membrane with loss of landmarks and/or air-fluid level",
+          "required": true
+        },
+        {
+          "id": "aom.otoscopy_perforation_or_sticky_discharge_in_external_canal",
+          "type": "boolean",
+          "label": "Otoscopy: perforation of tympanic membrane and/or sticky discharge in external auditory canal",
+          "required": true
+        },
+        {
+          "id": "aom.otoscopy_perforation_known_or_suspected",
+          "type": "boolean",
+          "label": "Known/suspected perforation of tympanic membrane (infectious/traumatic) including otorrhoea/myringotomy/grommet/ventilation tube",
+          "required": true
+        },
+        {
+          "id": "aom.otorrhoea_present",
+          "type": "boolean",
+          "label": "Otorrhoea (discharge after eardrum perforation) present",
+          "required": true
+        },
+        {
+          "id": "aom.bilateral_aom_under2",
+          "type": "boolean",
+          "label": "Under-2 with bilateral acute otitis media",
+          "required": true
+        },
+        {
+          "id": "aom.symptoms_more_than_3_days",
+          "type": "boolean",
+          "label": "Symptoms >3 days",
+          "required": true
+        },
+        {
+          "id": "aom.severe_symptoms_clinical_global_impression",
+          "type": "boolean",
+          "label": "Severe symptoms based on clinical global impression",
+          "required": true
+        },
+        {
+          "id": "aom.moderate_to_severe_symptoms",
+          "type": "boolean",
+          "label": "Moderate-severe symptoms (for Otigo route consideration)",
+          "required": true
+        },
+        {
+          "id": "aom.pain_not_adequately_controlled_with_regular_paracetamol_or_ibuprofen",
+          "type": "boolean",
+          "label": "Pain not adequately controlled with regular paracetamol/ibuprofen (age/weight appropriate dosing)",
+          "required": true
+        },
+
+        {
+          "id": "aom.temperature_c",
+          "type": "number",
+          "label": "Temperature (°C) if measured",
+          "required": false
+        },
+        {
+          "id": "aom.temperature_over_39",
+          "type": "boolean",
+          "label": "Temperature over 39°C",
+          "required": true
+        },
+        {
+          "id": "aom.systemically_very_unwell",
+          "type": "boolean",
+          "label": "Systemically very unwell",
+          "required": true
+        },
+        {
+          "id": "aom.sepsis_suspected",
+          "type": "boolean",
+          "label": "Sepsis / severe life-threatening infection suspected",
+          "required": true
+        },
+
+        {
+          "id": "aom.aom_symptom_pattern_met",
+          "type": "calculated_boolean",
+          "label": "AOM symptom + otoscopy pattern met",
+          "formula": "(aom.earache_present_older_child == true || aom.younger_child_ear_behaviour_present == true) && (aom.otoscopy_distinctly_red_yellow_cloudy_tm == true || aom.otoscopy_moderate_severe_bulging_tm_with_loss_of_landmarks_or_air_fluid_level == true || aom.otoscopy_perforation_or_sticky_discharge_in_external_canal == true)"
+        }
+      ]
+    },
+
+    {
+      "id": "aom_route_family_gating",
+      "title": "Route Family Gating (Pain Relief vs Antibiotic)",
+      "fields": [
+        {
+          "id": "aom.antibiotic_indication_under2_bilateral_and_persistent_or_severe",
+          "type": "calculated_boolean",
+          "label": "Antibiotic-indication phenotype: under-2 bilateral AOM + (>3 days OR severe symptoms)",
+          "formula": "aom.is_under_2_years == true && aom.bilateral_aom_under2 == true && (aom.symptoms_more_than_3_days == true || aom.severe_symptoms_clinical_global_impression == true)"
+        },
+        {
+          "id": "aom.antibiotic_indication_otorrhoea",
+          "type": "calculated_boolean",
+          "label": "Antibiotic-indication phenotype: AOM with otorrhoea",
+          "formula": "aom.otorrhoea_present == true"
+        },
+        {
+          "id": "aom.antibiotic_route_family_indicated",
+          "type": "calculated_boolean",
+          "label": "Antibiotic route family indicated",
+          "formula": "aom.antibiotic_indication_under2_bilateral_and_persistent_or_severe == true || aom.antibiotic_indication_otorrhoea == true"
+        },
+        {
+          "id": "aom.otigo_route_family_indicated",
+          "type": "calculated_boolean",
+          "label": "Otigo pain-relief route family indicated",
+          "formula": "aom.antibiotic_route_family_indicated == false && aom.aom_symptom_pattern_met == true && aom.pain_not_adequately_controlled_with_regular_paracetamol_or_ibuprofen == true && aom.moderate_to_severe_symptoms == true"
+        }
+      ]
+    },
+
+    {
+      "id": "aom_red_flags_and_exclusions_shared",
+      "title": "Shared Red Flags / Exclusions / Escalation",
+      "fields": [
+        {
+          "id": "aom.severely_immunosuppressed",
+          "type": "boolean",
+          "label": "Severely immunosuppressed (Green Book definition)",
+          "required": true
+        },
+        {
+          "id": "aom.immunosuppressed_not_severe",
+          "type": "boolean",
+          "label": "Immunosuppressed (not severe)",
+          "required": true
+        },
+        {
+          "id": "aom.high_risk_complications_due_to_comorbidity",
+          "type": "boolean",
+          "label": "High risk of complications due to pre-existing comorbidity",
+          "required": true
+        },
+        {
+          "id": "aom.foreign_body_in_ear_canal_suspected",
+          "type": "boolean",
+          "label": "Evidence of / suspected foreign body in ear canal",
+          "required": true
+        },
+        {
+          "id": "aom.recurrent_aom_defined",
+          "type": "boolean",
+          "label": "Recurrent AOM (>=3 in 6 months or >=4 in 12 months with at least 1 in past 6 months)",
+          "required": true
+        },
+        {
+          "id": "aom.otitis_media_with_visible_effusion_glue_ear",
+          "type": "boolean",
+          "label": "Otitis media with visible effusion (glue ear)",
+          "required": true
+        },
+        {
+          "id": "aom.cholesteatoma_suspected_or_known",
+          "type": "boolean",
+          "label": "Cholesteatoma",
+          "required": true
+        },
+        {
+          "id": "aom.meningitis_suspected",
+          "type": "boolean",
+          "label": "Suspected meningitis (e.g. neck stiffness/photophobia/mottled skin)",
+          "required": true
+        },
+        {
+          "id": "aom.mastoiditis_suspected",
+          "type": "boolean",
+          "label": "Suspected mastoiditis",
+          "required": true
+        },
+        {
+          "id": "aom.intracranial_abscess_suspected",
+          "type": "boolean",
+          "label": "Suspected intracranial (brain) abscess",
+          "required": true
+        },
+        {
+          "id": "aom.sinus_thrombosis_suspected",
+          "type": "boolean",
+          "label": "Suspected sinus thrombosis",
+          "required": true
+        },
+        {
+          "id": "aom.facial_nerve_paralysis_present",
+          "type": "boolean",
+          "label": "Facial nerve paralysis (drooping of face)",
+          "required": true
+        },
+        {
+          "id": "aom.possible_cancer_bloody_or_blood_stained_discharge",
+          "type": "boolean",
+          "label": "Possible cancer feature: bloody/blood-stained discharge from ear(s)",
+          "required": true
+        }
+      ]
+    },
+
+    {
+      "id": "aom_pregnancy_breastfeeding_allergy_inputs",
+      "title": "Pregnancy / Breastfeeding / Allergy Inputs",
+      "fields": [
+        {
+          "id": "aom.pregnancy_status",
+          "type": "select",
+          "label": "Pregnancy status",
+          "required": true,
+          "options": ["pregnant", "suspected_pregnancy", "not_pregnant", "unknown", "not_applicable"]
+        },
+        {
+          "id": "aom.breastfeeding_status",
+          "type": "select",
+          "label": "Breastfeeding status",
+          "required": true,
+          "options": ["breastfeeding", "not_breastfeeding", "unknown", "not_applicable"]
+        },
+        {
+          "id": "aom.amoxicillin_or_penicillin_hypersensitivity",
+          "type": "boolean",
+          "label": "Known hypersensitivity to amoxicillin/penicillin",
+          "required": true
+        },
+        {
+          "id": "aom.severe_immediate_beta_lactam_hypersensitivity_history",
+          "type": "boolean",
+          "label": "History of severe immediate hypersensitivity to another beta-lactam (e.g. anaphylaxis)",
+          "required": true
+        },
+        {
+          "id": "aom.macrolide_hypersensitivity",
+          "type": "boolean",
+          "label": "Known hypersensitivity to any macrolide (clarithromycin/erythromycin) or route components",
+          "required": true
+        },
+        {
+          "id": "aom.otigo_hypersensitivity_active_or_excipients",
+          "type": "boolean",
+          "label": "Hypersensitivity to phenazone/lidocaine or Otigo excipients",
+          "required": true
+        }
+      ]
+    },
+
+    {
+      "id": "aom_route_specific_risks_and_interactions",
+      "title": "Route-specific Risks / Contraindications / Interactions",
+      "fields": [
+        {
+          "id": "aom.inability_to_absorb_or_swallow_oral_medicines",
+          "type": "boolean",
+          "label": "Unable to absorb oral medicines and/or unable to swallow oral dosage formulations",
+          "required": true
+        },
+        {
+          "id": "aom.current_long_term_amoxicillin_use",
+          "type": "boolean",
+          "label": "Current long-term use of amoxicillin/amoxicillin-containing preparation",
+          "required": true
+        },
+        {
+          "id": "aom.current_long_term_macrolide_use",
+          "type": "boolean",
+          "label": "Current long-term use of clarithromycin/erythromycin/another macrolide",
+          "required": true
+        },
+        {
+          "id": "aom.ketogenic_diet",
+          "type": "boolean",
+          "label": "Following ketogenic diet",
+          "required": true
+        },
+        {
+          "id": "aom.failed_previous_antibiotic_this_episode",
+          "type": "boolean",
+          "label": "Failed previous antibiotic for this AOM episode",
+          "required": true
+        },
+        {
+          "id": "aom.ckd_stage",
+          "type": "select",
+          "label": "Known CKD stage",
+          "required": true,
+          "options": ["none_known", "stage_1", "stage_2", "stage_3a", "stage_3b", "stage_4", "stage_5", "unknown"]
+        },
+        {
+          "id": "aom.egfr",
+          "type": "number",
+          "label": "Most recent eGFR (if known)",
+          "required": false
+        },
+        {
+          "id": "aom.less_than_3_days_before_or_within_3_days_after_oral_typhoid_vaccine",
+          "type": "boolean",
+          "label": "Oral typhoid vaccine timing conflict (<3 days before or within 3 days after)",
+          "required": true
+        },
+
+        {
+          "id": "aom.known_myasthenia_gravis",
+          "type": "boolean",
+          "label": "Known myasthenia gravis",
+          "required": true
+        },
+        {
+          "id": "aom.known_qt_prolongation_or_ventricular_arrhythmia",
+          "type": "boolean",
+          "label": "Known QT prolongation / ventricular arrhythmia incl torsades",
+          "required": true
+        },
+        {
+          "id": "aom.on_qt_prolonging_medicine",
+          "type": "boolean",
+          "label": "Concomitant medicine known to cause QT prolongation",
+          "required": true
+        },
+        {
+          "id": "aom.known_electrolyte_disturbance_hypok_or_hypomag",
+          "type": "boolean",
+          "label": "Known electrolyte disturbance (hypokalaemia/hypomagnesaemia)",
+          "required": true
+        },
+        {
+          "id": "aom.known_or_suspected_severe_liver_disease",
+          "type": "boolean",
+          "label": "Known or suspected severe liver disease",
+          "required": true
+        },
+        {
+          "id": "aom.known_or_suspected_liver_disease",
+          "type": "boolean",
+          "label": "Known or suspected liver disease",
+          "required": true
+        },
+        {
+          "id": "aom.concurrent_potentially_hepatotoxic_medicine",
+          "type": "boolean",
+          "label": "Concomitant potentially hepatotoxic medicine",
+          "required": true
+        },
+        {
+          "id": "aom.known_heart_disease",
+          "type": "boolean",
+          "label": "Known heart disease (e.g. CAD/severe cardiac insufficiency/bradycardia/conduction disturbance)",
+          "required": true
+        },
+        {
+          "id": "aom.known_porphyria",
+          "type": "boolean",
+          "label": "Known porphyria",
+          "required": true
+        },
+
+        {
+          "id": "aom.g6pd_or_haemoglobinopathy_or_methemoglobinaemia_risk",
+          "type": "boolean",
+          "label": "Haemoglobinopathy or G6PD deficiency or other methemoglobinaemia risk factor (Otigo route exclusion)",
+          "required": true
+        },
+        {
+          "id": "aom.mild_symptoms",
+          "type": "boolean",
+          "label": "Mild symptoms (Otigo route exclusion; ask to return 3-5 days if no improvement)",
+          "required": true
+        },
+
+        {
+          "id": "aom.interactions.amoxicillin_route_blockers",
+          "type": "checklist",
+          "label": "Amoxicillin route blockers/interactions",
+          "required": true,
+          "options": [
+            "allopurinol",
+            "methotrexate",
+            "probenecid",
+            "oral_typhoid_vaccine_timing_conflict",
+            "other_contraindicated_interaction",
+            "none"
+          ]
+        },
+        {
+          "id": "aom.interactions.clarithromycin_route_blockers",
+          "type": "checklist",
+          "label": "Clarithromycin route blockers/interactions",
+          "required": true,
+          "options": [
+            "simvastatin_or_lovastatin",
+            "astemizole_cisapride_domperidone_pimozide_terfenadine",
+            "ergotamine_or_dihydroergotamine",
+            "ranolazine",
+            "ticagrelor",
+            "chloroquine_or_hydroxychloroquine",
+            "colchicine",
+            "midazolam_oral",
+            "lomitapide",
+            "ivabradine",
+            "strong_cyp3a4_contraindicated_medicine",
+            "qt_prolonging_medicine",
+            "strong_cyp_inducer_reduce_efficacy",
+            "oral_typhoid_vaccine_timing_conflict",
+            "other_contraindicated_interaction",
+            "none"
+          ]
+        },
+        {
+          "id": "aom.interactions.erythromycin_route_blockers",
+          "type": "checklist",
+          "label": "Erythromycin route blockers/interactions",
+          "required": true,
+          "options": [
+            "simvastatin",
+            "tolterodine",
+            "amisulpride",
+            "astemizole_cisapride_mizolastine_domperidone_pimozide_terfenadine",
+            "ergotamine_or_dihydroergotamine",
+            "chloroquine_or_hydroxychloroquine",
+            "colchicine",
+            "lomitapide",
+            "moderate_cyp3a4_contraindicated_medicine",
+            "qt_prolonging_medicine",
+            "strong_cyp_inducer_reduce_efficacy",
+            "oral_typhoid_vaccine_timing_conflict",
+            "other_contraindicated_interaction",
+            "none"
+          ]
+        }
+      ]
+    },
+
+    {
+      "id": "aom_route_selection",
+      "title": "Route Selection (7a-7d)",
+      "fields": [
+        {
+          "id": "decision.aom.red_flag_status",
+          "type": "calculated_select",
+          "label": "Red flag / escalation status",
+          "formula": {
+            "if": [
+              {
+                "or": [
+                  { "field": "aom.sepsis_suspected", "equals": true },
+                  { "field": "aom.meningitis_suspected", "equals": true },
+                  { "field": "aom.mastoiditis_suspected", "equals": true },
+                  { "field": "aom.intracranial_abscess_suspected", "equals": true },
+                  { "field": "aom.sinus_thrombosis_suspected", "equals": true },
+                  { "field": "aom.facial_nerve_paralysis_present", "equals": true }
+                ]
+              },
+              "urgent_ae",
+              {
+                "if": [
+                  {
+                    "or": [
+                      { "field": "aom.systemically_very_unwell", "equals": true },
+                      { "field": "aom.severely_immunosuppressed", "equals": true },
+                      { "field": "aom.immunosuppressed_not_severe", "equals": true },
+                      { "field": "aom.high_risk_complications_due_to_comorbidity", "equals": true },
+                      { "field": "aom.possible_cancer_bloody_or_blood_stained_discharge", "equals": true }
+                    ]
+                  },
+                  "urgent_prescriber",
+                  "no_red_flags"
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "id": "decision.aom.shared_base_exclusion_status",
+          "type": "calculated_select",
+          "label": "Shared base eligibility status",
+          "formula": {
+            "if": [
+              {
+                "or": [
+                  { "field": "aom.informed_consent", "equals": false },
+                  { "field": "aom.age_1_to_under_18", "equals": false },
+                  { "field": "aom.diagnosis_using_nice_cks", "equals": false },
+                  { "field": "aom.aom_symptom_pattern_met", "equals": false },
+                  { "field": "aom.foreign_body_in_ear_canal_suspected", "equals": true },
+                  { "field": "aom.recurrent_aom_defined", "equals": true },
+                  { "field": "aom.otitis_media_with_visible_effusion_glue_ear", "equals": true },
+                  { "field": "aom.cholesteatoma_suspected_or_known", "equals": true },
+                  { "field": "aom.temperature_over_39", "equals": true }
+                ]
+              },
+              "excluded_or_not_indicated",
+              "base_pass"
+            ]
+          }
+        },
+        {
+          "id": "decision.aom.route_family_candidate",
+          "type": "calculated_select",
+          "label": "Route family candidate",
+          "formula": {
+            "if": [
+              { "field": "decision.aom.red_flag_status", "in": ["urgent_ae", "urgent_prescriber"] },
+              "no_pharmacy_first_treatment",
+              {
+                "if": [
+                  { "field": "decision.aom.shared_base_exclusion_status", "equals": "excluded_or_not_indicated" },
+                  "excluded_or_not_indicated",
+                  {
+                    "if": [
+                      { "field": "aom.antibiotic_route_family_indicated", "equals": true },
+                      "antibiotic",
+                      {
+                        "if": [
+                          { "field": "aom.otigo_route_family_indicated", "equals": true },
+                          "otigo_symptomatic_relief",
+                          "self_care_only"
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "id": "decision.aom.route_candidate",
+          "type": "calculated_select",
+          "label": "Specific route candidate",
+          "formula": {
+            "if": [
+              { "field": "decision.aom.route_family_candidate", "equals": "otigo_symptomatic_relief" },
+              "otigo_7a",
+              {
+                "if": [
+                  { "field": "decision.aom.route_family_candidate", "equals": "antibiotic" },
+                  {
+                    "if": [
+                      {
+                        "and": [
+                          { "field": "aom.pregnancy_status", "in": ["pregnant", "suspected_pregnancy"] },
+                          { "field": "aom.age_16_or_17", "equals": true },
+                          {
+                            "or": [
+                              { "field": "aom.amoxicillin_or_penicillin_hypersensitivity", "equals": true },
+                              { "field": "aom.severe_immediate_beta_lactam_hypersensitivity_history", "equals": true }
+                            ]
+                          }
+                        ]
+                      },
+                      "erythromycin_7d",
+                      {
+                        "if": [
+                          {
+                            "or": [
+                              { "field": "aom.amoxicillin_or_penicillin_hypersensitivity", "equals": true },
+                              { "field": "aom.severe_immediate_beta_lactam_hypersensitivity_history", "equals": true }
+                            ]
+                          },
+                          "clarithromycin_7c",
+                          "amoxicillin_7b"
+                        ]
+                      }
+                    ]
+                  },
+                  "none"
+                ]
+              }
+            ]
+          }
+        }
+      ]
+    },
+
+    {
+      "id": "aom_7a_otigo_route",
+      "title": "7a Otigo (Phenazone/Lidocaine) Ear Drops PGD",
+      "visible_if": { "field": "decision.aom.final_route", "equals": "otigo_7a_pgd" },
+      "fields": [
+        {
+          "id": "aom_7a.branch_blockers_present",
+          "type": "calculated_boolean",
+          "label": "Otigo route blockers present",
+          "formula": "(patient.age < 1 || patient.age >= 18) || (patient.age < 16 && (aom.pregnancy_status in ['pregnant','suspected_pregnancy'])) || aom.severely_immunosuppressed == true || aom.immunosuppressed_not_severe == true || aom.otigo_hypersensitivity_active_or_excipients == true || aom.mild_symptoms == true || aom.otoscopy_perforation_known_or_suspected == true || aom.foreign_body_in_ear_canal_suspected == true || aom.recurrent_aom_defined == true || aom.high_risk_complications_due_to_comorbidity == true || aom.antibiotic_route_family_indicated == true || aom.otitis_media_with_visible_effusion_glue_ear == true || aom.temperature_over_39 == true || aom.cholesteatoma_suspected_or_known == true || aom.g6pd_or_haemoglobinopathy_or_methemoglobinaemia_risk == true"
+        },
+        {
+          "id": "aom_7a.product",
+          "type": "text",
+          "label": "Medicine",
+          "default": "Otigo® (phenazone 40mg/lidocaine hydrochloride 10mg/g) ear drops, solution",
+          "required": true
+        },
+        {
+          "id": "aom_7a.legal_category",
+          "type": "text",
+          "label": "Legal category",
+          "default": "POM",
+          "required": true
+        },
+        {
+          "id": "aom_7a.route_method",
+          "type": "text",
+          "label": "Route/method",
+          "default": "Topically into the external auditory canal of the affected ear(s) via dropper applicator.",
+          "required": true
+        },
+        {
+          "id": "aom_7a.off_label_temperature_variation_release_explained_if_applicable",
+          "type": "boolean",
+          "label": "Off-label temperature variation release explained as part of consent (if applicable)",
+          "required": false
+        },
+        {
+          "id": "aom_7a.dose_regimen",
+          "type": "text",
+          "label": "Dose regimen",
+          "default": "Instil 4 drops up to three times daily into the affected ear(s).",
+          "required": true
+        },
+        {
+          "id": "aom_7a.duration_rule",
+          "type": "text",
+          "label": "Duration of treatment",
+          "default": "Until symptoms resolve or up to a maximum of 7 days.",
+          "required": true
+        },
+        {
+          "id": "aom_7a.quantity_option",
+          "type": "select",
+          "label": "Quantity supplied",
+          "required": true,
+          "options": [
+            "1_x_15ml_bottle_otigo"
+          ]
+        },
+        {
+          "id": "aom_7a.warm_bottle_before_use_counselling_given",
+          "type": "boolean",
+          "label": "Advised to warm bottle in hands before each use",
+          "required": true
+        },
+        {
+          "id": "aom_7a.anti_doping_caution_given_if_relevant",
+          "type": "boolean",
+          "label": "Anti-doping test caution given if relevant",
+          "required": false
+        }
+      ]
+    },
+
+    {
+      "id": "aom_7b_amoxicillin_route",
+      "title": "7b Amoxicillin PGD",
+      "visible_if": { "field": "decision.aom.final_route", "equals": "amoxicillin_7b_pgd" },
+      "fields": [
+        {
+          "id": "aom_7b.branch_blockers_present",
+          "type": "calculated_boolean",
+          "label": "Amoxicillin route blockers present",
+          "formula": "(patient.age < 1 || patient.age >= 18) || (patient.age < 16 && (aom.pregnancy_status in ['pregnant','suspected_pregnancy'])) || aom.severely_immunosuppressed == true || aom.immunosuppressed_not_severe == true || aom.amoxicillin_or_penicillin_hypersensitivity == true || aom.severe_immediate_beta_lactam_hypersensitivity_history == true || aom.inability_to_absorb_or_swallow_oral_medicines == true || aom.current_long_term_amoxicillin_use == true || aom.ketogenic_diet == true || aom.failed_previous_antibiotic_this_episode == true || aom.foreign_body_in_ear_canal_suspected == true || aom.recurrent_aom_defined == true || aom.high_risk_complications_due_to_comorbidity == true || aom.otitis_media_with_visible_effusion_glue_ear == true || aom.temperature_over_39 == true || aom.cholesteatoma_suspected_or_known == true || contains_any([aom.ckd_stage], ['stage_4','stage_5']) || (exists(aom.egfr) && aom.egfr < 30) || aom.less_than_3_days_before_or_within_3_days_after_oral_typhoid_vaccine == true || (aom.interactions.amoxicillin_route_blockers && !contains(aom.interactions.amoxicillin_route_blockers, 'none'))"
+        },
+        {
+          "id": "aom_7b.product_formulation",
+          "type": "checklist",
+          "label": "Formulation supplied",
+          "required": true,
+          "options": [
+            "250mg_capsules",
+            "500mg_capsules",
+            "125mg_per_5ml_oral_suspension_or_solution_100ml",
+            "125mg_per_5ml_sugar_free_oral_suspension_or_solution_100ml",
+            "250mg_per_5ml_oral_suspension_or_solution_100ml",
+            "250mg_per_5ml_sugar_free_oral_suspension_or_solution_100ml",
+            "500mg_per_5ml_sugar_free_oral_suspension_or_solution_100ml"
+          ]
+        },
+        {
+          "id": "aom_7b.age_band_for_dose",
+          "type": "calculated_select",
+          "label": "Amoxicillin dose age band",
+          "formula": {
+            "if": [
+              { "field": "aom.age_years", "gte": 1, "lt": 5 },
+              "age_1_to_4",
+              {
+                "if": [
+                  { "field": "aom.age_years", "gte": 5, "lt": 18 },
+                  "age_5_to_17",
+                  "out_of_range"
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "id": "aom_7b.dose_regimen",
+          "type": "calculated_text",
+          "label": "Dose regimen",
+          "formula": {
+            "if": [
+              { "field": "aom_7b.age_band_for_dose", "equals": "age_1_to_4" },
+              "250mg three times a day (every 8 hours) for 5 days.",
+              {
+                "if": [
+                  { "field": "aom_7b.age_band_for_dose", "equals": "age_5_to_17" },
+                  "500mg three times a day (every 8 hours) for 5 days.",
+                  ""
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "id": "aom_7b.route_method",
+          "type": "text",
+          "label": "Route/method",
+          "default": "Orally, taken with food or water. Capsules swallowed whole.",
+          "required": true
+        },
+        {
+          "id": "aom_7b.duration_days",
+          "type": "number",
+          "label": "Duration (days)",
+          "default": 5,
+          "required": true
+        },
+        {
+          "id": "aom_7b.quantity_option",
+          "type": "select",
+          "label": "Quantity supplied (PGD-listed)",
+          "required": true,
+          "options": [
+            "age_1_to_4__1_x_100ml_500mg_per_5ml_oral_suspension_or_solution",
+            "age_1_to_4__1_x_100ml_250mg_per_5ml_oral_suspension_or_solution",
+            "age_1_to_4__2_x_100ml_125mg_per_5ml_oral_suspension_or_solution",
+            "age_5_to_17__15_x_500mg_capsules",
+            "age_5_to_17__30_x_250mg_capsules",
+            "age_5_to_17__1_x_100ml_500mg_per_5ml_oral_suspension_or_solution",
+            "age_5_to_17__2_x_100ml_250mg_per_5ml_oral_suspension_or_solution",
+            "age_5_to_17__3_x_100ml_125mg_per_5ml_oral_suspension_or_solution"
+          ]
+        },
+        {
+          "id": "aom_7b.off_label_capsule_opening_advice_given_if_used",
+          "type": "boolean",
+          "label": "Off-label capsule opening/dispersing advice given if needed",
+          "required": false
+        }
+      ]
+    },
+
+    {
+      "id": "aom_7c_clarithromycin_route",
+      "title": "7c Clarithromycin PGD",
+      "visible_if": { "field": "decision.aom.final_route", "equals": "clarithromycin_7c_pgd" },
+      "fields": [
+        {
+          "id": "aom_7c.branch_blockers_present",
+          "type": "calculated_boolean",
+          "label": "Clarithromycin route blockers present",
+          "formula": "(patient.age < 1 || patient.age >= 18) || (aom.pregnancy_status in ['pregnant','suspected_pregnancy']) || aom.severely_immunosuppressed == true || aom.immunosuppressed_not_severe == true || !((aom.amoxicillin_or_penicillin_hypersensitivity == true) || (aom.severe_immediate_beta_lactam_hypersensitivity_history == true)) || aom.macrolide_hypersensitivity == true || aom.inability_to_absorb_or_swallow_oral_medicines == true || aom.current_long_term_macrolide_use == true || aom.ketogenic_diet == true || aom.failed_previous_antibiotic_this_episode == true || aom.foreign_body_in_ear_canal_suspected == true || aom.recurrent_aom_defined == true || aom.high_risk_complications_due_to_comorbidity == true || aom.otitis_media_with_visible_effusion_glue_ear == true || aom.temperature_over_39 == true || aom.cholesteatoma_suspected_or_known == true || aom.known_myasthenia_gravis == true || aom.known_qt_prolongation_or_ventricular_arrhythmia == true || aom.on_qt_prolonging_medicine == true || aom.known_electrolyte_disturbance_hypok_or_hypomag == true || contains_any([aom.ckd_stage], ['stage_4','stage_5']) || (exists(aom.egfr) && aom.egfr < 30) || aom.known_or_suspected_severe_liver_disease == true || aom.known_heart_disease == true || aom.less_than_3_days_before_or_within_3_days_after_oral_typhoid_vaccine == true || (aom.interactions.clarithromycin_route_blockers && !contains(aom.interactions.clarithromycin_route_blockers, 'none'))"
+        },
+        {
+          "id": "aom_7c.product_formulation",
+          "type": "checklist",
+          "label": "Formulation supplied",
+          "required": true,
+          "options": [
+            "250mg_tablets",
+            "500mg_tablets",
+            "125mg_per_5ml_oral_suspension_or_solution_70ml",
+            "250mg_per_5ml_oral_suspension_or_solution_70ml"
+          ]
+        },
+        {
+          "id": "aom_7c.weight_kg",
+          "type": "number",
+          "label": "Weight (kg) for clarithromycin dosing in children 1-11 years",
+          "required": false
+        },
+        {
+          "id": "aom_7c.age_band_for_dose",
+          "type": "calculated_select",
+          "label": "Clarithromycin dose age band",
+          "formula": {
+            "if": [
+              { "field": "aom.age_years", "gte": 1, "lt": 12 },
+              "age_1_to_11_weight_based",
+              {
+                "if": [
+                  { "field": "aom.age_years", "gte": 12, "lt": 18 },
+                  "age_12_to_17_fixed",
+                  "out_of_range"
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "id": "aom_7c.weight_band_for_dose",
+          "type": "calculated_select",
+          "label": "Clarithromycin weight band (1-11 years)",
+          "formula": {
+            "if": [
+              { "field": "aom_7c.age_band_for_dose", "not_equals": "age_1_to_11_weight_based" },
+              "not_required",
+              {
+                "if": [
+                  { "field": "aom_7c.weight_kg", "lte": 8 },
+                  "up_to_8kg",
+                  {
+                    "if": [
+                      { "field": "aom_7c.weight_kg", "gte": 8, "lt": 12 },
+                      "8_to_11kg",
+                      {
+                        "if": [
+                          { "field": "aom_7c.weight_kg", "gte": 12, "lt": 20 },
+                          "12_to_19kg",
+                          {
+                            "if": [
+                              { "field": "aom_7c.weight_kg", "gte": 20, "lt": 30 },
+                              "20_to_29kg",
+                              {
+                                "if": [
+                                  { "field": "aom_7c.weight_kg", "gte": 30, "lte": 40 },
+                                  "30_to_40kg",
+                                  "outside_weight_bands"
+                                ]
+                              }
+                            ]
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "id": "aom_7c.dose_regimen",
+          "type": "calculated_text",
+          "label": "Dose regimen",
+          "formula": {
+            "if": [
+              { "field": "aom_7c.age_band_for_dose", "equals": "age_12_to_17_fixed" },
+              "500mg twice daily (every 12 hours) for 5 days.",
+              {
+                "if": [
+                  { "field": "aom_7c.weight_band_for_dose", "equals": "up_to_8kg" },
+                  "7.5mg/kg twice daily (every 12 hours) for 5 days.",
+                  {
+                    "if": [
+                      { "field": "aom_7c.weight_band_for_dose", "equals": "8_to_11kg" },
+                      "62.5mg twice daily (every 12 hours) for 5 days.",
+                      {
+                        "if": [
+                          { "field": "aom_7c.weight_band_for_dose", "equals": "12_to_19kg" },
+                          "125mg twice daily (every 12 hours) for 5 days.",
+                          {
+                            "if": [
+                              { "field": "aom_7c.weight_band_for_dose", "equals": "20_to_29kg" },
+                              "187.5mg twice daily (every 12 hours) for 5 days.",
+                              {
+                                "if": [
+                                  { "field": "aom_7c.weight_band_for_dose", "equals": "30_to_40kg" },
+                                  "250mg twice daily (every 12 hours) for 5 days.",
+                                  ""
+                                ]
+                              }
+                            ]
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "id": "aom_7c.route_method",
+          "type": "text",
+          "label": "Route/method",
+          "default": "Orally, with water (with or without food). Tablets swallowed whole. Oral suspension/solution may cause bitter after-taste.",
+          "required": true
+        },
+        {
+          "id": "aom_7c.duration_days",
+          "type": "number",
+          "label": "Duration (days)",
+          "default": 5,
+          "required": true
+        },
+        {
+          "id": "aom_7c.quantity_option",
+          "type": "select",
+          "label": "Quantity supplied (PGD-listed)",
+          "required": true,
+          "options": [
+            "wt_up_to_8kg__1_x_70ml_250mg_per_5ml_oral_suspension_or_solution",
+            "wt_up_to_8kg__1_x_70ml_125mg_per_5ml_oral_suspension_or_solution",
+            "wt_8_to_11kg__1_x_70ml_250mg_per_5ml_oral_suspension_or_solution",
+            "wt_8_to_11kg__1_x_70ml_125mg_per_5ml_oral_suspension_or_solution",
+            "wt_12_to_19kg__1_x_70ml_250mg_per_5ml_oral_suspension_or_solution",
+            "wt_12_to_19kg__1_x_70ml_125mg_per_5ml_oral_suspension_or_solution",
+            "wt_20_to_29kg__1_x_70ml_250mg_per_5ml_oral_suspension_or_solution",
+            "wt_20_to_29kg__2_x_70ml_125mg_per_5ml_oral_suspension_or_solution",
+            "wt_30_to_40kg__10_x_250mg_tablets",
+            "wt_30_to_40kg__1_x_70ml_250mg_per_5ml_oral_suspension_or_solution",
+            "wt_30_to_40kg__2_x_70ml_125mg_per_5ml_oral_suspension_or_solution",
+            "age_12_to_17__10_x_500mg_tablets",
+            "age_12_to_17__20_x_250mg_tablets",
+            "age_12_to_17__2_x_70ml_250mg_per_5ml_oral_suspension_or_solution",
+            "age_12_to_17__3_x_70ml_125mg_per_5ml_oral_suspension_or_solution"
+          ]
+        },
+        {
+          "id": "aom_7c.off_label_crush_disperse_advice_given_if_used",
+          "type": "boolean",
+          "label": "Off-label crushing/dispersing advice given if needed",
+          "required": false
+        }
+      ]
+    },
+
+    {
+      "id": "aom_7d_erythromycin_route",
+      "title": "7d Erythromycin PGD (Pregnancy Route 16-17 Years)",
+      "visible_if": { "field": "decision.aom.final_route", "equals": "erythromycin_7d_pgd" },
+      "fields": [
+        {
+          "id": "aom_7d.branch_blockers_present",
+          "type": "calculated_boolean",
+          "label": "Erythromycin route blockers present",
+          "formula": "aom.age_16_or_17 == false || !(aom.pregnancy_status in ['pregnant','suspected_pregnancy']) || aom.severely_immunosuppressed == true || aom.immunosuppressed_not_severe == true || !((aom.amoxicillin_or_penicillin_hypersensitivity == true) || (aom.severe_immediate_beta_lactam_hypersensitivity_history == true)) || aom.macrolide_hypersensitivity == true || aom.inability_to_absorb_or_swallow_oral_medicines == true || aom.current_long_term_macrolide_use == true || aom.ketogenic_diet == true || aom.failed_previous_antibiotic_this_episode == true || aom.foreign_body_in_ear_canal_suspected == true || aom.recurrent_aom_defined == true || aom.high_risk_complications_due_to_comorbidity == true || aom.otitis_media_with_visible_effusion_glue_ear == true || aom.temperature_over_39 == true || aom.cholesteatoma_suspected_or_known == true || aom.known_myasthenia_gravis == true || aom.known_qt_prolongation_or_ventricular_arrhythmia == true || aom.on_qt_prolonging_medicine == true || aom.known_electrolyte_disturbance_hypok_or_hypomag == true || contains_any([aom.ckd_stage], ['stage_5']) || (exists(aom.egfr) && aom.egfr < 15) || aom.known_or_suspected_liver_disease == true || aom.concurrent_potentially_hepatotoxic_medicine == true || aom.known_heart_disease == true || aom.known_porphyria == true || aom.less_than_3_days_before_or_within_3_days_after_oral_typhoid_vaccine == true || (aom.interactions.erythromycin_route_blockers && !contains(aom.interactions.erythromycin_route_blockers, 'none'))"
+        },
+        {
+          "id": "aom_7d.product_formulation",
+          "type": "checklist",
+          "label": "Formulation supplied",
+          "required": true,
+          "options": [
+            "250mg_tablets",
+            "250mg_gastro_resistant_tablets",
+            "500mg_tablets",
+            "125mg_per_5ml_oral_suspension_or_solution_100ml",
+            "125mg_per_5ml_sugar_free_oral_suspension_or_solution_100ml",
+            "250mg_per_5ml_oral_suspension_or_solution_100ml",
+            "250mg_per_5ml_sugar_free_oral_suspension_or_solution_100ml"
+          ]
+        },
+        {
+          "id": "aom_7d.dose_regimen",
+          "type": "text",
+          "label": "Dose regimen",
+          "default": "Young people aged 16 or 17 years: 500mg four times daily for 5 days.",
+          "required": true
+        },
+        {
+          "id": "aom_7d.route_method",
+          "type": "text",
+          "label": "Route/method",
+          "default": "Oral (tablets/oral suspension/oral solution).",
+          "required": true
+        },
+        {
+          "id": "aom_7d.duration_days",
+          "type": "number",
+          "label": "Duration (days)",
+          "default": 5,
+          "required": true
+        },
+        {
+          "id": "aom_7d.quantity_option",
+          "type": "select",
+          "label": "Quantity supplied (PGD-listed)",
+          "required": true,
+          "options": [
+            "20_x_500mg_tablets",
+            "40_x_250mg_tablets",
+            "2_x_100ml_250mg_per_5ml_oral_suspension_or_solution",
+            "4_x_100ml_125mg_per_5ml_oral_suspension_or_solution"
+          ]
+        }
+      ]
+    },
+
+    {
+      "id": "aom_decision_finalize",
+      "title": "Final Decision / Outcome",
+      "fields": [
+        {
+          "id": "decision.aom.final_route",
+          "type": "select",
+          "label": "Final route",
+          "options": [
+            "otigo_7a_pgd",
+            "amoxicillin_7b_pgd",
+            "clarithromycin_7c_pgd",
+            "erythromycin_7d_pgd",
+            "no_supply_self_care",
+            "no_supply_refer_prescriber",
+            "urgent_ae_referral"
+          ]
+        },
+        {
+          "id": "decision.aom.final_status",
+          "type": "select",
+          "label": "Final status",
+          "options": [
+            "pgd_supply",
+            "self_care_only",
+            "urgent_prescriber_referral",
+            "urgent_ae_referral",
+            "excluded_or_not_indicated"
+          ]
+        },
+        {
+          "id": "decision.aom.rationale",
+          "type": "textarea",
+          "label": "Decision rationale",
+          "required": true
+        }
+      ]
+    },
+
+    {
+      "id": "aom_advice_counselling_safetynetting",
+      "title": "Advice / Counselling / Safety-netting",
+      "fields": [
+        {
+          "id": "aom.target_tyi_rti_leaflet_provided",
+          "type": "boolean",
+          "label": "TARGET TYI-RTI leaflet provided/signposted",
+          "required": true
+        },
+        {
+          "id": "aom.self_care_paracetamol_advice_given",
+          "type": "boolean",
+          "label": "Paracetamol advice given (age/weight appropriate, where appropriate)",
+          "required": true
+        },
+        {
+          "id": "aom.self_care_ibuprofen_advice_given",
+          "type": "boolean",
+          "label": "Ibuprofen advice given (where appropriate)",
+          "required": false
+        },
+        {
+          "id": "aom.decongestants_antihistamines_not_helpful_explained",
+          "type": "boolean",
+          "label": "Explained decongestants/antihistamines do not help symptoms",
+          "required": true
+        },
+        {
+          "id": "aom.advised_aom_often_lasts_around_1_week_many_better_within_3_days",
+          "type": "boolean",
+          "label": "Explained AOM can last ~1 week and many children improve within 3 days without antibiotics",
+          "required": true
+        },
+        {
+          "id": "aom.healthier_together_guidance_signposted_if_child",
+          "type": "boolean",
+          "label": "Healthier Together otitis media guidance signposted (children)",
+          "required": false
+        },
+        {
+          "id": "aom.antibiotic_target_checklist_used_if_antibiotic_supplied",
+          "type": "boolean",
+          "label": "TARGET antibiotic checklist used (if antibiotic supplied)",
+          "required": false
+        },
+        {
+          "id": "aom.pil_provided_or_advised",
+          "type": "boolean",
+          "label": "PIL provided/advised",
+          "required": true
+        },
+        {
+          "id": "aom.breastfeeding_monitoring_advice_given_if_applicable",
+          "type": "boolean",
+          "label": "Breastfeeding infant monitoring advice given (if applicable)",
+          "required": false
+        },
+        {
+          "id": "aom.safety_netting_detail",
+          "type": "textarea",
+          "label": "Safety-netting / follow-up advice details",
+          "required": true
+        }
+      ]
+    }
+  ],
+
+  "rules": [
+    {
+      "id": "AOM_R1_urgent_ae_redflags",
+      "when": [{ "field": "decision.aom.red_flag_status", "equals": "urgent_ae" }],
+      "then": [
+        { "action": "set", "field": "decision.aom.final_route", "value": "urgent_ae_referral" },
+        { "action": "set", "field": "decision.aom.final_status", "value": "urgent_ae_referral" },
+        { "action": "set", "field": "referral.required", "value": true },
+        { "action": "set", "field": "referral.destination", "value": "a_and_e" },
+        { "action": "show_message", "level": "critical", "text": "Urgent A&E referral required for sepsis or serious complications (e.g. meningitis, mastoiditis, intracranial abscess, sinus thrombosis, facial nerve paralysis)." }
+      ]
+    },
+    {
+      "id": "AOM_R2_urgent_prescriber_referral",
+      "when": [{ "field": "decision.aom.red_flag_status", "equals": "urgent_prescriber" }],
+      "then": [
+        { "action": "set", "field": "decision.aom.final_route", "value": "no_supply_refer_prescriber" },
+        { "action": "set", "field": "decision.aom.final_status", "value": "urgent_prescriber_referral" },
+        { "action": "set", "field": "referral.required", "value": true },
+        { "action": "set_if_empty", "field": "referral.urgency", "value": "urgent_same_day_gp" }
+      ]
+    },
+    {
+      "id": "AOM_R3_base_excluded",
+      "when": [
+        { "field": "decision.aom.red_flag_status", "equals": "no_red_flags" },
+        { "field": "decision.aom.shared_base_exclusion_status", "equals": "excluded_or_not_indicated" }
+      ],
+      "then": [
+        { "action": "set", "field": "decision.aom.final_route", "value": "no_supply_self_care" },
+        { "action": "set", "field": "decision.aom.final_status", "value": "self_care_only" }
+      ]
+    },
+
+    {
+      "id": "AOM_R4_route_family_self_care",
+      "when": [
+        { "field": "decision.aom.route_family_candidate", "equals": "self_care_only" }
+      ],
+      "then": [
+        { "action": "set", "field": "decision.aom.final_route", "value": "no_supply_self_care" },
+        { "action": "set", "field": "decision.aom.final_status", "value": "self_care_only" }
+      ]
+    },
+
+    {
+      "id": "AOM_R5_otigo_candidate",
+      "when": [{ "field": "decision.aom.route_candidate", "equals": "otigo_7a" }],
+      "then": [
+        {
+          "action": "conditional_set",
+          "if": { "field": "aom_7a.branch_blockers_present", "equals": true },
+          "true_value": { "field": "decision.aom.final_route", "value": "no_supply_refer_prescriber" },
+          "false_value": { "field": "decision.aom.final_route", "value": "otigo_7a_pgd" }
+        }
+      ]
+    },
+
+    {
+      "id": "AOM_R6_amoxicillin_candidate",
+      "when": [{ "field": "decision.aom.route_candidate", "equals": "amoxicillin_7b" }],
+      "then": [
+        {
+          "action": "conditional_set",
+          "if": { "field": "aom_7b.branch_blockers_present", "equals": true },
+          "true_value": { "field": "decision.aom.final_route", "value": "no_supply_refer_prescriber" },
+          "false_value": { "field": "decision.aom.final_route", "value": "amoxicillin_7b_pgd" }
+        }
+      ]
+    },
+    {
+      "id": "AOM_R7_clarithromycin_candidate",
+      "when": [{ "field": "decision.aom.route_candidate", "equals": "clarithromycin_7c" }],
+      "then": [
+        {
+          "action": "conditional_set",
+          "if": { "field": "aom_7c.branch_blockers_present", "equals": true },
+          "true_value": { "field": "decision.aom.final_route", "value": "no_supply_refer_prescriber" },
+          "false_value": { "field": "decision.aom.final_route", "value": "clarithromycin_7c_pgd" }
+        }
+      ]
+    },
+    {
+      "id": "AOM_R8_erythromycin_candidate",
+      "when": [{ "field": "decision.aom.route_candidate", "equals": "erythromycin_7d" }],
+      "then": [
+        {
+          "action": "conditional_set",
+          "if": { "field": "aom_7d.branch_blockers_present", "equals": true },
+          "true_value": { "field": "decision.aom.final_route", "value": "no_supply_refer_prescriber" },
+          "false_value": { "field": "decision.aom.final_route", "value": "erythromycin_7d_pgd" }
+        }
+      ]
+    },
+
+    {
+      "id": "AOM_R9_clari_blocked_fallback_erythro_if_pregnant_16_17",
+      "when": [
+        { "field": "decision.aom.final_route", "equals": "clarithromycin_7c_pgd" },
+        { "field": "aom_7c.branch_blockers_present", "equals": true },
+        { "field": "aom.age_16_or_17", "equals": true },
+        { "field": "aom.pregnancy_status", "in": ["pregnant", "suspected_pregnancy"] }
+      ],
+      "then": [
+        {
+          "action": "conditional_set",
+          "if": { "field": "aom_7d.branch_blockers_present", "equals": false },
+          "true_value": { "field": "decision.aom.final_route", "value": "erythromycin_7d_pgd" },
+          "false_value": { "field": "decision.aom.final_route", "value": "no_supply_refer_prescriber" }
+        }
+      ]
+    },
+
+    {
+      "id": "AOM_R10_any_pgd_supply_sets_status",
+      "when": [
+        {
+          "field": "decision.aom.final_route",
+          "in": ["otigo_7a_pgd", "amoxicillin_7b_pgd", "clarithromycin_7c_pgd", "erythromycin_7d_pgd"]
+        }
+      ],
+      "then": [
+        { "action": "set", "field": "decision.aom.final_status", "value": "pgd_supply" },
+        { "action": "set", "field": "consultation.outcome.primary_outcome", "value": "pgd_medicine_supplied" }
+      ]
+    },
+
+    {
+      "id": "AOM_R11_no_supply_refer_defaults",
+      "when": [{ "field": "decision.aom.final_route", "equals": "no_supply_refer_prescriber" }],
+      "then": [
+        { "action": "set_if_empty", "field": "decision.aom.final_status", "value": "urgent_prescriber_referral" },
+        { "action": "set", "field": "referral.required", "value": true }
+      ]
+    },
+
+    {
+      "id": "AOM_R12_no_supply_self_care_defaults",
+      "when": [{ "field": "decision.aom.final_route", "equals": "no_supply_self_care" }],
+      "then": [
+        { "action": "set", "field": "decision.aom.final_status", "value": "self_care_only" },
+        { "action": "set", "field": "consultation.outcome.primary_outcome", "value": "self_care_advice_only" }
+      ]
+    }
+  ],
+
+  "validations": [
+    {
+      "id": "AOM_V1_age_range_for_any_pgd_route",
+      "type": "error",
+      "expression": "!(decision.aom.final_route in ['otigo_7a_pgd','amoxicillin_7b_pgd','clarithromycin_7c_pgd','erythromycin_7d_pgd']) || (patient.age >= 1 && patient.age < 18)",
+      "message": "All AOM PGD routes require age 1 year and under 18 years."
+    },
+    {
+      "id": "AOM_V2_antibiotic_routes_require_antibiotic_indication_phenotype",
+      "type": "error",
+      "expression": "!(decision.aom.final_route in ['amoxicillin_7b_pgd','clarithromycin_7c_pgd','erythromycin_7d_pgd']) || aom.antibiotic_route_family_indicated == true",
+      "message": "Antibiotic AOM routes require under-2 bilateral with >3 days/severe symptoms OR AOM with otorrhoea."
+    },
+    {
+      "id": "AOM_V3_otigo_route_not_for_antibiotic_indication_phenotypes",
+      "type": "error",
+      "expression": "decision.aom.final_route != 'otigo_7a_pgd' || aom.antibiotic_route_family_indicated == false",
+      "message": "Otigo 7a should not be used where the patient is in an antibiotic-benefit phenotype (under-2 bilateral AOM, or otorrhoea)."
+    },
+    {
+      "id": "AOM_V4_otigo_requires_moderate_severe_and_inadequate_oral_analgesia_control",
+      "type": "error",
+      "expression": "decision.aom.final_route != 'otigo_7a_pgd' || (aom.moderate_to_severe_symptoms == true && aom.pain_not_adequately_controlled_with_regular_paracetamol_or_ibuprofen == true)",
+      "message": "Otigo 7a requires moderate-severe symptoms and pain not adequately controlled with regular paracetamol/ibuprofen."
+    },
+    {
+      "id": "AOM_V5_7d_requires_16_17_pregnancy_and_penicillin_hypersensitivity",
+      "type": "error",
+      "expression": "decision.aom.final_route != 'erythromycin_7d_pgd' || (aom.age_16_or_17 == true && (aom.pregnancy_status == 'pregnant' || aom.pregnancy_status == 'suspected_pregnancy') && (aom.amoxicillin_or_penicillin_hypersensitivity == true || aom.severe_immediate_beta_lactam_hypersensitivity_history == true))",
+      "message": "7d erythromycin is only for age 16-17, pregnant/suspected pregnancy, with amoxicillin/penicillin hypersensitivity (or severe immediate beta-lactam hypersensitivity history)."
+    },
+    {
+      "id": "AOM_V6_7c_excludes_pregnancy",
+      "type": "error",
+      "expression": "decision.aom.final_route != 'clarithromycin_7c_pgd' || !(aom.pregnancy_status in ['pregnant','suspected_pregnancy'])",
+      "message": "7c clarithromycin excludes pregnancy/suspected pregnancy."
+    },
+    {
+      "id": "AOM_V7_7a_quantity",
+      "type": "error",
+      "expression": "decision.aom.final_route != 'otigo_7a_pgd' || aom_7a.quantity_option == '1_x_15ml_bottle_otigo'",
+      "message": "7a Otigo quantity should be one appropriately labelled 15mL bottle."
+    },
+    {
+      "id": "AOM_V8_7b_age_band_quantity_match",
+      "type": "error",
+      "expression": "decision.aom.final_route != 'amoxicillin_7b_pgd' || ((aom_7b.age_band_for_dose == 'age_1_to_4' && starts_with(aom_7b.quantity_option, 'age_1_to_4__')) || (aom_7b.age_band_for_dose == 'age_5_to_17' && starts_with(aom_7b.quantity_option, 'age_5_to_17__')))",
+      "message": "7b amoxicillin quantity must match the selected age band."
+    },
+    {
+      "id": "AOM_V9_7c_weight_required_for_age_1_to_11",
+      "type": "error",
+      "expression": "decision.aom.final_route != 'clarithromycin_7c_pgd' || aom_7c.age_band_for_dose != 'age_1_to_11_weight_based' || exists(aom_7c.weight_kg)",
+      "message": "Weight (kg) is required for clarithromycin dosing in children aged 1-11 years."
+    },
+    {
+      "id": "AOM_V10_redflags_require_referral",
+      "type": "error",
+      "expression": "!(decision.aom.red_flag_status != 'no_red_flags' && referral.required != true)",
+      "message": "Red flags/escalation require referral documentation."
+    }
+  ],
+
+  "counselling_templates": {
+    "common_aom": [
+      "Provide TARGET TYI-RTI leaflet.",
+      "Explain acute otitis media mainly affects children, can last around 1 week, and many children improve within 3 days without antibiotics.",
+      "Self-care: regular age/weight-appropriate paracetamol (and ibuprofen where appropriate).",
+      "Explain decongestants and antihistamines do not help symptoms.",
+      "Safety-net: seek medical advice if symptoms worsen rapidly/significantly, child becomes systemically very unwell, or not improving as expected."
+    ],
+    "otigo_7a": [
+      "Instil 4 drops up to three times daily into affected ear(s).",
+      "Use until symptoms resolve or max 7 days.",
+      "Warm bottle in hands before each use.",
+      "Do not use if perforated eardrum/grommet/otorrhoea suspected (route exclusion logic already checked)."
+    ],
+    "amoxicillin_7b": [
+      "Start immediately and complete 5 days.",
+      "Explain exact dose and interval based on age band.",
+      "Can be taken with food or water.",
+      "Symptoms should start improving within 72 hours of taking amoxicillin; seek medical advice if no improvement/worse.",
+      "Advise urgent help for severe allergy/anaphylaxis symptoms."
+    ],
+    "clarithromycin_7c": [
+      "Start immediately and complete 5 days.",
+      "Explain weight-based dosing (1-11 years) or fixed dose (12-17 years).",
+      "With or without food; suspension may cause bitter after-taste.",
+      "Counsel on interaction risks (e.g., statins, anticoagulants, QT-risk medicines) and when to seek urgent help.",
+      "Advise urgent help for severe allergy/anaphylaxis symptoms."
+    ],
+    "erythromycin_7d": [
+      "Start immediately and complete 5 days.",
+      "Dose: 500mg four times daily (16-17 years pregnancy route).",
+      "Counsel on interaction/QT risk medicines and when to seek urgent help.",
+      "If breastfeeding applies, give infant monitoring advice (GI disturbance, oral candida, rash, drowsiness/irritability etc.).",
+      "Advise urgent help for severe allergy/anaphylaxis symptoms."
+    ]
+  },
+
+  "notes_for_implementation": [
+    "AOM route split is clinically important: 7a is symptomatic pain relief only; 7b/7c/7d are antibiotic routes for specific AOM phenotypes.",
+    "Use otoscopic findings as explicit structured fields because multiple branch rules depend on perforation/otorrhoea status.",
+    "Keep a separate detailed medication interaction checker in production; checklist blockers here are a form-gating layer only.",
+    "Store route-family reasoning (why Otigo vs antibiotic) for audit and GP notification."
+  ]
+}

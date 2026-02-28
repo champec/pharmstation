@@ -1,0 +1,1621 @@
+{
+  "module_id": "pharmacy_first_sinusitis_pathway",
+  "schema_version": "1.0.0",
+  "title": "Pharmacy First - Acute Sinusitis Pathway (6a/6b/6c/6d/6e/6f)",
+  "description": "Shared acute sinusitis (rhinosinusitis) assessment with 6-route treatment selection: fluticasone, mometasone, phenoxymethylpenicillin, clarithromycin, doxycycline, erythromycin.",
+  "depends_on": [
+    "core.consultation_context",
+    "core.patient_demographics",
+    "core.consent_information_sharing",
+    "core.med_history_allergies",
+    "core.outcome_gp_notification_shell"
+  ],
+  "entry_conditions": [
+    { "field": "consultation.service_type", "equals": "clinical_pathway" },
+    { "field": "consultation.pathway", "equals": "sinusitis" }
+  ],
+  "sections": [
+    {
+      "id": "sinusitis_core_assessment",
+      "title": "Acute Sinusitis Core Assessment",
+      "fields": [
+        {
+          "id": "sinusitis.informed_consent",
+          "type": "boolean",
+          "label": "Informed consent obtained",
+          "required": true
+        },
+        {
+          "id": "sinusitis.diagnosis_using_nice_guidance",
+          "type": "boolean",
+          "label": "Signs/symptoms assessed using appropriate NICE guidance",
+          "required": true
+        },
+        {
+          "id": "sinusitis.diagnosis_using_nice_cks",
+          "type": "boolean",
+          "label": "Diagnosis of acute sinusitis made using appropriate NICE CKS guidance",
+          "required": true
+        },
+        {
+          "id": "sinusitis.age_12_or_over",
+          "type": "calculated_boolean",
+          "label": "Age 12 years or over",
+          "formula": "patient.age >= 12"
+        },
+        {
+          "id": "sinusitis.age_16_or_over",
+          "type": "calculated_boolean",
+          "label": "Age 16 years or over",
+          "formula": "patient.age >= 16"
+        },
+        {
+          "id": "sinusitis.symptom_onset_date",
+          "type": "date",
+          "label": "Symptom onset date",
+          "required": true
+        },
+        {
+          "id": "sinusitis.symptom_duration_days",
+          "type": "calculated_number",
+          "label": "Days since symptom onset",
+          "formula": "days_between(sinusitis.symptom_onset_date, consultation.date_time_assessment)"
+        },
+        {
+          "id": "sinusitis.more_than_10_days_no_improvement",
+          "type": "boolean",
+          "label": "Symptoms >10 days with no improvement",
+          "required": true
+        },
+        {
+          "id": "sinusitis.nasal_blockage_present",
+          "type": "boolean",
+          "label": "Nasal blockage (obstruction/congestion) present",
+          "required": true
+        },
+        {
+          "id": "sinusitis.nasal_discharge_present",
+          "type": "boolean",
+          "label": "Nasal discharge (anterior/posterior nasal drip) present",
+          "required": true
+        },
+        {
+          "id": "sinusitis.facial_pain_or_pressure_or_headache",
+          "type": "boolean",
+          "label": "Facial pain/pressure (or headache) present",
+          "required": true
+        },
+        {
+          "id": "sinusitis.reduced_or_lost_smell_adult",
+          "type": "boolean",
+          "label": "Reduction/loss of smell (adult)",
+          "required": true
+        },
+        {
+          "id": "sinusitis.cough_day_or_night_child",
+          "type": "boolean",
+          "label": "Cough during day/night (child)",
+          "required": true
+        },
+        {
+          "id": "sinusitis.core_symptom_pattern_met",
+          "type": "calculated_boolean",
+          "label": "Core sinusitis symptom pattern met",
+          "formula": "(sinusitis.nasal_blockage_present == true || sinusitis.nasal_discharge_present == true) && (sinusitis.facial_pain_or_pressure_or_headache == true || sinusitis.reduced_or_lost_smell_adult == true || sinusitis.cough_day_or_night_child == true)"
+        },
+        {
+          "id": "sinusitis.systemically_well",
+          "type": "boolean",
+          "label": "Systemically well",
+          "required": true
+        },
+        {
+          "id": "sinusitis.sepsis_suspected",
+          "type": "boolean",
+          "label": "Sepsis / severe life-threatening infection suspected",
+          "required": true
+        }
+      ]
+    },
+    {
+      "id": "sinusitis_bacterial_feature_assessment",
+      "title": "Acute Bacterial Sinusitis Feature Assessment (Antibiotic Routes)",
+      "fields": [
+        {
+          "id": "sinusitis.bacterial_feature_marked_deterioration_after_milder_phase",
+          "type": "boolean",
+          "label": "Marked deterioration after an initial milder phase",
+          "required": true
+        },
+        {
+          "id": "sinusitis.bacterial_feature_fever_over_38",
+          "type": "boolean",
+          "label": "Fever >38°C",
+          "required": true
+        },
+        {
+          "id": "sinusitis.bacterial_feature_unremitting_purulent_nasal_discharge",
+          "type": "boolean",
+          "label": "Unremitting purulent nasal discharge",
+          "required": true
+        },
+        {
+          "id": "sinusitis.bacterial_feature_severe_localised_unilateral_pain_teeth_jaw",
+          "type": "boolean",
+          "label": "Severe localised unilateral pain (especially teeth/jaw)",
+          "required": true
+        },
+        {
+          "id": "sinusitis.bacterial_feature_count",
+          "type": "calculated_number",
+          "label": "Bacterial feature count",
+          "formula": "sum_booleans([sinusitis.bacterial_feature_marked_deterioration_after_milder_phase, sinusitis.bacterial_feature_fever_over_38, sinusitis.bacterial_feature_unremitting_purulent_nasal_discharge, sinusitis.bacterial_feature_severe_localised_unilateral_pain_teeth_jaw])"
+        },
+        {
+          "id": "sinusitis.bacterial_feature_threshold_met",
+          "type": "calculated_boolean",
+          "label": "Acute bacterial sinusitis feature threshold met (>=2)",
+          "formula": "sinusitis.bacterial_feature_count >= 2"
+        },
+        {
+          "id": "sinusitis.high_dose_intranasal_steroid_used_14_days",
+          "type": "boolean",
+          "label": "High-dose nasal corticosteroid used for 14 days",
+          "required": true
+        },
+        {
+          "id": "sinusitis.persistent_symptoms_despite_high_dose_intranasal_steroid_14_days",
+          "type": "boolean",
+          "label": "Persistent symptoms despite high-dose nasal corticosteroid for 14 days",
+          "required": true
+        },
+        {
+          "id": "sinusitis.high_dose_intranasal_steroid_unsuitable",
+          "type": "boolean",
+          "label": "High-dose nasal corticosteroid unsuitable",
+          "required": true
+        },
+        {
+          "id": "sinusitis.antibiotic_gate_supporting_criterion_met",
+          "type": "calculated_boolean",
+          "label": "Antibiotic route steroid prerequisite met",
+          "formula": "sinusitis.persistent_symptoms_despite_high_dose_intranasal_steroid_14_days == true || sinusitis.high_dose_intranasal_steroid_unsuitable == true"
+        }
+      ]
+    },
+    {
+      "id": "sinusitis_red_flags_and_complications",
+      "title": "Red Flags / Complications / Referral Triggers",
+      "fields": [
+        {
+          "id": "sinusitis.intraorbital_or_periorbital_complication_signs",
+          "type": "checklist",
+          "label": "Intraorbital/periorbital complication signs",
+          "required": true,
+          "options": [
+            "periorbital_oedema",
+            "periorbital_cellulitis",
+            "displaced_eyeball",
+            "double_vision",
+            "ophthalmoplegia",
+            "newly_reduced_visual_acuity",
+            "none"
+          ]
+        },
+        {
+          "id": "sinusitis.intracranial_complication_signs",
+          "type": "checklist",
+          "label": "Intracranial complication signs",
+          "required": true,
+          "options": [
+            "frontal_bone_swelling",
+            "meningitis_symptoms_or_signs",
+            "severe_frontal_headache",
+            "focal_neurological_signs",
+            "none"
+          ]
+        },
+        {
+          "id": "sinusitis.systemically_unwell_not_septic",
+          "type": "calculated_boolean",
+          "label": "Systemically unwell (not sepsis)",
+          "formula": "sinusitis.systemically_well == false && sinusitis.sepsis_suspected == false"
+        },
+        {
+          "id": "sinusitis.possible_cancer_features",
+          "type": "checklist",
+          "label": "Possible cancer features",
+          "required": true,
+          "options": [
+            "unilateral_polyp_or_mass",
+            "bloody_nasal_discharge",
+            "persistent_unilateral_nasal_obstruction",
+            "persistent_unilateral_nasal_discharge",
+            "persistent_unilateral_nosebleeds",
+            "persistent_unilateral_crusting",
+            "facial_swelling",
+            "none"
+          ]
+        },
+        {
+          "id": "sinusitis.severely_immunosuppressed",
+          "type": "boolean",
+          "label": "Severely immunosuppressed (Green Book definition)",
+          "required": true
+        },
+        {
+          "id": "sinusitis.immunosuppressed_not_severe",
+          "type": "boolean",
+          "label": "Immunosuppressed (not severe)",
+          "required": true
+        }
+      ]
+    },
+    {
+      "id": "sinusitis_shared_exclusions_and_history",
+      "title": "Shared Exclusions / History / Differential Screen",
+      "fields": [
+        {
+          "id": "sinusitis.recurrent_sinusitis_4_or_more_per_year",
+          "type": "boolean",
+          "label": "Recurrent sinusitis (4 or more episodes in 12 months)",
+          "required": true
+        },
+        {
+          "id": "sinusitis.chronic_sinusitis_more_than_12_weeks",
+          "type": "boolean",
+          "label": "Chronic sinusitis (>12 weeks symptoms)",
+          "required": true
+        },
+        {
+          "id": "sinusitis.nasal_trauma",
+          "type": "boolean",
+          "label": "Nasal trauma present/recent",
+          "required": true
+        },
+        {
+          "id": "sinusitis.epistaxis_present",
+          "type": "boolean",
+          "label": "Epistaxis present",
+          "required": true
+        },
+        {
+          "id": "sinusitis.foreign_body_in_nasal_passage_suspected",
+          "type": "boolean",
+          "label": "Foreign body in nasal passage suspected",
+          "required": true
+        },
+        {
+          "id": "sinusitis.anatomical_obstruction_suspected",
+          "type": "boolean",
+          "label": "Anatomical nasal obstruction suspected",
+          "required": true
+        },
+        {
+          "id": "sinusitis.nasal_polyps_or_other_comorbidity_complicating_management",
+          "type": "boolean",
+          "label": "Nasal polyps or other comorbidity complicating management",
+          "required": true
+        },
+        {
+          "id": "sinusitis.suspected_allergic_or_immunological_cause",
+          "type": "boolean",
+          "label": "Suspected allergic or immunological cause",
+          "required": true
+        },
+        {
+          "id": "sinusitis.failed_previous_treatment_this_episode",
+          "type": "boolean",
+          "label": "Failed previous treatment for this sinusitis episode (route-specific handling applies)",
+          "required": true
+        },
+        {
+          "id": "sinusitis.current_medicine_review_completed",
+          "type": "boolean",
+          "label": "Current medicines reviewed",
+          "required": true
+        },
+        {
+          "id": "sinusitis.allergy_review_completed",
+          "type": "boolean",
+          "label": "Allergy history reviewed",
+          "required": true
+        }
+      ]
+    },
+    {
+      "id": "sinusitis_pregnancy_breastfeeding_and_route_inputs",
+      "title": "Pregnancy / Breastfeeding / Route Inputs",
+      "fields": [
+        {
+          "id": "sinusitis.pregnancy_status",
+          "type": "select",
+          "label": "Pregnancy status",
+          "required": true,
+          "options": ["pregnant", "suspected_pregnancy", "not_pregnant", "unknown", "not_applicable"]
+        },
+        {
+          "id": "sinusitis.breastfeeding_status",
+          "type": "select",
+          "label": "Breastfeeding status",
+          "required": true,
+          "options": ["breastfeeding", "not_breastfeeding", "unknown", "not_applicable"]
+        },
+        {
+          "id": "sinusitis.penicillin_hypersensitivity_or_severe_beta_lactam_history",
+          "type": "boolean",
+          "label": "Penicillin hypersensitivity or severe immediate hypersensitivity to another beta-lactam",
+          "required": true
+        },
+        {
+          "id": "sinusitis.macrolide_hypersensitivity",
+          "type": "boolean",
+          "label": "Macrolide hypersensitivity",
+          "required": true
+        },
+        {
+          "id": "sinusitis.tetracycline_hypersensitivity",
+          "type": "boolean",
+          "label": "Tetracycline (including doxycycline) hypersensitivity",
+          "required": true
+        }
+      ]
+    },
+    {
+      "id": "sinusitis_route_specific_risks_and_interactions",
+      "title": "Route-specific Risks / Contraindications / Interactions",
+      "fields": [
+        {
+          "id": "sinusitis.ckd_stage",
+          "type": "select",
+          "label": "Known CKD stage",
+          "required": true,
+          "options": ["none_known", "stage_1", "stage_2", "stage_3a", "stage_3b", "stage_4", "stage_5", "unknown"]
+        },
+        {
+          "id": "sinusitis.egfr",
+          "type": "number",
+          "label": "Most recent eGFR (if known)",
+          "required": false
+        },
+        {
+          "id": "sinusitis.inability_to_absorb_or_swallow_oral_dosage_forms",
+          "type": "boolean",
+          "label": "Unable to absorb/swallow oral dosage forms",
+          "required": true
+        },
+        {
+          "id": "sinusitis.current_long_term_penicillinV_use",
+          "type": "boolean",
+          "label": "Current long-term phenoxymethylpenicillin use",
+          "required": true
+        },
+        {
+          "id": "sinusitis.current_long_term_macrolide_use",
+          "type": "boolean",
+          "label": "Current long-term macrolide use",
+          "required": true
+        },
+        {
+          "id": "sinusitis.current_long_term_doxycycline_or_tetracycline_use",
+          "type": "boolean",
+          "label": "Current long-term doxycycline/tetracycline use",
+          "required": true
+        },
+        {
+          "id": "sinusitis.ketogenic_diet",
+          "type": "boolean",
+          "label": "Following ketogenic diet",
+          "required": true
+        },
+        {
+          "id": "sinusitis.known_myasthenia_gravis",
+          "type": "boolean",
+          "label": "Known myasthenia gravis",
+          "required": true
+        },
+        {
+          "id": "sinusitis.known_qt_prolongation_or_ventricular_arrhythmia",
+          "type": "boolean",
+          "label": "Known QT prolongation / ventricular arrhythmia (incl torsades)",
+          "required": true
+        },
+        {
+          "id": "sinusitis.on_qt_prolonging_medicine",
+          "type": "boolean",
+          "label": "Concomitant QT-prolonging medicine present",
+          "required": true
+        },
+        {
+          "id": "sinusitis.known_electrolyte_disturbance",
+          "type": "boolean",
+          "label": "Known hypokalaemia / hypomagnesaemia",
+          "required": true
+        },
+        {
+          "id": "sinusitis.known_heart_disease",
+          "type": "boolean",
+          "label": "Known heart disease",
+          "required": true
+        },
+        {
+          "id": "sinusitis.known_or_suspected_liver_disease",
+          "type": "boolean",
+          "label": "Known or suspected liver disease",
+          "required": true
+        },
+        {
+          "id": "sinusitis.known_or_suspected_severe_liver_disease",
+          "type": "boolean",
+          "label": "Known or suspected severe liver disease",
+          "required": true
+        },
+        {
+          "id": "sinusitis.previous_macrolide_associated_jaundice_or_hepatic_dysfunction",
+          "type": "boolean",
+          "label": "Previous macrolide-associated jaundice/hepatic dysfunction",
+          "required": true
+        },
+        {
+          "id": "sinusitis.concurrent_potentially_hepatotoxic_medicine",
+          "type": "boolean",
+          "label": "Concurrent potentially hepatotoxic medicine",
+          "required": true
+        },
+        {
+          "id": "sinusitis.known_porphyria",
+          "type": "boolean",
+          "label": "Known porphyria",
+          "required": true
+        },
+        {
+          "id": "sinusitis.known_sle",
+          "type": "boolean",
+          "label": "Known systemic lupus erythematosus",
+          "required": true
+        },
+        {
+          "id": "sinusitis.known_oesophagitis_or_oesophageal_ulceration",
+          "type": "boolean",
+          "label": "Known oesophagitis / oesophageal ulceration",
+          "required": true
+        },
+        {
+          "id": "sinusitis.enzyme_inducing_antiepileptic_present",
+          "type": "boolean",
+          "label": "Enzyme-inducing antiepileptic present",
+          "required": true
+        },
+        {
+          "id": "sinusitis.unable_to_separate_doxycycline_interacting_oral_agents",
+          "type": "boolean",
+          "label": "Unable to separate doxycycline from interacting oral agents by 2-3 hours",
+          "required": true
+        },
+        {
+          "id": "sinusitis.oral_typhoid_vaccine_timing_conflict",
+          "type": "boolean",
+          "label": "Oral typhoid vaccine timing conflict (<3 days before or within 3 days after course start)",
+          "required": true
+        },
+
+        {
+          "id": "sinusitis.current_or_recent_intranasal_steroid_failed_this_episode",
+          "type": "boolean",
+          "label": "Failed previous intranasal steroid treatment this episode",
+          "required": true
+        },
+        {
+          "id": "sinusitis.current_oral_inhaled_topical_or_parenteral_corticosteroids",
+          "type": "boolean",
+          "label": "Currently taking oral/inhaled/topical/parenteral corticosteroids",
+          "required": true
+        },
+        {
+          "id": "sinusitis.blurred_vision_or_visual_disturbance",
+          "type": "boolean",
+          "label": "Blurred vision or visual disturbance",
+          "required": true
+        },
+        {
+          "id": "sinusitis.known_or_suspected_glaucoma_or_raised_iop",
+          "type": "boolean",
+          "label": "Known/suspected glaucoma or raised intraocular pressure",
+          "required": true
+        },
+        {
+          "id": "sinusitis.untreated_localised_nasal_mucosal_infection",
+          "type": "boolean",
+          "label": "Untreated localised nasal mucosal infection (e.g. herpes simplex)",
+          "required": true
+        },
+        {
+          "id": "sinusitis.recent_nasal_surgery_or_trauma_not_fully_healed",
+          "type": "boolean",
+          "label": "Recent nasal surgery/trauma not fully healed",
+          "required": true
+        },
+
+        {
+          "id": "sinusitis.interactions.fluticasone_cyp3a4_potent_inhibitors_present",
+          "type": "checklist",
+          "label": "Fluticasone route CYP3A4 potent inhibitor blockers present",
+          "required": true,
+          "options": [
+            "clarithromycin",
+            "itraconazole",
+            "ketoconazole",
+            "posaconazole",
+            "ritonavir",
+            "cobicistat",
+            "voriconazole",
+            "goldenseal",
+            "other_potent_cyp3a4_inhibitor",
+            "none"
+          ]
+        },
+        {
+          "id": "sinusitis.interactions.mometasone_cyp3a4_moderate_or_potent_inhibitors_present",
+          "type": "checklist",
+          "label": "Mometasone route CYP3A4 moderate/potent inhibitor blockers present",
+          "required": true,
+          "options": [
+            "ciprofloxacin",
+            "clarithromycin",
+            "erythromycin",
+            "diltiazem",
+            "fluconazole",
+            "itraconazole",
+            "ketoconazole",
+            "posaconazole",
+            "ritonavir",
+            "cobicistat",
+            "verapamil",
+            "voriconazole",
+            "goldenseal",
+            "other_cyp3a4_inhibitor",
+            "none"
+          ]
+        },
+        {
+          "id": "sinusitis.interactions.penicillinV_blockers",
+          "type": "checklist",
+          "label": "Phenoxymethylpenicillin route blockers/interactions",
+          "required": true,
+          "options": [
+            "methotrexate",
+            "probenecid",
+            "oral_typhoid_vaccine_timing_conflict",
+            "other_contraindicated_interaction",
+            "none"
+          ]
+        },
+        {
+          "id": "sinusitis.interactions.clarithromycin_blockers",
+          "type": "checklist",
+          "label": "Clarithromycin route blockers/interactions",
+          "required": true,
+          "options": [
+            "simvastatin_or_lovastatin",
+            "astemizole_cisapride_domperidone_pimozide_terfenadine",
+            "ergotamine_or_dihydroergotamine",
+            "ranolazine",
+            "ticagrelor",
+            "chloroquine_or_hydroxychloroquine",
+            "colchicine",
+            "midazolam_oral",
+            "lomitapide",
+            "ivabradine",
+            "strong_cyp3a4_contraindicated_medicine",
+            "qt_prolonging_medicine",
+            "strong_cyp_inducer_may_reduce_clarithromycin",
+            "oral_typhoid_vaccine_timing_conflict",
+            "other_contraindicated_interaction",
+            "none"
+          ]
+        },
+        {
+          "id": "sinusitis.interactions.doxycycline_blockers_or_major_cautions",
+          "type": "checklist",
+          "label": "Doxycycline route blockers/major interaction issues",
+          "required": true,
+          "options": [
+            "oral_retinoid",
+            "ciclosporin",
+            "lithium",
+            "warfarin_or_coumarin",
+            "enzyme_inducing_antiepileptic",
+            "iron_or_calcium_or_magnesium_or_zinc_or_antacid_or_sucralfate_not_separable",
+            "didanosine",
+            "oral_typhoid_vaccine_timing_conflict",
+            "other_contraindicated_interaction",
+            "none"
+          ]
+        },
+        {
+          "id": "sinusitis.interactions.erythromycin_blockers",
+          "type": "checklist",
+          "label": "Erythromycin route blockers/interactions",
+          "required": true,
+          "options": [
+            "simvastatin",
+            "tolterodine",
+            "amisulpride",
+            "astemizole_cisapride_mizolastine_domperidone_pimozide_terfenadine",
+            "ergotamine_or_dihydroergotamine",
+            "chloroquine_or_hydroxychloroquine",
+            "colchicine",
+            "lomitapide",
+            "moderate_cyp3a4_contraindicated_medicine",
+            "qt_prolonging_medicine",
+            "strong_cyp_inducer_may_reduce_erythromycin",
+            "other_contraindicated_interaction",
+            "oral_typhoid_vaccine_timing_conflict",
+            "none"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "sinusitis_route_selection",
+      "title": "Route Selection (6a-6f)",
+      "fields": [
+        {
+          "id": "decision.sinusitis.red_flag_status",
+          "type": "calculated_select",
+          "label": "Red flag / escalation status",
+          "formula": {
+            "if": [
+              {
+                "or": [
+                  { "field": "sinusitis.sepsis_suspected", "equals": true },
+                  { "field": "sinusitis.intraorbital_or_periorbital_complication_signs", "not_contains": "none" },
+                  { "field": "sinusitis.intracranial_complication_signs", "not_contains": "none" }
+                ]
+              },
+              "urgent_ae",
+              {
+                "if": [
+                  {
+                    "or": [
+                      { "field": "sinusitis.severely_immunosuppressed", "equals": true },
+                      { "field": "sinusitis.immunosuppressed_not_severe", "equals": true },
+                      { "field": "sinusitis.systemically_unwell_not_septic", "equals": true },
+                      { "field": "sinusitis.possible_cancer_features", "not_contains": "none" }
+                    ]
+                  },
+                  "urgent_prescriber",
+                  "no_red_flags"
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "id": "decision.sinusitis.shared_route_eligibility_status",
+          "type": "calculated_select",
+          "label": "Shared route eligibility status",
+          "formula": {
+            "if": [
+              {
+                "or": [
+                  { "field": "sinusitis.informed_consent", "equals": false },
+                  { "field": "sinusitis.age_12_or_over", "equals": false },
+                  { "field": "sinusitis.diagnosis_using_nice_guidance", "equals": false },
+                  { "field": "sinusitis.diagnosis_using_nice_cks", "equals": false },
+                  { "field": "sinusitis.core_symptom_pattern_met", "equals": false },
+                  { "field": "sinusitis.more_than_10_days_no_improvement", "equals": false },
+                  { "field": "sinusitis.recurrent_sinusitis_4_or_more_per_year", "equals": true },
+                  { "field": "sinusitis.chronic_sinusitis_more_than_12_weeks", "equals": true },
+                  { "field": "sinusitis.nasal_polyps_or_other_comorbidity_complicating_management", "equals": true },
+                  { "field": "sinusitis.anatomical_obstruction_suspected", "equals": true }
+                ]
+              },
+              "not_indicated_or_excluded",
+              "shared_gate_pass"
+            ]
+          }
+        },
+        {
+          "id": "decision.sinusitis.route_family_candidate",
+          "type": "calculated_select",
+          "label": "Route family candidate",
+          "formula": {
+            "if": [
+              { "field": "decision.sinusitis.red_flag_status", "in": ["urgent_ae", "urgent_prescriber"] },
+              "no_pharmacy_first_treatment",
+              {
+                "if": [
+                  { "field": "decision.sinusitis.shared_route_eligibility_status", "equals": "not_indicated_or_excluded" },
+                  "excluded_or_not_indicated",
+                  {
+                    "if": [
+                      {
+                        "and": [
+                          { "field": "sinusitis.bacterial_feature_threshold_met", "equals": true },
+                          { "field": "sinusitis.antibiotic_gate_supporting_criterion_met", "equals": true }
+                        ]
+                      },
+                      "antibiotic",
+                      "intranasal_steroid"
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "id": "decision.sinusitis.route_candidate",
+          "type": "calculated_select",
+          "label": "Specific route candidate",
+          "formula": {
+            "if": [
+              { "field": "decision.sinusitis.route_family_candidate", "equals": "intranasal_steroid" },
+              "intranasal_steroid_choose_6a_or_6b",
+              {
+                "if": [
+                  { "field": "decision.sinusitis.route_family_candidate", "equals": "antibiotic" },
+                  {
+                    "if": [
+                      { "field": "sinusitis.penicillin_hypersensitivity_or_severe_beta_lactam_history", "equals": false },
+                      "phenoxymethylpenicillin_6c",
+                      {
+                        "if": [
+                          {
+                            "and": [
+                              { "field": "sinusitis.pregnancy_status", "in": ["pregnant", "suspected_pregnancy"] },
+                              { "field": "sinusitis.age_16_or_over", "equals": true }
+                            ]
+                          },
+                          "erythromycin_6f",
+                          {
+                            "if": [
+                              {
+                                "and": [
+                                  { "field": "sinusitis.pregnancy_status", "not_in": ["pregnant", "suspected_pregnancy"] },
+                                  { "field": "sinusitis.breastfeeding_status", "equals": "breastfeeding" }
+                                ]
+                              },
+                              "clarithromycin_6d",
+                              "clarithromycin_or_doxycycline_6d_6e"
+                            ]
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  "none"
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "id": "decision.sinusitis.intranasal_steroid_preference",
+          "type": "select",
+          "label": "Preferred intranasal steroid route (if steroid family)",
+          "required": false,
+          "options": ["fluticasone_6a", "mometasone_6b", "auto_by_stock_or_interaction"]
+        },
+        {
+          "id": "decision.sinusitis.penicillin_allergy_nonpregnant_antibiotic_preference",
+          "type": "select",
+          "label": "Preferred antibiotic in penicillin allergy non-pregnant route",
+          "required": false,
+          "options": ["clarithromycin_6d", "doxycycline_6e", "auto_choose_eligible"]
+        }
+      ]
+    },
+
+    {
+      "id": "sinusitis_6a_fluticasone_route",
+      "title": "6a Fluticasone Furoate Nasal Spray (PGD)",
+      "visible_if": { "field": "decision.sinusitis.final_route", "equals": "fluticasone_6a_pgd" },
+      "fields": [
+        {
+          "id": "sinusitis_6a.branch_blockers_present",
+          "type": "calculated_boolean",
+          "label": "Fluticasone route blockers present",
+          "formula": "(patient.age < 12) || (patient.age < 16 && (sinusitis.pregnancy_status in ['pregnant','suspected_pregnancy'])) || sinusitis.current_or_recent_intranasal_steroid_failed_this_episode == true || sinusitis.blurred_vision_or_visual_disturbance == true || sinusitis.known_or_suspected_glaucoma_or_raised_iop == true || sinusitis.untreated_localised_nasal_mucosal_infection == true || sinusitis.recent_nasal_surgery_or_trauma_not_fully_healed == true || sinusitis.epistaxis_present == true || sinusitis.foreign_body_in_nasal_passage_suspected == true || sinusitis.current_oral_inhaled_topical_or_parenteral_corticosteroids == true || (sinusitis.interactions.fluticasone_cyp3a4_potent_inhibitors_present && !contains(sinusitis.interactions.fluticasone_cyp3a4_potent_inhibitors_present, 'none'))"
+        },
+        {
+          "id": "sinusitis_6a.product",
+          "type": "text",
+          "label": "Medicine",
+          "default": "Fluticasone furoate 27.5 micrograms/dose nasal spray",
+          "required": true
+        },
+        {
+          "id": "sinusitis_6a.legal_category",
+          "type": "text",
+          "label": "Legal category",
+          "default": "POM",
+          "required": true
+        },
+        {
+          "id": "sinusitis_6a.route_method",
+          "type": "text",
+          "label": "Route/method",
+          "default": "Intranasal",
+          "required": true
+        },
+        {
+          "id": "sinusitis_6a.off_label_use_explained",
+          "type": "boolean",
+          "label": "Off-label use explained as part of consent",
+          "required": true
+        },
+        {
+          "id": "sinusitis_6a.dose_regimen",
+          "type": "text",
+          "label": "Dose regimen",
+          "default": "Two actuations (27.5 micrograms/actuation) in each nostril twice daily (total 110 micrograms twice daily).",
+          "required": true
+        },
+        {
+          "id": "sinusitis_6a.duration_days",
+          "type": "number",
+          "label": "Duration (days)",
+          "default": 14,
+          "required": true
+        },
+        {
+          "id": "sinusitis_6a.quantity_option",
+          "type": "select",
+          "label": "Quantity supplied",
+          "required": true,
+          "options": [
+            "1_x_120_spray_pack_minimum_112_actuations"
+          ]
+        }
+      ]
+    },
+
+    {
+      "id": "sinusitis_6b_mometasone_route",
+      "title": "6b Mometasone Furoate Nasal Spray (PGD)",
+      "visible_if": { "field": "decision.sinusitis.final_route", "equals": "mometasone_6b_pgd" },
+      "fields": [
+        {
+          "id": "sinusitis_6b.branch_blockers_present",
+          "type": "calculated_boolean",
+          "label": "Mometasone route blockers present",
+          "formula": "(patient.age < 12) || (patient.age < 16 && (sinusitis.pregnancy_status in ['pregnant','suspected_pregnancy'])) || sinusitis.current_or_recent_intranasal_steroid_failed_this_episode == true || sinusitis.blurred_vision_or_visual_disturbance == true || sinusitis.known_or_suspected_glaucoma_or_raised_iop == true || sinusitis.untreated_localised_nasal_mucosal_infection == true || sinusitis.recent_nasal_surgery_or_trauma_not_fully_healed == true || sinusitis.epistaxis_present == true || sinusitis.foreign_body_in_nasal_passage_suspected == true || sinusitis.current_oral_inhaled_topical_or_parenteral_corticosteroids == true || (sinusitis.interactions.mometasone_cyp3a4_moderate_or_potent_inhibitors_present && !contains(sinusitis.interactions.mometasone_cyp3a4_moderate_or_potent_inhibitors_present, 'none'))"
+        },
+        {
+          "id": "sinusitis_6b.product",
+          "type": "text",
+          "label": "Medicine",
+          "default": "Mometasone furoate monohydrate 50 micrograms/dose nasal spray",
+          "required": true
+        },
+        {
+          "id": "sinusitis_6b.legal_category",
+          "type": "text",
+          "label": "Legal category",
+          "default": "POM",
+          "required": true
+        },
+        {
+          "id": "sinusitis_6b.route_method",
+          "type": "text",
+          "label": "Route/method",
+          "default": "Intranasal",
+          "required": true
+        },
+        {
+          "id": "sinusitis_6b.off_label_use_explained",
+          "type": "boolean",
+          "label": "Off-label use explained as part of consent",
+          "required": true
+        },
+        {
+          "id": "sinusitis_6b.dose_regimen",
+          "type": "text",
+          "label": "Dose regimen",
+          "default": "Two actuations (50 micrograms/actuation) in each nostril twice daily (total dose 200 micrograms twice daily).",
+          "required": true
+        },
+        {
+          "id": "sinusitis_6b.duration_days",
+          "type": "number",
+          "label": "Duration (days)",
+          "default": 14,
+          "required": true
+        },
+        {
+          "id": "sinusitis_6b.quantity_option",
+          "type": "select",
+          "label": "Quantity supplied",
+          "required": true,
+          "options": [
+            "1_x_18g_nasal_spray_minimum_112_actuations"
+          ]
+        }
+      ]
+    },
+
+    {
+      "id": "sinusitis_6c_penicillinV_route",
+      "title": "6c Phenoxymethylpenicillin (Penicillin V) PGD",
+      "visible_if": { "field": "decision.sinusitis.final_route", "equals": "phenoxymethylpenicillin_6c_pgd" },
+      "fields": [
+        {
+          "id": "sinusitis_6c.branch_blockers_present",
+          "type": "calculated_boolean",
+          "label": "Penicillin V route blockers present",
+          "formula": "(patient.age < 12) || (patient.age < 16 && (sinusitis.pregnancy_status in ['pregnant','suspected_pregnancy'])) || sinusitis.penicillin_hypersensitivity_or_severe_beta_lactam_history == true || sinusitis.inability_to_absorb_or_swallow_oral_dosage_forms == true || sinusitis.current_long_term_penicillinV_use == true || sinusitis.ketogenic_diet == true || sinusitis.failed_previous_treatment_this_episode == true || contains_any([sinusitis.ckd_stage], ['stage_4','stage_5']) || (exists(sinusitis.egfr) && sinusitis.egfr < 30) || sinusitis.oral_typhoid_vaccine_timing_conflict == true || (sinusitis.interactions.penicillinV_blockers && !contains(sinusitis.interactions.penicillinV_blockers, 'none'))"
+        },
+        {
+          "id": "sinusitis_6c.product_formulation",
+          "type": "checklist",
+          "label": "Formulation supplied",
+          "required": true,
+          "options": [
+            "250mg_tablets",
+            "125mg_per_5ml_oral_solution_or_suspension_100ml",
+            "125mg_per_5ml_sugar_free_oral_solution_or_suspension_100ml",
+            "250mg_per_5ml_oral_solution_or_suspension_100ml",
+            "250mg_per_5ml_sugar_free_oral_solution_or_suspension_100ml"
+          ]
+        },
+        {
+          "id": "sinusitis_6c.dose_regimen",
+          "type": "text",
+          "label": "Dose regimen",
+          "default": "500mg four times a day for 5 days",
+          "required": true
+        },
+        {
+          "id": "sinusitis_6c.route_and_food",
+          "type": "text",
+          "label": "Route/method",
+          "default": "Oral, on an empty stomach (30 minutes before food or 2 hours after food).",
+          "required": true
+        },
+        {
+          "id": "sinusitis_6c.duration_days",
+          "type": "number",
+          "label": "Duration (days)",
+          "default": 5,
+          "required": true
+        },
+        {
+          "id": "sinusitis_6c.quantity_option",
+          "type": "select",
+          "label": "Quantity supplied (PGD-listed)",
+          "required": true,
+          "options": [
+            "40_x_250mg_tablets",
+            "2_x_100ml_250mg_per_5ml_oral_solution_or_suspension",
+            "4_x_100ml_125mg_per_5ml_oral_solution_or_suspension"
+          ]
+        }
+      ]
+    },
+
+    {
+      "id": "sinusitis_6d_clarithromycin_route",
+      "title": "6d Clarithromycin PGD",
+      "visible_if": { "field": "decision.sinusitis.final_route", "equals": "clarithromycin_6d_pgd" },
+      "fields": [
+        {
+          "id": "sinusitis_6d.branch_blockers_present",
+          "type": "calculated_boolean",
+          "label": "Clarithromycin route blockers present",
+          "formula": "(patient.age < 12) || (sinusitis.pregnancy_status in ['pregnant','suspected_pregnancy']) || sinusitis.penicillin_hypersensitivity_or_severe_beta_lactam_history == false || sinusitis.macrolide_hypersensitivity == true || sinusitis.inability_to_absorb_or_swallow_oral_dosage_forms == true || sinusitis.current_long_term_macrolide_use == true || sinusitis.ketogenic_diet == true || sinusitis.failed_previous_treatment_this_episode == true || sinusitis.known_myasthenia_gravis == true || sinusitis.known_qt_prolongation_or_ventricular_arrhythmia == true || sinusitis.on_qt_prolonging_medicine == true || sinusitis.known_electrolyte_disturbance == true || contains_any([sinusitis.ckd_stage], ['stage_4','stage_5']) || (exists(sinusitis.egfr) && sinusitis.egfr < 30) || sinusitis.known_or_suspected_severe_liver_disease == true || sinusitis.known_heart_disease == true || sinusitis.oral_typhoid_vaccine_timing_conflict == true || (sinusitis.interactions.clarithromycin_blockers && !contains(sinusitis.interactions.clarithromycin_blockers, 'none'))"
+        },
+        {
+          "id": "sinusitis_6d.product_formulation",
+          "type": "checklist",
+          "label": "Formulation supplied",
+          "required": true,
+          "options": [
+            "250mg_tablets",
+            "500mg_tablets",
+            "125mg_per_5ml_oral_suspension_or_solution_70ml",
+            "250mg_per_5ml_oral_suspension_or_solution_70ml"
+          ]
+        },
+        {
+          "id": "sinusitis_6d.dose_regimen",
+          "type": "text",
+          "label": "Dose regimen",
+          "default": "500mg twice daily (every 12 hours) for 5 days",
+          "required": true
+        },
+        {
+          "id": "sinusitis_6d.route_and_food",
+          "type": "text",
+          "label": "Route/method",
+          "default": "Oral, with water (with or without food). Tablets swallowed whole.",
+          "required": true
+        },
+        {
+          "id": "sinusitis_6d.duration_days",
+          "type": "number",
+          "label": "Duration (days)",
+          "default": 5,
+          "required": true
+        },
+        {
+          "id": "sinusitis_6d.quantity_option",
+          "type": "select",
+          "label": "Quantity supplied (PGD-listed)",
+          "required": true,
+          "options": [
+            "10_x_500mg_tablets",
+            "20_x_250mg_tablets",
+            "2_x_70ml_250mg_per_5ml_oral_suspension_or_solution",
+            "3_x_70ml_125mg_per_5ml_oral_suspension_or_solution"
+          ]
+        }
+      ]
+    },
+
+    {
+      "id": "sinusitis_6e_doxycycline_route",
+      "title": "6e Doxycycline PGD",
+      "visible_if": { "field": "decision.sinusitis.final_route", "equals": "doxycycline_6e_pgd" },
+      "fields": [
+        {
+          "id": "sinusitis_6e.branch_blockers_present",
+          "type": "calculated_boolean",
+          "label": "Doxycycline route blockers present",
+          "formula": "(patient.age < 12) || (sinusitis.pregnancy_status in ['pregnant','suspected_pregnancy']) || (sinusitis.breastfeeding_status == 'breastfeeding') || sinusitis.penicillin_hypersensitivity_or_severe_beta_lactam_history == false || sinusitis.tetracycline_hypersensitivity == true || sinusitis.inability_to_absorb_or_swallow_oral_dosage_forms == true || sinusitis.current_long_term_doxycycline_or_tetracycline_use == true || sinusitis.ketogenic_diet == true || sinusitis.failed_previous_treatment_this_episode == true || sinusitis.known_myasthenia_gravis == true || sinusitis.known_sle == true || sinusitis.known_oesophagitis_or_oesophageal_ulceration == true || sinusitis.known_porphyria == true || sinusitis.known_or_suspected_liver_disease == true || sinusitis.enzyme_inducing_antiepileptic_present == true || sinusitis.unable_to_separate_doxycycline_interacting_oral_agents == true || sinusitis.oral_typhoid_vaccine_timing_conflict == true || (sinusitis.interactions.doxycycline_blockers_or_major_cautions && !contains(sinusitis.interactions.doxycycline_blockers_or_major_cautions, 'none'))"
+        },
+        {
+          "id": "sinusitis_6e.product_formulation",
+          "type": "checklist",
+          "label": "Formulation supplied",
+          "required": true,
+          "options": [
+            "100mg_capsules",
+            "100mg_dispersible_tablets",
+            "50mg_capsules"
+          ]
+        },
+        {
+          "id": "sinusitis_6e.dose_regimen",
+          "type": "text",
+          "label": "Dose regimen",
+          "default": "200mg as a single dose on day 1, then 100mg once daily for 4 days (total 5 days).",
+          "required": true
+        },
+        {
+          "id": "sinusitis_6e.route_and_food",
+          "type": "text",
+          "label": "Route/method",
+          "default": "Oral. Take with plenty of water, remain upright after dosing; separate from interacting cation-containing products.",
+          "required": true
+        },
+        {
+          "id": "sinusitis_6e.duration_days",
+          "type": "number",
+          "label": "Duration (days)",
+          "default": 5,
+          "required": true
+        },
+        {
+          "id": "sinusitis_6e.quantity_option",
+          "type": "select",
+          "label": "Quantity supplied (PGD-listed)",
+          "required": true,
+          "options": [
+            "6_x_100mg_capsules_or_dispersible_tablets",
+            "12_x_50mg_capsules"
+          ]
+        }
+      ]
+    },
+
+    {
+      "id": "sinusitis_6f_erythromycin_route",
+      "title": "6f Erythromycin PGD (Pregnancy/Suspected Pregnancy Route)",
+      "visible_if": { "field": "decision.sinusitis.final_route", "equals": "erythromycin_6f_pgd" },
+      "fields": [
+        {
+          "id": "sinusitis_6f.branch_blockers_present",
+          "type": "calculated_boolean",
+          "label": "Erythromycin route blockers present",
+          "formula": "(patient.age < 16) || !(sinusitis.pregnancy_status in ['pregnant','suspected_pregnancy']) || sinusitis.penicillin_hypersensitivity_or_severe_beta_lactam_history == false || sinusitis.macrolide_hypersensitivity == true || sinusitis.inability_to_absorb_or_swallow_oral_dosage_forms == true || sinusitis.current_long_term_macrolide_use == true || sinusitis.ketogenic_diet == true || sinusitis.failed_previous_treatment_this_episode == true || sinusitis.known_myasthenia_gravis == true || sinusitis.known_qt_prolongation_or_ventricular_arrhythmia == true || sinusitis.on_qt_prolonging_medicine == true || sinusitis.known_electrolyte_disturbance == true || contains_any([sinusitis.ckd_stage], ['stage_5']) || (exists(sinusitis.egfr) && sinusitis.egfr < 15) || sinusitis.known_or_suspected_liver_disease == true || sinusitis.concurrent_potentially_hepatotoxic_medicine == true || sinusitis.known_heart_disease == true || sinusitis.known_porphyria == true || sinusitis.oral_typhoid_vaccine_timing_conflict == true || (sinusitis.interactions.erythromycin_blockers && !contains(sinusitis.interactions.erythromycin_blockers, 'none'))"
+        },
+        {
+          "id": "sinusitis_6f.product_formulation",
+          "type": "checklist",
+          "label": "Formulation supplied",
+          "required": true,
+          "options": [
+            "250mg_tablets",
+            "250mg_gastro_resistant_tablets",
+            "500mg_tablets",
+            "125mg_per_5ml_oral_suspension_or_solution_100ml",
+            "125mg_per_5ml_sugar_free_oral_suspension_or_solution_100ml",
+            "250mg_per_5ml_oral_suspension_or_solution_100ml",
+            "250mg_per_5ml_sugar_free_oral_suspension_or_solution_100ml"
+          ]
+        },
+        {
+          "id": "sinusitis_6f.dose_regimen",
+          "type": "text",
+          "label": "Dose regimen",
+          "default": "500mg four times daily for 5 days",
+          "required": true
+        },
+        {
+          "id": "sinusitis_6f.route_and_food",
+          "type": "text",
+          "label": "Route/method",
+          "default": "Oral, with water (just before or with food). Tablets swallowed whole.",
+          "required": true
+        },
+        {
+          "id": "sinusitis_6f.duration_days",
+          "type": "number",
+          "label": "Duration (days)",
+          "default": 5,
+          "required": true
+        },
+        {
+          "id": "sinusitis_6f.quantity_option",
+          "type": "select",
+          "label": "Quantity supplied (PGD-listed)",
+          "required": true,
+          "options": [
+            "20_x_500mg_tablets",
+            "40_x_250mg_tablets",
+            "2_x_100ml_250mg_per_5ml_oral_suspension_or_solution",
+            "4_x_100ml_125mg_per_5ml_oral_suspension_or_solution"
+          ]
+        }
+      ]
+    },
+
+    {
+      "id": "sinusitis_decision_finalize",
+      "title": "Final Decision / Outcome",
+      "fields": [
+        {
+          "id": "decision.sinusitis.final_route",
+          "type": "select",
+          "label": "Final route",
+          "options": [
+            "fluticasone_6a_pgd",
+            "mometasone_6b_pgd",
+            "phenoxymethylpenicillin_6c_pgd",
+            "clarithromycin_6d_pgd",
+            "doxycycline_6e_pgd",
+            "erythromycin_6f_pgd",
+            "no_supply_self_care",
+            "no_supply_refer_prescriber",
+            "urgent_ae_referral"
+          ]
+        },
+        {
+          "id": "decision.sinusitis.final_status",
+          "type": "select",
+          "label": "Final status",
+          "options": [
+            "pgd_supply",
+            "self_care_only",
+            "urgent_prescriber_referral",
+            "urgent_ae_referral",
+            "excluded_or_not_indicated"
+          ]
+        },
+        {
+          "id": "decision.sinusitis.rationale",
+          "type": "textarea",
+          "label": "Decision rationale",
+          "required": true
+        }
+      ]
+    },
+
+    {
+      "id": "sinusitis_advice_counselling_safetynetting",
+      "title": "Advice / Counselling / Safety-netting",
+      "fields": [
+        {
+          "id": "sinusitis.target_tyi_rti_leaflet_provided",
+          "type": "boolean",
+          "label": "TARGET TYI-RTI leaflet provided/signposted",
+          "required": true
+        },
+        {
+          "id": "sinusitis.self_care_paracetamol_advice",
+          "type": "boolean",
+          "label": "Paracetamol self-care advice given (if appropriate)",
+          "required": true
+        },
+        {
+          "id": "sinusitis.self_care_ibuprofen_advice",
+          "type": "boolean",
+          "label": "Ibuprofen self-care advice given (if appropriate)",
+          "required": false
+        },
+        {
+          "id": "sinusitis.self_care_other_advice_discussed",
+          "type": "checklist",
+          "label": "Other self-care advice discussed",
+          "required": true,
+          "options": [
+            "saline_nasal_rinse_if_suitable",
+            "hydration",
+            "rest",
+            "decongestants_limited_evidence_discussed",
+            "no_evidence_oral_decongestants_antihistamines_mucolytics_steam_warm_facepacks_explained",
+            "none"
+          ]
+        },
+        {
+          "id": "sinusitis.expected_duration_advice",
+          "type": "boolean",
+          "label": "Explained sinusitis often viral and may take 2-3 weeks to resolve",
+          "required": true
+        },
+        {
+          "id": "sinusitis.intranasal_steroid_technique_counselling",
+          "type": "boolean",
+          "label": "Intranasal spray technique counselling given (if steroid supplied)",
+          "required": false
+        },
+        {
+          "id": "sinusitis.antibiotic_target_checklist_used",
+          "type": "boolean",
+          "label": "TARGET antibiotic checklist used (if antibiotic supplied)",
+          "required": false
+        },
+        {
+          "id": "sinusitis.pil_provided_or_advised",
+          "type": "boolean",
+          "label": "PIL provided/advised (if medicine supplied)",
+          "required": true
+        },
+        {
+          "id": "sinusitis.breastfeeding_monitoring_advice_given",
+          "type": "boolean",
+          "label": "Breastfeeding infant monitoring advice given (if applicable)",
+          "required": false
+        },
+        {
+          "id": "sinusitis.safety_netting_detail",
+          "type": "textarea",
+          "label": "Safety-netting / follow-up advice details",
+          "required": true
+        }
+      ]
+    }
+  ],
+
+  "rules": [
+    {
+      "id": "SIN_R1_urgent_ae_redflags",
+      "when": [{ "field": "decision.sinusitis.red_flag_status", "equals": "urgent_ae" }],
+      "then": [
+        { "action": "set", "field": "decision.sinusitis.final_route", "value": "urgent_ae_referral" },
+        { "action": "set", "field": "decision.sinusitis.final_status", "value": "urgent_ae_referral" },
+        { "action": "set", "field": "referral.required", "value": true },
+        { "action": "set", "field": "referral.destination", "value": "a_and_e" },
+        { "action": "show_message", "level": "critical", "text": "Urgent A&E referral for sepsis or orbital/intracranial complication signs." }
+      ]
+    },
+    {
+      "id": "SIN_R2_urgent_prescriber_redflags",
+      "when": [{ "field": "decision.sinusitis.red_flag_status", "equals": "urgent_prescriber" }],
+      "then": [
+        { "action": "set", "field": "decision.sinusitis.final_route", "value": "no_supply_refer_prescriber" },
+        { "action": "set", "field": "decision.sinusitis.final_status", "value": "urgent_prescriber_referral" },
+        { "action": "set", "field": "referral.required", "value": true },
+        { "action": "set", "field": "referral.urgency", "value": "urgent_same_day_gp" }
+      ]
+    },
+    {
+      "id": "SIN_R3_not_indicated_or_excluded_base",
+      "when": [
+        { "field": "decision.sinusitis.red_flag_status", "equals": "no_red_flags" },
+        { "field": "decision.sinusitis.shared_route_eligibility_status", "equals": "not_indicated_or_excluded" }
+      ],
+      "then": [
+        { "action": "set", "field": "decision.sinusitis.final_route", "value": "no_supply_self_care" },
+        { "action": "set", "field": "decision.sinusitis.final_status", "value": "self_care_only" },
+        { "action": "set", "field": "consultation.outcome.primary_outcome", "value": "self_care_advice_only" }
+      ]
+    },
+
+    {
+      "id": "SIN_R4_intranasal_family_auto_choose",
+      "when": [
+        { "field": "decision.sinusitis.route_family_candidate", "equals": "intranasal_steroid" }
+      ],
+      "then": [
+        {
+          "action": "conditional_set",
+          "if": {
+            "or": [
+              { "field": "decision.sinusitis.intranasal_steroid_preference", "equals": "fluticasone_6a" },
+              {
+                "and": [
+                  { "field": "decision.sinusitis.intranasal_steroid_preference", "equals": "auto_by_stock_or_interaction" },
+                  { "field": "sinusitis_6a.branch_blockers_present", "equals": false }
+                ]
+              }
+            ]
+          },
+          "true_value": { "field": "decision.sinusitis.final_route", "value": "fluticasone_6a_pgd" },
+          "false_value": { "field": "decision.sinusitis.final_route", "value": "mometasone_6b_pgd" }
+        }
+      ]
+    },
+    {
+      "id": "SIN_R5_intranasal_fluticasone_blocked_fallback_mometasone",
+      "when": [
+        { "field": "decision.sinusitis.final_route", "equals": "fluticasone_6a_pgd" },
+        { "field": "sinusitis_6a.branch_blockers_present", "equals": true }
+      ],
+      "then": [
+        {
+          "action": "conditional_set",
+          "if": { "field": "sinusitis_6b.branch_blockers_present", "equals": false },
+          "true_value": { "field": "decision.sinusitis.final_route", "value": "mometasone_6b_pgd" },
+          "false_value": { "field": "decision.sinusitis.final_route", "value": "no_supply_refer_prescriber" }
+        }
+      ]
+    },
+    {
+      "id": "SIN_R6_intranasal_mometasone_blocked_fallback_fluticasone",
+      "when": [
+        { "field": "decision.sinusitis.final_route", "equals": "mometasone_6b_pgd" },
+        { "field": "sinusitis_6b.branch_blockers_present", "equals": true }
+      ],
+      "then": [
+        {
+          "action": "conditional_set",
+          "if": { "field": "sinusitis_6a.branch_blockers_present", "equals": false },
+          "true_value": { "field": "decision.sinusitis.final_route", "value": "fluticasone_6a_pgd" },
+          "false_value": { "field": "decision.sinusitis.final_route", "value": "no_supply_refer_prescriber" }
+        }
+      ]
+    },
+
+    {
+      "id": "SIN_R7_antibiotic_route_6c_candidate",
+      "when": [{ "field": "decision.sinusitis.route_candidate", "equals": "phenoxymethylpenicillin_6c" }],
+      "then": [
+        {
+          "action": "conditional_set",
+          "if": { "field": "sinusitis_6c.branch_blockers_present", "equals": true },
+          "true_value": { "field": "decision.sinusitis.final_route", "value": "no_supply_refer_prescriber" },
+          "false_value": { "field": "decision.sinusitis.final_route", "value": "phenoxymethylpenicillin_6c_pgd" }
+        }
+      ]
+    },
+    {
+      "id": "SIN_R8_antibiotic_route_6f_candidate",
+      "when": [{ "field": "decision.sinusitis.route_candidate", "equals": "erythromycin_6f" }],
+      "then": [
+        {
+          "action": "conditional_set",
+          "if": { "field": "sinusitis_6f.branch_blockers_present", "equals": true },
+          "true_value": { "field": "decision.sinusitis.final_route", "value": "no_supply_refer_prescriber" },
+          "false_value": { "field": "decision.sinusitis.final_route", "value": "erythromycin_6f_pgd" }
+        }
+      ]
+    },
+    {
+      "id": "SIN_R9_antibiotic_route_6d_or_6e_auto_choose",
+      "when": [{ "field": "decision.sinusitis.route_candidate", "equals": "clarithromycin_or_doxycycline_6d_6e" }],
+      "then": [
+        {
+          "action": "conditional_set",
+          "if": {
+            "or": [
+              { "field": "decision.sinusitis.penicillin_allergy_nonpregnant_antibiotic_preference", "equals": "doxycycline_6e" },
+              {
+                "and": [
+                  { "field": "decision.sinusitis.penicillin_allergy_nonpregnant_antibiotic_preference", "equals": "auto_choose_eligible" },
+                  { "field": "sinusitis_6e.branch_blockers_present", "equals": false }
+                ]
+              }
+            ]
+          },
+          "true_value": { "field": "decision.sinusitis.final_route", "value": "doxycycline_6e_pgd" },
+          "false_value": { "field": "decision.sinusitis.final_route", "value": "clarithromycin_6d_pgd" }
+        }
+      ]
+    },
+    {
+      "id": "SIN_R10_antibiotic_route_6d_candidate_direct",
+      "when": [{ "field": "decision.sinusitis.route_candidate", "equals": "clarithromycin_6d" }],
+      "then": [
+        {
+          "action": "conditional_set",
+          "if": { "field": "sinusitis_6d.branch_blockers_present", "equals": true },
+          "true_value": { "field": "decision.sinusitis.final_route", "value": "no_supply_refer_prescriber" },
+          "false_value": { "field": "decision.sinusitis.final_route", "value": "clarithromycin_6d_pgd" }
+        }
+      ]
+    },
+    {
+      "id": "SIN_R11_doxycycline_blocked_fallback_clarithromycin",
+      "when": [
+        { "field": "decision.sinusitis.final_route", "equals": "doxycycline_6e_pgd" },
+        { "field": "sinusitis_6e.branch_blockers_present", "equals": true }
+      ],
+      "then": [
+        {
+          "action": "conditional_set",
+          "if": { "field": "sinusitis_6d.branch_blockers_present", "equals": false },
+          "true_value": { "field": "decision.sinusitis.final_route", "value": "clarithromycin_6d_pgd" },
+          "false_value": { "field": "decision.sinusitis.final_route", "value": "no_supply_refer_prescriber" }
+        }
+      ]
+    },
+    {
+      "id": "SIN_R12_clarithromycin_blocked_fallback_doxycycline_when_allowed",
+      "when": [
+        { "field": "decision.sinusitis.final_route", "equals": "clarithromycin_6d_pgd" },
+        { "field": "sinusitis_6d.branch_blockers_present", "equals": true },
+        { "field": "sinusitis.pregnancy_status", "not_in": ["pregnant", "suspected_pregnancy"] },
+        { "field": "sinusitis.breastfeeding_status", "not_equals": "breastfeeding" }
+      ],
+      "then": [
+        {
+          "action": "conditional_set",
+          "if": { "field": "sinusitis_6e.branch_blockers_present", "equals": false },
+          "true_value": { "field": "decision.sinusitis.final_route", "value": "doxycycline_6e_pgd" },
+          "false_value": { "field": "decision.sinusitis.final_route", "value": "no_supply_refer_prescriber" }
+        }
+      ]
+    },
+
+    {
+      "id": "SIN_R13_no_supply_refer_prescriber_defaults",
+      "when": [{ "field": "decision.sinusitis.final_route", "equals": "no_supply_refer_prescriber" }],
+      "then": [
+        { "action": "set_if_empty", "field": "decision.sinusitis.final_status", "value": "urgent_prescriber_referral" },
+        { "action": "set", "field": "referral.required", "value": true },
+        { "action": "set_if_empty", "field": "consultation.no_supply_reason", "value": "pgd_exclusion_met" }
+      ]
+    },
+    {
+      "id": "SIN_R14_any_pgd_supply_sets_outcome",
+      "when": [
+        {
+          "field": "decision.sinusitis.final_route",
+          "in": [
+            "fluticasone_6a_pgd",
+            "mometasone_6b_pgd",
+            "phenoxymethylpenicillin_6c_pgd",
+            "clarithromycin_6d_pgd",
+            "doxycycline_6e_pgd",
+            "erythromycin_6f_pgd"
+          ]
+        }
+      ],
+      "then": [
+        { "action": "set", "field": "decision.sinusitis.final_status", "value": "pgd_supply" },
+        { "action": "set", "field": "consultation.outcome.primary_outcome", "value": "pgd_medicine_supplied" }
+      ]
+    },
+    {
+      "id": "SIN_R15_self_care_defaults_when_no_antibiotic_no_steroid",
+      "when": [
+        { "field": "decision.sinusitis.final_route", "equals": "no_supply_self_care" }
+      ],
+      "then": [
+        { "action": "set", "field": "decision.sinusitis.final_status", "value": "self_care_only" },
+        { "action": "set", "field": "consultation.outcome.primary_outcome", "value": "self_care_advice_only" }
+      ]
+    }
+  ],
+
+  "validations": [
+    {
+      "id": "SIN_V1_core_pattern_requires_nasal_plus_additional",
+      "type": "error",
+      "expression": "sinusitis.core_symptom_pattern_met == ((sinusitis.nasal_blockage_present || sinusitis.nasal_discharge_present) && (sinusitis.facial_pain_or_pressure_or_headache || sinusitis.reduced_or_lost_smell_adult || sinusitis.cough_day_or_night_child))",
+      "message": "Core symptom pattern should reflect one nasal symptom plus one additional sinusitis feature."
+    },
+    {
+      "id": "SIN_V2_antibiotic_routes_require_bacterial_features_and_steroid_gate",
+      "type": "error",
+      "expression": "!(decision.sinusitis.final_route in ['phenoxymethylpenicillin_6c_pgd','clarithromycin_6d_pgd','doxycycline_6e_pgd','erythromycin_6f_pgd']) || (sinusitis.bacterial_feature_count >= 2 && (sinusitis.persistent_symptoms_despite_high_dose_intranasal_steroid_14_days == true || sinusitis.high_dose_intranasal_steroid_unsuitable == true))",
+      "message": "Antibiotic routes require >=2 bacterial sinusitis features plus persistent symptoms after 14-day high-dose intranasal steroid OR steroid unsuitable."
+    },
+    {
+      "id": "SIN_V3_steroid_routes_should_not_require_bacterial_features",
+      "type": "warning",
+      "expression": "!(decision.sinusitis.final_route in ['fluticasone_6a_pgd','mometasone_6b_pgd'] && sinusitis.bacterial_feature_count >= 2 && sinusitis.antibiotic_gate_supporting_criterion_met == true)",
+      "message": "If bacterial criteria and antibiotic steroid-prerequisite are met, consider whether antibiotic route is more appropriate than intranasal steroid route."
+    },
+    {
+      "id": "SIN_V4_6f_requires_pregnancy_age16_and_penicillin_hypersensitivity",
+      "type": "error",
+      "expression": "decision.sinusitis.final_route != 'erythromycin_6f_pgd' || ((patient.age >= 16) && (sinusitis.pregnancy_status == 'pregnant' || sinusitis.pregnancy_status == 'suspected_pregnancy') && sinusitis.penicillin_hypersensitivity_or_severe_beta_lactam_history == true)",
+      "message": "6f erythromycin route requires age 16+, pregnancy/suspected pregnancy, and penicillin hypersensitivity."
+    },
+    {
+      "id": "SIN_V5_6e_excludes_pregnancy_and_breastfeeding",
+      "type": "error",
+      "expression": "decision.sinusitis.final_route != 'doxycycline_6e_pgd' || !(sinusitis.pregnancy_status in ['pregnant','suspected_pregnancy']) && sinusitis.breastfeeding_status != 'breastfeeding'",
+      "message": "6e doxycycline excludes pregnancy/suspected pregnancy and current breastfeeding."
+    },
+    {
+      "id": "SIN_V6_6d_excludes_pregnancy",
+      "type": "error",
+      "expression": "decision.sinusitis.final_route != 'clarithromycin_6d_pgd' || !(sinusitis.pregnancy_status in ['pregnant','suspected_pregnancy'])",
+      "message": "6d clarithromycin excludes pregnancy/suspected pregnancy."
+    },
+    {
+      "id": "SIN_V7_6a_fluticasone_quantity",
+      "type": "error",
+      "expression": "decision.sinusitis.final_route != 'fluticasone_6a_pgd' || sinusitis_6a.quantity_option == '1_x_120_spray_pack_minimum_112_actuations'",
+      "message": "6a fluticasone quantity should be 1 x 120-spray pack with minimum 112 actuations supplied."
+    },
+    {
+      "id": "SIN_V8_6b_mometasone_quantity",
+      "type": "error",
+      "expression": "decision.sinusitis.final_route != 'mometasone_6b_pgd' || sinusitis_6b.quantity_option == '1_x_18g_nasal_spray_minimum_112_actuations'",
+      "message": "6b mometasone quantity should be 1 x 18g spray with minimum 112 actuations supplied."
+    },
+    {
+      "id": "SIN_V9_6e_doxycycline_quantity_matches_regimen",
+      "type": "error",
+      "expression": "decision.sinusitis.final_route != 'doxycycline_6e_pgd' || (sinusitis_6e.quantity_option in ['6_x_100mg_capsules_or_dispersible_tablets','12_x_50mg_capsules'])",
+      "message": "6e doxycycline quantity should match PGD-listed options."
+    },
+    {
+      "id": "SIN_V10_redflags_require_referral",
+      "type": "error",
+      "expression": "!(decision.sinusitis.red_flag_status != 'no_red_flags' && referral.required != true)",
+      "message": "Red flags/escalation require referral documentation."
+    }
+  ],
+
+  "counselling_templates": {
+    "common_sinusitis": [
+      "Provide TARGET TYI-RTI leaflet and explain acute sinusitis is often viral and may take 2-3 weeks to resolve.",
+      "Self-care advice: paracetamol +/- ibuprofen if appropriate; supportive measures discussed.",
+      "Explain urgent red flags (orbital symptoms, visual changes, severe frontal headache, meningism signs, sepsis symptoms).",
+      "Advise to seek medical help if symptoms worsen rapidly/significantly or fail to improve as expected."
+    ],
+    "intranasal_steroids_6a_6b": [
+      "Explain off-label use for sinusitis under national guidance and PGD.",
+      "Demonstrate/confirm nasal spray technique and adherence for full 14-day course.",
+      "Advise possible local adverse effects (epistaxis, throat irritation, altered taste/smell, headache).",
+      "Advise to seek advice for visual symptoms or persistent nosebleeds."
+    ],
+    "phenoxymethylpenicillin_6c": [
+      "Take 500mg four times daily for 5 days and complete the course.",
+      "Take on an empty stomach (30 minutes before food or 2 hours after food).",
+      "Counsel on allergy signs and when to stop/seek urgent help.",
+      "Discuss anticoagulant monitoring/bleeding advice if relevant."
+    ],
+    "clarithromycin_6d": [
+      "Take 500mg twice daily for 5 days and complete the course.",
+      "Can be taken with or without food.",
+      "Counsel on interaction risks (statins, anticoagulants, QT-risk drugs) and when to seek urgent advice.",
+      "Liquid may cause bitter aftertaste; practical advice given if suspension used."
+    ],
+    "doxycycline_6e": [
+      "Day 1 take 200mg, then 100mg once daily for 4 more days.",
+      "Take with plenty of water; remain upright after taking to reduce oesophageal irritation risk.",
+      "Separate from antacids/iron/calcium/magnesium/zinc products by 2-3 hours.",
+      "Counsel on photosensitivity and to seek help for severe reactions."
+    ],
+    "erythromycin_6f": [
+      "Take 500mg four times daily for 5 days and complete the course.",
+      "Take just before or with food.",
+      "Counsel on interaction/QT risk and when to seek urgent medical help.",
+      "If breastfeeding applies, discuss infant monitoring advice as relevant."
+    ]
+  },
+
+  "notes_for_implementation": [
+    "This is a full dynamic-form module pattern matching the earlier long-form schemas (sections + branch blocks + route blockers + validations).",
+    "For production safety, use a dedicated interaction engine (BNF/SPC-backed) rather than UI checkbox blockers alone.",
+    "Keep an 'other exclusion / other interaction / clinical override rationale' free-text field with audit trail and clinician sign-off."
+  ]
+}

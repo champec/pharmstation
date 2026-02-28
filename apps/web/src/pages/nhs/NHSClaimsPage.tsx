@@ -5,11 +5,11 @@ import { getUserClient } from '@pharmstation/supabase-client'
 import type { NHSClaimSubmission } from '@pharmstation/types'
 
 const SERVICE_TYPE_LABELS: Record<string, string> = {
-  cpcs_emg_med:     'CPCS Emergency Medicine',
-  cpcs_min_ill:     'CPCS Minor Illness',
-  cpcs_emg_uec:     'CPCS Emergency (UEC)',
-  cpcs_min_ill_uec: 'CPCS Minor Illness (UEC)',
-  cpcs_ccs:         'Pharmacy First',
+  cpcs_emg_med:     'Pharmacy First — Emergency Medicine',
+  cpcs_min_ill:     'Pharmacy First — Minor Illness',
+  cpcs_emg_uec:     'Pharmacy First — Emergency Medicine (UEC)',
+  cpcs_min_ill_uec: 'Pharmacy First — Minor Illness (UEC)',
+  cpcs_ccs:         'Pharmacy First — Clinical Pathways',
   flu_vac:          'Flu Vaccination',
   covid_vac:        'COVID Vaccination',
   gp_covid_vac:     'COVID (GP Referral)',
@@ -102,13 +102,13 @@ export function NHSClaimsPage() {
         <div className="breadcrumbs">
           <a href="/" onClick={(e) => { e.preventDefault(); navigate('/') }}>Dashboard</a>
           <span className="separator">/</span>
-          <a href="/nhs" onClick={(e) => { e.preventDefault(); navigate('/nhs') }}>NHS Services</a>
+          <a href="/services" onClick={(e) => { e.preventDefault(); navigate('/services') }}>Services</a>
           <span className="separator">/</span>
-          <span>All Claims</span>
+          <span>Claims</span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <h1>📋 NHS Claims</h1>
-          <button className="ps-btn ps-btn-secondary" onClick={() => navigate('/nhs')}>← Back</button>
+          <button className="ps-btn ps-btn-secondary" onClick={() => navigate('/services')}>← Back</button>
         </div>
       </div>
 
@@ -153,7 +153,7 @@ export function NHSClaimsPage() {
           <div style={{ padding: 'var(--ps-space-xl)', textAlign: 'center', color: 'var(--ps-slate)' }}>Loading…</div>
         ) : filtered.length === 0 ? (
           <div style={{ padding: 'var(--ps-space-xl)', textAlign: 'center', color: 'var(--ps-slate)' }}>
-            {claims.length === 0 ? 'No claims yet. Start a claim from the NHS hub.' : 'No claims match the current filters.'}
+            {claims.length === 0 ? 'No claims yet. Deliver an NHS service to create a claim.' : 'No claims match the current filters.'}
           </div>
         ) : (
           <div style={{ overflowX: 'auto' }}>
@@ -171,7 +171,7 @@ export function NHSClaimsPage() {
               </thead>
               <tbody>
                 {filtered.map((claim) => (
-                  <tr key={claim.id} style={{ cursor: 'pointer' }} onClick={() => navigate(`/nhs/claims/${claim.id}`)}>
+                  <tr key={claim.id} style={{ cursor: 'pointer' }} onClick={() => navigate(`/services/claims/${claim.id}`)}>
                     <td>
                       {claim.patient_first_name
                         ? `${claim.patient_first_name} ${claim.patient_last_name ?? ''}`.trim()

@@ -1,0 +1,1074 @@
+{
+  "module_id": "pharmacy_first_infected_insect_bites_pathway",
+  "schema_version": "1.0.0",
+  "title": "Pharmacy First - Infected Insect Bites/Stings Pathway (4a/4b/4c)",
+  "description": "Shared infected insect bite/sting assessment with 3-way routing to flucloxacillin (4a), clarithromycin (4b), or erythromycin (4c).",
+  "depends_on": [
+    "core.consultation_context",
+    "core.patient_demographics",
+    "core.consent_information_sharing",
+    "core.med_history_allergies",
+    "core.outcome_gp_notification_shell"
+  ],
+  "entry_conditions": [
+    { "field": "consultation.service_type", "equals": "clinical_pathway" },
+    { "field": "consultation.pathway", "equals": "infected_insect_bite" }
+  ],
+  "sections": [
+    {
+      "id": "insectbite_core_assessment",
+      "title": "Infected Insect Bite/Sting Core Assessment",
+      "fields": [
+        {
+          "id": "insectbite.informed_consent",
+          "type": "boolean",
+          "label": "Informed consent obtained",
+          "required": true
+        },
+        {
+          "id": "insectbite.diagnosis_using_nice_cks",
+          "type": "boolean",
+          "label": "Diagnosis of infected insect bite/sting made using NICE CKS diagnostic guidance",
+          "required": true
+        },
+        {
+          "id": "insectbite.hours_since_initial_bite_or_sting",
+          "type": "number",
+          "label": "Hours since initial bite/sting",
+          "required": true,
+          "min": 0
+        },
+        {
+          "id": "insectbite.infection_present_or_worsening_after_48h",
+          "type": "calculated_boolean",
+          "label": "Infection present/worsening at least 48 hours after initial bite/sting",
+          "formula": "insectbite.hours_since_initial_bite_or_sting >= 48"
+        },
+        {
+          "id": "insectbite.infection_features",
+          "type": "checklist",
+          "label": "Infection features present (tick all that apply)",
+          "required": true,
+          "options": [
+            "redness",
+            "pain_or_tenderness",
+            "swelling",
+            "hot_to_touch",
+            "none"
+          ]
+        },
+        {
+          "id": "insectbite.infection_feature_count",
+          "type": "calculated_number",
+          "label": "Number of core infection features",
+          "formula": "count_selected_excluding(insectbite.infection_features, ['none'])"
+        },
+        {
+          "id": "insectbite.additional_infection_evidence",
+          "type": "checklist",
+          "label": "Additional evidence of infection (at least one required)",
+          "required": true,
+          "options": [
+            "spreading_redness_or_swelling",
+            "pustular_discharge",
+            "none"
+          ]
+        },
+        {
+          "id": "insectbite.clear_evidence_of_infection_meets_pgd_definition",
+          "type": "calculated_boolean",
+          "label": "Clear evidence of infection meeting PGD definition",
+          "formula": "insectbite.infection_present_or_worsening_after_48h == true && insectbite.infection_feature_count >= 3 && contains_any(insectbite.additional_infection_evidence, ['spreading_redness_or_swelling','pustular_discharge'])"
+        },
+        {
+          "id": "insectbite.site_location",
+          "type": "checklist",
+          "label": "Bite/sting site location",
+          "required": true,
+          "options": [
+            "skin_other",
+            "mouth",
+            "throat",
+            "tongue",
+            "around_eye",
+            "other"
+          ]
+        },
+        {
+          "id": "insectbite.systemically_well",
+          "type": "boolean",
+          "label": "Systemically well",
+          "required": true
+        },
+        {
+          "id": "insectbite.sepsis_suspected",
+          "type": "boolean",
+          "label": "Sepsis / severe life-threatening infection suspected",
+          "required": true
+        }
+      ]
+    },
+    {
+      "id": "insectbite_red_flags_and_exclusions_shared",
+      "title": "Red Flags / Shared Exclusions / Referral Triggers",
+      "fields": [
+        {
+          "id": "insectbite.suspected_systemic_allergic_reaction_current",
+          "type": "boolean",
+          "label": "Suspected current systemic reaction to bite/sting (e.g. angioedema/anaphylaxis)",
+          "required": true
+        },
+        {
+          "id": "insectbite.previous_systemic_allergic_reaction_same_type",
+          "type": "boolean",
+          "label": "Previous systemic allergic reaction to same type of bite/sting",
+          "required": true
+        },
+        {
+          "id": "insectbite.severely_immunosuppressed",
+          "type": "boolean",
+          "label": "Severely immunosuppressed (Green Book definition)",
+          "required": true
+        },
+        {
+          "id": "insectbite.known_comorbidity_complicating_resolution",
+          "type": "boolean",
+          "label": "Known comorbidity likely to complicate/delay resolution (e.g. PAD/CVI/lymphoedema/morbid obesity)",
+          "required": true
+        },
+        {
+          "id": "insectbite.severe_pain_out_of_proportion",
+          "type": "boolean",
+          "label": "Severe pain out of proportion to wound",
+          "required": true
+        },
+        {
+          "id": "insectbite.significant_collection_fluid_or_pus",
+          "type": "boolean",
+          "label": "Significant collection of fluid/pus at site",
+          "required": true
+        },
+        {
+          "id": "insectbite.numbness_or_tingling",
+          "type": "boolean",
+          "label": "Numbness or tingling of affected area",
+          "required": true
+        },
+        {
+          "id": "insectbite.no_clear_evidence_of_infection",
+          "type": "calculated_boolean",
+          "label": "No clear evidence of infection",
+          "formula": "insectbite.clear_evidence_of_infection_meets_pgd_definition == false"
+        },
+        {
+          "id": "insectbite.bite_type_not_insect",
+          "type": "checklist",
+          "label": "Not an eligible insect bite/sting scenario",
+          "required": true,
+          "options": [
+            "human_bite",
+            "animal_bite_or_scratch",
+            "none"
+          ]
+        },
+        {
+          "id": "insectbite.puncture_contaminated_water_soil_manure",
+          "type": "boolean",
+          "label": "Puncture wound contaminated with freshwater/seawater/soil/manure",
+          "required": true
+        },
+        {
+          "id": "insectbite.travel_outside_uk_with_concern_of_vector_borne_disease",
+          "type": "boolean",
+          "label": "Bite/sting occurred outside UK with concern of insect-borne disease (e.g. malaria / tick-borne encephalitis)",
+          "required": true
+        },
+        {
+          "id": "insectbite.unusual_or_exotic_insect",
+          "type": "boolean",
+          "label": "Bite/sting caused by unusual or exotic insect",
+          "required": true
+        },
+        {
+          "id": "insectbite.tick_bite_or_tick_present",
+          "type": "boolean",
+          "label": "Tick bite / tick present / presentation suggestive of tick bite",
+          "required": true
+        },
+        {
+          "id": "insectbite.erythema_migrans_bullseye_rash",
+          "type": "boolean",
+          "label": "Evidence of erythema migrans (bullseye rash)",
+          "required": true
+        },
+        {
+          "id": "insectbite.previous_or_current_mrsa",
+          "type": "boolean",
+          "label": "Previous/current known MRSA colonisation or infection",
+          "required": true
+        },
+        {
+          "id": "insectbite.failed_previous_antibiotic_this_episode",
+          "type": "boolean",
+          "label": "Failed previous antibiotic for this episode",
+          "required": true
+        },
+        {
+          "id": "insectbite.cannot_absorb_or_swallow_oral",
+          "type": "boolean",
+          "label": "Unable to absorb oral meds and/or swallow oral formulations",
+          "required": true
+        },
+        {
+          "id": "insectbite.ketogenic_diet",
+          "type": "boolean",
+          "label": "Following ketogenic diet",
+          "required": true
+        }
+      ]
+    },
+    {
+      "id": "insectbite_patient_status_for_routing",
+      "title": "Patient Status for Route Selection",
+      "fields": [
+        {
+          "id": "insectbite.age_1_or_over",
+          "type": "calculated_boolean",
+          "label": "Age 1 year or over",
+          "formula": "patient.age >= 1"
+        },
+        {
+          "id": "insectbite.age_16_or_over",
+          "type": "calculated_boolean",
+          "label": "Age 16 years or over",
+          "formula": "patient.age >= 16"
+        },
+        {
+          "id": "insectbite.pregnancy_status",
+          "type": "select",
+          "label": "Pregnancy status",
+          "required": true,
+          "options": ["pregnant", "suspected_pregnancy", "not_pregnant", "unknown", "not_applicable"]
+        },
+        {
+          "id": "insectbite.breastfeeding_status",
+          "type": "select",
+          "label": "Breastfeeding status",
+          "required": true,
+          "options": ["breastfeeding", "not_breastfeeding", "unknown", "not_applicable"]
+        },
+        {
+          "id": "insectbite.penicillin_hypersensitivity_or_severe_beta_lactam_history",
+          "type": "boolean",
+          "label": "Known hypersensitivity to flucloxacillin/penicillin OR severe immediate hypersensitivity to another beta-lactam",
+          "required": true
+        }
+      ]
+    },
+    {
+      "id": "insectbite_drug_specific_risks_and_interactions",
+      "title": "Drug-Specific Risks / Contraindications / Interactions",
+      "fields": [
+        {
+          "id": "insectbite.ckd_stage",
+          "type": "select",
+          "label": "Known CKD stage",
+          "required": true,
+          "options": ["none_known", "stage_1", "stage_2", "stage_3a", "stage_3b", "stage_4", "stage_5", "unknown"]
+        },
+        {
+          "id": "insectbite.egfr",
+          "type": "number",
+          "label": "Most recent eGFR (if known)",
+          "required": false
+        },
+        {
+          "id": "insectbite.history_liver_disease_any",
+          "type": "boolean",
+          "label": "Previous/current history of liver disease",
+          "required": true
+        },
+        {
+          "id": "insectbite.flucloxacillin_associated_jaundice_or_liver_dysfunction_history",
+          "type": "boolean",
+          "label": "Previous flucloxacillin-associated jaundice/liver dysfunction",
+          "required": true
+        },
+        {
+          "id": "insectbite.macrolide_hypersensitivity",
+          "type": "boolean",
+          "label": "Known hypersensitivity to macrolides (clarithromycin/erythromycin) or components",
+          "required": true
+        },
+        {
+          "id": "insectbite.current_long_term_macrolide_use",
+          "type": "boolean",
+          "label": "Current long-term macrolide use (e.g. prophylaxis)",
+          "required": true
+        },
+        {
+          "id": "insectbite.known_myasthenia_gravis",
+          "type": "boolean",
+          "label": "Known myasthenia gravis",
+          "required": true
+        },
+        {
+          "id": "insectbite.known_qt_prolongation_or_ventricular_arrhythmia",
+          "type": "boolean",
+          "label": "Known QT prolongation / ventricular arrhythmia (incl torsades)",
+          "required": true
+        },
+        {
+          "id": "insectbite.on_qt_prolonging_medicine",
+          "type": "boolean",
+          "label": "Concomitant QT-prolonging medicine present",
+          "required": true
+        },
+        {
+          "id": "insectbite.known_electrolyte_disturbance",
+          "type": "boolean",
+          "label": "Known hypokalaemia / hypomagnesaemia",
+          "required": true
+        },
+        {
+          "id": "insectbite.known_heart_disease",
+          "type": "boolean",
+          "label": "Known heart disease (relevant to macrolide risk)",
+          "required": true
+        },
+        {
+          "id": "insectbite.previous_macrolide_associated_jaundice_or_hepatic_dysfunction",
+          "type": "boolean",
+          "label": "Previous macrolide-associated jaundice/hepatic dysfunction",
+          "required": true
+        },
+        {
+          "id": "insectbite.known_or_suspected_liver_disease_for_macrolide_branch",
+          "type": "boolean",
+          "label": "Known or suspected liver disease (macrolide branch assessment)",
+          "required": true
+        },
+        {
+          "id": "insectbite.known_porhyria",
+          "type": "boolean",
+          "label": "Known porphyria",
+          "required": true
+        },
+        {
+          "id": "insectbite.less_than_3_days_before_or_within_3_days_after_oral_typhoid_vaccine",
+          "type": "boolean",
+          "label": "Within oral typhoid vaccine exclusion window",
+          "required": true
+        },
+        {
+          "id": "insectbite.recent_or_current_paracetamol_with_hagma_risk",
+          "type": "boolean",
+          "label": "Recent/current paracetamol use + HAGMA risk factors (e.g. malnutrition/sepsis/renal impairment)",
+          "required": true
+        },
+        {
+          "id": "insectbite.concurrent_potentially_hepatotoxic_medicine",
+          "type": "boolean",
+          "label": "Concurrent potentially hepatotoxic medicine (relevant to erythromycin PGD exclusion)",
+          "required": true
+        },
+
+        {
+          "id": "insectbite.interactions.flucloxacillin_blockers",
+          "type": "checklist",
+          "label": "Flucloxacillin PGD interaction blockers",
+          "required": true,
+          "options": [
+            "methotrexate",
+            "probenecid",
+            "voriconazole",
+            "oral_typhoid_vaccine_timing_conflict",
+            "paracetamol_plus_hagma_risk",
+            "none"
+          ]
+        },
+        {
+          "id": "insectbite.interactions.clarithromycin_blockers",
+          "type": "checklist",
+          "label": "Clarithromycin PGD interaction blockers",
+          "required": true,
+          "options": [
+            "simvastatin_or_lovastatin",
+            "astemizole_cisapride_domperidone_pimozide_terfenadine",
+            "ergotamine_or_dihydroergotamine",
+            "ranolazine",
+            "ticagrelor",
+            "chloroquine_or_hydroxychloroquine",
+            "colchicine",
+            "midazolam_oral",
+            "lomitapide",
+            "ivabradine",
+            "strong_cyp3a4_contraindicated_medicine",
+            "qt_prolonging_medicine",
+            "strong_cyp_inducer_may_reduce_clarithromycin",
+            "oral_typhoid_vaccine_timing_conflict",
+            "other_contraindicated_medicine",
+            "none"
+          ]
+        },
+        {
+          "id": "insectbite.interactions.erythromycin_blockers",
+          "type": "checklist",
+          "label": "Erythromycin PGD interaction blockers",
+          "required": true,
+          "options": [
+            "simvastatin",
+            "tolterodine",
+            "amisulpride",
+            "astemizole_cisapride_mizolastine_domperidone_pimozide_terfenadine",
+            "ergotamine_or_dihydroergotamine",
+            "chloroquine_or_hydroxychloroquine",
+            "colchicine",
+            "lomitapide",
+            "moderate_cyp3a4_contraindicated_medicine",
+            "qt_prolonging_medicine",
+            "strong_cyp_inducer_may_reduce_erythromycin",
+            "medicine_affected_by_erythromycin_must_not_coadminister",
+            "oral_typhoid_vaccine_timing_conflict",
+            "other_contraindicated_medicine",
+            "none"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "insectbite_route_selection",
+      "title": "Route Selection (4a / 4b / 4c)",
+      "fields": [
+        {
+          "id": "decision.insectbite.red_flag_status",
+          "type": "calculated_select",
+          "label": "Red flag / escalation status",
+          "formula": {
+            "if": [
+              {
+                "or": [
+                  { "field": "insectbite.sepsis_suspected", "equals": true },
+                  { "field": "insectbite.suspected_systemic_allergic_reaction_current", "equals": true },
+                  { "field": "insectbite.previous_systemic_allergic_reaction_same_type", "equals": true },
+                  {
+                    "and": [
+                      { "field": "insectbite.severely_immunosuppressed", "equals": true },
+                      { "field": "insectbite.clear_evidence_of_infection_meets_pgd_definition", "equals": true }
+                    ]
+                  },
+                  {
+                    "field": "insectbite.site_location",
+                    "any_in": ["mouth", "throat", "tongue", "around_eye"]
+                  }
+                ]
+              },
+              "urgent_ae",
+              {
+                "if": [
+                  {
+                    "or": [
+                      { "field": "insectbite.systemically_well", "equals": false },
+                      { "field": "insectbite.known_comorbidity_complicating_resolution", "equals": true },
+                      { "field": "insectbite.severe_pain_out_of_proportion", "equals": true },
+                      { "field": "insectbite.significant_collection_fluid_or_pus", "equals": true },
+                      { "field": "insectbite.numbness_or_tingling", "equals": true },
+                      { "field": "insectbite.puncture_contaminated_water_soil_manure", "equals": true },
+                      { "field": "insectbite.travel_outside_uk_with_concern_of_vector_borne_disease", "equals": true },
+                      { "field": "insectbite.unusual_or_exotic_insect", "equals": true },
+                      { "field": "insectbite.tick_bite_or_tick_present", "equals": true },
+                      { "field": "insectbite.erythema_migrans_bullseye_rash", "equals": true },
+                      { "field": "insectbite.previous_or_current_mrsa", "equals": true },
+                      { "field": "insectbite.bite_type_not_insect", "not_contains": "none" }
+                    ]
+                  },
+                  "urgent_prescriber",
+                  "no_red_flags"
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "id": "decision.insectbite.route_candidate",
+          "type": "calculated_select",
+          "label": "Proposed antibiotic route candidate",
+          "formula": {
+            "if": [
+              { "field": "decision.insectbite.red_flag_status", "in": ["urgent_ae", "urgent_prescriber"] },
+              "no_pharmacy_first_antibiotic",
+              {
+                "if": [
+                  {
+                    "or": [
+                      { "field": "insectbite.informed_consent", "equals": false },
+                      { "field": "insectbite.age_1_or_over", "equals": false },
+                      { "field": "insectbite.no_clear_evidence_of_infection", "equals": true },
+                      { "field": "insectbite.cannot_absorb_or_swallow_oral", "equals": true },
+                      { "field": "insectbite.ketogenic_diet", "equals": true },
+                      { "field": "insectbite.failed_previous_antibiotic_this_episode", "equals": true }
+                    ]
+                  },
+                  "excluded_or_not_indicated",
+                  {
+                    "if": [
+                      { "field": "insectbite.penicillin_hypersensitivity_or_severe_beta_lactam_history", "equals": false },
+                      "flucloxacillin_4a",
+                      {
+                        "if": [
+                          {
+                            "and": [
+                              { "field": "insectbite.pregnancy_status", "in": ["pregnant", "suspected_pregnancy"] },
+                              { "field": "insectbite.age_16_or_over", "equals": true }
+                            ]
+                          },
+                          "erythromycin_4c",
+                          "clarithromycin_4b"
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "insectbite_4a_flucloxacillin_pgd",
+      "title": "4a Flucloxacillin (PGD)",
+      "visible_if": { "field": "decision.insectbite.final_route", "equals": "flucloxacillin_4a_pgd" },
+      "fields": [
+        {
+          "id": "insectbite_4a.age_band",
+          "type": "calculated_select",
+          "label": "Age band (4a flucloxacillin)",
+          "formula": {
+            "if": [
+              { "expression": "patient.age >= 1 && patient.age < 2" },
+              "1_to_under_2",
+              {
+                "if": [
+                  { "expression": "patient.age >= 2 && patient.age <= 9" },
+                  "2_to_9",
+                  "10plus"
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "id": "insectbite_4a.branch_blockers_present",
+          "type": "calculated_boolean",
+          "label": "Flucloxacillin branch blockers present",
+          "formula": "insectbite.penicillin_hypersensitivity_or_severe_beta_lactam_history == true || insectbite.history_liver_disease_any == true || insectbite.flucloxacillin_associated_jaundice_or_liver_dysfunction_history == true || contains_any([insectbite.ckd_stage], ['stage_5']) || (exists(insectbite.egfr) && insectbite.egfr < 15) || insectbite.less_than_3_days_before_or_within_3_days_after_oral_typhoid_vaccine == true || insectbite.recent_or_current_paracetamol_with_hagma_risk == true || (insectbite.interactions.flucloxacillin_blockers && !contains(insectbite.interactions.flucloxacillin_blockers, 'none'))"
+        },
+        {
+          "id": "insectbite_4a.formulation_supplied",
+          "type": "checklist",
+          "label": "Formulation supplied",
+          "required": true,
+          "options": [
+            "250mg_capsules",
+            "500mg_capsules",
+            "125mg_per_5ml_oral_solution_or_suspension_100ml",
+            "125mg_per_5ml_sugar_free_oral_solution_or_suspension_100ml",
+            "250mg_per_5ml_oral_solution_or_suspension_100ml",
+            "250mg_per_5ml_sugar_free_oral_solution_or_suspension_100ml"
+          ]
+        },
+        {
+          "id": "insectbite_4a.dose_regimen",
+          "type": "calculated_text",
+          "label": "Dose regimen",
+          "formula": {
+            "if": [
+              { "field": "insectbite_4a.age_band", "equals": "1_to_under_2" },
+              "125mg four times daily for 5 days",
+              {
+                "if": [
+                  { "field": "insectbite_4a.age_band", "equals": "2_to_9" },
+                  "250mg four times daily for 5 days",
+                  "500mg four times daily for 5 days"
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "id": "insectbite_4a.route_and_food",
+          "type": "text",
+          "label": "Route/method",
+          "default": "Oral. 1 hour before or 2 hours after food. Capsules swallowed whole.",
+          "required": true
+        },
+        {
+          "id": "insectbite_4a.duration_days",
+          "type": "number",
+          "label": "Duration (days)",
+          "default": 5,
+          "required": true
+        },
+        {
+          "id": "insectbite_4a.quantity_option",
+          "type": "select",
+          "label": "Quantity supplied (PGD-listed)",
+          "required": true,
+          "options": [
+            "1_to_under_2__1x100ml_250mg5ml_or_1x100ml_125mg5ml",
+            "2_to_9__20x250mg_caps_or_1x100ml_250mg5ml_or_2x100ml_125mg5ml",
+            "10plus__20x500mg_caps_or_40x250mg_caps_or_2x100ml_250mg5ml_or_4x100ml_125mg5ml"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "insectbite_4b_clarithromycin_pgd",
+      "title": "4b Clarithromycin (PGD)",
+      "visible_if": { "field": "decision.insectbite.final_route", "equals": "clarithromycin_4b_pgd" },
+      "fields": [
+        {
+          "id": "insectbite_4b.weight_kg",
+          "type": "number",
+          "label": "Weight (kg) (required for paediatric dosing)",
+          "required_if": { "field": "patient.age", "lt": 12 }
+        },
+        {
+          "id": "insectbite_4b.branch_blockers_present",
+          "type": "calculated_boolean",
+          "label": "Clarithromycin branch blockers present",
+          "formula": "insectbite.pregnancy_status in ['pregnant','suspected_pregnancy'] || insectbite.macrolide_hypersensitivity == true || insectbite.current_long_term_macrolide_use == true || insectbite.known_myasthenia_gravis == true || insectbite.known_qt_prolongation_or_ventricular_arrhythmia == true || insectbite.on_qt_prolonging_medicine == true || insectbite.known_electrolyte_disturbance == true || contains_any([insectbite.ckd_stage], ['stage_4','stage_5']) || (exists(insectbite.egfr) && insectbite.egfr < 30) || insectbite.previous_macrolide_associated_jaundice_or_hepatic_dysfunction == true || insectbite.known_or_suspected_liver_disease_for_macrolide_branch == true || insectbite.known_heart_disease == true || insectbite.less_than_3_days_before_or_within_3_days_after_oral_typhoid_vaccine == true || (insectbite.interactions.clarithromycin_blockers && !contains(insectbite.interactions.clarithromycin_blockers, 'none'))"
+        },
+        {
+          "id": "insectbite_4b.formulation_supplied",
+          "type": "select",
+          "label": "Formulation supplied",
+          "required": true,
+          "options": [
+            "250mg_tablets",
+            "500mg_tablets",
+            "125mg_per_5ml_oral_suspension_or_solution_70ml",
+            "250mg_per_5ml_oral_suspension_or_solution_70ml"
+          ]
+        },
+        {
+          "id": "insectbite_4b.dose_regimen",
+          "type": "calculated_text",
+          "label": "Dose regimen",
+          "formula": {
+            "if": [
+              { "expression": "patient.age >= 12" },
+              "500mg twice daily for 5 days",
+              {
+                "if": [
+                  { "expression": "insectbite_4b.weight_kg <= 8" },
+                  "7.5mg/kg twice daily for 5 days",
+                  {
+                    "if": [
+                      { "expression": "insectbite_4b.weight_kg >= 8 && insectbite_4b.weight_kg <= 11" },
+                      "62.5mg twice daily for 5 days",
+                      {
+                        "if": [
+                          { "expression": "insectbite_4b.weight_kg >= 12 && insectbite_4b.weight_kg <= 19" },
+                          "125mg twice daily for 5 days",
+                          {
+                            "if": [
+                              { "expression": "insectbite_4b.weight_kg >= 20 && insectbite_4b.weight_kg <= 29" },
+                              "187.5mg twice daily for 5 days",
+                              {
+                                "if": [
+                                  { "expression": "insectbite_4b.weight_kg >= 30 && insectbite_4b.weight_kg <= 40" },
+                                  "250mg twice daily for 5 days",
+                                  "500mg twice daily for 5 days"
+                                ]
+                              }
+                            ]
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "id": "insectbite_4b.route_and_food",
+          "type": "text",
+          "label": "Route/method",
+          "default": "Oral. Tablets swallowed whole with water. Can be taken with or without food.",
+          "required": true
+        },
+        {
+          "id": "insectbite_4b.duration_days",
+          "type": "number",
+          "label": "Duration (days)",
+          "default": 5,
+          "required": true
+        },
+        {
+          "id": "insectbite_4b.quantity_option",
+          "type": "select",
+          "label": "Quantity supplied (PGD-listed)",
+          "required": true,
+          "options": [
+            "up_to_8kg__1x70ml_250mg5ml_or_1x70ml_125mg5ml",
+            "8_to_11kg__1x70ml_250mg5ml_or_1x70ml_125mg5ml",
+            "12_to_19kg__1x70ml_250mg5ml_or_1x70ml_125mg5ml",
+            "20_to_29kg__1x70ml_250mg5ml_or_2x70ml_125mg5ml",
+            "30_to_40kg__10x250mg_tabs_or_1x70ml_250mg5ml_or_2x70ml_125mg5ml",
+            "12to17_and_adults__10x500mg_tabs_or_20x250mg_tabs_or_2x70ml_250mg5ml_or_3x70ml_125mg5ml"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "insectbite_4c_erythromycin_pgd",
+      "title": "4c Erythromycin (PGD)",
+      "visible_if": { "field": "decision.insectbite.final_route", "equals": "erythromycin_4c_pgd" },
+      "fields": [
+        {
+          "id": "insectbite_4c.confirm_criteria",
+          "type": "boolean",
+          "label": "Confirmed pregnant/suspected pregnancy + age 16+ + flucloxacillin not appropriate due to hypersensitivity",
+          "required": true
+        },
+        {
+          "id": "insectbite_4c.branch_blockers_present",
+          "type": "calculated_boolean",
+          "label": "Erythromycin branch blockers present",
+          "formula": "!(patient.age >= 16) || !(insectbite.pregnancy_status in ['pregnant','suspected_pregnancy']) || insectbite.penicillin_hypersensitivity_or_severe_beta_lactam_history == false || insectbite.macrolide_hypersensitivity == true || insectbite.current_long_term_macrolide_use == true || insectbite.known_myasthenia_gravis == true || insectbite.known_qt_prolongation_or_ventricular_arrhythmia == true || insectbite.on_qt_prolonging_medicine == true || insectbite.known_electrolyte_disturbance == true || contains_any([insectbite.ckd_stage], ['stage_5']) || (exists(insectbite.egfr) && insectbite.egfr < 15) || insectbite.previous_macrolide_associated_jaundice_or_hepatic_dysfunction == true || insectbite.known_or_suspected_liver_disease_for_macrolide_branch == true || insectbite.concurrent_potentially_hepatotoxic_medicine == true || insectbite.known_heart_disease == true || insectbite.known_porhyria == true || insectbite.less_than_3_days_before_or_within_3_days_after_oral_typhoid_vaccine == true || (insectbite.interactions.erythromycin_blockers && !contains(insectbite.interactions.erythromycin_blockers, 'none'))"
+        },
+        {
+          "id": "insectbite_4c.formulation_supplied",
+          "type": "select",
+          "label": "Formulation supplied",
+          "required": true,
+          "options": [
+            "250mg_tablets",
+            "250mg_gastro_resistant_tablets",
+            "500mg_tablets",
+            "125mg_per_5ml_oral_suspension_or_solution_100ml",
+            "125mg_per_5ml_sugar_free_oral_suspension_or_solution_100ml",
+            "250mg_per_5ml_oral_suspension_or_solution_100ml",
+            "250mg_per_5ml_sugar_free_oral_suspension_or_solution_100ml"
+          ]
+        },
+        {
+          "id": "insectbite_4c.dose_regimen",
+          "type": "text",
+          "label": "Dose regimen",
+          "default": "500mg four times daily for 5 days",
+          "required": true
+        },
+        {
+          "id": "insectbite_4c.route_and_food",
+          "type": "text",
+          "label": "Route/method",
+          "default": "Oral, with water (just before or with food). Tablets swallowed whole.",
+          "required": true
+        },
+        {
+          "id": "insectbite_4c.duration_days",
+          "type": "number",
+          "label": "Duration (days)",
+          "default": 5,
+          "required": true
+        },
+        {
+          "id": "insectbite_4c.quantity_option",
+          "type": "select",
+          "label": "Quantity supplied (PGD-listed)",
+          "required": true,
+          "options": [
+            "20x500mg_tablets",
+            "40x250mg_tablets",
+            "2x100ml_250mg5ml_oral_suspension_or_solution",
+            "4x100ml_125mg5ml_oral_suspension_or_solution"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "insectbite_decision_finalize",
+      "title": "Final Decision / Outcome",
+      "fields": [
+        {
+          "id": "decision.insectbite.final_route",
+          "type": "select",
+          "label": "Final route",
+          "options": [
+            "flucloxacillin_4a_pgd",
+            "clarithromycin_4b_pgd",
+            "erythromycin_4c_pgd",
+            "no_supply_self_care",
+            "no_supply_refer_prescriber",
+            "urgent_ae_referral"
+          ]
+        },
+        {
+          "id": "decision.insectbite.final_status",
+          "type": "select",
+          "label": "Final status",
+          "options": [
+            "pgd_supply",
+            "self_care_only",
+            "urgent_prescriber_referral",
+            "urgent_ae_referral",
+            "excluded_or_not_indicated"
+          ]
+        },
+        {
+          "id": "decision.insectbite.rationale",
+          "type": "textarea",
+          "label": "Decision rationale",
+          "required": true
+        }
+      ]
+    },
+    {
+      "id": "insectbite_advice_counselling_safetynetting",
+      "title": "Advice / Counselling / Safety-netting",
+      "fields": [
+        {
+          "id": "insectbite.target_self_care_leaflet_provided",
+          "type": "boolean",
+          "label": "TARGET self-care leaflet provided",
+          "required": true
+        },
+        {
+          "id": "insectbite.nhs_insect_bites_info_provided",
+          "type": "boolean",
+          "label": "NHS Website insect bites/stings information provided/signposted",
+          "required": true
+        },
+        {
+          "id": "insectbite.ukhsa_tick_awareness_provided",
+          "type": "boolean",
+          "label": "UKHSA Tick Awareness information provided (where relevant)",
+          "required": true
+        },
+        {
+          "id": "insectbite.anaphylaxis_campaign_info_provided",
+          "type": "boolean",
+          "label": "Anaphylaxis Campaign insect sting allergy information provided (where relevant)",
+          "required": true
+        },
+        {
+          "id": "insectbite.draw_line_or_photo_monitoring_advice",
+          "type": "boolean",
+          "label": "Advised to mark border of erythema or take clear photos for monitoring",
+          "required": true
+        },
+        {
+          "id": "insectbite.return_if_worse_or_no_improvement_3_days",
+          "type": "boolean",
+          "label": "Advised to return/reseek care if worse anytime or not improved after 3 days",
+          "required": true
+        },
+        {
+          "id": "insectbite.antihistamine_self_care_discussed",
+          "type": "boolean",
+          "label": "Oral antihistamine self-care option discussed (if appropriate)",
+          "required": true
+        },
+        {
+          "id": "insectbite.pil_provided_or_advised",
+          "type": "boolean",
+          "label": "PIL provided/advised (if medicine supplied)",
+          "required": true
+        },
+        {
+          "id": "insectbite.target_antibiotic_checklist_used",
+          "type": "boolean",
+          "label": "TARGET antibiotic checklist used (if antibiotic supplied)",
+          "required": false
+        },
+        {
+          "id": "insectbite.breastfeeding_monitoring_advice_given",
+          "type": "boolean",
+          "label": "Breastfeeding infant monitoring advice given (if applicable)",
+          "required": false
+        },
+        {
+          "id": "insectbite.safety_netting_detail",
+          "type": "textarea",
+          "label": "Safety-netting / follow-up advice details",
+          "required": true
+        }
+      ]
+    }
+  ],
+  "rules": [
+    {
+      "id": "IB_R1_urgent_ae_redflags",
+      "when": [
+        { "field": "decision.insectbite.red_flag_status", "equals": "urgent_ae" }
+      ],
+      "then": [
+        { "action": "set", "field": "decision.insectbite.final_route", "value": "urgent_ae_referral" },
+        { "action": "set", "field": "decision.insectbite.final_status", "value": "urgent_ae_referral" },
+        { "action": "set", "field": "referral.required", "value": true },
+        { "action": "set", "field": "referral.destination", "value": "a_and_e" },
+        { "action": "show_message", "level": "critical", "text": "Urgent A&E/ambulance referral indicated (e.g. anaphylaxis/angioedema, sepsis, mouth/throat/tongue/eye site risk, severe immunosuppression with infection)." }
+      ]
+    },
+    {
+      "id": "IB_R2_urgent_prescriber_redflags",
+      "when": [
+        { "field": "decision.insectbite.red_flag_status", "equals": "urgent_prescriber" }
+      ],
+      "then": [
+        { "action": "set", "field": "decision.insectbite.final_route", "value": "no_supply_refer_prescriber" },
+        { "action": "set", "field": "decision.insectbite.final_status", "value": "urgent_prescriber_referral" },
+        { "action": "set", "field": "referral.required", "value": true },
+        { "action": "set", "field": "referral.urgency", "value": "urgent_same_day_gp" }
+      ]
+    },
+    {
+      "id": "IB_R3_not_indicated_self_care",
+      "when": [
+        { "field": "decision.insectbite.red_flag_status", "equals": "no_red_flags" },
+        { "field": "insectbite.no_clear_evidence_of_infection", "equals": true }
+      ],
+      "then": [
+        { "action": "set", "field": "decision.insectbite.final_route", "value": "no_supply_self_care" },
+        { "action": "set", "field": "decision.insectbite.final_status", "value": "self_care_only" },
+        { "action": "set", "field": "consultation.outcome.primary_outcome", "value": "self_care_advice_only" }
+      ]
+    },
+    {
+      "id": "IB_R4_base_route_candidate_flucloxacillin",
+      "when": [
+        { "field": "decision.insectbite.route_candidate", "equals": "flucloxacillin_4a" }
+      ],
+      "then": [
+        {
+          "action": "conditional_set",
+          "if": { "field": "insectbite_4a.branch_blockers_present", "equals": true },
+          "true_value": { "field": "decision.insectbite.final_route", "value": "no_supply_refer_prescriber" },
+          "false_value": { "field": "decision.insectbite.final_route", "value": "flucloxacillin_4a_pgd" }
+        }
+      ]
+    },
+    {
+      "id": "IB_R5_base_route_candidate_clarithromycin",
+      "when": [
+        { "field": "decision.insectbite.route_candidate", "equals": "clarithromycin_4b" }
+      ],
+      "then": [
+        {
+          "action": "conditional_set",
+          "if": { "field": "insectbite_4b.branch_blockers_present", "equals": true },
+          "true_value": { "field": "decision.insectbite.final_route", "value": "no_supply_refer_prescriber" },
+          "false_value": { "field": "decision.insectbite.final_route", "value": "clarithromycin_4b_pgd" }
+        }
+      ]
+    },
+    {
+      "id": "IB_R6_base_route_candidate_erythromycin",
+      "when": [
+        { "field": "decision.insectbite.route_candidate", "equals": "erythromycin_4c" }
+      ],
+      "then": [
+        {
+          "action": "conditional_set",
+          "if": { "field": "insectbite_4c.branch_blockers_present", "equals": true },
+          "true_value": { "field": "decision.insectbite.final_route", "value": "no_supply_refer_prescriber" },
+          "false_value": { "field": "decision.insectbite.final_route", "value": "erythromycin_4c_pgd" }
+        }
+      ]
+    },
+    {
+      "id": "IB_R7_excluded_or_outside_pgd",
+      "when": [
+        { "field": "decision.insectbite.route_candidate", "equals": "excluded_or_not_indicated" }
+      ],
+      "then": [
+        { "action": "set", "field": "decision.insectbite.final_route", "value": "no_supply_refer_prescriber" },
+        { "action": "set", "field": "decision.insectbite.final_status", "value": "excluded_or_not_indicated" },
+        { "action": "set", "field": "consultation.no_supply_reason", "value": "pgd_exclusion_met" }
+      ]
+    },
+    {
+      "id": "IB_R8_any_pgd_supply_sets_outcome",
+      "when": [
+        {
+          "field": "decision.insectbite.final_route",
+          "in": ["flucloxacillin_4a_pgd", "clarithromycin_4b_pgd", "erythromycin_4c_pgd"]
+        }
+      ],
+      "then": [
+        { "action": "set", "field": "decision.insectbite.final_status", "value": "pgd_supply" },
+        { "action": "set", "field": "consultation.outcome.primary_outcome", "value": "pgd_medicine_supplied" }
+      ]
+    },
+    {
+      "id": "IB_R9_no_supply_refer_sets_referral",
+      "when": [
+        { "field": "decision.insectbite.final_route", "equals": "no_supply_refer_prescriber" }
+      ],
+      "then": [
+        { "action": "set", "field": "referral.required", "value": true },
+        { "action": "set", "field": "decision.insectbite.final_status", "value": "urgent_prescriber_referral" }
+      ]
+    }
+  ],
+  "validations": [
+    {
+      "id": "IB_V1_clear_infection_threshold",
+      "type": "error",
+      "expression": "!(insectbite.clear_evidence_of_infection_meets_pgd_definition == true && (insectbite.infection_feature_count < 3 || contains(insectbite.additional_infection_evidence, 'none')))",
+      "message": "PGD infected bite/sting criteria require worsening/present infection >=48h, 3+ core infection features, and spreading redness/swelling or pustular discharge."
+    },
+    {
+      "id": "IB_V2_4c_requires_pregnancy_age16_and_penicillin_hypersensitivity",
+      "type": "error",
+      "expression": "decision.insectbite.final_route != 'erythromycin_4c_pgd' || ((patient.age >= 16) && (insectbite.pregnancy_status == 'pregnant' || insectbite.pregnancy_status == 'suspected_pregnancy') && insectbite.penicillin_hypersensitivity_or_severe_beta_lactam_history == true)",
+      "message": "4c erythromycin route requires pregnancy/suspected pregnancy, age 16+, and flucloxacillin not appropriate due to hypersensitivity."
+    },
+    {
+      "id": "IB_V3_4b_not_for_pregnancy",
+      "type": "error",
+      "expression": "decision.insectbite.final_route != 'clarithromycin_4b_pgd' || !(insectbite.pregnancy_status == 'pregnant' || insectbite.pregnancy_status == 'suspected_pregnancy')",
+      "message": "4b clarithromycin route excludes pregnancy/suspected pregnancy."
+    },
+    {
+      "id": "IB_V4_redflags_require_referral",
+      "type": "error",
+      "expression": "!(decision.insectbite.red_flag_status != 'no_red_flags' && referral.required != true)",
+      "message": "Red flags/escalation require referral documentation."
+    }
+  ],
+  "counselling_templates": {
+    "common_infected_insect_bite": [
+      "Provide TARGET self-care leaflet and NHS insect bites/stings information.",
+      "Where relevant, provide UKHSA Tick Awareness and Anaphylaxis Campaign insect sting allergy information.",
+      "Advise marking erythema border or taking clear photos for monitoring.",
+      "Advise to seek reassessment if symptoms worsen at any time or do not improve after 3 days."
+    ],
+    "flucloxacillin_4a": [
+      "Take four times daily for 5 days and complete course.",
+      "Take 1 hour before or 2 hours after food.",
+      "Counsel on coumarin anticoagulant INR monitoring if relevant and bleeding advice."
+    ],
+    "clarithromycin_4b": [
+      "Take twice daily for 5 days and complete course.",
+      "Can be taken with or without food.",
+      "Liquid may cause bitter aftertaste; drink juice/water after dose.",
+      "Counsel on interaction risks (e.g. anticoagulants, statins, CCBs, digoxin, hypoglycaemics) where relevant."
+    ],
+    "erythromycin_4c": [
+      "Take 500mg four times daily for 5 days and complete course.",
+      "Take just before or with food.",
+      "Counsel on interaction/QT risks and seek urgent help if severe symptoms occur."
+    ]
+  },
+  "notes_for_implementation": [
+    "Shared exclusion/referral triggers are largely common across 4a/4b/4c and should be rendered before route-specific medicine branches.",
+    "Use a configurable interaction service (BNF/SPC-backed) in production rather than relying only on checkbox blockers in UI.",
+    "Keep a free-text 'other exclusion / other interacting medicine' field for safe override + audit trail."
+  ]
+}

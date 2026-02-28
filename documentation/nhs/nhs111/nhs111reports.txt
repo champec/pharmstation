@@ -1,0 +1,293 @@
+NHS 111 API standard
+API standard to share information between NHS 111 and other organisations, such as GPs and ambulance services, and query the Repeat Caller Service.
+
+Overview
+Use this API standard for point-to-point messaging to share information between NHS 111 and other organisations, such as GPs and ambulance services, when a patient interacts with NHS 111. 
+
+It supports the following communication types from NHS 111:
+
+advise a healthcare facility or GP of an expected visit from a patient who has called NHS 111
+advise a patient's GP when a patient is referred to another healthcare facility
+advise the ambulance service that a patient requires an ambulance
+query the Repeat Caller Service
+
+For a non-technical overview of how to build software that deals with referrals and bookings, see Building healthcare software - referrals and bookings.
+
+Status
+This API standard is active.
+
+Technology
+This API standard uses synchronous ITK SOAP with an ITK CDA payload.
+
+NHS 111 Report adaptor
+If you are building a system that receives NHS 111 reports, you can use our NHS 111 Report adaptor to receive SOAP messages and convert them to an easy-to-use FHIR-compliant format. 
+
+Interactions
+For a full list of interactions for this API standard, see the NHS 111 Domain Message Specification as a website - or download it as a zip file below.
+ 
+
+ARTICLE
+NHS 111 Domain Message Specification V2.1 RC1
+
+Web version.
+
+NHS 111 Domain Message Specification V2.1 RC1
+
+zip 18 MB
+
+
+
+NHS 111 Report adaptor
+Use this adaptor to receive and route NHS 111 report messages to a patient’s GP when the NHS 111 call centre has made a call out or referral on the patient’s behalf.
+
+Page contents
+Top of page
+Overview
+Adaptor status and version
+Technology
+Deployment and Integration
+Testing
+Onboarding
+Operating and administration
+Overview
+Use this adaptor to receive NHS 111 Report messages from NHS 111, for example into a GP system, following a patient's call to the free NHS 111 service. 
+
+You can receive and route a "post event message" to their GP when NHS 111 requests:
+
+an ambulance call out
+a referral to a local emergency department
+a referral to an Out Of Hours service
+a referral to their GP
+The NHS 111 Report adaptor can receive messages from the NHS 111 service and post them to the mailbox of the relevant GP practice.
+
+This adaptor is a self-hosted component - you must deploy it within your own environment. 
+
+Adaptor status and version
+The status for this adaptor is Live (Beta private).
+
+We are currently in private beta, working with a limited number of partners to gain feedback and improve the service.
+
+The latest version of the adaptor is 1.0.5-arm64 and 1.0.5-amd64
+
+Technology
+This adaptor receives ITK 2.2 wrapped Clinical Document Architecture (CDA) XML documents over web services, and converts them into structured FHIR messages before posting them onto the GP system's inbound event queue.
+
+This adaptor is a self-hosted component - you must deploy it within your own environment.
+
+The following diagram illustrates the NHS 111 Report adaptor:
+
+Diagram illustrating NHS 111 Report adaptor
+
+Deployment and Integration
+Deployment
+You can deploy this adaptor where you like, for example, in a public or private cloud environment.
+
+We have created a Docker image for the adaptor which you can find in Docker Hub along with the relevant install guidelines:
+
+NHS 111 Report adaptor Docker image
+Directory of Services registration and maintenance
+NHS 111 providers invoking the adaptor's ITK web service need to look up the relevant endpoint associated with the patient's registered GP practice.
+
+Lookups are performed against the Directory of Service (DoS).  The GP supplier is responsible for registering and maintaining accurate endpoints and service profiles within DoS through their dedicated DoS Lead.
+
+We advise GP suppliers to engage with their relevant Integrated Care Systems (ICSs) for more details.
+
+Inbound queue configuration
+The post event messages (PEM) handled by the adaptor are sent to the Active Message Queue within the GP supplier's own environment and are not stored within the NHS 111 adaptor itself.  
+
+You need to configure the following environment variables to enable this:
+
+PEM111_AMQP_BROKER
+PEM111_AMQP_QUEUE_NAME
+PEM111_AMQP_USERNAME
+PEM111_AMQP_PASSWORD
+
+Following the release of version 1.0.5-arm64 and 1.0.5-amd64, we now support RabbitMQ using AMQP protocol 0-9-1.
+
+For this, you need to set the following environment variables:
+
+PEM111_AMQP_BROKER - to prevent a breaking change, the full URL should be given in the form of amqp://address:port. The address section is extracted for configuration as long as your URL contains the leading :// and the following : before the port number.
+
+PEM111_AMQP_PORT
+
+PEM111_AMQP_PROTOCOL - needs to be set exactly to "0-9-1"
+
+PEM111_AMQP_QUEUE_NAME
+
+PEM111_AMQP_USERNAME
+
+PEM111_AMQP_PASSWORD
+
+PEM111_AMQP_ROUTING_KEY
+
+PEM111_AMQP_SSL_ENABLED - defaults to false
+
+Testing
+For details on integration testing, see the integration testing section of our GitHub repository.
+
+Contents include:
+
+prerequisites for integration testing
+how to run unit and integration testing
+example message bundles
+Onboarding
+This adaptor enables access to national NHS Systems. You need to configure it to integrate with the relevant NHS environments.
+
+You need to get your software approved by us before it can go live with this adaptor. We call this onboarding. The onboarding process can sometimes be quite long, so it’s worth planning well ahead.
+
+For more details, see onboarding.
+
+Operating and administration
+Find out how to operate this adaptor in your own infrastructure in our GitHub repository. This covers areas such as log consumption, tooling, audit and other topics.
+
+Last edited: 17 February 2026 4:06 pm
+
+
+github - https://github.com/NHSDigital/integration-adaptor-111
+
+
+integration-adaptor-111
+The 111 adaptor enables GP Practices to receive NHS 111 Report messages from NHS 111, for example into a GP system, following a patient's call to the free NHS 111 service.
+
+You can receive and route a “post event message” to their GP when NHS 111 requests:
+
+an ambulance call out
+a referral to a local emergency department
+a referral to an Out Of Hours service
+a referral to their GP
+The NHS 111 Report adaptor can receive messages from the NHS 111 service and post them to the mailbox of the relevant GP practice.
+
+Adaptor Scope
+The main objective of the 111 Adaptor is to hide complex legacy standards and instead present a simple and consistent interface aligned to current NHS England national standards. The adaptor receives ITK 2.2 wrapped Clinical Document Architecture (CDA) XML documents over web services, and converts them into structured FHIR messages before posting them onto the GP system's inbound event queue.
+
+The 111 adaptor consists of two docker images: proxy and adaptor, you must deploy it within your own environment.
+
+The following diagram illustrates the NHS 111 Report adaptor: 111 SysContext
+
+Configuration
+The adaptor reads its configuration from environment variables. The following sections describe the environment variables used to configure the adaptor.
+
+Inbound Queue Configuration
+The post event messages (PEM) handled by the adaptor are sent to the Active Message Queue within the GP supplier's own environment and are not stored within the NHS 111 adaptor itself.
+
+You need to configure the following environment variables to enable the version 1-0-0 protocol this:
+
+PEM111_AMQP_BROKER
+PEM111_AMQP_QUEUE_NAME
+PEM111_AMQP_USERNAME
+PEM111_AMQP_PASSWORD
+If using RabbitMQ protocol 0-9-1 then the following variables need to be set:
+
+PEM111_AMQP_BROKER - to prevent a breaking change, the full url should be given in the form of amqp://address:port. The address section will be extracted for configuration as long as your url conforms to containing :// and :.
+PEM111_AMQP_PORT
+PEM111_AMQP_PROTOCOL - needs to be set to "0-9-1"
+PEM111_AMQP_QUEUE_NAME
+PEM111_AMQP_USERNAME
+PEM111_AMQP_PASSWORD
+PEM111_AMQP_ROUTING_KEY
+PEM111_AMQP_SSL_ENABLED - defaults to false
+SOAP ITK
+PEM111_SOAP_VALIDATION_ENABLED - Incoming SOAP ITK message can be validated. You can decide whether you want it enabled. Supported values are true and false
+PEM111_SOAP_SEND_TO - if the validation is on then one of the checked fields is SOAP To - it's the URL of /report endpoint. You can set the expected value using this variable.
+ITK HEADER
+ODS code and DOS Service ID from ITK addresslist.address are validated against list of supported values. Supported ODS codes and DOS Service ID's should be separated with comma, for example PEM111_ITK_ODS_CODE_LIST=RSHSO14A,20000729 Values should be set in the following env variables:
+
+PEM111_ITK_ODS_CODE_LIST
+PEM111_ITK_DOS_ID_LIST
+Alternatively you can configure the adaptor to fetch the ODS codes/DOS Ids from external server. Adaptor will read the configuration and reload it without any downtime. Following variables can be used to set up configuration service URL and the poll interval.
+
+PEM111_ITK_EXTERNAL_CONFIGURATION_URL
+PEM111_ITK_FETCH_INTERVAL_MIN
+Configuration service has to expose a single GET endpoint returning application/json data in matching the following schema:
+
+{
+  "type": "object",
+  "required": ["odsCodes", "dosIds"],
+  "properties": {
+    "odsCodes": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "dosIds": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  }
+}
+Example:
+
+{
+   "odsCodes": [
+      "EM396",
+      "5L399"
+   ],
+   "dosIds": [
+      "26428",
+      "96465",
+      "48583"
+   ]
+}
+ODS code/DOS ID validation rules
+At least one property of PEM111_ITK_ODS_CODE_LIST, PEM111_ITK_DOS_ID_LIST, PEM111_ITK_EXTERNAL_CONFIGURATION_URL has to be set. Adaptor will fail to start if none is provided.
+If you provide external service URL as well as ODS/DOS lists then external configuration overrides the defined lists.
+Adaptor validates provided external service URL on startup. If the endpoint is unreachable, does not respond with HTTP 200 or responds with invalid data then adaptor will fail to start.
+Incoming ITK message will be accepted when either ODS code or DOS Id is correct.
+TLS Mutual Authentication
+Nginx proxy is used to handle TLS MA. In order to configure it you need to set the following env variables:
+
+NGINX_PUBLIC_CERT - Server public certificate
+NGINX_PRIVATE_CERT - Server private certificate
+NGINX_CLIENT_PUBLIC_CERT - Client public certificate
+NGINX_CA_CERT - Root certificate
+NGINX_CRL - Certificate revocation list
+NGINX_CRL_URL - CRL URL - Nginx can download CRL on startup
+Mapping documentation
+To help understand what fields are populated by the adaptor we provide ITK to FHIR field mappings.
+
+We also provide example JSON payloads of what the adaptor generates from an incoming XML payload.
+
+ITK Testbench
+The ITK Testbench provided by NHS England has an essential tool for ITK interface development and conformance. This tool provides resources that will allow you to adequately test the 111 adaptor within your own environment.
+
+Test Pack
+Our testing pack as well our test harness can be found inside the test-suite directory Test-Suite
+
+NIA Support (NHS England) guidance
+If you are looking to make changes to the adaptor you should first read the guidance for developing the adaptor.
+
+
+# Developer Information
+
+> [!WARNING]
+> The audience of this documentation is designed for NHS England developers.
+
+## Pre requisites for running the Adaptor:
+1. JDK 21
+2. Docker
+
+## How to run service:
+* Navigate to `docker`
+* Run script: `./start-local-environment.sh`
+
+The above script builds the necessary docker images and starts the SpringBoot service and ActiveMQ
+* REST service `localhost:10001`
+* ActiveMQ: `localhost:5672`
+
+## How to run unit tests:
+* Navigate to `service`
+* Run: `./gradlew test`
+
+## How to run integration tests:
+* Navigate to `service`
+* Run: `./gradlew integrationTest`
+
+## Example bundle message
+* Example bundle messages can be found inside of [/doc/json folder](doc/json) mapped from similarly named [ITK files within the /doc/xml folder](doc/xml).
+
+## AMQP Variables
+* Queue name: `encounter-report`
+* Broker: `amqp://activemq:5672`

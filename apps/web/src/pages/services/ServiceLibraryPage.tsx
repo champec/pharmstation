@@ -8,7 +8,7 @@ const CATEGORY_LABELS: Record<string, string> = {
   vaccination: '💉 Vaccinations',
   screening: '🔬 Screening',
   consultation: '🗣 Consultations',
-  pharmacy_first: '🏥 Pharmacy First',
+  pharmacy_first: '🏥 Pharmacy First — Pathways',
   general: '📋 General',
 }
 

@@ -1,0 +1,15 @@
+{
+  "name": "pharmstation-nhs111-bridge",
+  "version": "1.0.0",
+  "description": "AMQP→Supabase bridge for NHS 111 FHIR bundles",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "amqplib": "^0.10.4"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

@@ -5,11 +5,11 @@ import { getUserClient } from '@pharmstation/supabase-client'
 import type { NHSClaimSubmission, NHSSubmissionAttempt } from '@pharmstation/types'
 
 const SERVICE_TYPE_LABELS: Record<string, string> = {
-  cpcs_emg_med:     'CPCS Emergency Medicine Supply',
-  cpcs_min_ill:     'CPCS Minor Illness',
-  cpcs_emg_uec:     'CPCS Emergency Medicine Supply (UEC)',
-  cpcs_min_ill_uec: 'CPCS Minor Illness (UEC)',
-  cpcs_ccs:         'Pharmacy First',
+  cpcs_emg_med:     'Pharmacy First — Emergency Medicine Supply',
+  cpcs_min_ill:     'Pharmacy First — Minor Illness',
+  cpcs_emg_uec:     'Pharmacy First — Emergency Medicine Supply (UEC)',
+  cpcs_min_ill_uec: 'Pharmacy First — Minor Illness (UEC)',
+  cpcs_ccs:         'Pharmacy First — Clinical Pathways',
   flu_vac:          'NHS Flu Vaccination',
   covid_vac:        'COVID Vaccination',
   gp_covid_vac:     'COVID Vaccination (GP Referral)',
@@ -93,9 +93,9 @@ export function NHSClaimDetailPage() {
     <div>
       <div className="page-header">
         <div className="breadcrumbs">
-          <a href="/nhs" onClick={(e) => { e.preventDefault(); navigate('/nhs') }}>NHS Services</a>
+          <a href="/services" onClick={(e) => { e.preventDefault(); navigate('/services') }}>Services</a>
           <span className="separator">/</span>
-          <a href="/nhs/claims" onClick={(e) => { e.preventDefault(); navigate('/nhs/claims') }}>Claims</a>
+          <a href="/services/claims" onClick={(e) => { e.preventDefault(); navigate('/services/claims') }}>Claims</a>
           <span className="separator">/</span>
           <span>Claim Detail</span>
         </div>
@@ -112,7 +112,7 @@ export function NHSClaimDetailPage() {
               {statusStyle.label}
             </span>
           </h1>
-          <button className="ps-btn ps-btn-secondary" onClick={() => navigate('/nhs/claims')}>← Back</button>
+          <button className="ps-btn ps-btn-secondary" onClick={() => navigate('/services/claims')}>← Back</button>
         </div>
       </div>
 

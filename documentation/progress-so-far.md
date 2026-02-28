@@ -61,3 +61,40 @@
 - [ ] Offline sync
 - [ ] Desktop (Tauri) app
 - [ ] Mobile (React Native) app
+
+---
+
+## Session — 28 Feb 2026 (NHS 111 Integration — Phases 1-3)
+
+### Phase 1 — Backend (Database + Edge Functions)
+- [x] Created `ps_nhs111_referrals` table (30+ columns, RLS, indexes, Realtime, trigger)
+- [x] Created `packages/types/src/nhs.ts` — NHS 111 type definitions (~250 lines)
+- [x] Deployed `nhs111-receive` edge function (v2) — FHIR STU3 → database processor (~500 lines)
+- [x] Deployed `get-ods-dos-codes` edge function (v7) — returns ODS codes & DoS IDs
+
+### Phase 2 — Frontend
+- [x] Created `packages/core/src/stores/nhs111-store.ts` — Zustand store with Realtime subscription
+- [x] Created NHS 111 Queue Page — real-time referral list with priority indicators
+- [x] Created NHS 111 Detail Page — full patient info, encounter details, action buttons
+- [x] Added routing (`/services/nhs111`, `/services/nhs111/:id`)
+- [x] Added SideNav link under Services section
+
+### Phase 3 — Infrastructure + Deployment
+- [x] Created `infrastructure/nhs111/` — docker-compose, bridge, Dockerfile, .env.example
+- [x] Deployed RabbitMQ on Railway
+- [x] Deployed NHS 111 Adaptor (`nhsdev/nia-111-adaptor:1.0.5-amd64`) on Railway
+- [x] Deployed Bridge (Node.js AMQP→Supabase forwarder) on Railway
+- [x] Fixed CgroupV2 crash (`JAVA_TOOL_OPTIONS=-XX:-UseContainerSupport`)
+- [x] Fixed `dosIds: null` NPE in adaptor (edge function returns `[]` not `null`)
+- [x] Fixed JMS/AMQP exchange mismatch — **the critical fix** (`PEM111_AMQP_EXCHANGE=jms.durable.queues`)
+- [x] Created NHS 111 Test Suite (`apps/nhs111-sandbox/`) — React + Express sandbox
+
+### ✅ End-to-End Pipeline Verified
+- Test message sent from sandbox → Adaptor converted CDA→FHIR → RabbitMQ → Bridge → Supabase
+- Database row confirmed: patient "Blogg Joe", NHS 1112223344, status "received"
+- Pipeline latency: < 2 seconds
+
+### Documentation
+- [x] `documentation/nhs/nhs111-pipeline.md` — comprehensive pipeline documentation
+- [x] Updated `infrastructure/nhs111/README.md` with critical fixes
+- [x] Updated `docker-compose.yml` and `.env.example` with correct exchange value

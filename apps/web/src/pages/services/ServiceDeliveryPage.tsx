@@ -4,7 +4,7 @@ import { useAuthStore, useServiceStore, useNHSStore, useOutcomeStore } from '@ph
 import type { GPSearchResult } from '@pharmstation/core'
 import { getUserClient } from '@pharmstation/supabase-client'
 import type { Patient, ServiceForm, ServiceFormField } from '@pharmstation/types'
-import { DeliveryOutcomePanel, createEmptyOutcome, type OutcomeData } from '../../components/outcomes/DeliveryOutcomePanel'
+import { MedicationPrescriber, createEmptyMedication, type PrescribedMedication } from '../../components/outcomes/MedicationPrescriber'
 
 /* ---- Human-readable labels for NHS field option codes ---- */
 const NHS_OPTION_LABELS: Record<string, string> = {
@@ -16,7 +16,7 @@ const NHS_OPTION_LABELS: Record<string, string> = {
   PHARMACIST: 'Pharmacist',
   PHARMACY_TECHNICIAN: 'Pharmacy Technician',
   ACCREDITED_CHECKING_TECHNICIAN: 'Accredited Checking Technician',
-  // CCS / Pharmacy First presenting complaints
+  // CCS / Pharmacy First — Clinical Pathways presenting complaints
   A_O_M: 'Acute Otitis Media (Ear Infection)',
   SHG: 'Shingles',
   I_I_B: 'Infected Insect Bite',
@@ -102,8 +102,8 @@ export function ServiceDeliveryPage() {
     clearError,
   } = useServiceStore()
 
-  /* ---- Steps: patient → form → outcome → review ---- */
-  const [step, setStep] = useState<'patient' | 'form' | 'outcome' | 'review'>('patient')
+  /* ---- Steps: patient → form → review ---- */
+  const [step, setStep] = useState<'patient' | 'form' | 'review'>('patient')
 
   /* ---- Patient state ---- */
   const [patientSearch, setPatientSearch] = useState('')
@@ -134,8 +134,9 @@ export function ServiceDeliveryPage() {
   const [formData, setFormData] = useState<Record<string, unknown>>({})
   const [notes, setNotes] = useState('')
 
-  /* ---- Outcome state ---- */
-  const [outcomeData, setOutcomeData] = useState<OutcomeData>(createEmptyOutcome())
+  /* ---- Medications state (shown when form outcome = MEDICINE_SUPPLIED) ---- */
+  const [medications, setMedications] = useState<PrescribedMedication[]>([])
+  const [showMedModal, setShowMedModal] = useState(false)
   const { saveOutcome } = useOutcomeStore()
 
   /* ---- Submission ---- */
@@ -310,6 +311,10 @@ export function ServiceDeliveryPage() {
       })
   }, [activeFields, formData])
 
+  /* ---- Derive whether medicine was supplied from form data ---- */
+  const medicineSupplied =
+    formData.OUTCOME === 'MEDICINE_SUPPLIED' || formData.MEDICINE_SUPPLIED === true
+
   const canSubmit = (selectedPatient || skipPatient) && requiredFieldsMissing.length === 0
 
   /* ---- Submit ---- */
@@ -330,33 +335,38 @@ export function ServiceDeliveryPage() {
         completed_at: new Date().toISOString(),
       })
 
-      // Save delivery outcome
+      // Derive outcome_type from form data OUTCOME field
+      const outcomeField = formData.OUTCOME as string | undefined
+      let outcomeType: 'prescription' | 'referral' | 'advice' | 'no_treatment' = 'advice'
+      if (outcomeField === 'MEDICINE_SUPPLIED' || formData.MEDICINE_SUPPLIED === true) {
+        outcomeType = 'prescription'
+      } else if (outcomeField === 'REFERRAL_TO_GP' || outcomeField === 'REFERRAL_TO_ED') {
+        outcomeType = 'referral'
+      } else if (outcomeField === 'ADVICE_ONLY') {
+        outcomeType = 'advice'
+      } else if (outcomeField === 'OTHER') {
+        outcomeType = 'advice'
+      }
+
+      // Save delivery outcome with medications if any
+      const filteredMeds = medications.filter((m) => m.drug_name.trim())
       await saveOutcome({
         delivery_id: delivery.id,
         org_id: organisation.id,
-        outcome_type: outcomeData.outcome_type,
-        referral_to: outcomeData.outcome_type === 'referral' ? outcomeData.referral_to || null : null,
-        referral_reason: outcomeData.outcome_type === 'referral' ? outcomeData.referral_reason || null : null,
-        referral_urgency: outcomeData.outcome_type === 'referral' ? outcomeData.referral_urgency : null,
-        advice_given: (outcomeData.outcome_type === 'advice' || outcomeData.outcome_type === 'no_treatment')
-          ? outcomeData.advice_given || null : null,
+        outcome_type: outcomeType,
         created_by: activeUser?.id || null,
-        medications: outcomeData.outcome_type === 'prescription'
-          ? outcomeData.medications
-              .filter((m) => m.drug_name.trim())
-              .map((m, i) => ({
-                drug_id: m.drug?.id || null,
-                drug_name: m.drug_name,
-                drug_form: m.drug_form,
-                drug_strength: m.drug_strength,
-                dose: m.dose || null,
-                quantity: m.quantity,
-                unit: m.unit || null,
-                directions: m.directions || null,
-                supply_type: m.supply_type,
-                is_controlled_drug: m.is_controlled_drug,
-                sort_order: i,
-              }))
+        medications: filteredMeds.length > 0
+          ? filteredMeds.map((m, i) => ({
+              drug_id: m.drug?.id || null,
+              drug_name: m.drug_name,
+              drug_form: m.drug_form,
+              drug_strength: m.drug_strength,
+              dose: m.dose || null,
+              quantity: m.quantity,
+              unit: m.unit || null,
+              is_controlled_drug: m.is_controlled_drug,
+              sort_order: i,
+            }))
           : undefined,
       })
 
@@ -398,7 +408,7 @@ export function ServiceDeliveryPage() {
               setNhsNumberInput('')
               setSelectedGP(null)
               setGpSearchQuery('')
-              setOutcomeData(createEmptyOutcome())
+              setMedications([])
             }}>
               Deliver Again
             </button>
@@ -447,8 +457,8 @@ export function ServiceDeliveryPage() {
         gap: 'var(--ps-space-md)',
         marginBottom: 'var(--ps-space-lg)',
       }}>
-        {(['patient', 'form', 'outcome', 'review'] as const).map((s, i) => {
-          const stepOrder = ['patient', 'form', 'outcome', 'review'] as const
+        {(['patient', 'form', 'review'] as const).map((s, i) => {
+          const stepOrder = ['patient', 'form', 'review'] as const
           const currentIdx = stepOrder.indexOf(step)
           const sIdx = stepOrder.indexOf(s)
           const isActive = step === s
@@ -471,11 +481,10 @@ export function ServiceDeliveryPage() {
               onClick={() => {
                 if (s === 'patient') setStep('patient')
                 if (s === 'form' && (selectedPatient || skipPatient)) setStep('form')
-                if (s === 'outcome' && (selectedPatient || skipPatient)) setStep('outcome')
                 if (s === 'review' && (selectedPatient || skipPatient)) setStep('review')
               }}
             >
-              {i + 1}. {s === 'patient' ? 'Patient' : s === 'form' ? 'Fill Form' : s === 'outcome' ? 'Outcome' : 'Review & Complete'}
+              {i + 1}. {s === 'patient' ? 'Patient' : s === 'form' ? 'Fill Form' : 'Review & Complete'}
             </div>
           )
         })}
@@ -858,6 +867,50 @@ export function ServiceDeliveryPage() {
             </div>
           )}
 
+          {/* Medications — shown when outcome indicates medicine supplied */}
+          {medicineSupplied && (
+            <div style={{ marginTop: 'var(--ps-space-lg)', borderTop: '1px solid var(--ps-off-white)', paddingTop: 'var(--ps-space-md)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 'var(--ps-space-sm)' }}>
+                <label style={{ fontWeight: 600, color: 'var(--ps-midnight)' }}>
+                  💊 Medications Supplied
+                  {medications.filter(m => m.drug_name.trim()).length > 0 && (
+                    <span style={{ fontWeight: 400, color: 'var(--ps-slate)', marginLeft: 8 }}>
+                      ({medications.filter(m => m.drug_name.trim()).length} item{medications.filter(m => m.drug_name.trim()).length !== 1 ? 's' : ''})
+                    </span>
+                  )}
+                </label>
+                <button
+                  type="button"
+                  className="ps-btn ps-btn-primary ps-btn-sm"
+                  onClick={() => {
+                    if (medications.length === 0) setMedications([createEmptyMedication()])
+                    setShowMedModal(true)
+                  }}
+                >
+                  {medications.filter(m => m.drug_name.trim()).length > 0 ? '✏️ Edit Medications' : '+ Add Medications'}
+                </button>
+              </div>
+
+              {/* Inline summary of added meds */}
+              {medications.filter(m => m.drug_name.trim()).length > 0 && (
+                <div style={{ background: 'var(--ps-off-white)', borderRadius: 'var(--ps-radius-md)', padding: 'var(--ps-space-sm) var(--ps-space-md)' }}>
+                  {medications.filter(m => m.drug_name.trim()).map((m, i) => (
+                    <div key={m.localId} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: 'var(--ps-space-xs) 0', borderBottom: i < medications.filter(x => x.drug_name.trim()).length - 1 ? '1px solid var(--ps-white)' : 'none', fontSize: 'var(--ps-font-sm)' }}>
+                      <span style={{ fontWeight: 500, color: 'var(--ps-midnight)' }}>
+                        {m.drug_name}
+                        {m.is_controlled_drug && <span style={{ marginLeft: 6, color: '#92400e', fontWeight: 700, fontSize: '0.7rem', background: '#fef3c7', padding: '1px 4px', borderRadius: 3 }}>CD</span>}
+                      </span>
+                      <span style={{ color: 'var(--ps-slate)' }}>
+                        {m.dose && `${m.dose}`}
+                        {(m.quantity ?? 0) > 0 && ` · Qty: ${m.quantity}${m.unit ? ` ${m.unit}` : ''}`}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Notes */}
           <div className="form-group" style={{ marginTop: 'var(--ps-space-lg)', borderTop: '1px solid var(--ps-off-white)', paddingTop: 'var(--ps-space-md)' }}>
             <label>Notes (optional)</label>
@@ -881,32 +934,6 @@ export function ServiceDeliveryPage() {
             <button className="ps-btn ps-btn-secondary" onClick={() => setStep('patient')}>
               ← Back
             </button>
-            <button className="ps-btn ps-btn-primary" onClick={() => setStep('outcome')}>
-              Next: Outcome →
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* ===== STEP 3: Outcome ===== */}
-      {step === 'outcome' && (
-        <div className="ps-card" style={{ padding: 'var(--ps-space-lg)' }}>
-          <h2 style={{ fontSize: 'var(--ps-font-lg)', fontWeight: 600, color: 'var(--ps-midnight)', marginBottom: 'var(--ps-space-md)' }}>
-            📋 Delivery Outcome
-          </h2>
-          <p style={{ color: 'var(--ps-slate)', marginBottom: 'var(--ps-space-lg)', fontSize: 'var(--ps-font-sm)' }}>
-            Record the outcome of this consultation — what action was taken for the patient.
-          </p>
-
-          <DeliveryOutcomePanel
-            value={outcomeData}
-            onChange={setOutcomeData}
-          />
-
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 'var(--ps-space-lg)' }}>
-            <button className="ps-btn ps-btn-secondary" onClick={() => setStep('form')}>
-              ← Back
-            </button>
             <button className="ps-btn ps-btn-primary" onClick={() => setStep('review')}>
               Next: Review →
             </button>
@@ -914,7 +941,66 @@ export function ServiceDeliveryPage() {
         </div>
       )}
 
-      {/* ===== STEP 4: Review & Complete ===== */}
+      {/* ===== Medication Modal ===== */}
+      {showMedModal && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0,0,0,0.5)',
+            zIndex: 1000,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: 'var(--ps-space-lg)',
+          }}
+          onClick={(e) => { if (e.target === e.currentTarget) setShowMedModal(false) }}
+        >
+          <div
+            style={{
+              background: 'var(--ps-white)',
+              borderRadius: 'var(--ps-radius-lg)',
+              padding: 'var(--ps-space-xl)',
+              width: '100%',
+              maxWidth: '720px',
+              maxHeight: '85vh',
+              overflowY: 'auto',
+              boxShadow: '0 20px 60px rgba(0,0,0,0.3)',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 'var(--ps-space-lg)' }}>
+              <h2 style={{ fontSize: 'var(--ps-font-lg)', fontWeight: 600, color: 'var(--ps-midnight)', margin: 0 }}>
+                💊 Medications Supplied
+              </h2>
+              <button
+                type="button"
+                className="ps-btn ps-btn-ghost"
+                onClick={() => setShowMedModal(false)}
+                style={{ fontSize: '18px', padding: '4px 8px' }}
+              >
+                ✕
+              </button>
+            </div>
+
+            <MedicationPrescriber
+              value={medications}
+              onChange={setMedications}
+              label="Medications"
+            />
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 'var(--ps-space-sm)', marginTop: 'var(--ps-space-lg)', borderTop: '1px solid var(--ps-off-white)', paddingTop: 'var(--ps-space-md)' }}>
+              <button className="ps-btn ps-btn-secondary" onClick={() => setShowMedModal(false)}>
+                Cancel
+              </button>
+              <button className="ps-btn ps-btn-primary" onClick={() => setShowMedModal(false)}>
+                ✓ Done
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ===== STEP 3: Review & Complete ===== */}
       {step === 'review' && (
         <div className="ps-card" style={{ padding: 'var(--ps-space-lg)' }}>
           <h2 style={{ fontSize: 'var(--ps-font-lg)', fontWeight: 600, color: 'var(--ps-midnight)', marginBottom: 'var(--ps-space-lg)' }}>
@@ -980,73 +1066,26 @@ export function ServiceDeliveryPage() {
             </div>
           )}
 
-          {/* Outcome summary */}
-          <div style={{ marginBottom: 'var(--ps-space-lg)' }}>
-            <h3 style={{ fontSize: 'var(--ps-font-md)', fontWeight: 600, marginBottom: 'var(--ps-space-sm)' }}>Delivery Outcome</h3>
-            <div style={{ background: 'var(--ps-off-white)', borderRadius: 'var(--ps-radius-md)', padding: 'var(--ps-space-md)' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', padding: 'var(--ps-space-xs) 0', borderBottom: '1px solid var(--ps-white)' }}>
-                <span style={{ fontWeight: 500 }}>Type</span>
-                <span style={{ color: 'var(--ps-slate)' }}>
-                  {outcomeData.outcome_type === 'prescription' ? '💊 Prescription / Supply'
-                    : outcomeData.outcome_type === 'referral' ? '📋 Referral'
-                    : outcomeData.outcome_type === 'advice' ? '💬 Advice Given'
-                    : '🚫 No Treatment'}
-                </span>
+          {/* Medications summary */}
+          {medications.filter(m => m.drug_name.trim()).length > 0 && (
+            <div style={{ marginBottom: 'var(--ps-space-lg)' }}>
+              <h3 style={{ fontSize: 'var(--ps-font-md)', fontWeight: 600, marginBottom: 'var(--ps-space-sm)' }}>💊 Medications Supplied</h3>
+              <div style={{ background: 'var(--ps-off-white)', borderRadius: 'var(--ps-radius-md)', padding: 'var(--ps-space-md)' }}>
+                {medications.filter(m => m.drug_name.trim()).map((m, i) => (
+                  <div key={m.localId} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: 'var(--ps-space-xs) 0', borderBottom: '1px solid var(--ps-white)', fontSize: 'var(--ps-font-sm)' }}>
+                    <span style={{ fontWeight: 500, color: 'var(--ps-midnight)' }}>
+                      {i + 1}. {m.drug_name}
+                      {m.is_controlled_drug && <span style={{ marginLeft: 6, color: '#92400e', fontWeight: 700, fontSize: '0.7rem', background: '#fef3c7', padding: '1px 4px', borderRadius: 3 }}>CD</span>}
+                    </span>
+                    <span style={{ color: 'var(--ps-slate)' }}>
+                      {m.dose && `${m.dose}`}
+                      {(m.quantity ?? 0) > 0 && ` · Qty: ${m.quantity}${m.unit ? ` ${m.unit}` : ''}`}
+                    </span>
+                  </div>
+                ))}
               </div>
-
-              {outcomeData.outcome_type === 'prescription' && outcomeData.medications.filter(m => m.drug_name.trim()).length > 0 && (
-                <div style={{ marginTop: 'var(--ps-space-sm)' }}>
-                  <span style={{ fontWeight: 500, fontSize: 'var(--ps-font-sm)' }}>Medications:</span>
-                  {outcomeData.medications.filter(m => m.drug_name.trim()).map((m, i) => (
-                    <div key={m.localId} style={{ padding: 'var(--ps-space-xs) 0', borderBottom: '1px solid var(--ps-white)', fontSize: 'var(--ps-font-sm)' }}>
-                      <div style={{ fontWeight: 500, color: 'var(--ps-midnight)' }}>
-                        {i + 1}. {m.drug_name}
-                        {m.is_controlled_drug && <span style={{ marginLeft: 6, color: 'var(--ps-error)', fontWeight: 700, fontSize: '0.75rem' }}>CD</span>}
-                      </div>
-                      <div style={{ color: 'var(--ps-slate)', paddingLeft: 'var(--ps-space-md)' }}>
-                        {m.drug_form && <span>{m.drug_form}</span>}
-                        {m.drug_strength && <span> · {m.drug_strength}</span>}
-                        {m.dose && <span> · Dose: {m.dose}</span>}
-                        {(m.quantity ?? 0) > 0 && <span> · Qty: {m.quantity}{m.unit ? ` ${m.unit}` : ''}</span>}
-                        {m.directions && <span> · {m.directions}</span>}
-                        <span style={{ marginLeft: 8, fontStyle: 'italic' }}>({m.supply_type})</span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {outcomeData.outcome_type === 'referral' && (
-                <div style={{ marginTop: 'var(--ps-space-xs)' }}>
-                  {outcomeData.referral_to && (
-                    <div style={{ display: 'flex', justifyContent: 'space-between', padding: 'var(--ps-space-xs) 0', borderBottom: '1px solid var(--ps-white)' }}>
-                      <span style={{ fontWeight: 500 }}>Referred To</span>
-                      <span style={{ color: 'var(--ps-slate)' }}>{outcomeData.referral_to}</span>
-                    </div>
-                  )}
-                  {outcomeData.referral_urgency && (
-                    <div style={{ display: 'flex', justifyContent: 'space-between', padding: 'var(--ps-space-xs) 0', borderBottom: '1px solid var(--ps-white)' }}>
-                      <span style={{ fontWeight: 500 }}>Urgency</span>
-                      <span style={{ color: 'var(--ps-slate)', textTransform: 'capitalize' }}>{outcomeData.referral_urgency}</span>
-                    </div>
-                  )}
-                  {outcomeData.referral_reason && (
-                    <div style={{ display: 'flex', justifyContent: 'space-between', padding: 'var(--ps-space-xs) 0' }}>
-                      <span style={{ fontWeight: 500 }}>Reason</span>
-                      <span style={{ color: 'var(--ps-slate)' }}>{outcomeData.referral_reason}</span>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {(outcomeData.outcome_type === 'advice' || outcomeData.outcome_type === 'no_treatment') && outcomeData.advice_given && (
-                <div style={{ display: 'flex', justifyContent: 'space-between', padding: 'var(--ps-space-xs) 0', marginTop: 'var(--ps-space-xs)' }}>
-                  <span style={{ fontWeight: 500 }}>{outcomeData.outcome_type === 'advice' ? 'Advice' : 'Notes'}</span>
-                  <span style={{ color: 'var(--ps-slate)', maxWidth: '60%', textAlign: 'right' }}>{outcomeData.advice_given}</span>
-                </div>
-              )}
             </div>
-          </div>
+          )}
 
           {requiredFieldsMissing.length > 0 && (
             <div style={{ fontSize: 'var(--ps-font-sm)', color: 'var(--ps-error)', marginBottom: 'var(--ps-space-md)', padding: 'var(--ps-space-sm) var(--ps-space-md)', background: 'rgba(239,68,68,0.08)', borderRadius: 'var(--ps-radius-md)' }}>
@@ -1055,8 +1094,8 @@ export function ServiceDeliveryPage() {
           )}
 
           <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 'var(--ps-space-lg)' }}>
-            <button className="ps-btn ps-btn-secondary" onClick={() => setStep('outcome')}>
-              ← Back to Outcome
+            <button className="ps-btn ps-btn-secondary" onClick={() => setStep('form')}>
+              ← Back to Form
             </button>
             <button
               className="ps-btn ps-btn-success"

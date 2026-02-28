@@ -16,4 +16,5 @@ export { usePatientMedicationStore, type PatientMedicationState } from './stores
 export { useDeliveryRoundStore, type DeliveryRoundState } from './stores/delivery-round-store'
 export { useDriverStore, type DriverState } from './stores/driver-store'
 export { useNHSStore, type NHSState, type NHSSettings, type GPSearchResult } from './stores/nhs-store'
+export { useNHS111Store, type NHS111State } from './stores/nhs111-store'
 export { useOutcomeStore, type OutcomeState } from './stores/outcome-store'

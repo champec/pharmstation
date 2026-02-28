@@ -1392,8 +1392,6 @@ export interface OutcomeMedication {
   dose: string | null
   quantity: number | null
   unit: string | null
-  directions: string | null
-  supply_type: 'dispensed' | 'owed' | 'not_supplied' | null
   is_controlled_drug: boolean
   sort_order: number
   created_at: string

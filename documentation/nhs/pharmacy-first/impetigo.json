@@ -1,0 +1,1065 @@
+{
+  "module_id": "pharmacy_first_impetigo_pathway",
+  "schema_version": "1.0.0",
+  "title": "Pharmacy First - Impetigo Pathway (3a/3b/3c/3d/3e)",
+  "description": "Shared impetigo assessment with 5-way treatment routing: hydrogen peroxide protocol, fusidic acid PGD, flucloxacillin PGD, clarithromycin PGD, erythromycin PGD.",
+  "depends_on": [
+    "core.consultation_context",
+    "core.patient_demographics",
+    "core.consent_information_sharing",
+    "core.med_history_allergies",
+    "core.outcome_gp_notification_shell"
+  ],
+  "entry_conditions": [
+    { "field": "consultation.service_type", "equals": "clinical_pathway" },
+    { "field": "consultation.pathway", "equals": "impetigo" }
+  ],
+  "sections": [
+    {
+      "id": "impetigo_core_assessment",
+      "title": "Impetigo Core Assessment",
+      "fields": [
+        {
+          "id": "impetigo.informed_consent",
+          "type": "boolean",
+          "label": "Informed consent obtained",
+          "required": true
+        },
+        {
+          "id": "impetigo.diagnosis_made_using_nice_cks",
+          "type": "boolean",
+          "label": "Signs/symptoms consistent with impetigo using NICE CKS diagnostic guidance",
+          "required": true
+        },
+        {
+          "id": "impetigo.non_bullous_confirmed",
+          "type": "boolean",
+          "label": "Non-bullous impetigo confirmed",
+          "required": true
+        },
+        {
+          "id": "impetigo.lesion_cluster_count",
+          "type": "number",
+          "label": "Number of lesions/clusters",
+          "required": true,
+          "min": 0
+        },
+        {
+          "id": "impetigo.distribution",
+          "type": "calculated_select",
+          "label": "Extent of impetigo",
+          "formula": {
+            "if": [
+              { "expression": "impetigo.lesion_cluster_count <= 3" },
+              "localised",
+              "widespread"
+            ]
+          }
+        },
+        {
+          "id": "impetigo.systemically_well",
+          "type": "boolean",
+          "label": "Systemically well",
+          "required": true
+        },
+        {
+          "id": "impetigo.at_high_risk_of_complications",
+          "type": "boolean",
+          "label": "Clinically high risk of complications",
+          "required": true
+        },
+        {
+          "id": "impetigo.bullous_features_present",
+          "type": "boolean",
+          "label": "Bullous impetigo features present",
+          "required": true
+        },
+        {
+          "id": "impetigo.recurrent_same_year",
+          "type": "boolean",
+          "label": "Recurrent impetigo (2 or more episodes in same year)",
+          "required": true
+        },
+        {
+          "id": "impetigo.current_active_underlying_skin_condition",
+          "type": "boolean",
+          "label": "Currently active underlying skin condition (e.g. uncontrolled eczema/contact dermatitis/scabies/chickenpox/eczema herpeticum)",
+          "required": true
+        },
+        {
+          "id": "impetigo.signs_more_serious_condition",
+          "type": "checklist",
+          "label": "Signs/symptoms of more serious condition / complications",
+          "required": true,
+          "options": [
+            "swelling",
+            "large_blisters",
+            "pain",
+            "pus",
+            "spreading_redness",
+            "suspected_cellulitis",
+            "suspected_staphylococcal_scalded_skin_syndrome",
+            "suspected_deep_soft_tissue_infection",
+            "none"
+          ]
+        },
+        {
+          "id": "impetigo.sepsis_suspected",
+          "type": "boolean",
+          "label": "Sepsis / severe life-threatening infection suspected",
+          "required": true
+        }
+      ]
+    },
+    {
+      "id": "impetigo_immuno_pregnancy_breastfeeding",
+      "title": "Immunosuppression / Pregnancy / Breastfeeding",
+      "fields": [
+        {
+          "id": "impetigo.age_1_or_over",
+          "type": "calculated_boolean",
+          "label": "Age 1 year or over",
+          "formula": "patient.age >= 1"
+        },
+        {
+          "id": "impetigo.age_16_or_over",
+          "type": "calculated_boolean",
+          "label": "Age 16 years or over",
+          "formula": "patient.age >= 16"
+        },
+        {
+          "id": "impetigo.pregnancy_status",
+          "type": "select",
+          "label": "Pregnancy status",
+          "required": true,
+          "options": ["pregnant", "suspected_pregnancy", "not_pregnant", "unknown", "not_applicable"]
+        },
+        {
+          "id": "impetigo.breastfeeding_status",
+          "type": "select",
+          "label": "Breastfeeding status",
+          "required": true,
+          "options": ["breastfeeding", "not_breastfeeding", "unknown", "not_applicable"]
+        },
+        {
+          "id": "impetigo.lesion_on_breast",
+          "type": "boolean",
+          "label": "Impetigo lesion(s) on breast(s)",
+          "required_if": {
+            "field": "impetigo.breastfeeding_status",
+            "equals": "breastfeeding"
+          }
+        },
+        {
+          "id": "impetigo.severely_immunosuppressed",
+          "type": "boolean",
+          "label": "Severely immunosuppressed (per Green Book/PGD definitions)",
+          "required": true
+        },
+        {
+          "id": "impetigo.immunosuppressed_not_severe",
+          "type": "boolean",
+          "label": "Immunosuppressed (not severe)",
+          "required": true
+        }
+      ]
+    },
+    {
+      "id": "impetigo_route_specific_prechecks",
+      "title": "Route-specific Pre-checks",
+      "fields": [
+        {
+          "id": "impetigo.hydrogen_peroxide_unsuitable",
+          "type": "boolean",
+          "label": "Hydrogen peroxide 1% cream unsuitable (e.g. around eye[s])",
+          "required": true,
+          "visible_if": { "field": "impetigo.distribution", "equals": "localised" }
+        },
+        {
+          "id": "impetigo.hydrogen_peroxide_ineffective_and_still_localised",
+          "type": "boolean",
+          "label": "Hydrogen peroxide ineffective and impetigo remains localised",
+          "required": true,
+          "visible_if": { "field": "impetigo.distribution", "equals": "localised" }
+        },
+        {
+          "id": "impetigo.penicillin_hypersensitivity_or_severe_beta_lactam_history",
+          "type": "boolean",
+          "label": "Penicillin hypersensitivity OR severe immediate hypersensitivity reaction to another beta-lactam",
+          "required": true,
+          "visible_if": { "field": "impetigo.distribution", "equals": "widespread" }
+        },
+        {
+          "id": "impetigo.previous_or_current_mrsa",
+          "type": "boolean",
+          "label": "Previous/current known MRSA colonisation or infection",
+          "required": true
+        },
+        {
+          "id": "impetigo.failed_previous_oral_antimicrobial_this_episode",
+          "type": "boolean",
+          "label": "Failed previous oral antimicrobial treatment for this episode",
+          "required": true,
+          "visible_if": { "field": "impetigo.distribution", "equals": "widespread" }
+        },
+        {
+          "id": "impetigo.unable_to_absorb_or_swallow_oral",
+          "type": "boolean",
+          "label": "Unable to absorb/swallow oral medication",
+          "required": true,
+          "visible_if": { "field": "impetigo.distribution", "equals": "widespread" }
+        },
+        {
+          "id": "impetigo.ketogenic_diet",
+          "type": "boolean",
+          "label": "Following ketogenic diet",
+          "required": false,
+          "visible_if": { "field": "impetigo.distribution", "equals": "widespread" }
+        }
+      ]
+    },
+    {
+      "id": "impetigo_oral_branch_clinical_risks",
+      "title": "Oral Branch Clinical Risks / Contraindications (Macrolide + Penicillin branches)",
+      "visible_if": { "field": "impetigo.distribution", "equals": "widespread" },
+      "fields": [
+        {
+          "id": "impetigo.known_ckd_stage",
+          "type": "select",
+          "label": "Known CKD stage",
+          "required": true,
+          "options": ["none_known", "stage_1", "stage_2", "stage_3a", "stage_3b", "stage_4", "stage_5", "unknown"]
+        },
+        {
+          "id": "impetigo.egfr",
+          "type": "number",
+          "label": "Most recent eGFR (if known)",
+          "required": false
+        },
+        {
+          "id": "impetigo.known_or_suspected_severe_liver_disease",
+          "type": "boolean",
+          "label": "Known/suspected severe liver disease",
+          "required": true
+        },
+        {
+          "id": "impetigo.known_qt_prolongation_or_ventricular_arrhythmia",
+          "type": "boolean",
+          "label": "Known QT prolongation or ventricular arrhythmia (incl torsades)",
+          "required": true
+        },
+        {
+          "id": "impetigo.known_heart_disease",
+          "type": "boolean",
+          "label": "Known heart disease (relevant for macrolide risk assessment)",
+          "required": true
+        },
+        {
+          "id": "impetigo.known_electrolyte_disturbance",
+          "type": "boolean",
+          "label": "Known hypokalaemia or hypomagnesaemia",
+          "required": true
+        },
+        {
+          "id": "impetigo.known_myasthenia_gravis",
+          "type": "boolean",
+          "label": "Known myasthenia gravis",
+          "required": true
+        }
+      ]
+    },
+    {
+      "id": "impetigo_interactions_screen",
+      "title": "Interaction Screen (branch blockers/cautions)",
+      "fields": [
+        {
+          "id": "impetigo.interactions.flucloxacillin_blockers_present",
+          "type": "checklist",
+          "label": "Flucloxacillin contraindicated/refer interactions present",
+          "required": false,
+          "options": [
+            "methotrexate",
+            "probenecid",
+            "voriconazole",
+            "oral_typhoid_vaccine_timing_conflict",
+            "none"
+          ]
+        },
+        {
+          "id": "impetigo.interactions.flucloxacillin_hagma_paracetamol_risk",
+          "type": "boolean",
+          "label": "Paracetamol + HAGMA risk factors (malnutrition/sepsis/renal impairment etc.) relevant",
+          "required": false
+        },
+        {
+          "id": "impetigo.interactions.clarithromycin_blockers_present",
+          "type": "checklist",
+          "label": "Clarithromycin contraindicated/refer interactions present",
+          "required": false,
+          "options": [
+            "simvastatin_or_lovastatin",
+            "astemizole_cisapride_domperidone_pimozide_terfenadine",
+            "ergotamine_or_dihydroergotamine",
+            "ranolazine",
+            "ticagrelor",
+            "chloroquine_or_hydroxychloroquine",
+            "colchicine",
+            "midazolam_oral",
+            "lomitapide",
+            "ivabradine",
+            "strong_cyp3a4_contraindicated_co_med",
+            "other_qt_prolonging_medicine",
+            "strong_cyp_inducer_may_reduce_clarithro",
+            "oral_typhoid_vaccine_timing_conflict",
+            "none"
+          ]
+        },
+        {
+          "id": "impetigo.interactions.erythromycin_blockers_present",
+          "type": "checklist",
+          "label": "Erythromycin contraindicated/refer interactions present",
+          "required": false,
+          "options": [
+            "simvastatin",
+            "tolterodine",
+            "amisulpride",
+            "astemizole_cisapride_mizolastine_domperidone_pimozide_terfenadine",
+            "ergotamine_or_dihydroergotamine",
+            "chloroquine_or_hydroxychloroquine",
+            "colchicine",
+            "lomitapide",
+            "moderate_cyp3a4_contraindicated_co_med",
+            "other_qt_prolonging_medicine",
+            "strong_cyp_inducer_may_reduce_erythro",
+            "doac_or_other_high_risk_affected_medicine",
+            "oral_typhoid_vaccine_timing_conflict",
+            "none"
+          ]
+        },
+        {
+          "id": "impetigo.interactions.coumarin_or_doac_caution",
+          "type": "boolean",
+          "label": "Coumarin anticoagulant / DOAC present (counselling/monitoring caution)",
+          "required": false
+        }
+      ]
+    },
+    {
+      "id": "impetigo_route_selection",
+      "title": "Impetigo Route Selection (3a/3b/3c/3d/3e)",
+      "fields": [
+        {
+          "id": "decision.impetigo.red_flag_status",
+          "type": "calculated_select",
+          "label": "Red flag / escalation status",
+          "formula": {
+            "if": [
+              {
+                "or": [
+                  { "field": "impetigo.sepsis_suspected", "equals": true },
+                  {
+                    "and": [
+                      { "field": "impetigo.severely_immunosuppressed", "equals": true },
+                      { "field": "impetigo.distribution", "equals": "widespread" }
+                    ]
+                  },
+                  {
+                    "field": "impetigo.signs_more_serious_condition",
+                    "not_contains": "none"
+                  }
+                ]
+              },
+              "urgent_ae",
+              {
+                "if": [
+                  {
+                    "or": [
+                      { "field": "impetigo.bullous_features_present", "equals": true },
+                      { "field": "impetigo.systemically_well", "equals": false },
+                      { "field": "impetigo.at_high_risk_of_complications", "equals": true },
+                      { "field": "impetigo.recurrent_same_year", "equals": true }
+                    ]
+                  },
+                  "urgent_prescriber",
+                  "no_red_flags"
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "id": "decision.impetigo.route_candidate",
+          "type": "calculated_select",
+          "label": "Proposed impetigo route",
+          "formula": {
+            "if": [
+              { "field": "decision.impetigo.red_flag_status", "in": ["urgent_ae", "urgent_prescriber"] },
+              "no_pharmacy_first_treatment",
+              {
+                "if": [
+                  {
+                    "or": [
+                      { "field": "impetigo.informed_consent", "equals": false },
+                      { "field": "impetigo.age_1_or_over", "equals": false },
+                      { "field": "impetigo.diagnosis_made_using_nice_cks", "equals": false },
+                      { "field": "impetigo.non_bullous_confirmed", "equals": false },
+                      { "field": "impetigo.previous_or_current_mrsa", "equals": true },
+                      { "field": "impetigo.current_active_underlying_skin_condition", "equals": true },
+                      {
+                        "and": [
+                          { "field": "impetigo.breastfeeding_status", "equals": "breastfeeding" },
+                          { "field": "impetigo.lesion_on_breast", "equals": true }
+                        ]
+                      }
+                    ]
+                  },
+                  "excluded_refer_prescriber",
+                  {
+                    "if": [
+                      { "field": "impetigo.distribution", "equals": "localised" },
+                      {
+                        "if": [
+                          {
+                            "or": [
+                              { "field": "impetigo.hydrogen_peroxide_unsuitable", "equals": true },
+                              { "field": "impetigo.hydrogen_peroxide_ineffective_and_still_localised", "equals": true }
+                            ]
+                          },
+                          "fusidic_acid_3b",
+                          "hydrogen_peroxide_3a"
+                        ]
+                      },
+                      {
+                        "if": [
+                          {
+                            "and": [
+                              { "field": "impetigo.pregnancy_status", "in": ["pregnant", "suspected_pregnancy"] },
+                              { "field": "impetigo.age_16_or_over", "equals": true },
+                              { "field": "impetigo.penicillin_hypersensitivity_or_severe_beta_lactam_history", "equals": true }
+                            ]
+                          },
+                          "erythromycin_3e",
+                          {
+                            "if": [
+                              { "field": "impetigo.penicillin_hypersensitivity_or_severe_beta_lactam_history", "equals": true },
+                              "clarithromycin_3d",
+                              "flucloxacillin_3c"
+                            ]
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "impetigo_route_blockers_and_finalize",
+      "title": "Route Blockers and Final Decision",
+      "fields": [
+        {
+          "id": "decision.impetigo.route_blocked",
+          "type": "calculated_boolean",
+          "label": "Route blocked by branch-specific exclusion/interaction",
+          "formula": "false"
+        },
+        {
+          "id": "decision.impetigo.final_route",
+          "type": "select",
+          "label": "Final route",
+          "required": false,
+          "options": [
+            "hydrogen_peroxide_3a_protocol",
+            "fusidic_acid_3b_pgd",
+            "flucloxacillin_3c_pgd",
+            "clarithromycin_3d_pgd",
+            "erythromycin_3e_pgd",
+            "no_supply_refer"
+          ]
+        },
+        {
+          "id": "decision.impetigo.final_status",
+          "type": "select",
+          "label": "Final status",
+          "required": false,
+          "options": [
+            "protocol_supply",
+            "pgd_supply",
+            "excluded_refer_prescriber",
+            "urgent_prescriber_referral",
+            "urgent_ae_referral",
+            "not_indicated"
+          ]
+        },
+        {
+          "id": "decision.impetigo.rationale",
+          "type": "textarea",
+          "label": "Decision rationale",
+          "required": true
+        }
+      ]
+    },
+    {
+      "id": "impetigo_3a_hydrogen_peroxide_protocol",
+      "title": "3a Hydrogen Peroxide 1% Cream (Protocol)",
+      "visible_if": { "field": "decision.impetigo.final_route", "equals": "hydrogen_peroxide_3a_protocol" },
+      "fields": [
+        {
+          "id": "impetigo_3a.product",
+          "type": "select",
+          "label": "Product",
+          "required": true,
+          "options": ["hydrogen_peroxide_1_percent_cream_25g", "hydrogen_peroxide_1_percent_cream_40g_if_25g_unavailable"]
+        },
+        {
+          "id": "impetigo_3a.legal_category",
+          "type": "text",
+          "label": "Legal category",
+          "default": "P",
+          "required": true
+        },
+        {
+          "id": "impetigo_3a.directions",
+          "type": "text",
+          "label": "Directions",
+          "default": "Apply a thin layer to affected area(s) up to 3 times daily for 5 days.",
+          "required": true
+        },
+        {
+          "id": "impetigo_3a.duration_days",
+          "type": "number",
+          "label": "Duration (days)",
+          "default": 5,
+          "required": true
+        },
+        {
+          "id": "impetigo_3a.incompatibility_check",
+          "type": "checklist",
+          "label": "Topical incompatibilities checked",
+          "required": true,
+          "options": [
+            "topical_iodine",
+            "permanganates",
+            "other_stronger_oxidising_agents",
+            "none_known"
+          ]
+        },
+        {
+          "id": "impetigo_3a.off_label_age_discussed_if_relevant",
+          "type": "boolean",
+          "label": "Off-label age use discussion documented if applicable",
+          "required": true
+        }
+      ]
+    },
+    {
+      "id": "impetigo_3b_fusidic_acid_pgd",
+      "title": "3b Fusidic Acid 2% Cream (PGD)",
+      "visible_if": { "field": "decision.impetigo.final_route", "equals": "fusidic_acid_3b_pgd" },
+      "fields": [
+        {
+          "id": "impetigo_3b.product",
+          "type": "text",
+          "label": "Medicine",
+          "default": "Fusidic acid 20mg/g (2%) cream",
+          "required": true
+        },
+        {
+          "id": "impetigo_3b.legal_category",
+          "type": "text",
+          "label": "Legal category",
+          "default": "POM",
+          "required": true
+        },
+        {
+          "id": "impetigo_3b.confirm_localised_and_hp_unsuitable_or_ineffective",
+          "type": "boolean",
+          "label": "Confirmed localised non-bullous impetigo AND hydrogen peroxide unsuitable/ineffective",
+          "required": true
+        },
+        {
+          "id": "impetigo_3b.directions",
+          "type": "text",
+          "label": "Directions",
+          "default": "Apply a thin layer to affected area(s) three times daily for 5 days.",
+          "required": true
+        },
+        {
+          "id": "impetigo_3b.duration_days",
+          "type": "number",
+          "label": "Duration (days)",
+          "default": 5,
+          "required": true
+        },
+        {
+          "id": "impetigo_3b.quantity",
+          "type": "select",
+          "label": "Pack supplied",
+          "required": true,
+          "options": ["appropriate_labelled_tube_per_pgd"]
+        }
+      ]
+    },
+    {
+      "id": "impetigo_3c_flucloxacillin_pgd",
+      "title": "3c Flucloxacillin (PGD)",
+      "visible_if": { "field": "decision.impetigo.final_route", "equals": "flucloxacillin_3c_pgd" },
+      "fields": [
+        {
+          "id": "impetigo_3c.weight_kg",
+          "type": "number",
+          "label": "Weight (kg) if relevant for child",
+          "required": false
+        },
+        {
+          "id": "impetigo_3c.age_band",
+          "type": "calculated_select",
+          "label": "Age band",
+          "formula": {
+            "if": [
+              { "expression": "patient.age >= 1 && patient.age < 2" },
+              "1_to_under_2",
+              {
+                "if": [
+                  { "expression": "patient.age >= 2 && patient.age <= 9" },
+                  "2_to_9",
+                  "10plus"
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "id": "impetigo_3c.branch_blockers_present",
+          "type": "calculated_boolean",
+          "label": "Flucloxacillin branch blockers present",
+          "formula": "(impetigo.interactions.flucloxacillin_blockers_present && !contains(impetigo.interactions.flucloxacillin_blockers_present, 'none')) || impetigo.failed_previous_oral_antimicrobial_this_episode == true || impetigo.unable_to_absorb_or_swallow_oral == true"
+        },
+        {
+          "id": "impetigo_3c.medicine_options",
+          "type": "checklist",
+          "label": "Supplied formulation",
+          "required": true,
+          "options": [
+            "250mg_capsules",
+            "500mg_capsules",
+            "125mg_per_5ml_oral_solution_or_suspension_100ml",
+            "125mg_per_5ml_sugar_free_oral_solution_or_suspension_100ml",
+            "250mg_per_5ml_oral_solution_or_suspension_100ml",
+            "250mg_per_5ml_sugar_free_oral_solution_or_suspension_100ml"
+          ]
+        },
+        {
+          "id": "impetigo_3c.dose_regimen",
+          "type": "calculated_text",
+          "label": "Dose regimen",
+          "formula": {
+            "if": [
+              { "field": "impetigo_3c.age_band", "equals": "1_to_under_2" },
+              "125mg four times daily for 5 days",
+              {
+                "if": [
+                  { "field": "impetigo_3c.age_band", "equals": "2_to_9" },
+                  "250mg four times daily for 5 days",
+                  "500mg four times daily for 5 days"
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "id": "impetigo_3c.quantity_option",
+          "type": "select",
+          "label": "Quantity supplied (PGD-listed pack options)",
+          "required": true,
+          "options": [
+            "1_to_under_2__1x100ml_250mg5ml_or_1x100ml_125mg5ml",
+            "2_to_9__20x250mg_caps_or_1x100ml_250mg5ml_or_2x100ml_125mg5ml",
+            "10plus__20x500mg_caps_or_40x250mg_caps_or_2x100ml_250mg5ml_or_4x100ml_125mg5ml"
+          ]
+        },
+        {
+          "id": "impetigo_3c.food_timing_counselling",
+          "type": "boolean",
+          "label": "Food timing counselling given (empty stomach ideal but practical advice discussed)",
+          "required": true
+        }
+      ]
+    },
+    {
+      "id": "impetigo_3d_clarithromycin_pgd",
+      "title": "3d Clarithromycin (PGD)",
+      "visible_if": { "field": "decision.impetigo.final_route", "equals": "clarithromycin_3d_pgd" },
+      "fields": [
+        {
+          "id": "impetigo_3d.weight_kg",
+          "type": "number",
+          "label": "Weight (kg) for 1–11 years dosing",
+          "required_if": {
+            "field": "patient.age",
+            "lt": 12
+          }
+        },
+        {
+          "id": "impetigo_3d.branch_blockers_present",
+          "type": "calculated_boolean",
+          "label": "Clarithromycin branch blockers present",
+          "formula": "(impetigo.interactions.clarithromycin_blockers_present && !contains(impetigo.interactions.clarithromycin_blockers_present, 'none')) || impetigo.failed_previous_oral_antimicrobial_this_episode == true || impetigo.unable_to_absorb_or_swallow_oral == true || impetigo.known_myasthenia_gravis == true || impetigo.known_qt_prolongation_or_ventricular_arrhythmia == true || impetigo.known_electrolyte_disturbance == true || contains_any([impetigo.known_ckd_stage], ['stage_4','stage_5']) || (exists(impetigo.egfr) && impetigo.egfr < 30) || impetigo.known_or_suspected_severe_liver_disease == true"
+        },
+        {
+          "id": "impetigo_3d.formulation",
+          "type": "select",
+          "label": "Formulation supplied",
+          "required": true,
+          "options": [
+            "250mg_tablets",
+            "125mg_per_5ml_oral_suspension_or_solution_70ml",
+            "250mg_per_5ml_oral_suspension_or_solution_70ml"
+          ]
+        },
+        {
+          "id": "impetigo_3d.dose_regimen",
+          "type": "calculated_text",
+          "label": "Dose regimen",
+          "formula": {
+            "if": [
+              { "expression": "patient.age >= 12" },
+              "250mg twice daily (every 12 hours) for 5 days",
+              {
+                "if": [
+                  { "expression": "impetigo_3d.weight_kg <= 8" },
+                  "7.5mg/kg twice daily (every 12 hours) for 5 days",
+                  {
+                    "if": [
+                      { "expression": "impetigo_3d.weight_kg >= 8 && impetigo_3d.weight_kg <= 11" },
+                      "62.5mg twice daily (every 12 hours) for 5 days",
+                      {
+                        "if": [
+                          { "expression": "impetigo_3d.weight_kg >= 12 && impetigo_3d.weight_kg <= 19" },
+                          "125mg twice daily (every 12 hours) for 5 days",
+                          {
+                            "if": [
+                              { "expression": "impetigo_3d.weight_kg >= 20 && impetigo_3d.weight_kg <= 29" },
+                              "187.5mg twice daily (every 12 hours) for 5 days",
+                              "250mg twice daily (every 12 hours) for 5 days"
+                            ]
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "id": "impetigo_3d.quantity_option",
+          "type": "select",
+          "label": "Quantity supplied (PGD-listed pack options)",
+          "required": true,
+          "options": [
+            "1to11_up_to_8kg__1x70ml_250mg5ml_or_1x70ml_125mg5ml",
+            "1to11_8to11kg__1x70ml_250mg5ml_or_1x70ml_125mg5ml",
+            "1to11_12to19kg__1x70ml_250mg5ml_or_1x70ml_125mg5ml",
+            "1to11_20to29kg__1x70ml_250mg5ml_or_2x70ml_125mg5ml",
+            "1to11_30to40kg__10x250mg_tabs_or_1x70ml_250mg5ml_or_2x70ml_125mg5ml",
+            "12plus__10x250mg_tabs_or_1x70ml_250mg5ml_or_2x70ml_125mg5ml"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "impetigo_3e_erythromycin_pgd",
+      "title": "3e Erythromycin (PGD)",
+      "visible_if": { "field": "decision.impetigo.final_route", "equals": "erythromycin_3e_pgd" },
+      "fields": [
+        {
+          "id": "impetigo_3e.confirm_pregnancy_plus_penicillin_hypersensitivity_plus_age16",
+          "type": "boolean",
+          "label": "Confirmed pregnant/suspected pregnancy + age 16+ + flucloxacillin not appropriate due to hypersensitivity",
+          "required": true
+        },
+        {
+          "id": "impetigo_3e.branch_blockers_present",
+          "type": "calculated_boolean",
+          "label": "Erythromycin branch blockers present",
+          "formula": "(impetigo.interactions.erythromycin_blockers_present && !contains(impetigo.interactions.erythromycin_blockers_present, 'none')) || impetigo.failed_previous_oral_antimicrobial_this_episode == true || impetigo.unable_to_absorb_or_swallow_oral == true || impetigo.known_qt_prolongation_or_ventricular_arrhythmia == true || impetigo.known_electrolyte_disturbance == true"
+        },
+        {
+          "id": "impetigo_3e.formulation",
+          "type": "select",
+          "label": "Formulation supplied",
+          "required": true,
+          "options": [
+            "500mg_tablets",
+            "250mg_tablets",
+            "250mg_gastro_resistant_tablets",
+            "250mg_per_5ml_oral_suspension_or_solution_100ml",
+            "250mg_per_5ml_sugar_free_oral_suspension_or_solution_100ml",
+            "125mg_per_5ml_oral_suspension_or_solution_100ml",
+            "125mg_per_5ml_sugar_free_oral_suspension_or_solution_100ml"
+          ]
+        },
+        {
+          "id": "impetigo_3e.dose_regimen",
+          "type": "text",
+          "label": "Dose regimen",
+          "default": "500mg four times daily for 5 days",
+          "required": true
+        },
+        {
+          "id": "impetigo_3e.quantity_option",
+          "type": "select",
+          "label": "Quantity supplied (PGD-listed pack options)",
+          "required": true,
+          "options": [
+            "20x500mg_tablets",
+            "40x250mg_tablets",
+            "2x100ml_250mg5ml_oral_suspension_or_solution",
+            "4x100ml_125mg5ml_oral_suspension_or_solution"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "impetigo_advice_counselling_and_safetynetting",
+      "title": "Advice / Counselling / Safety-netting",
+      "fields": [
+        {
+          "id": "impetigo.bad_leaflet_provided",
+          "type": "boolean",
+          "label": "British Association of Dermatologists impetigo leaflet provided",
+          "required": true
+        },
+        {
+          "id": "impetigo.nhs_info_provided",
+          "type": "boolean",
+          "label": "NHS impetigo information provided/signposted",
+          "required": true
+        },
+        {
+          "id": "impetigo.pil_provided_or_advised",
+          "type": "boolean",
+          "label": "Manufacturer PIL provided/advised",
+          "required": true
+        },
+        {
+          "id": "impetigo.antibiotic_target_checklist_used",
+          "type": "boolean",
+          "label": "TARGET antibiotic checklist used (for oral antibiotic branches)",
+          "required": false
+        },
+        {
+          "id": "impetigo.hygiene_transmission_advice",
+          "type": "boolean",
+          "label": "Transmission / hygiene advice given",
+          "required": true
+        },
+        {
+          "id": "impetigo.breastfeeding_contact_advice",
+          "type": "boolean",
+          "label": "Breastfeeding advice given (avoid infant contact with lesions; handwashing after application)",
+          "required": false
+        },
+        {
+          "id": "impetigo.unused_medicines_disposal_advice",
+          "type": "boolean",
+          "label": "Unused medicines disposal advice given",
+          "required": false
+        },
+        {
+          "id": "impetigo.safety_netting_detail",
+          "type": "textarea",
+          "label": "Safety-netting / follow-up advice details",
+          "required": true
+        }
+      ]
+    }
+  ],
+  "rules": [
+    {
+      "id": "IMP_R1_urgent_ae",
+      "when": [
+        { "field": "decision.impetigo.red_flag_status", "equals": "urgent_ae" }
+      ],
+      "then": [
+        { "action": "set", "field": "decision.impetigo.final_route", "value": "no_supply_refer" },
+        { "action": "set", "field": "decision.impetigo.final_status", "value": "urgent_ae_referral" },
+        { "action": "set", "field": "referral.required", "value": true },
+        { "action": "set", "field": "referral.destination", "value": "a_and_e" },
+        { "action": "show_message", "level": "critical", "text": "Urgent A&E / ambulance referral required." }
+      ]
+    },
+    {
+      "id": "IMP_R2_urgent_prescriber",
+      "when": [
+        { "field": "decision.impetigo.red_flag_status", "equals": "urgent_prescriber" }
+      ],
+      "then": [
+        { "action": "set", "field": "decision.impetigo.final_route", "value": "no_supply_refer" },
+        { "action": "set", "field": "decision.impetigo.final_status", "value": "urgent_prescriber_referral" },
+        { "action": "set", "field": "referral.required", "value": true },
+        { "action": "set", "field": "referral.urgency", "value": "urgent_same_day_gp" }
+      ]
+    },
+    {
+      "id": "IMP_R3_non_redflag_base_route_to_final",
+      "when": [
+        { "field": "decision.impetigo.red_flag_status", "equals": "no_red_flags" },
+        { "field": "decision.impetigo.route_candidate", "equals": "hydrogen_peroxide_3a" }
+      ],
+      "then": [
+        { "action": "set", "field": "decision.impetigo.final_route", "value": "hydrogen_peroxide_3a_protocol" },
+        { "action": "set", "field": "decision.impetigo.final_status", "value": "protocol_supply" },
+        { "action": "set", "field": "consultation.outcome.primary_outcome", "value": "self_care_plus_otc_sale" }
+      ]
+    },
+    {
+      "id": "IMP_R4_route_fusidic",
+      "when": [
+        { "field": "decision.impetigo.route_candidate", "equals": "fusidic_acid_3b" }
+      ],
+      "then": [
+        { "action": "set", "field": "decision.impetigo.final_route", "value": "fusidic_acid_3b_pgd" },
+        { "action": "set", "field": "decision.impetigo.final_status", "value": "pgd_supply" },
+        { "action": "set", "field": "consultation.outcome.primary_outcome", "value": "pgd_medicine_supplied" }
+      ]
+    },
+    {
+      "id": "IMP_R5_route_flucloxacillin_or_block",
+      "when": [
+        { "field": "decision.impetigo.route_candidate", "equals": "flucloxacillin_3c" }
+      ],
+      "then": [
+        {
+          "action": "conditional_set",
+          "if": { "field": "impetigo_3c.branch_blockers_present", "equals": true },
+          "true_value": { "field": "decision.impetigo.final_route", "value": "no_supply_refer" },
+          "false_value": { "field": "decision.impetigo.final_route", "value": "flucloxacillin_3c_pgd" }
+        }
+      ]
+    },
+    {
+      "id": "IMP_R6_route_clarithro_or_block",
+      "when": [
+        { "field": "decision.impetigo.route_candidate", "equals": "clarithromycin_3d" }
+      ],
+      "then": [
+        {
+          "action": "conditional_set",
+          "if": { "field": "impetigo_3d.branch_blockers_present", "equals": true },
+          "true_value": { "field": "decision.impetigo.final_route", "value": "no_supply_refer" },
+          "false_value": { "field": "decision.impetigo.final_route", "value": "clarithromycin_3d_pgd" }
+        }
+      ]
+    },
+    {
+      "id": "IMP_R7_route_erythro_or_block",
+      "when": [
+        { "field": "decision.impetigo.route_candidate", "equals": "erythromycin_3e" }
+      ],
+      "then": [
+        {
+          "action": "conditional_set",
+          "if": { "field": "impetigo_3e.branch_blockers_present", "equals": true },
+          "true_value": { "field": "decision.impetigo.final_route", "value": "no_supply_refer" },
+          "false_value": { "field": "decision.impetigo.final_route", "value": "erythromycin_3e_pgd" }
+        }
+      ]
+    },
+    {
+      "id": "IMP_R8_if_oral_route_blocked_refer",
+      "when": [
+        { "field": "decision.impetigo.final_route", "equals": "no_supply_refer" },
+        { "field": "decision.impetigo.red_flag_status", "equals": "no_red_flags" }
+      ],
+      "then": [
+        { "action": "set", "field": "decision.impetigo.final_status", "value": "excluded_refer_prescriber" },
+        { "action": "set", "field": "referral.required", "value": true },
+        { "action": "set", "field": "consultation.no_supply_reason", "value": "pgd_exclusion_met" }
+      ]
+    },
+    {
+      "id": "IMP_R9_any_pgd_supply_outcome",
+      "when": [
+        {
+          "field": "decision.impetigo.final_route",
+          "in": ["fusidic_acid_3b_pgd", "flucloxacillin_3c_pgd", "clarithromycin_3d_pgd", "erythromycin_3e_pgd"]
+        }
+      ],
+      "then": [
+        { "action": "set", "field": "decision.impetigo.final_status", "value": "pgd_supply" },
+        { "action": "set", "field": "consultation.outcome.primary_outcome", "value": "pgd_medicine_supplied" }
+      ]
+    }
+  ],
+  "validations": [
+    {
+      "id": "IMP_V1_localised_threshold",
+      "type": "error",
+      "expression": "!(impetigo.distribution == 'localised' && impetigo.lesion_cluster_count > 3)",
+      "message": "Localised impetigo should be 3 or fewer lesions/clusters."
+    },
+    {
+      "id": "IMP_V2_widespread_threshold",
+      "type": "error",
+      "expression": "!(impetigo.distribution == 'widespread' && impetigo.lesion_cluster_count < 4)",
+      "message": "Widespread impetigo should be 4 or more lesions/clusters."
+    },
+    {
+      "id": "IMP_V3_3e_requires_pregnancy_and_age16",
+      "type": "error",
+      "expression": "decision.impetigo.final_route != 'erythromycin_3e_pgd' || ((impetigo.pregnancy_status == 'pregnant' || impetigo.pregnancy_status == 'suspected_pregnancy') && patient.age >= 16 && impetigo.penicillin_hypersensitivity_or_severe_beta_lactam_history == true)",
+      "message": "3e erythromycin route requires pregnancy/suspected pregnancy, age 16+, and flucloxacillin not appropriate due to hypersensitivity."
+    },
+    {
+      "id": "IMP_V4_3b_requires_hp_unsuitable_or_ineffective",
+      "type": "error",
+      "expression": "decision.impetigo.final_route != 'fusidic_acid_3b_pgd' || (impetigo.distribution == 'localised' && (impetigo.hydrogen_peroxide_unsuitable == true || impetigo.hydrogen_peroxide_ineffective_and_still_localised == true))",
+      "message": "3b fusidic acid route requires localised impetigo and hydrogen peroxide unsuitable/ineffective."
+    },
+    {
+      "id": "IMP_V5_redflags_require_referral",
+      "type": "error",
+      "expression": "!(decision.impetigo.red_flag_status != 'no_red_flags' && referral.required != true)",
+      "message": "Red flags/escalation require referral documentation."
+    }
+  ],
+  "counselling_templates": {
+    "common_impetigo": [
+      "Provide BAD and NHS impetigo information.",
+      "Explain hygiene and transmission prevention to reduce spread.",
+      "Give safety-netting: seek medical help if symptoms worsen rapidly/significantly."
+    ],
+    "topical_branches_3a_3b": [
+      "Apply thin layer to affected areas as directed for full 5 days.",
+      "Wash hands after application.",
+      "Breastfeeding: avoid direct infant contact with lesions."
+    ],
+    "flucloxacillin_3c": [
+      "Take four times daily for 5 days and complete course.",
+      "Explain formulation choice and swallowing/administration advice.",
+      "Discuss interaction/caution advice (e.g. INR monitoring if relevant)."
+    ],
+    "clarithromycin_3d": [
+      "Take twice daily for 5 days and complete course.",
+      "Explain bitter after-taste with suspension and ways to reduce it.",
+      "Counsel on major interaction risks and when to seek help."
+    ],
+    "erythromycin_3e": [
+      "Take 500mg four times daily for 5 days and complete course.",
+      "Explain formulation handling/crushing caveats where relevant.",
+      "Counsel on interaction/QT risk and when to seek urgent advice."
+    ]
+  },
+  "notes_for_implementation": [
+    "This module intentionally consolidates large narrative PGD exclusion lists into structured flags plus branch blocker screens. Keep a free-text 'other exclusion' field in production.",
+    "Wire this module to your core Pharmacy First outcome/referral/GP notification sections for PMR + post-event messaging compliance.",
+    "For production use, keep full contraindication lists in configurable drug interaction data (BNF/SPC-backed), not hard-coded only in UI."
+  ]
+}

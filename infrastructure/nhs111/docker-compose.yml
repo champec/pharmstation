@@ -1,0 +1,90 @@
+# PharmStation NHS 111 Adaptor Infrastructure
+# ============================================
+# Three services:
+#   1. rabbitmq       — Message broker (internal)
+#   2. adaptor        — NHS 111 ITK→FHIR converter (nhsdev/nia-111-adaptor)
+#   3. bridge         — AMQP→Supabase HTTP forwarder
+#
+# Usage:
+#   docker-compose up -d
+#
+# For Railway deployment, each service becomes a separate Railway service
+# sharing the same internal network.
+
+services:
+  # ─── RabbitMQ Message Broker ─────────────────────────────────────────
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    restart: unless-stopped
+    ports:
+      - "5672:5672"     # AMQP protocol
+      - "15672:15672"   # Management UI (remove in production)
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USERNAME:-pharmstation}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-pharmstation}
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "check_running"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - nhs111
+
+  # ─── NHS 111 Adaptor ────────────────────────────────────────────────
+  # Receives ITK SOAP/CDA XML on port 8080, converts to FHIR STU3 JSON,
+  # publishes to RabbitMQ queue "encounter-report"
+  adaptor:
+    image: nhsdev/nia-111-adaptor:1.0.5-amd64
+    restart: unless-stopped
+    ports:
+      - "8080:8080"     # ITK SOAP endpoint — NHS 111 sends messages here
+    environment:
+      # ── AMQP / RabbitMQ ──
+      PEM111_AMQP_BROKER: amqp://rabbitmq:5672
+      PEM111_AMQP_PORT: 5672
+      PEM111_AMQP_PROTOCOL: "0-9-1"
+      PEM111_AMQP_QUEUE_NAME: encounter-report
+      PEM111_AMQP_USERNAME: ${RABBITMQ_USERNAME:-pharmstation}
+      PEM111_AMQP_PASSWORD: ${RABBITMQ_PASSWORD:-pharmstation}
+      PEM111_AMQP_EXCHANGE: jms.durable.queues  # REQUIRED — do NOT leave empty
+      PEM111_AMQP_ROUTING_KEY: encounter-report
+      JAVA_TOOL_OPTIONS: "-XX:-UseContainerSupport"  # Fixes CgroupV2 crash
+      MANAGEMENT_METRICS_BINDERS_PROCESSOR_ENABLED: "false"
+
+      # ── ODS / DoS Configuration ──
+      # Dynamic: fetches allowed ODS codes from our edge function
+      PEM111_ITK_EXTERNAL_CONFIGURATION_URL: ${ODS_DOS_CONFIG_URL}
+      PEM111_ITK_FETCH_INTERVAL_MIN: 60
+
+      # ── SOAP Validation ──
+      PEM111_SOAP_VALIDATION_ENABLED: ${SOAP_VALIDATION_ENABLED:-false}
+
+      # ── Logging ──
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - nhs111
+
+  # ─── AMQP→Supabase Bridge ──────────────────────────────────────────
+  # Consumes FHIR bundles from RabbitMQ and POSTs them to the
+  # nhs111-receive Supabase Edge Function via HTTPS
+  bridge:
+    build: ./bridge
+    restart: unless-stopped
+    environment:
+      RABBITMQ_URL: amqp://${RABBITMQ_USERNAME:-pharmstation}:${RABBITMQ_PASSWORD:-pharmstation}@rabbitmq:5672
+      RABBITMQ_QUEUE: encounter-report
+      SUPABASE_FUNCTION_URL: ${SUPABASE_FUNCTION_URL}
+      SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - nhs111
+
+networks:
+  nhs111:
+    driver: bridge

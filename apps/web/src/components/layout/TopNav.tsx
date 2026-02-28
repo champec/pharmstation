@@ -1,12 +1,18 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useAuthStore, useUIStore, useNetworkStore } from '@pharmstation/core'
+import { useAuthStore, useUIStore, useNetworkStore, useNHS111Store } from '@pharmstation/core'
 
 export function TopNav() {
   const navigate = useNavigate()
   const { activeUser, organisation, switchUser, orgLogout } = useAuthStore()
   const { sideNavMode, toggleSideNav } = useUIStore()
   const { unreadCount, inbox, fetchUnreadCount, fetchInbox, subscribeToInbox, unsubscribeFromInbox } = useNetworkStore()
+  const {
+    unreadCount: referralUnread,
+    fetchReferrals: fetchReferrals111,
+    subscribeToReferrals: subscribe111,
+    unsubscribeFromReferrals: unsubscribe111,
+  } = useNHS111Store()
 
   const [bellOpen, setBellOpen] = useState(false)
   const bellRef = useRef<HTMLDivElement>(null)
@@ -18,6 +24,14 @@ export function TopNav() {
     fetchInbox(organisation.id)
     subscribeToInbox(organisation.id)
     return () => unsubscribeFromInbox()
+  }, [organisation?.id]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Bootstrap NHS 111 referral subscription
+  useEffect(() => {
+    if (!organisation?.id) return
+    fetchReferrals111(organisation.id)
+    subscribe111(organisation.id)
+    return () => unsubscribe111()
   }, [organisation?.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Close bell dropdown on outside click
@@ -137,6 +151,28 @@ export function TopNav() {
             </div>
           )}
         </div>
+
+        {/* NHS 111 referral notification */}
+        <button
+          className="ps-btn ps-btn-ghost"
+          style={{ position: 'relative' }}
+          onClick={() => navigate('/services/111-referrals')}
+          title="NHS 111 Referrals"
+        >
+          📞
+          {referralUnread > 0 && (
+            <span style={{
+              position: 'absolute', top: 2, right: 2,
+              background: 'var(--ps-amber, #f59e0b)', color: '#fff',
+              borderRadius: '50%', width: 16, height: 16,
+              fontSize: '0.65rem', fontWeight: 700,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              lineHeight: 1, pointerEvents: 'none',
+            }}>
+              {referralUnread > 9 ? '9+' : referralUnread}
+            </span>
+          )}
+        </button>
 
         <div className="top-nav-user">
           <strong>{activeUser?.full_name ?? 'Unknown'}</strong>

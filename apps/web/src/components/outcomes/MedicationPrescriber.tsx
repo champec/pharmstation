@@ -15,8 +15,6 @@ export interface PrescribedMedication {
   dose: string
   quantity: number | null
   unit: string
-  directions: string
-  supply_type: 'dispensed' | 'owed' | 'not_supplied'
   is_controlled_drug: boolean
 }
 
@@ -48,8 +46,6 @@ export function createEmptyMedication(): PrescribedMedication {
     dose: '',
     quantity: null,
     unit: 'tablets',
-    directions: '',
-    supply_type: 'dispensed',
     is_controlled_drug: false,
   }
 }
@@ -420,53 +416,6 @@ export function MedicationPrescriber({
                   <option value="packs">Packs</option>
                   <option value="other">Other</option>
                 </select>
-              </div>
-            </div>
-
-            {/* Directions */}
-            <div style={{ marginBottom: 'var(--ps-space-sm)' }}>
-              <label style={{ fontSize: '12px', color: 'var(--ps-slate)', display: 'block', marginBottom: '4px' }}>
-                Directions
-              </label>
-              <input
-                type="text"
-                className="ps-input"
-                placeholder="e.g. Take one three times a day after meals"
-                value={item.directions}
-                readOnly={readOnly}
-                onChange={(e) => updateItem(index, { directions: e.target.value })}
-                style={{ width: '100%' }}
-              />
-            </div>
-
-            {/* Supply type */}
-            <div>
-              <label style={{ fontSize: '12px', color: 'var(--ps-slate)', display: 'block', marginBottom: '4px' }}>
-                Supply Status
-              </label>
-              <div style={{ display: 'flex', gap: 'var(--ps-space-sm)' }}>
-                {(['dispensed', 'owed', 'not_supplied'] as const).map((st) => (
-                  <label
-                    key={st}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '4px',
-                      fontSize: '13px',
-                      cursor: readOnly ? 'default' : 'pointer',
-                      color: item.supply_type === st ? 'var(--ps-primary)' : 'var(--ps-slate)',
-                    }}
-                  >
-                    <input
-                      type="radio"
-                      name={`supply_${item.localId}`}
-                      checked={item.supply_type === st}
-                      disabled={readOnly}
-                      onChange={() => updateItem(index, { supply_type: st })}
-                    />
-                    {st === 'dispensed' ? 'Dispensed' : st === 'owed' ? 'Owed' : 'Not Supplied'}
-                  </label>
-                ))}
               </div>
             </div>
           </div>

@@ -18,7 +18,7 @@ export type NHSServiceType =
   | 'cpcs_min_ill'
   | 'cpcs_emg_uec'
   | 'cpcs_min_ill_uec'
-  | 'cpcs_ccs'        // Pharmacy First
+  | 'cpcs_ccs'        // Pharmacy First — Clinical Pathways
   | 'flu_vac'
   | 'covid_vac'
   | 'gp_covid_vac'
@@ -184,10 +184,10 @@ export interface CPCSClaimPayload extends NHSBaseClaimPayload {
 }
 
 // ============================================================
-// Pharmacy First (CCS) Payload
+// Pharmacy First — Clinical Pathways (CCS) Payload
 // ============================================================
 
-// The 7 Pharmacy First clinical pathways
+// The 7 Pharmacy First — Clinical Pathways
 export type CCSPresentingComplaint =
   | 'A_O_M'   // Acute Otitis Media — FACE_TO_FACE only
   | 'SHG'     // Shingles
@@ -348,3 +348,231 @@ export type NHSClaimPayload =
   | SCSClaimPayload
   | ContraceptionClaimPayload
   | CVDClaimPayload
+
+// ============================================================
+// NHS 111 Referral Types
+// ============================================================
+
+export type NHS111ReferralStatus =
+  | 'received'
+  | 'accepted'
+  | 'in_progress'
+  | 'completed'
+  | 'rejected'
+  | 'expired'
+
+export type NHS111EventType = 'referral' | 'discharge_details'
+
+export type NHS111Urgency = 'routine' | 'urgent' | 'emergency'
+
+export interface NHS111Referral {
+  id: string
+  org_id: string
+
+  // Patient demographics
+  patient_nhs_number: string | null
+  patient_name: string | null
+  patient_dob: string | null         // ISO date string
+  patient_address: Record<string, unknown> | null
+  patient_phone: string | null
+  patient_gp_ods_code: string | null
+  patient_gp_name: string | null
+
+  // Case identifiers
+  case_id: string | null             // unique dedup key
+  case_ref: string | null
+
+  // Event classification
+  event_type: NHS111EventType
+
+  // Clinical content
+  disposition_code: string | null
+  disposition_text: string | null
+  presenting_complaint: string | null
+  encounter_summary: string | null
+  care_plan: string | null
+  triage_questions: NHS111TriageQA[] | null
+
+  // Source
+  source_ods_code: string | null
+  source_org_name: string | null
+
+  // Urgency
+  urgency: NHS111Urgency
+
+  // Raw FHIR bundle
+  raw_fhir_bundle: Record<string, unknown> | null
+
+  // Workflow
+  status: NHS111ReferralStatus
+  received_at: string
+  actioned_at: string | null
+  actioned_by: string | null
+  completed_at: string | null
+  linked_delivery_id: string | null
+  rejection_reason: string | null
+  notes: string | null
+
+  created_at: string
+  updated_at: string
+}
+
+export interface NHS111TriageQA {
+  question: string
+  answer: string
+}
+
+// ============================================================
+// FHIR STU3 types — minimal subset for 111 Adaptor output
+// Used by the nhs111-receive Edge Function to parse the bundle
+// ============================================================
+
+export interface FhirBundle {
+  resourceType: 'Bundle'
+  type: 'message'
+  meta?: { lastUpdated?: string }
+  identifier?: { type?: { text?: string }; value?: string }
+  entry: FhirBundleEntry[]
+}
+
+export interface FhirBundleEntry {
+  fullUrl?: string
+  resource: FhirResource
+}
+
+export type FhirResource =
+  | FhirMessageHeader
+  | FhirEncounter
+  | FhirPatient
+  | FhirCondition
+  | FhirReferralRequest
+  | FhirCarePlan
+  | FhirComposition
+  | FhirQuestionnaireResponse
+  | FhirObservation
+  | FhirOrganization
+  | FhirAppointment
+  | FhirGenericResource
+
+export interface FhirResourceBase {
+  resourceType: string
+  id?: string
+}
+
+export interface FhirMessageHeader extends FhirResourceBase {
+  resourceType: 'MessageHeader'
+  event?: { system?: string; code?: string; display?: string }
+  destination?: Array<{ endpoint?: string }>
+  source?: { name?: string; endpoint?: string }
+  reason?: { coding?: Array<{ system?: string; code?: string }> }
+}
+
+export interface FhirEncounter extends FhirResourceBase {
+  resourceType: 'Encounter'
+  status?: string
+  type?: Array<{ text?: string }>
+  subject?: FhirReference
+  period?: { start?: string; end?: string }
+  identifier?: Array<{ system?: string; value?: string }>
+  location?: Array<{ location?: FhirReference; status?: string }>
+  serviceProvider?: FhirReference
+}
+
+export interface FhirPatient extends FhirResourceBase {
+  resourceType: 'Patient'
+  identifier?: Array<{ system?: string; value?: string; extension?: unknown[] }>
+  name?: Array<{ family?: string; given?: string[]; text?: string; use?: string }>
+  birthDate?: string
+  gender?: string
+  address?: Array<{ line?: string[]; city?: string; postalCode?: string; use?: string }>
+  telecom?: Array<{ system?: string; value?: string; use?: string }>
+  generalPractitioner?: FhirReference[]
+}
+
+export interface FhirCondition extends FhirResourceBase {
+  resourceType: 'Condition'
+  code?: FhirCodeableConcept
+  category?: Array<{ text?: string }>
+  clinicalStatus?: string
+  subject?: FhirReference
+}
+
+export interface FhirReferralRequest extends FhirResourceBase {
+  resourceType: 'ReferralRequest'
+  status?: string
+  intent?: string
+  priority?: string
+  serviceRequested?: FhirCodeableConcept[]
+  subject?: FhirReference
+  description?: string
+  reasonCode?: FhirCodeableConcept[]
+}
+
+export interface FhirCarePlan extends FhirResourceBase {
+  resourceType: 'CarePlan'
+  status?: string
+  title?: string
+  description?: string
+  subject?: FhirReference
+}
+
+export interface FhirComposition extends FhirResourceBase {
+  resourceType: 'Composition'
+  status?: string
+  title?: string
+  section?: Array<{ title?: string; text?: { div?: string } }>
+  subject?: FhirReference
+}
+
+export interface FhirQuestionnaireResponse extends FhirResourceBase {
+  resourceType: 'QuestionnaireResponse'
+  status?: string
+  item?: FhirQuestionnaireItem[]
+}
+
+export interface FhirQuestionnaireItem {
+  linkId?: string
+  text?: string
+  answer?: Array<{ valueString?: string; valueBoolean?: boolean; item?: FhirQuestionnaireItem[] }>
+  item?: FhirQuestionnaireItem[]
+}
+
+export interface FhirObservation extends FhirResourceBase {
+  resourceType: 'Observation'
+  status?: string
+  code?: FhirCodeableConcept
+  valueString?: string
+  subject?: FhirReference
+}
+
+export interface FhirOrganization extends FhirResourceBase {
+  resourceType: 'Organization'
+  identifier?: Array<{ system?: string; value?: string }>
+  name?: string
+  type?: FhirCodeableConcept[]
+  telecom?: Array<{ system?: string; value?: string }>
+  address?: Array<{ line?: string[]; city?: string; postalCode?: string }>
+}
+
+export interface FhirAppointment extends FhirResourceBase {
+  resourceType: 'Appointment'
+  status?: string
+  reason?: FhirCodeableConcept[]
+  description?: string
+  comment?: string
+}
+
+export interface FhirGenericResource extends FhirResourceBase {
+  [key: string]: unknown
+}
+
+export interface FhirReference {
+  reference?: string
+  display?: string
+  resource?: FhirResource
+}
+
+export interface FhirCodeableConcept {
+  coding?: Array<{ system?: string; code?: string; display?: string }>
+  text?: string
+}

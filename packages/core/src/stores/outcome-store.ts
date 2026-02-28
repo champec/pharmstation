@@ -26,8 +26,6 @@ export interface OutcomeState {
       dose?: string | null
       quantity?: number | null
       unit?: string | null
-      directions?: string | null
-      supply_type?: 'dispensed' | 'owed' | 'not_supplied' | null
       is_controlled_drug?: boolean
       sort_order?: number
     }>
@@ -84,8 +82,6 @@ export const useOutcomeStore = create<OutcomeState>((set, get) => ({
           dose: m.dose ?? null,
           quantity: m.quantity ?? null,
           unit: m.unit ?? null,
-          directions: m.directions ?? null,
-          supply_type: m.supply_type ?? null,
           is_controlled_drug: m.is_controlled_drug ?? false,
           sort_order: m.sort_order ?? i,
         }))
