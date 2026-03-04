@@ -1,0 +1,93 @@
+About this service
+The Digital Onboarding Service is for organisations and suppliers who want to integrate with NHS APIs. It provides a structured assurance process that ensures your product meets NHS standards for security, clinical safety, technical conformance, and information governance.
+
+Once approved via this onboarding service, your product can securely access NHS data and services using our APIs. 
+
+Who this service is for
+You can use this service if you are:
+
+NHS teams or departments that author the questions produced in the API assessment (producers)
+internal or external organisations and product leads who want to use NHS APIs (consumers)
+NHS stakeholders who assess applications and approve access (reviewers and approvers)
+Benefits
+This service helps suppliers to validate their product’s compliance and does the groundwork for future integrations with minimal rework.
+
+Benefits to suppliers
+enables quicker, simpler onboarding for NHS APIs
+complete your application online, with clear guidance and feedback 
+part of a central compliance process that aligns with NHS standards
+scalable and future-proof, supporting multiple APIs and evolving NHS digital services 
+How to access this service
+You can access the application via desktop or mobile, save progress, and complete it at your own pace. 
+
+Before you start the access steps you should: 
+
+get an ODS code for your organisation
+
+complete the Data Security and Protection Toolkit (DSPT)
+
+register with the National Service Desk Customer Portal
+
+be familiar with the connection agreement and end user acceptable use policy
+
+Step 1: Create a developer account
+Sign in or register for a developer account to begin your onboarding journey. 
+
+Step 2: Register your organisation and product
+Provide details about your organisation and the product you want to onboard. 
+
+Step 3: Complete the assurance stages 
+Depending on the API, you’ll complete up to four stages. Each stage contains sections with questions. Once a section is marked 'ready to submit', it can be reviewed by NHS England. 
+
+The first set of eligibility questions must be approved before you can submit other sections. 
+
+Step 4: Review and approval 
+Your application is assessed by NHS reviewers. You may receive feedback or requests for further information. 
+
+Step 5: Ready for activation 
+Once your NHS API is approved, you're ready to proceed with integration and activation.
+
+How this service works
+We check that your organisation meets the required NHS API standards, including credentials, permissions, and privileges.
+Your organisation answers a set of questions and meets specific requirements in the NHS API assurance flow.
+Each API is assigned to one or more products, and each product is linked to your organisation.
+An applicant from your organisation logs in to digital onboarding using their developer account, which must be associated with your organisation.
+Examples of use
+If you are a health tech supplier with a recently developed app or tool, you are likely to need access to a combination of APIs. 
+
+For example, a mobile app that helps GPs access patient records in real time would need access to Eligibility Signposting and GP Connect Access Record: HTML. 
+
+Using the onboarding service will take you through the relevant integrations, help you to identify relevant endpoints and get your product assured with NHS England. 
+
+National usage policy
+NHS API assurance is mandatory for any NHS or external organisation that wants to access NHS APIs.
+
+Status, usage and service level
+The Digital Onboarding Service is your primary route for NHS API assurance. You can access the application via desktop or mobile, save progress, and complete it at your own pace. Some of our APIs and services still require you to complete your assurance offline. Find out more about which assurance onboarding process is right for you.
+
+Contact us
+Enquiry	Contact
+Live service incident and general enquiries	
+National Service Desk
+
+Email: ssd.nationalservicedesk@nhs.net 
+
+Report via our customer portal 
+
+Telephone: 0300 303 5035
+
+Strategic direction and escalations
+
+Shan Rahulan 
+
+Email: shan.rahulan@nhs.net 
+
+Join our Developer Community 
+Get support with your integration journey from our online community – giving you access to conversations with product teams, services and like-minded API producers and consumers. 
+
+Sign up to the Developer Community 
+
+Further information
+Get more detail about the Onboarding process for APIs.
+
+Last edited: 23 February 2026 10:46 am
