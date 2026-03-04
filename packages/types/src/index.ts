@@ -1419,3 +1419,296 @@ export interface DeliveryOutcome {
 // --- NHS Integration ---
 export * from './nhs'
 
+// ============================================
+// Locum Expansion Types
+// ============================================
+
+// --- Locum Profile ---
+
+export interface LocumProfile {
+  id: string
+  user_id: string
+  gphc_number: string | null
+  gphc_expiry: string | null
+  indemnity_provider: string | null
+  indemnity_expiry: string | null
+  smart_card_held: boolean
+  nhs_email: string | null
+  dbs_number: string | null
+  dbs_expiry: string | null
+  ni_number: string | null
+  address_line_1: string | null
+  address_line_2: string | null
+  city: string | null
+  postcode: string | null
+  stripe_account_id: string | null
+  stripe_onboarded: boolean
+  onboarding_complete: boolean
+  created_at: string
+  updated_at: string
+  // Joined
+  user_profile?: UserProfile
+}
+
+// --- Locum Documents ---
+
+export type LocumDocType = 'gov_id' | 'dbs' | 'insurance' | 'gphc_cert' | 'smart_card' | 'qualification' | 'other'
+
+export interface LocumDocument {
+  id: string
+  locum_id: string
+  doc_type: LocumDocType
+  label: string | null
+  file_url: string
+  expiry_date: string | null
+  uploaded_at: string
+  is_current: boolean
+}
+
+// --- Locum Services ---
+
+export interface LocumService {
+  id: string
+  locum_id: string
+  service_library_id: string
+  added_at: string
+  // Joined
+  service_library?: { id: string; name: string; category: string }
+}
+
+// --- Locum Shifts ---
+
+export type LocumShiftStatus = 'open' | 'filled' | 'completed' | 'cancelled'
+export type LocumShiftBookingMode = 'auto' | 'manual'
+export type LocumShiftPaymentMode = 'platform' | 'external'
+
+export interface LocumShift {
+  id: string
+  org_id: string
+  created_by: string
+  date: string
+  start_time: string
+  end_time: string
+  rate_per_hour: number
+  booking_mode: LocumShiftBookingMode
+  payment_mode: LocumShiftPaymentMode
+  status: LocumShiftStatus
+  notes: string | null
+  created_at: string
+  updated_at: string
+  // Joined
+  organisation?: Pick<Organisation, 'id' | 'name' | 'address'>
+  criteria?: LocumShiftCriteria
+  booking?: LocumBooking // the current user's booking for this shift
+}
+
+// --- Locum Shift Criteria ---
+
+export interface LocumShiftCriteria {
+  id: string
+  shift_id: string
+  required_service_ids: string[] | null
+  references_required: boolean
+  sop_required: boolean
+  notes: string | null
+  created_at: string
+}
+
+// --- Locum Bookings ---
+
+export type LocumBookingStatus = 'pending' | 'approved' | 'rejected' | 'completed' | 'cancelled' | 'no_show'
+
+export interface LocumBooking {
+  id: string
+  shift_id: string
+  locum_id: string
+  status: LocumBookingStatus
+  applied_at: string
+  reviewed_at: string | null
+  reviewed_by: string | null
+  cancellation_reason: string | null
+  // Joined
+  shift?: LocumShift
+  locum?: LocumProfile
+}
+
+// --- Locum SOP Documents ---
+
+export interface LocumSopDocument {
+  id: string
+  org_id: string
+  title: string
+  description: string | null
+  file_url: string
+  version: number
+  is_required: boolean
+  is_active: boolean
+  uploaded_by: string
+  created_at: string
+  updated_at: string
+}
+
+// --- Locum SOP Signoffs ---
+
+export interface LocumSopSignoff {
+  id: string
+  sop_id: string
+  locum_id: string
+  booking_id: string | null
+  signed_at: string
+  sop_version: number
+}
+
+// --- Locum Sign-Ins ---
+
+export interface LocumSignIn {
+  id: string
+  booking_id: string
+  locum_id: string
+  org_id: string
+  signed_in_at: string
+  signed_out_at: string | null
+  duration_minutes: number | null
+  rp_entry_id: string | null
+  created_at: string
+}
+
+// --- Locum Commerce ---
+
+export type LocumPaymentWeekStatus = 'open' | 'closed' | 'invoiced'
+
+export interface LocumPaymentWeek {
+  id: string
+  org_id: string
+  locum_id: string
+  week_start: string
+  week_end: string
+  status: LocumPaymentWeekStatus
+  created_at: string
+}
+
+export type LocumInvoiceStatus = 'pending' | 'paid' | 'overdue' | 'disputed' | 'void'
+
+export interface LocumInvoice {
+  id: string
+  payment_week_id: string
+  org_id: string
+  locum_id: string
+  invoice_number: string
+  week_start: string
+  week_end: string
+  issued_at: string
+  due_date: string
+  subtotal_pence: number
+  platform_fee_pence: number
+  total_pence: number
+  status: LocumInvoiceStatus
+  pdf_url: string | null
+  created_at: string
+  updated_at: string
+  // Joined
+  lines?: LocumInvoiceLine[]
+  payment?: LocumPayment
+}
+
+export interface LocumInvoiceLine {
+  id: string
+  invoice_id: string
+  booking_id: string
+  shift_date: string
+  start_time: string
+  end_time: string
+  duration_minutes: number
+  rate_per_hour: number
+  line_total_pence: number
+  platform_fee_pence: number
+  created_at: string
+}
+
+export type LocumPaymentStatus = 'pending' | 'processing' | 'settled' | 'failed' | 'disputed' | 'refunded'
+
+export interface LocumPayment {
+  id: string
+  invoice_id: string
+  org_id: string
+  locum_id: string
+  amount_pence: number
+  platform_fee_pence: number
+  stripe_payment_intent: string | null
+  stripe_transfer_id: string | null
+  status: LocumPaymentStatus
+  initiated_at: string | null
+  settled_at: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface LocumPaymentMandate {
+  id: string
+  org_id: string
+  stripe_customer_id: string | null
+  stripe_mandate_id: string | null
+  stripe_payment_method: string | null
+  is_active: boolean
+  created_at: string
+  updated_at: string
+}
+
+// --- Locum Reviews & Reputation ---
+
+export interface LocumReview {
+  id: string
+  org_id: string
+  locum_id: string
+  booking_id: string
+  reviewed_by: string
+  score: number
+  punctuality: number | null
+  professionalism: number | null
+  notes: string | null
+  created_at: string
+}
+
+export interface LocumPharmacyFeedback {
+  id: string
+  locum_id: string
+  org_id: string
+  booking_id: string
+  score: number
+  notes: string | null
+  created_at: string
+}
+
+export interface LocumNote {
+  id: string
+  org_id: string
+  locum_id: string
+  created_by: string
+  note: string
+  created_at: string
+  updated_at: string
+  // Joined
+  author?: Pick<UserProfile, 'id' | 'full_name'>
+}
+
+export interface LocumBlacklist {
+  id: string
+  org_id: string
+  locum_id: string
+  added_by: string
+  reason: string | null
+  created_at: string
+}
+
+// --- Locum Eligibility (computed client-side / query-side) ---
+
+export type LocumEligibilityStatus = 'eligible' | 'sop_required' | 'ineligible' | 'clashes'
+
+export interface LocumShiftEligibility {
+  shift_id: string
+  status: LocumEligibilityStatus
+  missing_services: string[]
+  sops_to_sign: LocumSopDocument[]
+  clash: boolean
+}
+

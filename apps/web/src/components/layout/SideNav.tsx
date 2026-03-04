@@ -119,6 +119,19 @@ const menuSections: NavSection[] = [
       { to: '/driver', icon: '🚗', label: 'My Deliveries' },
     ],
   },
+  {
+    title: 'Shifts',
+    icon: '🗓️',
+    expandable: true,
+    items: [
+      { to: '/shifts', icon: '📋', label: 'Overview' },
+      { to: '/shifts/calendar', icon: '📅', label: 'Calendar' },
+      { to: '/shifts/new', icon: '➕', label: 'New Shift' },
+      { to: '/shifts/locums', icon: '👤', label: 'Locum Directory' },
+      { to: '/shifts/sops', icon: '📄', label: 'SOPs' },
+      { to: '/shifts/payments', icon: '💳', label: 'Payments' },
+    ],
+  },
 ]
 
 export function SideNav() {

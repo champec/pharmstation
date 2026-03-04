@@ -1,8 +1,9 @@
 import { useEffect } from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
-import { useAuthStore } from '@pharmstation/core'
+import { useAuthStore, useLocumAuthStore } from '@pharmstation/core'
 import { AuthLayout } from './layouts/AuthLayout'
 import { DashboardLayout } from './layouts/DashboardLayout'
+import { LocumLayout } from './layouts/LocumLayout'
 import { OrgLoginPage } from './pages/auth/OrgLoginPage'
 import { UserLoginPage } from './pages/auth/UserLoginPage'
 import { DashboardPage } from './pages/DashboardPage'
@@ -88,16 +89,36 @@ import { PublicServicePage } from './pages/public/PublicServicePage'
 import { PublicBookingConfirmPage } from './pages/public/PublicBookingConfirmPage'
 import { AboutPage } from './pages/public/AboutPage'
 import { PublicPharmacyMapPage } from './pages/public/PublicPharmacyMapPage'
+// Locum Portal (external — no org context required)
+import { LocumLoginPage } from './pages/locum/LocumLoginPage'
+import { LocumRegisterPage } from './pages/locum/LocumRegisterPage'
+import { LocumCompleteProfilePage } from './pages/locum/LocumCompleteProfilePage'
+import { LocumDashboardPage } from './pages/locum/LocumDashboardPage'
+import { LocumShiftsBrowsePage } from './pages/locum/LocumShiftsBrowsePage'
+import { LocumBookingsPage } from './pages/locum/LocumBookingsPage'
+import { LocumProfilePage } from './pages/locum/LocumProfilePage'
+import { LocumInvoicesPage } from './pages/locum/LocumInvoicesPage'
+import { LocumSOPsPage } from './pages/locum/LocumSOPsPage'
+// Shifts — Org mini-app (inside main dashboard)
+import { ShiftsDashboardPage } from './pages/shifts/ShiftsDashboardPage'
+import { ShiftsCalendarPage } from './pages/shifts/ShiftsCalendarPage'
+import { NewShiftPage } from './pages/shifts/NewShiftPage'
+import { ShiftDetailPage } from './pages/shifts/ShiftDetailPage'
+import { ShiftLocumDirectoryPage } from './pages/shifts/ShiftLocumDirectoryPage'
+import { ShiftSOPsPage } from './pages/shifts/ShiftSOPsPage'
+import { ShiftPaymentsPage } from './pages/shifts/ShiftPaymentsPage'
 
 export function App() {
   const { initialize, orgLoading, userLoading, isOrgLoggedIn, isUserLoggedIn } = useAuthStore()
+  const { initialize: initLocum, loading: locumLoading, isLoggedIn: isLocumLoggedIn, locumProfile } = useLocumAuthStore()
 
   useEffect(() => {
     initialize()
-  }, [initialize])
+    initLocum()
+  }, [initialize, initLocum])
 
   // Show loading while restoring sessions
-  if (orgLoading || userLoading) {
+  if (orgLoading || userLoading || locumLoading) {
     return (
       <div className="loading-screen">
         <div className="loading-spinner" />
@@ -121,6 +142,33 @@ export function App() {
       {/* Patient portal auth routes */}
       <Route path="/patient/login" element={<PatientLoginPage />} />
       <Route path="/patient/register" element={<PatientRegisterPage />} />
+
+      {/* Locum portal — external, no org context */}
+      <Route path="/locum/login" element={isLocumLoggedIn ? <Navigate to="/locum/dashboard" replace /> : <LocumLoginPage />} />
+      <Route path="/locum/register" element={<LocumRegisterPage />} />
+      <Route path="/locum" element={<Navigate to="/locum/dashboard" replace />} />
+      <Route
+        path="/locum/complete-profile"
+        element={!isLocumLoggedIn ? <Navigate to="/locum/login" replace /> : <LocumCompleteProfilePage />}
+      />
+
+      {/* Locum portal protected routes — wrapped in LocumLayout */}
+      <Route
+        element={
+          !isLocumLoggedIn
+            ? <Navigate to="/locum/login" replace />
+            : !locumProfile
+              ? <Navigate to="/locum/complete-profile" replace />
+              : <LocumLayout />
+        }
+      >
+        <Route path="/locum/dashboard" element={<LocumDashboardPage />} />
+        <Route path="/locum/shifts" element={<LocumShiftsBrowsePage />} />
+        <Route path="/locum/bookings" element={<LocumBookingsPage />} />
+        <Route path="/locum/profile" element={<LocumProfilePage />} />
+        <Route path="/locum/invoices" element={<LocumInvoicesPage />} />
+        <Route path="/locum/sops" element={<LocumSOPsPage />} />
+      </Route>
 
       {/* Patient portal protected routes */}
       <Route path="/patient/appointments" element={<PatientAppointmentsPage />} />
@@ -239,6 +287,15 @@ export function App() {
         {/* Driver */}
         <Route path="/driver" element={<DriverDashboardPage />} />
         <Route path="/driver/:roundId" element={<DriverRoutePage />} />
+
+        {/* Shifts — org shift management mini-app */}
+        <Route path="/shifts" element={<ShiftsDashboardPage />} />
+        <Route path="/shifts/calendar" element={<ShiftsCalendarPage />} />
+        <Route path="/shifts/new" element={<NewShiftPage />} />
+        <Route path="/shifts/locums" element={<ShiftLocumDirectoryPage />} />
+        <Route path="/shifts/sops" element={<ShiftSOPsPage />} />
+        <Route path="/shifts/payments" element={<ShiftPaymentsPage />} />
+        <Route path="/shifts/:id" element={<ShiftDetailPage />} />
       </Route>
 
       {/* Catch all */}

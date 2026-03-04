@@ -8,6 +8,7 @@ import { createClient, type SupabaseClient, type Session, type User } from '@sup
 let _orgClient: SupabaseClient | null = null
 let _userClient: SupabaseClient | null = null
 let _patientClient: SupabaseClient | null = null
+let _locumClient: SupabaseClient | null = null
 
 export interface SupabaseConfig {
   url: string
@@ -43,7 +44,15 @@ export function initSupabase(config: SupabaseConfig) {
     },
   })
 
-  return { orgClient: _orgClient, userClient: _userClient, patientClient: _patientClient }
+  _locumClient = createClient(config.url, config.anonKey, {
+    auth: {
+      storageKey: 'ps-locum-session',
+      autoRefreshToken: true,
+      persistSession: true,
+    },
+  })
+
+  return { orgClient: _orgClient, userClient: _userClient, patientClient: _patientClient, locumClient: _locumClient }
 }
 
 /**
@@ -71,6 +80,16 @@ export function getUserClient(): SupabaseClient {
 export function getPatientClient(): SupabaseClient {
   if (!_patientClient) throw new Error('Supabase not initialized. Call initSupabase() first.')
   return _patientClient
+}
+
+/**
+ * Locum client — for locum-facing auth and data access.
+ * Used for: locum portal login, locum profile, shift browsing and bookings.
+ * Separate storage key (ps-locum-session) to avoid conflict with staff user client.
+ */
+export function getLocumClient(): SupabaseClient {
+  if (!_locumClient) throw new Error('Supabase not initialized. Call initSupabase() first.')
+  return _locumClient
 }
 
 // ============================================
@@ -201,6 +220,52 @@ export async function fetchPatientProfile(authUserId: string) {
     .select('*')
     .eq('auth_user_id', authUserId)
     .single()
+  if (error) throw error
+  return data
+}
+
+// ============================================
+// Locum auth helpers
+// ============================================
+
+export async function locumSignUp(email: string, password: string) {
+  const { data, error } = await getLocumClient().auth.signUp({ email, password })
+  if (error) throw error
+  return data
+}
+
+export async function locumSignIn(email: string, password: string) {
+  const { data, error } = await getLocumClient().auth.signInWithPassword({ email, password })
+  if (error) throw error
+  return data
+}
+
+export async function locumSignOut() {
+  const { error } = await getLocumClient().auth.signOut()
+  if (error) throw error
+}
+
+export async function getLocumSession() {
+  const { data } = await getLocumClient().auth.getSession()
+  return data.session
+}
+
+export async function fetchLocumUserProfile(userId: string) {
+  const { data, error } = await getLocumClient()
+    .from('ps_user_profiles')
+    .select('*')
+    .eq('id', userId)
+    .maybeSingle()
+  if (error) throw error
+  return data  // null if no row yet (profile creation pending)
+}
+
+export async function fetchLocumExtendedProfile(userId: string) {
+  const { data, error } = await getLocumClient()
+    .from('ps_locum_profiles')
+    .select('*')
+    .eq('user_id', userId)
+    .maybeSingle()
   if (error) throw error
   return data
 }
