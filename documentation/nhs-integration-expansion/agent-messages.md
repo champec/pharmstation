@@ -283,6 +283,59 @@ Both can be worked in parallel. A6 requires A5 types (done). A7 requires A4 DB c
 
 ---
 
+## ENTRY 006 — ARCHITECT — 5 March 2026 — Re: Digital Onboarding Started + API Emails Sent
+
+### Status update — Major progress day
+
+**1. Digital Onboarding Service — REGISTERED ✅**
+
+The old `developer.nhs.uk` portal was decommissioned on 2 March 2026. All onboarding now happens at `onboarding.prod.api.platform.nhs.uk` using the new "Single Assessment flow".
+
+- **Portal:** `https://onboarding.prod.api.platform.nhs.uk/`
+- **Account:** `chronic2157@gmail.com`
+- **Organisation:** PharmStation
+- **Product:** PharmStation
+- **APIs selected for onboarding:**
+  - Personal Demographics Service (PDS) — FHIR API
+  - Directory of Services (DoS) — Urgent and Emergency Care — REST API
+  - NHS Notify
+
+**Onboarding stages visible on portal:**
+1. Check eligibility — Product details, Organisation details, DoS additional details (all "Not started")
+2. Shared sections — Service/incident management, Data Security (DSPT), Clinical risk (DCB0129)
+3. Complete API assurance — Technical conformance per API
+4. Get access — Connection Agreement
+
+**Blocker:** Shared sections (Data Security, Clinical Risk) cannot be submitted until eligibility is approved.
+
+**2. BaRS Early Access Email — SENT ✅**
+
+- **To:** `bookingandreferralstandard@nhs.net`
+- **From:** `champe.chilufya@wales.nhs.uk`
+- **Subject:** Digital Onboarding Request — Booking and Referral FHIR API (Referral Receiver GP-Pharmacy CPCS)
+- **Content:** Requested early access to BaRS Referral Receiver GP-Pharmacy (CPCS). Described existing NHS 111 ITK SOAP pipeline. Included ODS D8W5S.
+
+**3. DoHS v3 Onboarding Email — SENT ✅**
+
+- **To:** `ssd.nationalservicedesk@nhs.net`
+- **From:** `champe.chilufya@wales.nhs.uk`
+- **Subject:** Service Search v3 API onboarding
+- **Content:** Requested onboarding to Directory of Healthcare Services API v3. Use case: GP practice/service lookup for clinical forms. Included ODS D8W5S.
+
+**4. DSPT — All 103 items completed ✅**
+
+Completed 4–5 March 2026. Supporting documents created (ROPA, TNA, tabletop exercise, supplier register, verification checklist, privacy notice). Awaiting ICO registration (£40) and independent audit before publication.
+
+### Pending replies tracker
+
+| Email | Sent | To | Chase by |
+|-------|------|----|----------|
+| NHSBSA MYS | 26 Feb | mys-platform@nhsbsa.nhs.uk | **12 March** (phone 0300 330 1368) |
+| BaRS early access | 5 Mar | bookingandreferralstandard@nhs.net | 19 March |
+| DoHS v3 | 5 Mar | ssd.nationalservicedesk@nhs.net | 19 March |
+
+---
+
 ## ENTRY 004 — ARCHITECT — 26 February 2026 — Re: Pharmacy First (CCS) Clarification
 
 **Pharmacy First is NOT a separate API. It is `CLAIM_TYPE_CODE: CCS` on the CPCS API.**

@@ -141,6 +141,23 @@
 
 - [ ] *(Add items from earlier sections as they are completed)*
 
+## NHS Digital Onboarding Claims (5 March 2026)
+
+- [ ] **Eligibility — Product details** — Complete product details section on Digital Onboarding Service portal (onboarding.prod.api.platform.nhs.uk).
+- [ ] **Eligibility — Organisation details** — Complete organisation details section including ODS code D8W5S.
+- [ ] **Eligibility — DoS additional details** — Complete the DoS-specific eligibility questions on the portal.
+- [ ] **Shared section — Service/incident management** — Register for NSD service and incident management.
+- [ ] **Shared section — Data Security (DSPT)** — Provide DSPT "Standards Met" status. Blocked until DSPT published.
+- [ ] **Shared section — Clinical risk management** — Provide DCB0129 Clinical Safety Case Report. Not yet created.
+- [ ] **DCB0129 Clinical Safety Case Report** — Write and publish a clinical safety case report for PharmStation as per DCB0129. **Blocker for onboarding.**
+- [ ] **PDS technical conformance** — Pass PDS FHIR API application-restricted technical conformance.
+- [ ] **DoS technical conformance** — Pass DoS UEC REST API technical conformance.
+- [ ] **NHS Notify technical conformance** — Pass NHS Notify technical conformance.
+- [ ] **Connection Agreement** — Review and accept within 90 days once auto-generated.
+- [ ] **BaRS reply** — Follow up with BaRS team if no reply by 19 March 2026 (email sent 5 March).
+- [ ] **DoHS v3 reply** — Follow up with NSD if no reply by 19 March 2026 (email sent 5 March).
+- [ ] **NHSBSA MYS reply** — Chase by phone (0300 330 1368) if no reply by 12 March 2026 (email sent 26 Feb).
+
 ## How to Verify DNS Records
 
 Run these commands or use https://mxtoolbox.com/SuperTool.aspx:
