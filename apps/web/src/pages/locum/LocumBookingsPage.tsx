@@ -72,7 +72,7 @@ export function LocumBookingsPage() {
         .order('applied_at', { ascending: false })
       if (bErr) throw bErr
 
-      const rows = (data ?? []) as BookingRow[]
+      const rows = (data ?? []) as unknown as BookingRow[]
 
       // Load sign-in records for confirmed bookings
       const confirmedIds = rows.filter((b) => b.status === 'confirmed').map((b) => b.id)

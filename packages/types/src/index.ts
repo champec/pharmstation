@@ -1020,6 +1020,8 @@ export interface Broadcast {
   status: BroadcastStatus
   total_count: number
   sent_count: number
+  recipient_count: number | null
+  failed_count: number | null
   created_at: string
   created_by_user_id: string
 }
@@ -1244,6 +1246,8 @@ export type DeliveryRoundStatus = 'draft' | 'scheduled' | 'in_progress' | 'compl
 
 export type DeliveryPatientStatus =
   | 'pending'
+  | 'in_transit'
+  | 'arrived'
   | 'delivered'
   | 'failed'
   | 'skipped'
@@ -1265,6 +1269,7 @@ export interface DeliveryRound {
   driver_id: string | null
   template_id: string | null
   notes: string | null
+  time_window: string | null
   created_by: string
   started_at: string | null
   completed_at: string | null

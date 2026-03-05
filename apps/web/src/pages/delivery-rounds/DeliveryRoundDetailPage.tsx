@@ -14,6 +14,8 @@ const ROUND_STATUS_BADGE: Record<DeliveryRoundStatus, { cls: string; label: stri
 
 const PATIENT_STATUS_BADGE: Record<DeliveryPatientStatus, { cls: string; label: string }> = {
   pending: { cls: 'ps-badge-slate', label: 'Pending' },
+  in_transit: { cls: 'ps-badge-blue', label: 'In Transit' },
+  arrived: { cls: 'ps-badge-amber', label: 'Arrived' },
   delivered: { cls: 'ps-badge-green', label: 'Delivered' },
   failed: { cls: 'ps-badge-red', label: 'Failed' },
   skipped: { cls: 'ps-badge-amber', label: 'Skipped' },

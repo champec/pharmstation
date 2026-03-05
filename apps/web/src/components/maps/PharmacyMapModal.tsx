@@ -17,11 +17,12 @@ import Map, {
   NavigationControl,
   GeolocateControl,
   type MapRef,
-  type MapLayerMouseEvent,
+  type MapMouseEvent,
 } from 'react-map-gl/mapbox'
-import type { CircleLayer, SymbolLayer } from 'react-map-gl/mapbox'
 import mapboxgl from 'mapbox-gl'
 import 'mapbox-gl/dist/mapbox-gl.css'
+type CircleLayer = mapboxgl.CircleLayer
+type SymbolLayer = mapboxgl.SymbolLayer
 import { useNavigate } from 'react-router-dom'
 import { getUserClient } from '@pharmstation/supabase-client'
 import { useAuthStore, useNetworkStore } from '@pharmstation/core'
@@ -602,7 +603,7 @@ export function PharmacyMapModal({ isOpen, onClose }: Props) {
 
   // Handle click on map feature
   const handleMapClick = useCallback(
-    (e: MapLayerMouseEvent) => {
+    (e: MapMouseEvent) => {
       const map = mapRef.current
       if (!map) return
 
@@ -612,10 +613,11 @@ export function PharmacyMapModal({ isOpen, onClose }: Props) {
         const clusterId = clusterFeatures[0].properties?.cluster_id
         if (clusterId) {
           const source = map.getSource('pharmacies') as mapboxgl.GeoJSONSource
-          source.getClusterExpansionZoom(clusterId).then((zoom: number) => {
+          source.getClusterExpansionZoom(clusterId, (err, zoom) => {
+            if (err || zoom == null) return
             const coords = (clusterFeatures[0].geometry as { coordinates: number[] }).coordinates
             map.easeTo({ center: [coords[0], coords[1]], zoom })
-          }).catch(() => {/* ignore */})
+          })
         }
         return
       }

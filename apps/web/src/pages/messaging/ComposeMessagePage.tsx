@@ -21,7 +21,7 @@ function smsFragments(text: string): number {
 export function ComposeMessagePage() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
-  const { organisation, userProfile } = useAuthStore()
+  const { organisation, activeUser: userProfile } = useAuthStore()
   const { sendMessage, fetchSettings, settings } = useMessagingStore()
 
   // Channel

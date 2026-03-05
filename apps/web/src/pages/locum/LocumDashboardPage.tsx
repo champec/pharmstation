@@ -89,7 +89,7 @@ export function LocumDashboardPage() {
           .limit(4),
       ])
 
-      setUpcoming((upcomingRes.data ?? []) as UpcomingBooking[])
+      setUpcoming((upcomingRes.data ?? []) as unknown as UpcomingBooking[])
       setPendingCount(pendingRes.count ?? 0)
       setRecentInvoices((invoicesRes.data ?? []) as RecentInvoice[])
 

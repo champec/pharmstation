@@ -82,7 +82,7 @@ function MessagingSettingsTab() {
     setTesting(true)
     setTestResult(null)
     try {
-      const result = await testConnection(organisation.id, apiKey.trim())
+      const result = await testConnection(organisation.id)
       setTestResult({ success: true, message: 'Connection successful! Notify API is working.' })
     } catch (e: unknown) {
       setTestResult({ success: false, message: e instanceof Error ? e.message : 'Connection failed' })

@@ -73,6 +73,7 @@ export interface MessagingState {
     sms_template_id?: string
     email_template_id?: string
     letter_template_id?: string
+    is_active?: boolean
   }) => Promise<void>
   getRecipientCount: (orgId: string, channel: MessageChannel, recipientFilter?: string) => Promise<number>
   clearError: () => void

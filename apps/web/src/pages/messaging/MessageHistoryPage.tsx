@@ -38,7 +38,7 @@ export function MessageHistoryPage() {
     if (channelFilter !== 'all') filters.channel = channelFilter
     if (statusFilter !== 'all') filters.status = statusFilter
     if (search.trim()) filters.search = search.trim()
-    fetchMessages(organisation.id, filters, page, PAGE_SIZE)
+    fetchMessages(organisation.id, { ...filters, page, pageSize: PAGE_SIZE })
   }, [organisation?.id, channelFilter, statusFilter, search, page, fetchMessages])
 
   const handleCheckStatus = async (messageId: string, notifyId: string | null) => {
@@ -51,7 +51,7 @@ export function MessageHistoryPage() {
       if (channelFilter !== 'all') filters.channel = channelFilter
       if (statusFilter !== 'all') filters.status = statusFilter
       if (search.trim()) filters.search = search.trim()
-      fetchMessages(organisation.id, filters, page, PAGE_SIZE)
+      fetchMessages(organisation.id, { ...filters, page, pageSize: PAGE_SIZE })
     } catch { /* errors already in store */ }
   }
 
