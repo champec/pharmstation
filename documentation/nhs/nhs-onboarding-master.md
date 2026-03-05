@@ -258,23 +258,31 @@ DSPT registration: Also completed by NSD — PharmStation (D8W5S) registered on 
 9. IT protection (assertions 9.1–9.6)
 10. Accountable suppliers (assertions 10.1–10.3)
 
-**Approach:** Work through each standard with AI assistance to draft evidence responses. Many items will have short answers for a small cloud-based IT supplier.
+**Progress:** All 103 mandatory evidence items completed across all 10 standards (4–5 March 2026).
+
+**Remaining before publication:**
+1. ICO registration (£40/year) — needed for evidence item 1.1.1
+2. Independent audit — required for IT Suppliers. Auditor identified, needs to be added as DSPT user and complete assessment using the Strengthening Assurance Guide.
+
+**Supporting documents created:**
+- Privacy Notice — published at pharmstation.co.uk/privacy (v1.0, 4 March 2026)
+- Information Asset Register / ROPA — documentation/legal-and-compliance/information-asset-register-ropa.md
+- Training Needs Analysis — documentation/legal-and-compliance/training-needs-analysis.md
+- Tabletop Exercise Record — documentation/legal-and-compliance/tabletop-exercise-record-2026-03-04.md
+- Supplier Register — documentation/legal-and-compliance/supplier-register.md
+- DSPT Verification Checklist — documentation/legal-and-compliance/dspt-verification-checklist.md
 
 **Action:**
-- [ ] Go to [dsptoolkit.nhs.uk](https://www.dsptoolkit.nhs.uk/)
-- [ ] Register PharmStation as a **software supplier / IT organisation** (NOT as a pharmacy — you do not need an ODS code for this)
-- [ ] If DSPT requires an organisation identifier, investigate whether you need to register PharmStation as a company with ODS first (some IT suppliers get an ODS code for the company itself, separate from any pharmacy)
-- [ ] Complete the self-assessment (covers 10 National Data Guardian standards)
-- [ ] Submit for review
+- [x] Register PharmStation on DSPT (ODS: D8W5S) ✅ 3 March 2026
+- [x] Complete organisation profile ✅ 3 March 2026
+- [x] Complete all 103 mandatory evidence items ✅ 5 March 2026
+- [ ] Register with ICO (£40/year) — needed for 1.1.1
+- [ ] Arrange independent audit — add auditor as DSPT user, provide audit guide + report template
+- [ ] Confirm all assertions
+- [ ] Publish assessment
 - [ ] Obtain "Standards Met" status
 
-**Notes:**
-- Small organisations have a simplified pathway
-- Takes 2-4 weeks to complete properly
-- You need policies for: data protection, access control, staff training, business continuity, incident management
-- Annual renewal required
-
-**Estimated time:** 2-4 weeks
+**Estimated time to completion:** ICO registration ~10 minutes + independent audit ~1 week
 
 ---
 

@@ -89,6 +89,53 @@
 - [ ] **Vercel HTTPS redirect** — Verify HTTP → HTTPS redirect is enforced (referenced in 9.3.6).
 - [ ] **DSPT independent audit** — Determine audit requirements for PharmStation's organisation category and commission if required. Check "Provide Audit details" menu in DSPT portal (referenced in 9.4.5).
 - [ ] **Annual security review schedule** — Set calendar reminder for March 2027 annual security review (referenced in 9.4.3).
+- [ ] **DSPT independent auditor** — Ask friend to act as independent auditor; add them as 'Auditor' user on DSPT portal; provide them with the [smaller audit guide](https://www.dsptoolkit.nhs.uk/StaticContent/Attachment/917) and [report template](https://www.dsptoolkit.nhs.uk/StaticContent/Attachment/919). **Due: before DSPT publication** (referenced in 9.4.5).
+
+## Section 9.5 Claims
+
+- [ ] **Windows Defender SmartScreen** — Verify SmartScreen is enabled and blocking unrecognised apps (Settings → Privacy & Security → Windows Security → App & browser control) (referenced in 9.5.1).
+- [ ] **UAC enabled** — Verify User Account Control is enabled on the Windows 11 PC (referenced in 9.5.1).
+- [ ] **Dependabot enabled** — Verify GitHub Dependabot is enabled on champec/pharmstation (referenced in 9.5.1 — also referenced in 6.3.3, 8.1.1, 8.3.1, 8.3.4).
+- [ ] **BitLocker enabled** — Verify BitLocker full disk encryption is ON on the Windows 11 PC. Check via `manage-bde -status C:` in admin PowerShell (referenced in 9.5.2 — also referenced in 8.1.2).
+- [ ] **Microsoft Find My Device** — Verify Find My Device is enabled for remote lock/wipe (Settings → Privacy & Security → Find My Device) (referenced in 9.5.2).
+- [ ] **No patient data stored locally** — Confirm no production/patient NHS data exists on the local PC (referenced in 9.5.2 — also referenced in 8.1.2).
+- [ ] **Removable media policy** — Verify no USB drives or external media contain health/care data (referenced in 9.5.2).
+- [ ] **Supabase encryption at rest** — Confirm AES-256 encryption at rest is active on Supabase project (check Supabase docs — enabled by default on AWS) (referenced in 9.5.2).
+- [ ] **Git branch protection** — Verify branch protection rules are configured on champec/pharmstation main branch (referenced in 9.5.1, 9.5.3).
+- [ ] **Docker image versions pinned** — Verify all Dockerfiles in infrastructure/nhs111/ use pinned image tags, not `latest` (referenced in 9.5.5).
+- [ ] **Node.js 18 → 20/22 upgrade** — NHS 111 Bridge uses node:18-alpine; upgrade to node:20-alpine or node:22-alpine. **Due: 30 April 2026** (referenced in 9.5.5 — also referenced in 8.2.1).
+- [ ] **AutoRun disabled** — Verify AutoRun is disabled on Windows 11 PC. Check via `reg query HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\Explorer /v NoDriveTypeAutoRun` — value should be 0xFF (referenced in 9.5.7).
+- [ ] **MFA on all critical accounts** — Verify MFA is enabled on: GitHub, Supabase, Vercel, Railway, GoDaddy, Microsoft 365/NHS Wales email (referenced in 9.5.8 — also referenced in 8.4.1, 9.1.1).
+- [ ] **NHSmail secure email** — Confirm champe.chilufya@wales.nhs.uk is used for all NHS-sensitive communications and that no patient data is sent via Gmail (referenced in 9.5.10).
+- [ ] **NCSC Software Security Code of Practice** — Review the full Code of Practice at https://www.ncsc.gov.uk/collection/software-security-code-of-practice and complete a self-assessment against the principles. Document findings. (referenced in 9.5.11).
+- [ ] **Zod validation coverage** — Verify Zod schemas are applied to all user-facing form inputs and API payloads (referenced in 9.5.11).
+- [ ] **OWASP Top 10 review** — Conduct a review of PharmStation against OWASP Top 10 and document findings (referenced in 9.5.11).
+
+## Section 9.6 Claims
+
+- [ ] **Windows Defender Firewall** — Verify Windows Defender Firewall is ON for all profiles (Domain, Private, Public). Check via Settings → Privacy & Security → Windows Security → Firewall & network protection (referenced in 9.6.1, 9.6.3, 9.6.6).
+- [ ] **Home router — no port forwarding** — Verify no inbound port forwarding rules are configured on the home broadband router (referenced in 9.6.1, 9.6.3).
+- [ ] **Home router admin not Internet-accessible** — Verify router admin interface is only accessible from LAN, not WAN (referenced in 9.6.2).
+- [ ] **Home router admin password changed** — Verify router admin password has been changed from factory default (referenced in 9.6.2 — also referenced in 9.1.1).
+- [ ] **Quarterly service exposure review** — Set calendar reminder for quarterly review of all active Railway services, Supabase edge functions, and Vercel deployments to confirm only necessary services are exposed. First review due June 2026. (referenced in 9.6.5).
+
+## Section 10 Claims
+
+- [ ] **Supabase DPA** — Locate and save a copy of the Supabase Data Processing Agreement. Confirm it covers GDPR, data location (AWS eu-west-2), and processor obligations (referenced in 10.1.1).
+- [ ] **Railway DPA** — Locate Railway's DPA or confirm GDPR terms are included in their standard terms of service (referenced in 10.1.1).
+- [ ] **OpenAI DPA** — Confirm the OpenAI API business terms include a DPA with zero-retention and no-training clauses covering image data (referenced in 10.1.1).
+- [ ] **Anthropic DPA** — Confirm Anthropic API terms include no-training clause and data processing terms (referenced in 10.1.1).
+- [ ] **Google Gemini DPA** — Confirm the Google Cloud DPA covers Gemini API usage (referenced in 10.1.1).
+- [ ] **Daily.co DPA** — Locate Daily.co DPA and review video data retention terms (referenced in 10.1.1).
+- [ ] **Stripe DPA** — Confirm Stripe DPA is in place and covers locum identity/financial data (referenced in 10.1.1).
+- [ ] **Mapbox DPA** — Confirm Mapbox terms cover GPS coordinate / location data processing (referenced in 10.1.1).
+- [ ] **Supplier register 6-monthly review** — Set calendar reminder for September 2026 to review the supplier register for accuracy and completeness (referenced in 10.1.1).
+- [ ] **Supabase SOC 2 Type II** — Verify Supabase SOC 2 Type II certification is current. Check https://supabase.com/security or request SOC 2 report (referenced in 10.2.1, 10.2.5).
+- [ ] **Stripe PCI DSS / SOC 2 / ISO 27001** — Verify current certifications at https://stripe.com/docs/security (referenced in 10.2.1, 10.2.5).
+- [ ] **Daily.co SOC 2** — Verify Daily.co SOC 2 Type II certification is current (referenced in 10.2.1, 10.2.5).
+- [ ] **Vercel SOC 2** — Verify Vercel SOC 2 Type II certification is current. Check https://vercel.com/security (referenced in 10.2.1, 10.2.5).
+- [ ] **Railway security practices** — Review Railway's published security practices and confirm acceptable for data transit (referenced in 10.2.1, 10.2.5).
+- [ ] **Supplier onboarding checklist** — Create a formal supplier security evaluation checklist for use before adopting new suppliers. **Due: before production go-live** (referenced in 10.2.1).
 
 ## Earlier Section Claims (Sections 1–5)
 
