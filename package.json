@@ -5,7 +5,7 @@
   "description": "PharmStation - Your Digital Pharmacy Workstation",
   "scripts": {
     "dev": "turbo dev --filter=@pharmstation/web",
-    "build": "turbo build",
+    "build": "turbo build --filter=@pharmstation/web...",
     "lint": "turbo lint",
     "clean": "turbo clean",
     "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md}\"",
