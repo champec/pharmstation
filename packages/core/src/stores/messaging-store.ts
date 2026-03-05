@@ -74,7 +74,7 @@ export interface MessagingState {
     email_template_id?: string
     letter_template_id?: string
   }) => Promise<void>
-  getRecipientCount: (orgId: string, channel: MessageChannel) => Promise<number>
+  getRecipientCount: (orgId: string, channel: MessageChannel, recipientFilter?: string) => Promise<number>
   clearError: () => void
 }
 
@@ -294,7 +294,7 @@ export const useMessagingStore = create<MessagingState>((set) => ({
     set({ settings: data as NotifySettingsSafe | null })
   },
 
-  getRecipientCount: async (orgId, channel) => {
+  getRecipientCount: async (orgId, channel, _recipientFilter?: string) => {
     const client = getUserClient()
     let query = client
       .from('ps_patients')

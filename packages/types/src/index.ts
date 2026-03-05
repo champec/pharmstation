@@ -995,6 +995,8 @@ export interface NotifyMessage {
   channel: MessageChannel
   template_id: string
   personalisation: Record<string, unknown>
+  body: string | null
+  subject: string | null
   status: NotifyMessageStatus
   notify_message_id: string | null
   sent_at: string | null
@@ -1009,9 +1011,11 @@ export interface Broadcast {
   org_id: string
   name: string
   channel: MessageChannel
-  template_id: string
+  template_id: string | null
+  body: string | null
+  subject: string | null
   personalisation_template: Record<string, unknown>
-  recipient_filter: Record<string, unknown>
+  recipient_filter: Record<string, unknown> | string
   status: BroadcastStatus
   total_count: number
   sent_count: number
