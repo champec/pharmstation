@@ -37,7 +37,7 @@ interface LocalField {
   label: string
   field_key: string
   field_type: FieldType
-  options: Record<string, unknown> | null
+  options: string[] | Record<string, unknown> | null
   is_required: boolean
   display_order: number
 }
