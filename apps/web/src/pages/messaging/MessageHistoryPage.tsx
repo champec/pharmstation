@@ -61,7 +61,7 @@ export function MessageHistoryPage() {
     const rows = messages.map((m) => [
       formatDate(m.created_at),
       m.channel,
-      m.recipient_identifier || '—',
+      m.recipient_email || m.recipient_phone || '—',
       m.status,
       m.notify_message_id || '—',
     ])
@@ -159,7 +159,7 @@ export function MessageHistoryPage() {
                     <td>{formatDate(m.created_at)}</td>
                     <td>{CHANNEL_ICON[m.channel] || ''} {m.channel.toUpperCase()}</td>
                     <td style={{ maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {m.recipient_identifier || '—'}
+                      {m.recipient_email || m.recipient_phone || '—'}
                     </td>
                     <td>
                       <span className={STATUS_BADGES[m.status] || 'ps-badge'}>{m.status}</span>
