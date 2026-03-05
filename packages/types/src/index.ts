@@ -991,6 +991,7 @@ export interface NotifyMessage {
   org_id: string
   patient_id: string | null
   recipient_phone: string | null
+  recipient_email: string | null
   recipient_address: Record<string, string> | null
   channel: MessageChannel
   template_id: string
