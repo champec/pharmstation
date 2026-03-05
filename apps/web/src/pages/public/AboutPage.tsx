@@ -31,6 +31,7 @@ export function AboutPage() {
           <Link className="ps-btn ps-btn-primary" to="/rp">RP Certificate Tool</Link>
           <Link className="ps-btn ps-btn-ghost" to="/book">Book a Service</Link>
           <Link className="ps-btn ps-btn-ghost" to="/patient/login">Patient Login</Link>
+          <Link className="ps-btn ps-btn-ghost" to="/privacy">Privacy Notice</Link>
         </div>
       </div>
     </div>

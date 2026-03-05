@@ -89,6 +89,7 @@ import { PublicServicePage } from './pages/public/PublicServicePage'
 import { PublicBookingConfirmPage } from './pages/public/PublicBookingConfirmPage'
 import { AboutPage } from './pages/public/AboutPage'
 import { PublicPharmacyMapPage } from './pages/public/PublicPharmacyMapPage'
+import { PrivacyNoticePage } from './pages/public/PrivacyNoticePage'
 // Locum Portal (external — no org context required)
 import { LocumLoginPage } from './pages/locum/LocumLoginPage'
 import { LocumRegisterPage } from './pages/locum/LocumRegisterPage'
@@ -138,6 +139,7 @@ export function App() {
       <Route path="/book/:orgSlug/:serviceId" element={<PublicServicePage />} />
       <Route path="/book/:orgSlug/:serviceId/confirm" element={<PublicBookingConfirmPage />} />
       <Route path="/about" element={<AboutPage />} />
+      <Route path="/privacy" element={<PrivacyNoticePage />} />
 
       {/* Patient portal auth routes */}
       <Route path="/patient/login" element={<PatientLoginPage />} />
