@@ -139,7 +139,8 @@
 
 ## Earlier Section Claims (Sections 1–5)
 
-- [ ] *(Add items from earlier sections as they are completed)*
+- [x] **ICO registration** — Completed 6 March 2026. Application C1887941. Security number **CSN7417303**. Tier 1 £52/year DD. Registered as Individual/Sole Trader trading as Pharmstation, Nature of work: Software Development. Satisfies DSPT evidence item 1.1.1.
+- [ ] *(Add other items from earlier sections as they are completed)*
 
 ## NHS Digital Onboarding Claims (5 March 2026)
 

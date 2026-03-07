@@ -336,6 +336,30 @@ Completed 4–5 March 2026. Supporting documents created (ROPA, TNA, tabletop ex
 
 ---
 
+## ENTRY 008 — ARCHITECT — 6 March 2026 — Re: ICO Registration Completed
+
+### ICO Data Protection Registration — DONE ✅
+
+- **Portal:** `https://ico.org.uk/for-organisations/register/`
+- **Application number:** C1887941
+- **Security number:** CSN7417303 — satisfies DSPT evidence item 1.1.1
+- **Organisation type:** Individual / Sole Trader
+- **Trading name:** Pharmstation
+- **Nature of work:** Software Development
+- **Payment tier:** Tier 1 — £52/year (Direct Debit)
+- **DPO required?** No — provided data protection contact (Champe Chilufya, Director)
+- **Contact email:** `champe.chilufya@wales.nhs.uk`
+- **Address:** 31 Norman Davies Gardens, Bilston, WV14 0BD
+
+**Status:** Registration complete. Security number CSN7417303 allocated. DSPT evidence item 1.1.1 satisfied.
+
+**Remaining DSPT blockers:**
+1. ✅ ICO registration — DONE (CSN7417303)
+2. 🔴 Independent audit (auditor identified, not yet started)
+3. 🔴 Confirm 33 assertions + publish
+
+---
+
 ## ENTRY 004 — ARCHITECT — 26 February 2026 — Re: Pharmacy First (CCS) Clarification
 
 **Pharmacy First is NOT a separate API. It is `CLAIM_TYPE_CODE: CCS` on the CPCS API.**

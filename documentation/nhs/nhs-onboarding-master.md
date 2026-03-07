@@ -60,7 +60,7 @@
 | ODS code assigned | ✅ | 3 Mar 2026 | **D8W5S — PHARMSTATION**. Case CS1341956. Published on DSE/API from 4 March 2026. Champe Chilufya registered as OC1. |
 | DSPT registration | ✅ | 3 Mar 2026 | NSD team registered PharmStation (D8W5S) on dsptoolkit.nhs.uk. Self-assessment not yet started. |
 | DSPT self-assessment completed | ✅ | 5 Mar 2026 | All 103 mandatory evidence items completed across 10 NDG standards. Awaiting independent audit before publication. |
-| ICO registration confirmed | ✅ | 6 Mar 2026 | Security number CSN7417303 allocated. Satisfies DSPT evidence item 1.1.1. |
+| ICO registration confirmed | ✅ | 6 Mar 2026 | Security number CSN7417303 allocated. Application C1887941, £52/yr DD. Satisfies DSPT evidence item 1.1.1. |
 | Digital Onboarding started | ✅ | 5 Mar 2026 | Registered on new portal `onboarding.prod.api.platform.nhs.uk`. Organisation: PharmStation, Product: PharmStation. Selected 3 APIs: PDS FHIR, DoS UEC REST, NHS Notify. |
 | Digital Onboarding — eligibility submitted | ✅ | 5 Mar 2026 | Completed all eligibility sections: Product details, Organisation details, DoS additional details, Service/incident management registration. Awaiting NHS England review (up to 10 working days — expect response by ~19 Mar 2026). |
 | BaRS early access email sent | ✅ | 5 Mar 2026 | Sent to `bookingandreferralstandard@nhs.net` — requesting Referral Receiver GP-Pharmacy (CPCS) |
@@ -842,7 +842,25 @@ Record ALL emails sent and received here in chronological order.
 
 ---
 
-### Email 10 — [TEMPLATE FOR NEXT EMAIL]
+### Email 10 — ICO Data Protection Registration (COMPLETED)
+
+| Field | Value |
+|-------|-------|
+| **Date** | 6 March 2026 |
+| **Direction** | COMPLETED (online registration) |
+| **Portal** | `https://ico.org.uk/for-organisations/register/` |
+| **Application number** | **C1887941** |
+| **Organisation type** | Individual / Sole Trader |
+| **Trading name** | Pharmstation |
+| **Nature of work** | Software Development |
+| **Payment tier** | Tier 1 — £52/year (Direct Debit) |
+| **DPO required?** | No — provided data protection contact instead |
+| **DP Contact** | Champe Chilufya, Director, `champe.chilufya@wales.nhs.uk` |
+| **Security number** | **CSN7417303** — satisfies DSPT evidence item 1.1.1 |
+
+---
+
+### Email 11 — [TEMPLATE FOR NEXT EMAIL]
 
 | Field | Value |
 |-------|-------|
