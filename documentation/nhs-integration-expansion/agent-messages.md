@@ -360,6 +360,46 @@ Completed 4–5 March 2026. Supporting documents created (ROPA, TNA, tabletop ex
 
 ---
 
+## ENTRY 009 — ARCHITECT — 30 April 2026 — Re: Digital Onboarding Eligibility APPROVED 🎉
+
+### NHS England approved all eligibility sections on 27 April 2026
+
+After ~7 weeks of waiting (submitted 5 March, approved 27 April), NHS England's Digital Onboarding Service approved every eligibility section we submitted. Four separate emails received from `api.onboarding@nhs.net`:
+
+1. **Pharmstation - Gateway — Product details approved** ✅
+2. **Pharmstation - Gateway — Organisation details approved** ✅
+3. **Pharmstation - (DoS) REST API — Additional details for the Directory of Services (DoS) REST API approved** ✅
+4. **Pharmstation — Eligibility checks complete** ✅ — for **PDS**, **NHS Notify**, and **(DoS) REST API**
+
+Assessor feedback on every section: "Approved" — no changes requested.
+
+### What this unlocks
+
+We can now begin the **API Assurance** stage on the portal for all 3 APIs. Each API requires:
+- **Technical conformance** — proof we implement the API correctly (test scripts, integration testing)
+- **Clinical safety** — DCB0129 Clinical Safety Case Report (still outstanding 🔴)
+- **Information governance** — DSPT "Standards Met" status (blocked by independent audit 🔴)
+
+### Critical takeaways for subagents
+
+- Product is registered as **two separate entities** on the portal:
+  - "Pharmstation - Gateway" (covers Product + Organisation details, used for PDS + NHS Notify + general)
+  - "Pharmstation - (DoS) REST API" (separate product entry for DoS REST API specifically)
+- Use this exact naming when referencing the portal in any future correspondence
+- The new Digital Onboarding contact email is `api.onboarding@nhs.net`
+
+### Updated blocker priorities
+
+| Blocker | Status | Notes |
+|---------|--------|-------|
+| ✅ Eligibility | DONE | Approved 27 Apr 2026 |
+| 🔴 DSPT publication | Pending audit | Friend auditor still hasn't done it (since March) — needs urgent chase |
+| 🔴 DCB0129 CSCR | Not started | Required for ALL 3 API assurance submissions |
+| 🔴 NHSBSA MYS reply | No reply in 2 months | Needs urgent phone chase 0300 330 1368 |
+| 🔴 BaRS reply | No reply in 2 months | Needs chase to `bookingandreferralstandard@nhs.net` |
+
+---
+
 ## ENTRY 004 — ARCHITECT — 26 February 2026 — Re: Pharmacy First (CCS) Clarification
 
 **Pharmacy First is NOT a separate API. It is `CLAIM_TYPE_CODE: CCS` on the CPCS API.**

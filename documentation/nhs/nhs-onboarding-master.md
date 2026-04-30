@@ -3,7 +3,7 @@
 > **Status:** 🔄 In Progress
 > **Owner:** Champe Chilufya (GPhC: 2226350)
 > **Created:** 28 February 2026
-> **Last Updated:** 6 March 2026
+> **Last Updated:** 30 April 2026
 > **Classification:** Internal — Onboarding Tracker
 
 ---
@@ -62,7 +62,8 @@
 | DSPT self-assessment completed | ✅ | 5 Mar 2026 | All 103 mandatory evidence items completed across 10 NDG standards. Awaiting independent audit before publication. |
 | ICO registration confirmed | ✅ | 6 Mar 2026 | Security number CSN7417303 allocated. Application C1887941, £52/yr DD. Satisfies DSPT evidence item 1.1.1. |
 | Digital Onboarding started | ✅ | 5 Mar 2026 | Registered on new portal `onboarding.prod.api.platform.nhs.uk`. Organisation: PharmStation, Product: PharmStation. Selected 3 APIs: PDS FHIR, DoS UEC REST, NHS Notify. |
-| Digital Onboarding — eligibility submitted | ✅ | 5 Mar 2026 | Completed all eligibility sections: Product details, Organisation details, DoS additional details, Service/incident management registration. Awaiting NHS England review (up to 10 working days — expect response by ~19 Mar 2026). |
+| Digital Onboarding — eligibility submitted | ✅ | 5 Mar 2026 | Completed all eligibility sections: Product details, Organisation details, DoS additional details, Service/incident management registration. Submitted for NHS England review. |
+| Digital Onboarding — eligibility APPROVED | ✅ | 27 Apr 2026 | NHS England approved all eligibility for **Pharmstation - Gateway** (Product details + Organisation details) and **Pharmstation - (DoS) REST API** (DoS additional details). Email from `api.onboarding@nhs.net`. Now unblocked to start API assurance for PDS, NHS Notify, and DoS REST. |
 | BaRS early access email sent | ✅ | 5 Mar 2026 | Sent to `bookingandreferralstandard@nhs.net` — requesting Referral Receiver GP-Pharmacy (CPCS) |
 | DoHS v3 onboarding email sent | ✅ | 5 Mar 2026 | Sent to `ssd.nationalservicedesk@nhs.net` — "Service Search v3 API onboarding" |
 | DoHS v3 — NSD reply received | ✅ | 5 Mar 2026 | Case CS1347123. NSD replied with generic redirect to Digital Onboarding portal. Resolution accepted. DoHS v3 can be added to portal later — not a priority. |
@@ -71,7 +72,7 @@
 
 | Item | What's Needed |
 |------|--------------|
-| Digital Onboarding — eligibility | ✅ Submitted 5 Mar 2026. All sections completed (Product details, Organisation details, DoS additional details, Service/incident management). Awaiting NHS England review — expect response by ~19 Mar 2026. |
+| Digital Onboarding — eligibility | ✅ APPROVED 27 Apr 2026 by NHS England assessor. Pharmstation - Gateway (Product + Organisation details) and Pharmstation - (DoS) REST API (DoS additional details) all approved. Cleared to begin API assurance for PDS, NHS Notify, DoS REST. |
 | Digital Onboarding — shared sections | Not started. Register for service/incident management, Data Security (needs DSPT), Clinical risk management (needs DCB0129) |
 | Digital Onboarding — API assurance | Not started. Technical conformance for PDS, DoS REST, NHS Notify |
 | DSPT — ICO registration | ✅ Completed 6 Mar 2026. Security number CSN7417303. Evidence item 1.1.1 satisfied. |
@@ -79,8 +80,8 @@
 | DSPT — publish | After ICO + audit → confirm 33 assertions → publish → "Standards Met" |
 | DCB0129 Clinical Safety Case Report | Not started — required for "Implement a clinical risk management process" shared section |
 | Connection Agreement | Not signed — auto-generated when API assurance progresses. Accept within 90 days. |
-| NHSBSA staging credentials | Awaiting reply to 26 Feb email. Chase by 12 March (phone 0300 330 1368). |
-| BaRS early access | Email sent 5 Mar to `bookingandreferralstandard@nhs.net`. Awaiting reply. |
+| NHSBSA staging credentials | Awaiting reply to 26 Feb email. ⚠️ No reply in 2 months — needs urgent phone chase (0300 330 1368). |
+| BaRS early access | Email sent 5 Mar to `bookingandreferralstandard@nhs.net`. ⚠️ No reply in 2 months — needs chase. |
 | DoHS v3 access | ✅ Resolved — NSD replied 5 Mar (case CS1347123) with redirect to Digital Onboarding portal. Resolution accepted. Can add to portal later; not a priority blocker. |
 | mTLS certificates | Not obtained — required for live NHS 111 |
 | Static IP proxy | Not provisioned — required for NHSBSA production |
@@ -432,12 +433,13 @@ Date registered: 5 March 2026
 - Sandbox: `https://sandbox.api.service.nhs.uk/personal-demographics/FHIR/R4/` — open access, no auth needed
 - Integration: `https://int.api.service.nhs.uk/personal-demographics/FHIR/R4/` — needs dev API key
 
-**Status:** 🔄 Eligibility Submitted — awaiting NHS England review (expect response by ~19 Mar 2026)
+**Status:** ✅ Eligibility Approved 27 Apr 2026 — cleared to start PDS API assurance (technical conformance + clinical safety + IG)
 
 **Reply/Notes:**
 ```
 5 March 2026 — Selected on Digital Onboarding Service portal (new Single Assessment flow)
-5 March 2026 — Eligibility sections completed and submitted: Product details (v0.1.0), Organisation details (PharmStation, ODS D8W5S), Service/incident management registration (NSD portal confirmed). Awaiting eligibility review.
+5 March 2026 — Eligibility sections completed and submitted: Product details (v0.1.0), Organisation details (PharmStation, ODS D8W5S), Service/incident management registration (NSD portal confirmed).
+27 April 2026 — NHS England eligibility APPROVED. Pharmstation - Gateway Product details and Organisation details both approved. Email from api.onboarding@nhs.net. Can now complete and submit assurance for PDS.
 ```
 
 ---
@@ -498,13 +500,14 @@ Included: ODS code D8W5S, use case (GP/service lookup for pharmacy clinical serv
 
 **Important:** DoS registration is per-pharmacy and is managed through each pharmacy's local ICS/ICB (Integrated Care Board). PharmStation does NOT register itself in DoS — our pharmacy customers do. PharmStation needs to be recognised as an approved system supplier that can receive referrals on their behalf.
 
-**Status:** 🔄 Eligibility Submitted — awaiting NHS England review (expect response by ~19 Mar 2026)
+**Status:** ✅ Eligibility Approved 27 Apr 2026 — cleared to start DoS REST API assurance
 
 **Reply/Notes:**
 ```
 5 March 2026 — Selected on Digital Onboarding Service portal (new Single Assessment flow)
 Note: Portal shows a specific "Additional details for the Directory of Services (DoS) REST API" section under Check Eligibility
 5 March 2026 — DoS additional details completed and submitted. Endpoints selected: byODSCode, byServiceId. Use case described: pharmacy DoS profile retrieval + NHS 111 referral context.
+27 April 2026 — NHS England APPROVED "Additional details for the Directory of Services (DoS) REST API" for Pharmstation - (DoS) REST API. Cleared to begin DoS REST assurance.
 ```
 
 ---
@@ -860,7 +863,23 @@ Record ALL emails sent and received here in chronological order.
 
 ---
 
-### Email 11 — [TEMPLATE FOR NEXT EMAIL]
+### Email 11 — Digital Onboarding Eligibility APPROVED (RECEIVED) 🎉
+
+| Field | Value |
+|-------|-------|
+| **Date** | 27 April 2026 |
+| **Direction** | RECEIVED (4 emails from NHS England assessor) |
+| **From** | `api.onboarding@nhs.net` (NHS Digital Onboarding Service) |
+| **To** | `champe.chilufya@wales.nhs.uk` |
+| **Subject** | Pharmstation — Eligibility checks complete + section approvals |
+| **Approvals received** | 1) Pharmstation - Gateway — **Product details approved**. 2) Pharmstation - Gateway — **Organisation details approved**. 3) Pharmstation - (DoS) REST API — **Additional details for the Directory of Services (DoS) REST API approved**. 4) Eligibility checks complete for: PDS, NHS Notify, (DoS) REST API. |
+| **Assessor feedback** | "Approved" (no further changes requested) |
+| **Next step** | Begin API assurance for all 3 APIs — technical conformance, clinical safety (DCB0129), information governance (DSPT). |
+| **Turnaround** | ~7 weeks from submission (5 Mar → 27 Apr) |
+
+---
+
+### Email 12 — [TEMPLATE FOR NEXT EMAIL]
 
 | Field | Value |
 |-------|-------|
@@ -878,9 +897,9 @@ Record ALL emails sent and received here in chronological order.
 
 | Organisation | Purpose | Contact | Notes |
 |-------------|---------|---------|-------|
-| **NHSBSA MYS** | Claim submission API access | `mys-platform@nhsbsa.nhs.uk` / 0300 330 1368 | Email sent 26 Feb — chase by 12 Mar |
+| **NHSBSA MYS** | Claim submission API access | `mys-platform@nhsbsa.nhs.uk` / 0300 330 1368 | Email sent 26 Feb — ⚠️ no reply in 2 months, needs phone chase |
 | **NHS Digital — NSD** | General API support + DoHS v3 | `ssd.nationalservicedesk@nhs.net` / 0300 303 5035 | DoHS v3 case CS1347123 — resolved 5 Mar (use Digital Onboarding portal) |
-| **NHS Digital — Onboarding** | Digital onboarding portal | `onboarding.prod.api.platform.nhs.uk` | Registered 5 Mar — PDS, DoS REST, NHS Notify |
+| **NHS Digital — Onboarding** | Digital onboarding portal | `onboarding.prod.api.platform.nhs.uk` / `api.onboarding@nhs.net` | Registered 5 Mar — PDS, DoS REST, NHS Notify. **Eligibility approved 27 Apr.** |
 | **NHS Notify** | Patient comms (organisation-level) | `england.nhsnotifyonboarding@nhs.net` | Added to onboarding portal — each pharmacy customer still onboards themselves |
 | **BaRS (Booking & Referral)** | Future CPCS referral standard | `bookingandreferralstandard@nhs.net` | Email sent 5 Mar — requesting early access |
 | **NHS 111 Adaptor** | 111 integration support | GitHub issues on `NHSDigital/integration-adaptor-111` | |
@@ -928,32 +947,33 @@ Record ALL emails sent and received here in chronological order.
 5. ~~**🟡 Email BaRS team**~~ ✅ DONE 5 Mar — `bookingandreferralstandard@nhs.net`
 6. ~~**🟢 Email DoHS v3**~~ ✅ DONE 5 Mar — `ssd.nationalservicedesk@nhs.net` → Resolved: use Digital Onboarding portal
 7. ~~**🔴 Complete eligibility questions**~~ ✅ DONE 5 Mar — Product details, Organisation details, DoS additional details, Service/incident management all submitted
+8. ~~**🔴 Eligibility — NHS England approval**~~ ✅ APPROVED 27 Apr — Pharmstation - Gateway (Product + Organisation) + Pharmstation - (DoS) REST API approved by `api.onboarding@nhs.net`. Cleared for API assurance on PDS, NHS Notify, DoS REST.
 
 **DO NOW — Active blockers:**
 
-8. **🔴 DSPT — Arrange independent audit** — Add auditor as DSPT user, provide audit guide + report template
-9. ~~**🔴 DSPT — ICO registration** (£40/year)~~ ✅ DONE 6 Mar — Security number CSN7417303. Evidence item 1.1.1 satisfied.
-10. **🔴 DSPT — Publish assessment** — Confirm 33 assertions → publish → "Standards Met"
-11. **🔴 DCB0129 Clinical Safety Case Report** — Required for "Implement a clinical risk management process" shared section on Digital Onboarding portal
+9. **🔴 DSPT — Arrange independent audit** — Add auditor as DSPT user, provide audit guide + report template (still waiting on auditor friend since March)
+10. ~~**🔴 DSPT — ICO registration** (£40/year)~~ ✅ DONE 6 Mar — Security number CSN7417303. Evidence item 1.1.1 satisfied.
+11. **🔴 DSPT — Publish assessment** — Confirm 33 assertions → publish → "Standards Met" (blocked by audit)
+12. **🔴 DCB0129 Clinical Safety Case Report** — Required for "Implement a clinical risk management process" shared section AND for API assurance (clinical safety) on PDS/DoS/NHS Notify
+13. **� Begin API assurance** — Now unblocked! Submit assurance for **PDS**, **NHS Notify**, and **DoS REST** on portal. Each requires: technical conformance + clinical safety (DCB0129) + IG (DSPT "Standards Met")
 
 **WAITING ON REPLIES:**
 
-12. **🔄 Digital Onboarding — eligibility review** — Submitted 5 Mar. NHS England reviewing (up to 10 working days — expect by ~19 Mar 2026).
-13. **🔄 NHSBSA MYS** — Email sent 26 Feb. Chase by phone (0300 330 1368) if no reply by 12 March.
-14. **🔄 BaRS early access** — Email sent 5 Mar. Awaiting reply from `bookingandreferralstandard@nhs.net`.
+14. **🔄 NHSBSA MYS** — Email sent 26 Feb. ⚠️ No reply in 2 months — chase by phone (0300 330 1368).
+15. **🔄 BaRS early access** — Email sent 5 Mar. ⚠️ No reply in 2 months — chase `bookingandreferralstandard@nhs.net`.
 
-**AFTER ELIGIBILITY APPROVED + DSPT + DCB0129:**
+**AFTER DSPT + DCB0129:**
 
-15. **🟡 Complete shared sections** on portal — Data Security (DSPT), Clinical risk (DCB0129). Service/incident management already done ✅.
-16. **🟡 Complete API assurance** — Technical conformance for PDS, DoS REST, NHS Notify
-17. **🟡 Connection Agreement** — Auto-generated. Accept within 90 days.
-18. **🟢 Add DoHS v3 / Service Search** to Digital Onboarding portal (deferred — low priority)
+16. **🟡 Complete shared sections** on portal — Data Security (DSPT), Clinical risk (DCB0129). Service/incident management already done ✅.
+17. **🟡 Complete API assurance** — Technical conformance for PDS, DoS REST, NHS Notify
+18. **🟡 Connection Agreement** — Auto-generated. Accept within 90 days.
+19. **🟢 Add DoHS v3 / Service Search** to Digital Onboarding portal (deferred — low priority)
 
 **CAN WAIT:**
 
-19. **🟢 Identify pilot pharmacy** — First customer / test site for NHS 111 live
-20. **🟢 Static IP proxy** — For NHSBSA production (after staging credentials received)
-21. **🟢 mTLS certificates** — For live NHS 111 (after pilot pharmacy + DoS registration)
+20. **🟢 Identify pilot pharmacy** — First customer / test site for NHS 111 live
+21. **🟢 Static IP proxy** — For NHSBSA production (after staging credentials received)
+22. **🟢 mTLS certificates** — For live NHS 111 (after pilot pharmacy + DoS registration)
 
 **Removed from original list:**
 - ~~🔴 Confirm ODS code FFQ69~~ — **NOT NEEDED.** Test/sample code only.

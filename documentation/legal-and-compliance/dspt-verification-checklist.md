@@ -144,20 +144,20 @@
 
 ## NHS Digital Onboarding Claims (5 March 2026)
 
-- [ ] **Eligibility — Product details** — Complete product details section on Digital Onboarding Service portal (onboarding.prod.api.platform.nhs.uk).
-- [ ] **Eligibility — Organisation details** — Complete organisation details section including ODS code D8W5S.
-- [ ] **Eligibility — DoS additional details** — Complete the DoS-specific eligibility questions on the portal.
-- [ ] **Shared section — Service/incident management** — Register for NSD service and incident management.
-- [ ] **Shared section — Data Security (DSPT)** — Provide DSPT "Standards Met" status. Blocked until DSPT published.
+- [x] **Eligibility — Product details** — Submitted 5 Mar 2026, **APPROVED 27 Apr 2026** by NHS England assessor (Pharmstation - Gateway).
+- [x] **Eligibility — Organisation details** — Submitted 5 Mar 2026 (ODS D8W5S), **APPROVED 27 Apr 2026** (Pharmstation - Gateway).
+- [x] **Eligibility — DoS additional details** — Submitted 5 Mar 2026 (byODSCode + byServiceId endpoints), **APPROVED 27 Apr 2026** (Pharmstation - (DoS) REST API).
+- [x] **Shared section — Service/incident management** — Registered via NSD portal 5 Mar 2026.
+- [ ] **Shared section — Data Security (DSPT)** — Provide DSPT "Standards Met" status. Blocked until DSPT published (waiting on independent audit).
 - [ ] **Shared section — Clinical risk management** — Provide DCB0129 Clinical Safety Case Report. Not yet created.
 - [ ] **DCB0129 Clinical Safety Case Report** — Write and publish a clinical safety case report for PharmStation as per DCB0129. **Blocker for onboarding.**
-- [ ] **PDS technical conformance** — Pass PDS FHIR API application-restricted technical conformance.
-- [ ] **DoS technical conformance** — Pass DoS UEC REST API technical conformance.
-- [ ] **NHS Notify technical conformance** — Pass NHS Notify technical conformance.
+- [ ] **PDS technical conformance** — Pass PDS FHIR API application-restricted technical conformance. ✅ Eligibility cleared 27 Apr — can begin assurance.
+- [ ] **DoS technical conformance** — Pass DoS UEC REST API technical conformance. ✅ Eligibility cleared 27 Apr — can begin assurance.
+- [ ] **NHS Notify technical conformance** — Pass NHS Notify technical conformance. ✅ Eligibility cleared 27 Apr — can begin assurance.
 - [ ] **Connection Agreement** — Review and accept within 90 days once auto-generated.
-- [ ] **BaRS reply** — Follow up with BaRS team if no reply by 19 March 2026 (email sent 5 March).
-- [ ] **DoHS v3 reply** — Follow up with NSD if no reply by 19 March 2026 (email sent 5 March).
-- [ ] **NHSBSA MYS reply** — Chase by phone (0300 330 1368) if no reply by 12 March 2026 (email sent 26 Feb).
+- [ ] **BaRS reply** — ⚠️ Email sent 5 Mar — no reply in 2 months. Needs urgent chase to `bookingandreferralstandard@nhs.net`.
+- [x] **DoHS v3 reply** — NSD replied 5 Mar (case CS1347123): redirected to Digital Onboarding portal. Resolution accepted, deferred.
+- [ ] **NHSBSA MYS reply** — ⚠️ Email sent 26 Feb — no reply in 2 months. Needs urgent phone chase (0300 330 1368).
 
 ## How to Verify DNS Records
 
