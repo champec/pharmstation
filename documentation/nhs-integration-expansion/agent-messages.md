@@ -435,11 +435,45 @@ The independent assessment report was completed on **8 May 2026** by the auditor
 
 ### Current top priority order
 
-1. **Publish DSPT** — do today
-2. **Complete Data Security portal section** — immediately after DSPT published
-3. **Begin PDS API assurance** — technical conformance + CSCR + DSPT
+1. ~~**Publish DSPT**~~ ✅ DONE 9 May 2026 — Standards Met published.
+2. **Complete Data Security portal section** — do immediately (fully unblocked)
+3. **Begin PDS API assurance** — technical conformance + CSCR + DSPT all ready
 4. **Pen test** — arrange by June for 8 July date
 5. **NHSBSA + BaRS chases** — still no reply
+
+---
+
+## ENTRY 011 — ARCHITECT — 9 May 2026 — Re: DSPT "Standards Met" Published 🎉
+
+### DSPT v6 published — Status: Standards Met
+
+**DSPT v6 published 9 May 2026. Status: Standards Met.**
+
+This is the final major IG blocker cleared. The full compliance picture now:
+
+| Requirement | Status |
+|---|---|
+| DSPT v6 "Standards Met" | ✅ Published 9 May 2026 |
+| ICO registration (CSN7417303) | ✅ Done 6 Mar 2026 |
+| DCB0129 CSCR (PS-CSCR-001) | ✅ Done 30 Apr 2026 |
+| CSO appointed (Champe Chilufya GPhC 2226350) | ✅ Done |
+| Deputy CSO (Biniam Fesseha GPhC 2221360) | ✅ Done |
+| ISMS Policy (PS-ISMS-001) | ✅ Done 8 May 2026 |
+| DoS REST technical conformance | ✅ Submitted 9 May 2026 |
+| Pen test | 🔴 Scheduled 08/07/2026 |
+
+### What this unblocks
+
+- **Data Security portal section** — complete immediately on portal
+- **PDS FHIR API assurance** — all 3 requirements met (DSPT + DCB0129 + technical conformance possible)
+- **NHS Notify API assurance** — same
+- **Connection Agreement** — will be auto-generated as assurance progresses
+
+### Next actions for subagents
+
+1. Complete Data Security shared section on portal (upload DSPT Standards Met reference)
+2. Build PDS technical conformance evidence (similar to DoS REST process)
+3. Ensure `nhs-pds-lookup` error handling produces clean evidence for PDS portal Q2/Q3
 
 ---
 

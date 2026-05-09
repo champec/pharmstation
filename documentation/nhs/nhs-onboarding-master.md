@@ -67,7 +67,8 @@
 | BaRS early access email sent | ✅ | 5 Mar 2026 | Sent to `bookingandreferralstandard@nhs.net` — requesting Referral Receiver GP-Pharmacy (CPCS) |
 | DoHS v3 onboarding email sent | ✅ | 5 Mar 2026 | Sent to `ssd.nationalservicedesk@nhs.net` — "Service Search v3 API onboarding" |
 | DoHS v3 — NSD reply received | ✅ | 5 Mar 2026 | Case CS1347123. NSD replied with generic redirect to Digital Onboarding portal. Resolution accepted. DoHS v3 can be added to portal later — not a priority. |
-| DSPT — independent audit completed | ✅ | 8 May 2026 | Independent assessment report completed by auditor. DSPT v6 now ready to publish — confirm 33 assertions and submit for "Standards Met". |
+| DSPT — independent audit completed | ✅ | 8 May 2026 | Independent assessment report completed by auditor. |
+| DSPT — published "Standards Met" | ✅ | 9 May 2026 | DSPT v6 published. Status: **Standards Met**. Unblocks Data Security portal section and PDS + NHS Notify API assurance. |
 | DCB0129 artefacts created | ✅ | 30 Apr 2026 | CSO Appointment (PS-CSO-001), Deputy CSO Appointment (PS-CSO-002, Biniam Fesseha GPhC 2221360), CRMP (PS-CRMP-001), Hazard Log (PS-HAZLOG-001, 18 hazards all ≤Low residual), CSCR (PS-CSCR-001). Clinical risk management portal section submitted. |
 | DoS REST — technical conformance submitted | ✅ | 9 May 2026 | Q1–Q4 answered, error-handling evidence PDF uploaded, risk log (21 risks all mitigated) uploaded. Awaiting witness testing date from NHS England. |
 | ISMS policy created | ✅ | 8 May 2026 | PS-ISMS-001 — Information Security Policy covering scope, governance, IS risk register, document index, compliance table. |
@@ -80,8 +81,8 @@
 | Digital Onboarding — shared sections | Clinical risk management ✅ SUBMITTED 9 May 2026. Core IG ✅ SUBMITTED. Data Security — needs DSPT "Standards Met" (audit done, publish pending). Pen test scheduled 08/07/2026. |
 | Digital Onboarding — API assurance | DoS REST technical conformance ✅ SUBMITTED 9 May 2026 (awaiting witness testing). PDS + NHS Notify not yet started. |
 | DSPT — ICO registration | ✅ Completed 6 Mar 2026. Security number CSN7417303. Evidence item 1.1.1 satisfied. |
-| DSPT — independent audit | ✅ COMPLETED 8 May 2026. Assessment report done. |
-| DSPT — publish | 🔴 NEXT ACTION — audit complete, confirm 33 assertions and publish → "Standards Met" |
+| DSPT — independent audit | ✅ COMPLETED 8 May 2026. Assessment report received. |
+| DSPT — publish | ✅ PUBLISHED 9 May 2026 — Status: **Standards Met**. |
 | DCB0129 Clinical Safety Case Report | ✅ DONE 30 Apr 2026. PS-CSCR-001 v1.0 signed. Submitted to portal. |
 | Connection Agreement | Not signed — auto-generated when API assurance progresses. Accept within 90 days. |
 | NHSBSA staging credentials | Awaiting reply to 26 Feb email. ⚠️ No reply in 2 months — needs urgent phone chase (0300 330 1368). |
@@ -961,8 +962,10 @@ Record ALL emails sent and received here in chronological order.
 
 **DO NOW — Active blockers:**
 
-14. **🔴 DSPT — PUBLISH NOW** — Audit complete. Confirm 33 assertions → publish → "Standards Met". This unblocks Data Security portal section and PDS/NHS Notify API assurance.
-15. **🔴 Pen test** — Scheduled 08/07/2026. Find independent tester (friend/colleague). OWASP ZAP + manual auth test + Management Summary document needed.
+14. ~~**🔴 DSPT — PUBLISH NOW**~~ ✅ PUBLISHED 9 May 2026 — Standards Met.
+15. **🔴 Complete Data Security shared section** — Go to portal, upload DSPT "Standards Met" confirmation. This is now fully unblocked.
+16. **🔴 Begin PDS API assurance** — DSPT + DCB0129 both done. Submit technical conformance for PDS FHIR.
+17. **🔴 Pen test** — Scheduled 08/07/2026. Find independent tester (friend/colleague). OWASP ZAP + manual auth test + Management Summary document needed.
 
 **WAITING ON REPLIES:**
 

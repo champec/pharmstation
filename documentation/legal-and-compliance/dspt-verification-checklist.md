@@ -140,8 +140,8 @@
 ## Earlier Section Claims (Sections 1–5)
 
 - [x] **ICO registration** — Completed 6 March 2026. Application C1887941. Security number **CSN7417303**. Tier 1 £52/year DD. Registered as Individual/Sole Trader trading as Pharmstation, Nature of work: Software Development. Satisfies DSPT evidence item 1.1.1.
-- [x] **DSPT independent audit** — ✅ COMPLETED 8 May 2026. Assessment report received. DSPT v6 now ready to publish — confirm assertions and submit.
-- [ ] **DSPT publication** — 🔴 DO NOW. Confirm 33 assertions → Publish → "Standards Met" status.
+- [x] **DSPT independent audit** — ✅ COMPLETED 8 May 2026. Assessment report received.
+- [x] **DSPT publication** — ✅ PUBLISHED 9 May 2026. Status: **Standards Met**. All assertions confirmed.
 
 ## NHS Digital Onboarding Claims (5 March 2026)
 
@@ -149,7 +149,7 @@
 - [x] **Eligibility — Organisation details** — Submitted 5 Mar 2026 (ODS D8W5S), **APPROVED 27 Apr 2026** (Pharmstation - Gateway).
 - [x] **Eligibility — DoS additional details** — Submitted 5 Mar 2026 (byODSCode + byServiceId endpoints), **APPROVED 27 Apr 2026** (Pharmstation - (DoS) REST API).
 - [x] **Shared section — Service/incident management** — Registered via NSD portal 5 Mar 2026.
-- [ ] **Shared section — Data Security (DSPT)** — Provide DSPT "Standards Met" status. 🔴 Unblocked — audit done 8 May. Publish DSPT now to complete this section.
+- [ ] **Shared section — Data Security (DSPT)** — 🔴 DO NOW. DSPT "Standards Met" published 9 May 2026. Go to portal and complete this section.
 - [x] **Shared section — Clinical risk management** — ✅ SUBMITTED 9 May 2026. DCB0129 artefacts (PS-CSO-001/002, PS-CRMP-001, PS-HAZLOG-001, PS-CSCR-001) created and submitted.
 - [x] **Shared section — Core IG** — ✅ SUBMITTED 9 May 2026. Privacy notice, ROPA, processor/controller details confirmed.
 - [x] **DCB0129 Clinical Safety Case Report** — ✅ DONE 30 Apr 2026. PS-CSCR-001 v1.0 signed by CSO Champe Chilufya GPhC 2226350. Deputy CSO Biniam Fesseha GPhC 2221360 appointed (PS-CSO-002). ISMS policy PS-ISMS-001 created 8 May 2026.
