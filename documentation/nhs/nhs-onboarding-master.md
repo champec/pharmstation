@@ -3,7 +3,7 @@
 > **Status:** 🔄 In Progress
 > **Owner:** Champe Chilufya (GPhC: 2226350)
 > **Created:** 28 February 2026
-> **Last Updated:** 30 April 2026
+> **Last Updated:** 9 May 2026
 > **Classification:** Internal — Onboarding Tracker
 
 ---
@@ -67,18 +67,22 @@
 | BaRS early access email sent | ✅ | 5 Mar 2026 | Sent to `bookingandreferralstandard@nhs.net` — requesting Referral Receiver GP-Pharmacy (CPCS) |
 | DoHS v3 onboarding email sent | ✅ | 5 Mar 2026 | Sent to `ssd.nationalservicedesk@nhs.net` — "Service Search v3 API onboarding" |
 | DoHS v3 — NSD reply received | ✅ | 5 Mar 2026 | Case CS1347123. NSD replied with generic redirect to Digital Onboarding portal. Resolution accepted. DoHS v3 can be added to portal later — not a priority. |
+| DSPT — independent audit completed | ✅ | 8 May 2026 | Independent assessment report completed by auditor. DSPT v6 now ready to publish — confirm 33 assertions and submit for "Standards Met". |
+| DCB0129 artefacts created | ✅ | 30 Apr 2026 | CSO Appointment (PS-CSO-001), Deputy CSO Appointment (PS-CSO-002, Biniam Fesseha GPhC 2221360), CRMP (PS-CRMP-001), Hazard Log (PS-HAZLOG-001, 18 hazards all ≤Low residual), CSCR (PS-CSCR-001). Clinical risk management portal section submitted. |
+| DoS REST — technical conformance submitted | ✅ | 9 May 2026 | Q1–Q4 answered, error-handling evidence PDF uploaded, risk log (21 risks all mitigated) uploaded. Awaiting witness testing date from NHS England. |
+| ISMS policy created | ✅ | 8 May 2026 | PS-ISMS-001 — Information Security Policy covering scope, governance, IS risk register, document index, compliance table. |
 
 ### 🔲 Not Done Yet
 
 | Item | What's Needed |
 |------|--------------|
 | Digital Onboarding — eligibility | ✅ APPROVED 27 Apr 2026 by NHS England assessor. Pharmstation - Gateway (Product + Organisation details) and Pharmstation - (DoS) REST API (DoS additional details) all approved. Cleared to begin API assurance for PDS, NHS Notify, DoS REST. |
-| Digital Onboarding — shared sections | Not started. Register for service/incident management, Data Security (needs DSPT), Clinical risk management (needs DCB0129) |
-| Digital Onboarding — API assurance | Not started. Technical conformance for PDS, DoS REST, NHS Notify |
+| Digital Onboarding — shared sections | Clinical risk management ✅ SUBMITTED 9 May 2026. Core IG ✅ SUBMITTED. Data Security — needs DSPT "Standards Met" (audit done, publish pending). Pen test scheduled 08/07/2026. |
+| Digital Onboarding — API assurance | DoS REST technical conformance ✅ SUBMITTED 9 May 2026 (awaiting witness testing). PDS + NHS Notify not yet started. |
 | DSPT — ICO registration | ✅ Completed 6 Mar 2026. Security number CSN7417303. Evidence item 1.1.1 satisfied. |
-| DSPT — independent audit | Auditor identified. Needs to be added as DSPT user and complete assessment. |
-| DSPT — publish | After ICO + audit → confirm 33 assertions → publish → "Standards Met" |
-| DCB0129 Clinical Safety Case Report | Not started — required for "Implement a clinical risk management process" shared section |
+| DSPT — independent audit | ✅ COMPLETED 8 May 2026. Assessment report done. |
+| DSPT — publish | 🔴 NEXT ACTION — audit complete, confirm 33 assertions and publish → "Standards Met" |
+| DCB0129 Clinical Safety Case Report | ✅ DONE 30 Apr 2026. PS-CSCR-001 v1.0 signed. Submitted to portal. |
 | Connection Agreement | Not signed — auto-generated when API assurance progresses. Accept within 90 days. |
 | NHSBSA staging credentials | Awaiting reply to 26 Feb email. ⚠️ No reply in 2 months — needs urgent phone chase (0300 330 1368). |
 | BaRS early access | Email sent 5 Mar to `bookingandreferralstandard@nhs.net`. ⚠️ No reply in 2 months — needs chase. |
@@ -274,7 +278,8 @@ DSPT registration: Also completed by NSD — PharmStation (D8W5S) registered on 
 
 **Remaining before publication:**
 1. ~~ICO registration (£40/year) — needed for evidence item 1.1.1~~ ✅ Completed 6 Mar 2026 — Security number CSN7417303
-2. Independent audit — required for IT Suppliers. Auditor identified, needs to be added as DSPT user and complete assessment using the Strengthening Assurance Guide.
+2. ~~Independent audit — required for IT Suppliers.~~ ✅ **COMPLETED 8 May 2026** — Assessment report received from auditor.
+3. 🔴 **NEXT ACTION: Publish DSPT** — Confirm all 33 assertions → click Publish → status becomes "Standards Met".
 
 **Supporting documents created:**
 - Privacy Notice — published at pharmstation.co.uk/privacy (v1.0, 4 March 2026)
@@ -289,9 +294,9 @@ DSPT registration: Also completed by NSD — PharmStation (D8W5S) registered on 
 - [x] Complete organisation profile ✅ 3 March 2026
 - [x] Complete all 103 mandatory evidence items ✅ 5 March 2026
 - [x] Register with ICO (£40/year) — needed for 1.1.1 ✅ 6 March 2026 — Security number CSN7417303
-- [ ] Arrange independent audit — add auditor as DSPT user, provide audit guide + report template
-- [ ] Confirm all assertions
-- [ ] Publish assessment
+- [x] Arrange independent audit ✅ Completed 8 May 2026 — assessment report received
+- [ ] Confirm all assertions 🔴 DO NOW
+- [ ] Publish assessment 🔴 DO NOW
 - [ ] Obtain "Standards Met" status
 
 **Estimated time to completion:** ~~ICO registration~~ ✅ Done + independent audit ~1 week
@@ -948,32 +953,37 @@ Record ALL emails sent and received here in chronological order.
 6. ~~**🟢 Email DoHS v3**~~ ✅ DONE 5 Mar — `ssd.nationalservicedesk@nhs.net` → Resolved: use Digital Onboarding portal
 7. ~~**🔴 Complete eligibility questions**~~ ✅ DONE 5 Mar — Product details, Organisation details, DoS additional details, Service/incident management all submitted
 8. ~~**🔴 Eligibility — NHS England approval**~~ ✅ APPROVED 27 Apr — Pharmstation - Gateway (Product + Organisation) + Pharmstation - (DoS) REST API approved by `api.onboarding@nhs.net`. Cleared for API assurance on PDS, NHS Notify, DoS REST.
+9. ~~**🔴 DSPT — ICO registration**~~ ✅ DONE 6 Mar — Security number CSN7417303. Evidence item 1.1.1 satisfied.
+10. ~~**🔴 DSPT — Independent audit**~~ ✅ COMPLETED 8 May 2026 — Assessment report received from auditor.
+11. ~~**🔴 DCB0129 Clinical Safety Case Report**~~ ✅ DONE 30 Apr 2026 — PS-CSO-001, PS-CSO-002, PS-CRMP-001, PS-HAZLOG-001, PS-CSCR-001 all created. Clinical risk management portal section submitted.
+12. ~~**🔴 DoS REST — Technical conformance**~~ ✅ SUBMITTED 9 May 2026 — Q1–Q4 answered, evidence PDF + risk log uploaded. Awaiting witness testing from NHS England.
+13. ~~**🔴 Core IG shared section**~~ ✅ SUBMITTED 9 May 2026.
 
 **DO NOW — Active blockers:**
 
-9. **🔴 DSPT — Arrange independent audit** — Add auditor as DSPT user, provide audit guide + report template (still waiting on auditor friend since March)
-10. ~~**🔴 DSPT — ICO registration** (£40/year)~~ ✅ DONE 6 Mar — Security number CSN7417303. Evidence item 1.1.1 satisfied.
-11. **🔴 DSPT — Publish assessment** — Confirm 33 assertions → publish → "Standards Met" (blocked by audit)
-12. **🔴 DCB0129 Clinical Safety Case Report** — Required for "Implement a clinical risk management process" shared section AND for API assurance (clinical safety) on PDS/DoS/NHS Notify
-13. **� Begin API assurance** — Now unblocked! Submit assurance for **PDS**, **NHS Notify**, and **DoS REST** on portal. Each requires: technical conformance + clinical safety (DCB0129) + IG (DSPT "Standards Met")
+14. **🔴 DSPT — PUBLISH NOW** — Audit complete. Confirm 33 assertions → publish → "Standards Met". This unblocks Data Security portal section and PDS/NHS Notify API assurance.
+15. **🔴 Pen test** — Scheduled 08/07/2026. Find independent tester (friend/colleague). OWASP ZAP + manual auth test + Management Summary document needed.
 
 **WAITING ON REPLIES:**
 
-14. **🔄 NHSBSA MYS** — Email sent 26 Feb. ⚠️ No reply in 2 months — chase by phone (0300 330 1368).
-15. **🔄 BaRS early access** — Email sent 5 Mar. ⚠️ No reply in 2 months — chase `bookingandreferralstandard@nhs.net`.
+16. **🔄 NHSBSA MYS** — Email sent 26 Feb. ⚠️ No reply — chase by phone (0300 330 1368).
+17. **🔄 BaRS early access** — Email sent 5 Mar. ⚠️ No reply — chase `bookingandreferralstandard@nhs.net`.
+18. **🔄 DoS REST witness testing** — Submitted 9 May. Awaiting NHS England to propose a date.
 
-**AFTER DSPT + DCB0129:**
+**AFTER DSPT PUBLISHED:**
 
-16. **🟡 Complete shared sections** on portal — Data Security (DSPT), Clinical risk (DCB0129). Service/incident management already done ✅.
-17. **🟡 Complete API assurance** — Technical conformance for PDS, DoS REST, NHS Notify
-18. **🟡 Connection Agreement** — Auto-generated. Accept within 90 days.
-19. **🟢 Add DoHS v3 / Service Search** to Digital Onboarding portal (deferred — low priority)
+19. **🟡 Complete Data Security shared section** on portal — upload DSPT "Standards Met" link.
+20. **🟡 Begin PDS API assurance** — Technical conformance + clinical safety (PS-CSCR-001) + IG (DSPT).
+21. **🟡 Begin NHS Notify API assurance** — Technical conformance + clinical safety + IG.
+22. **🟡 Connection Agreement** — Auto-generated. Accept within 90 days.
+23. **🟢 Add DoHS v3 / Service Search** to Digital Onboarding portal (deferred — low priority)
 
 **CAN WAIT:**
 
-20. **🟢 Identify pilot pharmacy** — First customer / test site for NHS 111 live
-21. **🟢 Static IP proxy** — For NHSBSA production (after staging credentials received)
-22. **🟢 mTLS certificates** — For live NHS 111 (after pilot pharmacy + DoS registration)
+24. **🟢 Identify pilot pharmacy** — First customer / test site for NHS 111 live
+25. **🟢 Static IP proxy** — For NHSBSA production (after staging credentials received)
+26. **🟢 mTLS certificates** — For live NHS 111 (after pilot pharmacy + DoS registration)
+27. **🟢 Supabase region migration** — Move from us-east-1 to eu-west-2 (London) before first live deployment
 
 **Removed from original list:**
 - ~~🔴 Confirm ODS code FFQ69~~ — **NOT NEEDED.** Test/sample code only.

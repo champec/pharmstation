@@ -140,7 +140,8 @@
 ## Earlier Section Claims (Sections 1–5)
 
 - [x] **ICO registration** — Completed 6 March 2026. Application C1887941. Security number **CSN7417303**. Tier 1 £52/year DD. Registered as Individual/Sole Trader trading as Pharmstation, Nature of work: Software Development. Satisfies DSPT evidence item 1.1.1.
-- [ ] *(Add other items from earlier sections as they are completed)*
+- [x] **DSPT independent audit** — ✅ COMPLETED 8 May 2026. Assessment report received. DSPT v6 now ready to publish — confirm assertions and submit.
+- [ ] **DSPT publication** — 🔴 DO NOW. Confirm 33 assertions → Publish → "Standards Met" status.
 
 ## NHS Digital Onboarding Claims (5 March 2026)
 
@@ -148,12 +149,13 @@
 - [x] **Eligibility — Organisation details** — Submitted 5 Mar 2026 (ODS D8W5S), **APPROVED 27 Apr 2026** (Pharmstation - Gateway).
 - [x] **Eligibility — DoS additional details** — Submitted 5 Mar 2026 (byODSCode + byServiceId endpoints), **APPROVED 27 Apr 2026** (Pharmstation - (DoS) REST API).
 - [x] **Shared section — Service/incident management** — Registered via NSD portal 5 Mar 2026.
-- [ ] **Shared section — Data Security (DSPT)** — Provide DSPT "Standards Met" status. Blocked until DSPT published (waiting on independent audit).
-- [ ] **Shared section — Clinical risk management** — Provide DCB0129 Clinical Safety Case Report. Not yet created.
-- [ ] **DCB0129 Clinical Safety Case Report** — Write and publish a clinical safety case report for PharmStation as per DCB0129. **Blocker for onboarding.**
-- [ ] **PDS technical conformance** — Pass PDS FHIR API application-restricted technical conformance. ✅ Eligibility cleared 27 Apr — can begin assurance.
-- [ ] **DoS technical conformance** — Pass DoS UEC REST API technical conformance. ✅ Eligibility cleared 27 Apr — can begin assurance.
-- [ ] **NHS Notify technical conformance** — Pass NHS Notify technical conformance. ✅ Eligibility cleared 27 Apr — can begin assurance.
+- [ ] **Shared section — Data Security (DSPT)** — Provide DSPT "Standards Met" status. 🔴 Unblocked — audit done 8 May. Publish DSPT now to complete this section.
+- [x] **Shared section — Clinical risk management** — ✅ SUBMITTED 9 May 2026. DCB0129 artefacts (PS-CSO-001/002, PS-CRMP-001, PS-HAZLOG-001, PS-CSCR-001) created and submitted.
+- [x] **Shared section — Core IG** — ✅ SUBMITTED 9 May 2026. Privacy notice, ROPA, processor/controller details confirmed.
+- [x] **DCB0129 Clinical Safety Case Report** — ✅ DONE 30 Apr 2026. PS-CSCR-001 v1.0 signed by CSO Champe Chilufya GPhC 2226350. Deputy CSO Biniam Fesseha GPhC 2221360 appointed (PS-CSO-002). ISMS policy PS-ISMS-001 created 8 May 2026.
+- [ ] **PDS technical conformance** — Not yet started. Unblocked once DSPT "Standards Met" published.
+- [x] **DoS technical conformance** — ✅ SUBMITTED 9 May 2026. Q1–Q4 answered, error-handling evidence PDF uploaded, 21-risk risk log uploaded. Pen test scheduled 08/07/2026. Awaiting witness testing date from NHS England.
+- [ ] **NHS Notify technical conformance** — Not yet started. Unblocked once DSPT published.
 - [ ] **Connection Agreement** — Review and accept within 90 days once auto-generated.
 - [ ] **BaRS reply** — ⚠️ Email sent 5 Mar — no reply in 2 months. Needs urgent chase to `bookingandreferralstandard@nhs.net`.
 - [x] **DoHS v3 reply** — NSD replied 5 Mar (case CS1347123): redirected to Digital Onboarding portal. Resolution accepted, deferred.

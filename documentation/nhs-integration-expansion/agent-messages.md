@@ -393,10 +393,53 @@ We can now begin the **API Assurance** stage on the portal for all 3 APIs. Each 
 | Blocker | Status | Notes |
 |---------|--------|-------|
 | ✅ Eligibility | DONE | Approved 27 Apr 2026 |
-| 🔴 DSPT publication | Pending audit | Friend auditor still hasn't done it (since March) — needs urgent chase |
-| 🔴 DCB0129 CSCR | Not started | Required for ALL 3 API assurance submissions |
-| 🔴 NHSBSA MYS reply | No reply in 2 months | Needs urgent phone chase 0300 330 1368 |
-| 🔴 BaRS reply | No reply in 2 months | Needs chase to `bookingandreferralstandard@nhs.net` |
+| ✅ DSPT independent audit | DONE | Completed 8 May 2026 |
+| 🔴 DSPT publication | **DO NOW** | Audit complete — confirm assertions and publish for "Standards Met" |
+| ✅ DCB0129 CSCR | DONE | PS-CSCR-001 v1.0 signed 30 Apr 2026. Submitted to portal 9 May 2026. |
+| ✅ DoS REST technical conformance | DONE | Submitted 9 May 2026. Awaiting witness testing. |
+| 🔄 NHSBSA MYS reply | No reply 2+ months | Phone chase 0300 330 1368 |
+| � BaRS reply | No reply 2+ months | Chase `bookingandreferralstandard@nhs.net` |
+
+---
+
+## ENTRY 010 — ARCHITECT — 9 May 2026 — Re: DSPT Audit Complete + Major Progress Update
+
+### DSPT independent audit COMPLETED 🎉
+
+The independent assessment report was completed on **8 May 2026** by the auditor. This is the final blocker before DSPT publication.
+
+**IMMEDIATE ACTION REQUIRED:** Log into dsptoolkit.nhs.uk, confirm all 33 assertions, and click Publish. Status will become **"Standards Met"**. This unblocks:
+- Data Security shared section on the NHS Digital Onboarding portal
+- PDS FHIR API assurance submission
+- NHS Notify API assurance submission
+
+### Other progress since ENTRY 009 (30 Apr 2026)
+
+| Item | Status | Date |
+|------|--------|------|
+| DCB0129 artefacts | ✅ Created and submitted | 30 Apr – 9 May 2026 |
+| CSO Appointment (PS-CSO-001) | ✅ Done | 30 Apr 2026 |
+| Deputy CSO (PS-CSO-002) | ✅ Done | 30 Apr 2026 | 
+| Deputy: Biniam Eyob Fesseha | ✅ Appointed | GPhC 2221360, bfesseha13@gmail.com |
+| CRMP (PS-CRMP-001) | ✅ Done | 30 Apr 2026 |
+| Hazard Log (PS-HAZLOG-001) | ✅ Done | 30 Apr 2026 | 
+| CSCR (PS-CSCR-001) | ✅ Done | 30 Apr 2026 |
+| ISMS Policy (PS-ISMS-001) | ✅ Done | 8 May 2026 |
+| Clinical risk management portal section | ✅ Submitted | 9 May 2026 |
+| Core IG portal section | ✅ Submitted | 9 May 2026 |
+| nhs-dos-lookup Edge Function | ✅ Built + deployed | 9 May 2026 |
+| DoS REST technical conformance (Q1–Q4) | ✅ Submitted | 9 May 2026 |
+| DoS REST risk log (21 risks) | ✅ Submitted | 9 May 2026 |
+| Pen test | 🔴 Scheduled 08/07/2026 | Find independent tester |
+| Supabase region | ⚠️ us-east-1 (USA) | Migrate to eu-west-2 before go-live |
+
+### Current top priority order
+
+1. **Publish DSPT** — do today
+2. **Complete Data Security portal section** — immediately after DSPT published
+3. **Begin PDS API assurance** — technical conformance + CSCR + DSPT
+4. **Pen test** — arrange by June for 8 July date
+5. **NHSBSA + BaRS chases** — still no reply
 
 ---
 
