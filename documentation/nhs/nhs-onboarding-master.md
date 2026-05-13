@@ -71,6 +71,9 @@
 | DSPT — published "Standards Met" | ✅ | 9 May 2026 | DSPT v6 published. Status: **Standards Met**. Unblocks Data Security portal section and PDS + NHS Notify API assurance. |
 | DCB0129 artefacts created | ✅ | 30 Apr 2026 | CSO Appointment (PS-CSO-001), Deputy CSO Appointment (PS-CSO-002, Biniam Fesseha GPhC 2221360), CRMP (PS-CRMP-001), Hazard Log (PS-HAZLOG-001, 18 hazards all ≤Low residual), CSCR (PS-CSCR-001). Clinical risk management portal section submitted. |
 | DoS REST — technical conformance submitted | ✅ | 9 May 2026 | Q1–Q4 answered, error-handling evidence PDF uploaded, risk log (21 risks all mitigated) uploaded. Awaiting witness testing date from NHS England. |
+| PDS FHIR — technical conformance submitted | ✅ | 13 May 2026 | Application-restricted access mode. All 23 risks in risk log completed. Medical device question answered (not a device). Some aspects already approved by NHS England. Awaiting full approval + witness testing. |
+| NHS Notify — technical conformance submitted | ✅ | 13 May 2026 | Integration via API. Use case, legal basis, volumes, channels, security questions all answered. SLSP (PS-ISMS-001) uploaded. Supplier register uploaded as third-party assurance. Some aspects already approved. Awaiting full approval. |
+| All 3 API conformance sections submitted | ✅ | 13 May 2026 | PDS FHIR, DoS UEC REST, NHS Notify all submitted on Digital Onboarding portal. Some sections already approved. Awaiting remaining approvals + witness testing dates from NHS England. |
 | ISMS policy created | ✅ | 8 May 2026 | PS-ISMS-001 — Information Security Policy covering scope, governance, IS risk register, document index, compliance table. |
 
 ### 🔲 Not Done Yet
@@ -79,7 +82,7 @@
 |------|--------------|
 | Digital Onboarding — eligibility | ✅ APPROVED 27 Apr 2026 by NHS England assessor. Pharmstation - Gateway (Product + Organisation details) and Pharmstation - (DoS) REST API (DoS additional details) all approved. Cleared to begin API assurance for PDS, NHS Notify, DoS REST. |
 | Digital Onboarding — shared sections | Clinical risk management ✅ SUBMITTED 9 May 2026. Core IG ✅ SUBMITTED. Data Security — needs DSPT "Standards Met" (audit done, publish pending). Pen test scheduled 08/07/2026. |
-| Digital Onboarding — API assurance | DoS REST technical conformance ✅ SUBMITTED 9 May 2026 (awaiting witness testing). PDS + NHS Notify not yet started. |
+| Digital Onboarding — API assurance | ✅ ALL 3 SUBMITTED 13 May 2026. DoS REST, PDS FHIR, NHS Notify all submitted. Some aspects already approved. Awaiting remaining approvals + witness testing dates from NHS England. |
 | DSPT — ICO registration | ✅ Completed 6 Mar 2026. Security number CSN7417303. Evidence item 1.1.1 satisfied. |
 | DSPT — independent audit | ✅ COMPLETED 8 May 2026. Assessment report received. |
 | DSPT — publish | ✅ PUBLISHED 9 May 2026 — Status: **Standards Met**. |
@@ -964,7 +967,7 @@ Record ALL emails sent and received here in chronological order.
 
 14. ~~**🔴 DSPT — PUBLISH NOW**~~ ✅ PUBLISHED 9 May 2026 — Standards Met.
 15. **🔴 Complete Data Security shared section** — Go to portal, upload DSPT "Standards Met" confirmation. This is now fully unblocked.
-16. **🔴 Begin PDS API assurance** — DSPT + DCB0129 both done. Submit technical conformance for PDS FHIR.
+16. ~~**🔴 Begin PDS API assurance**~~ ✅ SUBMITTED 13 May 2026 — and NHS Notify too. All 3 APIs submitted.
 17. **🔴 Pen test** — Scheduled 08/07/2026. Find independent tester (friend/colleague). OWASP ZAP + manual auth test + Management Summary document needed.
 
 **WAITING ON REPLIES:**

@@ -477,6 +477,43 @@ This is the final major IG blocker cleared. The full compliance picture now:
 
 ---
 
+## ENTRY 012 — ARCHITECT — 13 May 2026 — Re: All 3 API Conformance Sections Submitted 🎉
+
+### All 3 API technical conformance sections submitted on 13 May 2026
+
+| API | Status | Notes |
+|---|---|---|
+| DoS UEC REST | ✅ Submitted 9 May 2026 | Some aspects already approved |
+| PDS FHIR (Application-restricted) | ✅ Submitted 13 May 2026 | 23-risk risk log + medical device declaration + conformance Q&A. Some aspects already approved. |
+| NHS Notify | ✅ Submitted 13 May 2026 | Use case, legal basis, volumes, security (SLSP PS-ISMS-001 uploaded, supplier register uploaded). Some aspects already approved. |
+
+### What this means
+
+Pharmstation has now submitted every required section on the NHS Digital Onboarding portal:
+- ✅ Eligibility (approved 27 Apr 2026)
+- ✅ Service/incident management shared section
+- ✅ Clinical risk management shared section (DCB0129)
+- ✅ Core IG shared section
+- ✅ DoS REST, PDS FHIR, NHS Notify technical conformance
+- ⏳ Data Security shared section (DSPT Standards Met published — just needs portal update)
+- ⏳ Pen test upload (scheduled 08/07/2026)
+
+### Now waiting on NHS England for
+1. Full approval of remaining conformance sections
+2. Witness testing dates for DoS REST and PDS FHIR
+3. Connection Agreement auto-generation
+
+### Outstanding engineering work (pre-go-live)
+See `documentation/technical/pre-golive-engineering-checklist.md` — 40 items, 25 P1 blockers. Key ones:
+- PDS sensitive patient UI warning + location field suppression
+- Superseded NHS number handling
+- Key field change detection on re-sync
+- Supabase region migration (us-east-1 → eu-west-2)
+- Pen test (08/07/2026)
+- Deputy CSO countersignature (Biniam Fesseha)
+
+---
+
 ## ENTRY 004 — ARCHITECT — 26 February 2026 — Re: Pharmacy First (CCS) Clarification
 
 **Pharmacy First is NOT a separate API. It is `CLAIM_TYPE_CODE: CCS` on the CPCS API.**
