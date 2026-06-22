@@ -1429,6 +1429,9 @@ export interface DeliveryOutcome {
 // --- NHS Integration ---
 export * from './nhs'
 
+// --- PEPS (Private Electronic Prescription Service) ---
+export * from './peps'
+
 // ============================================
 // Locum Expansion Types
 // ============================================

@@ -1,0 +1,41 @@
+<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+	<!-- Defining the required complex types -->
+	<xs:complexType name="AMPType">
+		<xs:all>
+			<xs:element name="APID" type="xs:integer"/>
+			<xs:element name="BNF" type="xs:integer"/>
+		</xs:all>
+	</xs:complexType>
+	<xs:complexType name="VMPType">
+		<xs:all>
+			<xs:element name="VPID" type="xs:integer"/>
+			<xs:element name="BNF" type="xs:integer" minOccurs="0"/>
+			<xs:element name="ATC" type="xs:string" minOccurs="0"/>
+			<xs:element name="DDD" type="xs:decimal" minOccurs="0"/>						
+			<xs:element name="DDD_UOMCD" type="xs:integer" minOccurs="0"/>	
+		</xs:all>
+	</xs:complexType>		
+	<!-- END-Defining the required complex types -->
+	<!-- Defining the required main elements with subelements, using one of the above defined complex type-->
+	<xs:element name="BNF_DETAILS">
+		<xs:complexType>
+			<xs:sequence>
+				<xs:element name="VMPS">
+					<xs:complexType>
+						<xs:sequence>
+							<xs:element name="VMP" type="VMPType" minOccurs="0" maxOccurs="unbounded"/>
+						</xs:sequence>
+					</xs:complexType>
+				</xs:element>
+				<xs:element name="AMPS">
+					<xs:complexType>
+						<xs:sequence>
+							<xs:element name="AMP" type="AMPType" minOccurs="0" maxOccurs="unbounded"/>
+						</xs:sequence>
+					</xs:complexType>
+				</xs:element>
+			</xs:sequence>
+		</xs:complexType>
+	</xs:element>
+</xs:schema>

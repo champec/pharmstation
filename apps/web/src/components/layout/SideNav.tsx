@@ -34,6 +34,18 @@ const menuSections: NavSection[] = [
     ],
   },
   {
+    title: 'PEPS',
+    icon: '℞',
+    to: '/peps',
+    expandable: true,
+    items: [
+      { to: '/peps', icon: '📥', label: 'PEPS Queue' },
+      { to: '/peps/write', icon: '✍️', label: 'Write Prescription' },
+      { to: '/peps/mine', icon: '📄', label: 'My Prescriptions' },
+      { to: '/peps/prescriber', icon: '🪪', label: 'Prescriber Setup' },
+    ],
+  },
+  {
     title: 'Services',
     icon: '🩺',
     expandable: true,

@@ -100,6 +100,12 @@ import { LocumBookingsPage } from './pages/locum/LocumBookingsPage'
 import { LocumProfilePage } from './pages/locum/LocumProfilePage'
 import { LocumInvoicesPage } from './pages/locum/LocumInvoicesPage'
 import { LocumSOPsPage } from './pages/locum/LocumSOPsPage'
+// PEPS — Private Electronic Prescription Service
+import { PEPSQueuePage } from './pages/peps/PEPSQueuePage'
+import { PEPSWritePage } from './pages/peps/PEPSWritePage'
+import { PEPSMyPrescriptionsPage } from './pages/peps/PEPSMyPrescriptionsPage'
+import { PEPSPrescriberSetupPage } from './pages/peps/PEPSPrescriberSetupPage'
+import { PEPSPrescriptionDetailPage } from './pages/peps/PEPSPrescriptionDetailPage'
 // Shifts — Org mini-app (inside main dashboard)
 import { ShiftsDashboardPage } from './pages/shifts/ShiftsDashboardPage'
 import { ShiftsCalendarPage } from './pages/shifts/ShiftsCalendarPage'
@@ -289,6 +295,13 @@ export function App() {
         {/* Driver */}
         <Route path="/driver" element={<DriverDashboardPage />} />
         <Route path="/driver/:roundId" element={<DriverRoutePage />} />
+
+        {/* PEPS — Private Electronic Prescription Service */}
+        <Route path="/peps" element={<PEPSQueuePage />} />
+        <Route path="/peps/write" element={<PEPSWritePage />} />
+        <Route path="/peps/mine" element={<PEPSMyPrescriptionsPage />} />
+        <Route path="/peps/prescriber" element={<PEPSPrescriberSetupPage />} />
+        <Route path="/peps/:id" element={<PEPSPrescriptionDetailPage />} />
 
         {/* Shifts — org shift management mini-app */}
         <Route path="/shifts" element={<ShiftsDashboardPage />} />
