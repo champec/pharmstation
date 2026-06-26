@@ -1,15 +1,21 @@
-import { useMemo } from 'react'
+import { useEffect, useMemo } from 'react'
 import { Pressable, StyleSheet, Text, View } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
 import { useRouter } from 'expo-router'
 
 import { Screen } from '@/components/ui/Screen'
 import { useAuthStore } from '@/stores/auth-store'
+import { useModuleContext } from '@/hooks/useModuleContext'
 import {
-  visibleModules,
-  type MobileModule,
-  type ModuleContext,
+  launchableModules,
+  moduleRoute,
+  webOnlyModules,
 } from '@/modules/registry'
+import type { MobileModule } from '@/modules/types'
+import {
+  orderModules,
+  useModulePrefsStore,
+} from '@/stores/module-prefs-store'
 import { palette, radius } from '@/theme/palette'
 
 export default function HomeScreen() {
@@ -17,20 +23,37 @@ export default function HomeScreen() {
   const userProfile = useAuthStore((s) => s.userProfile)
   const organisation = useAuthStore((s) => s.organisation)
   const membership = useAuthStore((s) => s.membership)
-  const permissions = useAuthStore((s) => s.permissions)
   const isOrgConnected = useAuthStore((s) => s.isOrgConnected)
-  const isLocumUser = useAuthStore((s) => s.isLocumUser())
 
-  const ctx: ModuleContext = useMemo(
-    () => ({ userProfile, permissions, isOrgConnected, isLocumUser }),
-    [userProfile, permissions, isOrgConnected, isLocumUser],
+  const ctx = useModuleContext()
+
+  // Persisted home configuration (favourites + usage ordering).
+  const favourites = useModulePrefsStore((s) => s.favourites)
+  const usage = useModulePrefsStore((s) => s.usage)
+  const hydrated = useModulePrefsStore((s) => s.hydrated)
+  const hydrate = useModulePrefsStore((s) => s.hydrate)
+  const toggleFavourite = useModulePrefsStore((s) => s.toggleFavourite)
+  const recordOpen = useModulePrefsStore((s) => s.recordOpen)
+
+  useEffect(() => {
+    if (!hydrated) void hydrate()
+  }, [hydrated, hydrate])
+
+  // Launchable modules, ordered by pin then usage, split by tier.
+  const ordered = useMemo(
+    () => orderModules(launchableModules(ctx), favourites, usage),
+    [ctx, favourites, usage],
   )
-
-  const modules = useMemo(() => visibleModules(ctx), [ctx])
-  const personalModules = modules.filter((m) => m.tier === 'user')
-  const orgModules = modules.filter((m) => m.tier === 'org')
+  const personalModules = ordered.filter((m) => m.tier === 'user')
+  const orgModules = ordered.filter((m) => m.tier === 'org')
+  const webModules = useMemo(() => webOnlyModules(ctx), [ctx])
 
   const firstName = userProfile?.first_name || userProfile?.full_name || 'there'
+
+  const open = (m: MobileModule) => {
+    recordOpen(m.id)
+    router.push(moduleRoute(m.id) as never)
+  }
 
   return (
     <Screen scroll contentStyle={styles.content}>
@@ -42,7 +65,7 @@ export default function HomeScreen() {
         </View>
         <Pressable
           accessibilityLabel="Account"
-          onPress={() => router.push('/(app)/module/account')}
+          onPress={() => router.push(moduleRoute('account') as never)}
           style={styles.avatar}
         >
           <Ionicons name="person" size={22} color={palette.brandDark} />
@@ -58,12 +81,14 @@ export default function HomeScreen() {
       />
 
       {/* Personal modules */}
-      <Section title="Personal">
+      <Section title="Personal" hint="Long-press a card to pin it to the top">
         {personalModules.map((m) => (
           <ModuleCard
             key={m.id}
             module={m}
-            onPress={() => router.push(m.route as never)}
+            pinned={favourites.includes(m.id)}
+            onPress={() => open(m)}
+            onLongPress={() => toggleFavourite(m.id)}
           />
         ))}
       </Section>
@@ -76,7 +101,9 @@ export default function HomeScreen() {
               <ModuleCard
                 key={m.id}
                 module={m}
-                onPress={() => router.push(m.route as never)}
+                pinned={favourites.includes(m.id)}
+                onPress={() => open(m)}
+                onLongPress={() => toggleFavourite(m.id)}
               />
             ))
           ) : (
@@ -91,6 +118,15 @@ export default function HomeScreen() {
           modules.
         </Text>
       )}
+
+      {/* Web-only modules — shown so the two clients visibly complete each other */}
+      {webModules.length > 0 ? (
+        <Section title="On the web">
+          {webModules.map((m) => (
+            <WebModuleCard key={m.id} module={m} />
+          ))}
+        </Section>
+      ) : null}
     </Screen>
   )
 }
@@ -141,43 +177,81 @@ function OrgStatusCard({
 
 function Section({
   title,
+  hint,
   children,
 }: {
   title: string
+  hint?: string
   children: React.ReactNode
 }) {
   return (
     <View style={styles.section}>
       <Text style={styles.sectionTitle}>{title}</Text>
       <View style={styles.grid}>{children}</View>
+      {hint ? <Text style={styles.sectionHint}>{hint}</Text> : null}
     </View>
   )
 }
 
 function ModuleCard({
   module,
+  pinned,
   onPress,
+  onLongPress,
 }: {
   module: MobileModule
+  pinned: boolean
   onPress: () => void
+  onLongPress: () => void
 }) {
   return (
     <Pressable
       onPress={onPress}
+      onLongPress={onLongPress}
+      delayLongPress={300}
       style={({ pressed }) => [styles.card, pressed && styles.cardPressed]}
     >
-      <View style={[styles.cardIcon, { backgroundColor: module.color + '1A' }]}>
-        <Ionicons
-          name={module.icon as keyof typeof Ionicons.glyphMap}
-          size={24}
-          color={module.color}
-        />
+      <View style={styles.cardTop}>
+        <View style={[styles.cardIcon, { backgroundColor: module.color + '1A' }]}>
+          <Ionicons
+            name={module.icon as keyof typeof Ionicons.glyphMap}
+            size={24}
+            color={module.color}
+          />
+        </View>
+        {pinned ? (
+          <Ionicons name="star" size={16} color={palette.warning} />
+        ) : null}
       </View>
       <Text style={styles.cardTitle}>{module.title}</Text>
       <Text style={styles.cardDesc} numberOfLines={2}>
         {module.description}
       </Text>
     </Pressable>
+  )
+}
+
+function WebModuleCard({ module }: { module: MobileModule }) {
+  return (
+    <View style={[styles.card, styles.webCard]}>
+      <View style={styles.cardTop}>
+        <View style={[styles.cardIcon, { backgroundColor: palette.border }]}>
+          <Ionicons
+            name={module.icon as keyof typeof Ionicons.glyphMap}
+            size={24}
+            color={palette.textMuted}
+          />
+        </View>
+        <View style={styles.webBadge}>
+          <Ionicons name="laptop-outline" size={12} color={palette.textMuted} />
+          <Text style={styles.webBadgeText}>Web</Text>
+        </View>
+      </View>
+      <Text style={styles.cardTitle}>{module.title}</Text>
+      <Text style={styles.cardDesc} numberOfLines={2}>
+        {module.webHint ?? module.description}
+      </Text>
+    </View>
   )
 }
 
@@ -233,6 +307,7 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
+  sectionHint: { fontSize: 12, color: palette.textMuted, fontStyle: 'italic' },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
   card: {
     width: '47%',
@@ -244,7 +319,19 @@ const styles = StyleSheet.create({
     borderColor: palette.border,
     gap: 8,
   },
+  webCard: { backgroundColor: palette.bg, borderStyle: 'dashed' },
   cardPressed: { opacity: 0.85 },
+  cardTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  webBadge: { flexDirection: 'row', alignItems: 'center', gap: 3 },
+  webBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: palette.textMuted,
+  },
   cardIcon: {
     width: 44,
     height: 44,

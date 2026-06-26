@@ -39,20 +39,44 @@ See `AuthState.canAccessOrgModules()` in `src/stores/auth-store.ts`.
 
 ## Modules & permission gates
 
-Every module is declared in **`src/modules/registry.ts`** with a `tier`
-(`user` | `org`) and a `visible(ctx)` predicate. The home launcher
-(`src/app/(app)/home.tsx`) renders only what each person is allowed to see.
+Each **module** is a self-contained mini-app launched from the home screen. A
+module owns a set of **tabs** (its own bottom-tab navigator) and is declared
+once in **`src/modules/registry.ts`** with three gating dimensions:
 
-| Module | Tier | Gate (permission / rule) | Status |
-| --- | --- | --- | --- |
-| My Account | user | always | ✅ scaffolded |
-| Locum Shifts | user | locum-type user | 🔜 placeholder |
-| Deliveries (driver) | org | `delivery_drive` or `delivery_manage` | 🔜 placeholder |
-| Scanning (Rx / invoices) | org | `ai_scan_use` | 🔜 placeholder |
-| Pharmacy Management | org | `manage_users` or `org_settings` | 🔜 placeholder |
+- **`tier`** — `user` (personal account) or `org` (needs an active pharmacy + permission)
+- **`platform`** — `mobile`, `web`, or `both` (where the feature actually runs)
+- **`visible(ctx)`** — fine-grained predicate (role / permission / user type), applied to **both** modules and individual tabs
 
-Adding a module later = add an entry to the registry + build its screen. The
-gating is already enforced.
+The home launcher (`src/app/(app)/home.tsx`) renders the **launchable**
+modules (`mobile` / `both`) and surfaces `web`-only ones as informational
+“On the web” cards, so the two clients visibly complete each other. Web-only
+**tabs** inside a mobile module render in the tab bar with a lock badge and
+explain where they live when tapped.
+
+| Module | Tier | Platform | Gate | Mobile tabs |
+| --- | --- | --- | --- | --- |
+| My Account | user | both | always | Profile · Pharmacies · Security |
+| Locum Shifts | user | both | locum-type user | Find · Bookings · Timesheets |
+| Deliveries | org | mobile | `delivery_drive` / `delivery_manage` | My Route · History · Map · _Setup (web)_ |
+| Scanning | org | mobile | `ai_scan_use` | Scan · Queue |
+| Pharmacy Management | org | both | org-connected (per-tab perms) | CD Register · RP Log · Handover · _Team (web)_ |
+| Communications | org | both | org-connected | Messages · Alerts |
+| Services | org | both | org-connected | History · Bookings · _Library (web)_ |
+| Video Consultations | org | web | org-connected | _web only_ |
+
+**Configurable home** — `src/stores/module-prefs-store.ts` (Zustand +
+AsyncStorage) persists per-device **favourites** (long-press a card to pin) and
+**usage counts**. The launcher orders cards by pin → most-used → registry order.
+
+**Adding / building a module:**
+
+1. Add an entry (with `tabs` + `platform`) to `src/modules/registry.ts`.
+2. Add real tab screens in `src/modules/screens/<module>.tsx` and map them in
+   `src/modules/screens/index.ts` (omit a tab to get an automatic placeholder).
+
+Gating, navigation, the tab bar and web-only handling are all provided by the
+shared `ModuleHost` (`src/components/module/`) — you never wire those up again.
+
 
 ---
 
@@ -71,14 +95,22 @@ apps/mobile/
     │   │   └── user-login.tsx   # primary user login
     │   └── (app)/               # authenticated (user session required)
     │       ├── _layout.tsx          # guard
-    │       ├── home.tsx             # role-gated module launcher
+    │       ├── home.tsx             # configurable, role-gated module launcher
     │       ├── connect-pharmacy.tsx # additive org login (modal)
-    │       └── module/[id].tsx      # account + module placeholders
+    │       └── module/[id].tsx      # thin route -> ModuleHost
     ├── lib/supabase.ts      # dual client (AsyncStorage-backed sessions)
-    ├── stores/auth-store.ts # Zustand: user-first / org-additive
-    ├── modules/registry.ts  # module definitions + permission gates
+    ├── stores/
+    │   ├── auth-store.ts        # Zustand: user-first / org-additive
+    │   └── module-prefs-store.ts # favourites + usage (AsyncStorage)
+    ├── modules/
+    │   ├── registry.ts          # module + tab definitions, platform, gates
+    │   ├── types.ts             # module system types + helpers
+    │   └── screens/             # per-module tab screens + screen map
+    ├── hooks/useModuleContext.ts # builds the gating context from auth store
+    ├── components/
+    │   ├── module/              # ModuleHost, ModuleTabBar, TabPlaceholder
+    │   └── ui/                  # Button, Field, Screen
     ├── types/auth.ts        # vendored auth/permission types (mirror of @pharmstation/types)
-    ├── components/ui/        # Button, Field, Screen
     └── theme/palette.ts      # brand palette
 ```
 
@@ -86,30 +118,29 @@ apps/mobile/
 
 ## Running it
 
-> **This app is an isolated install** — it is excluded from the pnpm workspace
-> (`pnpm-workspace.yaml`) and uses its own npm `node_modules` to avoid Metro
-> monorepo resolution pain. Install/run it from **inside `apps/mobile`** with
-> **npm**, not pnpm, and not from the repo root.
+> **This app is part of the pnpm workspace.** The root `pnpm-workspace.yaml`
+> uses `nodeLinker: hoisted` so React Native autolinking and EAS Build resolve
+> correctly. Install from the **repo root** with pnpm, then run Expo commands
+> from **inside `apps/mobile`**.
 
 ```bash
+# Install everything (from the repo root)
+pnpm install
+
 cd apps/mobile
 
-# Install (standalone — the --no-workspaces flag avoids the parent workspace)
-npm install --no-workspaces
-
-# Start Metro / Expo dev server
-npm start            # then press a (Android) / i (iOS) / w (web)
-npm run android
-npm run ios
-npm run web
+# Start the dev-client Metro server (SDK 56 is newer than Expo Go supports)
+npm run dev          # expo start --dev-client
+npm run dev:tunnel   # when phone + PC aren't on the same network
+npm run dev:clear    # if Metro's cache misbehaves
 
 # Typecheck
 npm run typecheck
 ```
 
-You'll need the **Expo Go** app or a dev build on a device/emulator. Camera,
-GPS, push and biometrics (for the upcoming modules) will require a custom dev
-build via EAS rather than Expo Go.
+You need a **custom dev build** on the device (not Expo Go) — build it with
+`npm run eas:build:dev`. Camera, GPS, push, OTA updates and biometrics are all
+compiled into that dev client.
 
 ---
 

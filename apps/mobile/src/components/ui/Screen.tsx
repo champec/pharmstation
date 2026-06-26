@@ -7,7 +7,7 @@ import {
   View,
   type ViewStyle,
 } from 'react-native'
-import { SafeAreaView } from 'react-native-safe-area-context'
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { palette } from '@/theme/palette'
 
 interface ScreenProps {
@@ -17,9 +17,15 @@ interface ScreenProps {
 }
 
 export function Screen({ children, scroll = false, contentStyle }: ScreenProps) {
+  const insets = useSafeAreaInsets()
+
   const inner = scroll ? (
     <ScrollView
-      contentContainerStyle={[styles.content, contentStyle]}
+      contentContainerStyle={[
+        styles.content,
+        contentStyle,
+        { paddingBottom: insets.bottom + 24 },
+      ]}
       keyboardShouldPersistTaps="handled"
       showsVerticalScrollIndicator={false}
     >
