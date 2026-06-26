@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useAuthStore, useVideoStore } from '@pharmstation/core'
+import { useAuthStore, useVideoStore, psNotify } from '@pharmstation/core'
 import { getUserClient } from '@pharmstation/supabase-client'
 import type { VideoConsultation, VideoConsultationStatus } from '@pharmstation/types'
 import { Modal } from '../../components/Modal'
@@ -55,6 +55,30 @@ export function VideoConsultsPage() {
   // Cancel confirmation
   const [cancelTarget, setCancelTarget] = useState<VideoConsultation | null>(null)
 
+  // Texting the patient their video link (via NHS Notify)
+  const [textState, setTextState] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle')
+  const [textError, setTextError] = useState<string | null>(null)
+
+  const handleTextPatientLink = async () => {
+    if (!organisation?.id || !createdConsultation) return
+    setTextState('sending')
+    setTextError(null)
+    try {
+      await psNotify.videoLink({
+        orgId: organisation.id,
+        patientId: createdConsultation.patient_id ?? undefined,
+        to: createdConsultation.patient_phone ?? undefined,
+        link: `${window.location.origin}${createdPatientLink}`,
+        accessCode: createdConsultation.patient_access_code,
+        when: `${fmtDate(createdConsultation.scheduled_for)} ${fmtTime(createdConsultation.scheduled_for)}`,
+      })
+      setTextState('sent')
+    } catch (e: unknown) {
+      setTextState('error')
+      setTextError(e instanceof Error ? e.message : 'Failed to send text')
+    }
+  }
+
   const load = useCallback(() => {
     if (organisation?.id) fetchConsultations(organisation.id, tab)
   }, [organisation?.id, tab, fetchConsultations])
@@ -106,6 +130,8 @@ export function VideoConsultsPage() {
       })
       setCreatedConsultation(result.consultation)
       setCreatedPatientLink(result.patient_link)
+      setTextState('idle')
+      setTextError(null)
       setShowNewDrawer(false)
       setShowSuccessModal(true)
       resetForm()
@@ -446,6 +472,19 @@ export function VideoConsultsPage() {
                 🔗 Copy Patient Link
               </button>
             </div>
+
+            {/* Text the patient their link + code via NHS Notify */}
+            <button
+              className="ps-btn ps-btn-secondary"
+              onClick={handleTextPatientLink}
+              disabled={textState === 'sending' || textState === 'sent' || (!createdConsultation.patient_phone && !createdConsultation.patient_id)}
+              title={!createdConsultation.patient_phone && !createdConsultation.patient_id ? 'No patient phone on file' : 'Send the link and access code by SMS'}
+            >
+              {textState === 'sending' ? 'Sending…' : textState === 'sent' ? '✓ Text sent' : '📲 Text patient the link'}
+            </button>
+            {textState === 'error' && (
+              <p style={{ color: 'var(--ps-error)', fontSize: 'var(--ps-font-sm)', margin: 0 }}>{textError}</p>
+            )}
 
             <button
               className="ps-btn ps-btn-secondary"

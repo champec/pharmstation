@@ -973,8 +973,16 @@ export interface VideoConsultation {
 // ============================================
 
 export type MessageChannel = 'sms' | 'letter' | 'email'
-export type NotifyMessageStatus = 'pending' | 'sent' | 'delivered' | 'failed'
-export type BroadcastStatus = 'draft' | 'sending' | 'sent' | 'failed'
+export type NotifyMessageStatus =
+  | 'pending'
+  | 'sending'
+  | 'sent'
+  | 'delivered'
+  | 'failed'
+  | 'permanent-failure'
+  | 'temporary-failure'
+  | 'technical-failure'
+export type BroadcastStatus = 'draft' | 'sending' | 'sent' | 'failed' | 'cancelled'
 
 export interface NotifySettings {
   id: string
@@ -1003,6 +1011,17 @@ export interface NotifyMessage {
   sent_at: string | null
   created_by_user_id: string
   created_at: string
+  // Delivery lifecycle (set by the nhs-notify-callback / check_status)
+  delivered_at?: string | null
+  failed_at?: string | null
+  completed_at?: string | null
+  failure_reason?: string | null
+  cost_in_pounds?: number | null
+  updated_at?: string | null
+  // What triggered the send: 'manual' | 'broadcast' | 'appointment' | 'video' | 'reminder' | 'urgent' | …
+  feature?: string | null
+  reference?: string | null
+  broadcast_id?: string | null
   // Joined
   patient?: Patient
 }

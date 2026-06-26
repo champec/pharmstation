@@ -91,6 +91,7 @@ const menuSections: NavSection[] = [
       { to: '/messaging', icon: '💬', label: 'Patient Comms' },
       { to: '/messaging/compose', icon: '✏️', label: 'Compose' },
       { to: '/messaging/broadcasts', icon: '📢', label: 'Broadcasts' },
+      { to: '/messaging/history', icon: '🗂️', label: 'History' },
     ],
   },
   {
@@ -101,6 +102,7 @@ const menuSections: NavSection[] = [
       { to: '/messaging/network', icon: '🏥', label: 'Network Hub' },
       { to: '/messaging/network/compose', icon: '✍️', label: 'New Message' },
       { to: '/messaging/network/onboarding', icon: '🔗', label: 'Link Pharmacy' },
+      { to: '/messaging/network/settings', icon: '⚙️', label: 'Network Settings' },
     ],
   },
   {

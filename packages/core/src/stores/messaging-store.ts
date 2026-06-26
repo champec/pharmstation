@@ -20,6 +20,34 @@ export interface NotifySettingsSafe {
   last_tested_at: string | null
   created_at: string
   has_api_key: boolean
+  callback_token: string | null
+}
+
+export interface CallbackInfo {
+  callback_url: string
+  callback_token: string | null
+}
+
+/**
+ * Parameters for the reusable "plug & play" functional notification helper.
+ * Any feature (appointments, video consults, reminders, urgent alerts, …)
+ * can fire a message through the org's NHS Notify account with one call.
+ */
+export interface NotifyParams {
+  org_id: string
+  channel: MessageChannel
+  /** phone (sms) or email address (email). Omit to resolve from patient_id. */
+  to?: string
+  /** GOV.UK Notify address lines for letters. */
+  address?: Record<string, string>
+  /** When set (and `to`/`address` omitted) the recipient is resolved from the patient. */
+  patient_id?: string
+  subject?: string
+  body: string
+  /** Tags the message for analytics/audit, e.g. 'appointment' | 'video' | 'reminder' | 'urgent'. */
+  feature?: string
+  /** Optional Notify reference; defaults to `feature:patient_id`. */
+  reference?: string
 }
 
 export interface MessageStats {
@@ -63,10 +91,13 @@ export interface MessagingState {
     body: string
     patient_id?: string
   }) => Promise<NotifyMessage>
+  /** Reusable functional notification — the plug & play hook for any feature. */
+  notify: (params: NotifyParams) => Promise<NotifyMessage>
   createBroadcast: (broadcast: Partial<Broadcast>) => Promise<Broadcast>
   sendBroadcast: (orgId: string, broadcastId: string) => Promise<{ sent_count: number; failed_count: number; total_count: number }>
   checkStatus: (orgId: string, messageId: string) => Promise<{ status: string }>
-  testConnection: (orgId: string) => Promise<{ valid: boolean; templates?: Array<{ id: string; name: string; type: string }>; error?: string }>
+  testConnection: (orgId: string, apiKey?: string) => Promise<{ valid: boolean; templates?: Array<{ id: string; name: string; type: string }>; error?: string }>
+  getCallbackInfo: (orgId: string) => Promise<CallbackInfo>
   saveSettings: (params: {
     org_id: string
     api_key?: string
@@ -239,6 +270,12 @@ export const useMessagingStore = create<MessagingState>((set) => ({
     return result as NotifyMessage
   },
 
+  notify: async (params) => {
+    const result = await callNotifyFunction('notify', params as unknown as Record<string, unknown>)
+    set((s) => ({ messages: [result as NotifyMessage, ...s.messages] }))
+    return result as NotifyMessage
+  },
+
   createBroadcast: async (broadcast) => {
     const { data, error } = await getUserClient()
       .from('ps_broadcasts')
@@ -280,8 +317,12 @@ export const useMessagingStore = create<MessagingState>((set) => ({
     return result
   },
 
-  testConnection: async (orgId) => {
-    return callNotifyFunction('test_connection', { org_id: orgId })
+  testConnection: async (orgId, apiKey) => {
+    return callNotifyFunction('test_connection', { org_id: orgId, api_key: apiKey })
+  },
+
+  getCallbackInfo: async (orgId) => {
+    return callNotifyFunction('get_callback_info', { org_id: orgId }) as Promise<CallbackInfo>
   },
 
   saveSettings: async (params) => {

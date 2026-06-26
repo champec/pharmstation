@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useAuthStore, useAppointmentStore, useServiceStore } from '@pharmstation/core'
+import { useAuthStore, useAppointmentStore, useServiceStore, psNotify } from '@pharmstation/core'
 import { getUserClient } from '@pharmstation/supabase-client'
 import type { Service, ServiceForm, ServiceFormField, AppointmentSlot } from '@pharmstation/types'
 
@@ -54,6 +54,8 @@ export function NewAppointmentPage() {
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [completed, setCompleted] = useState(false)
   const [createdId, setCreatedId] = useState<string | null>(null)
+  const [sendConfirmation, setSendConfirmation] = useState(true)
+  const [confirmationNote, setConfirmationNote] = useState<string | null>(null)
 
   const load = useCallback(() => {
     if (organisation?.id) {
@@ -165,6 +167,26 @@ export function NewAppointmentPage() {
         status: 'confirmed',
       })
       setCreatedId(created.id)
+
+      // Best-effort SMS confirmation — never blocks the booking.
+      if (sendConfirmation && (selectedPatient.phone || selectedPatient.id)) {
+        try {
+          const whenStr = selectedSlot
+            ? new Date(selectedSlot.start_time).toLocaleString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
+            : 'the agreed time'
+          await psNotify.appointmentBooked({
+            orgId: organisation.id,
+            patientId: selectedPatient.id,
+            to: selectedPatient.phone || undefined,
+            when: whenStr,
+            serviceName: selectedService?.name,
+          })
+          setConfirmationNote('A confirmation text was sent to the patient.')
+        } catch (e: unknown) {
+          setConfirmationNote(`Appointment booked, but the confirmation text could not be sent: ${e instanceof Error ? e.message : 'unknown error'}`)
+        }
+      }
+
       setCompleted(true)
     } catch (e: any) {
       setSubmitError(e.message)
@@ -187,6 +209,11 @@ export function NewAppointmentPage() {
             {selectedService ? ` — ${selectedService.name}` : ''}
             {selectedSlot ? ` at ${new Date(selectedSlot.start_time).toLocaleString('en-GB')}` : ''}
           </p>
+          {confirmationNote && (
+            <p style={{ color: 'var(--ps-slate)', fontSize: 'var(--ps-font-sm)', marginBottom: 'var(--ps-space-lg)' }}>
+              📲 {confirmationNote}
+            </p>
+          )}
           <div style={{ display: 'flex', gap: 'var(--ps-space-sm)', justifyContent: 'center' }}>
             {createdId && (
               <button className="ps-btn ps-btn-primary" onClick={() => navigate(`/appointments/${createdId}`)}>
@@ -578,6 +605,13 @@ export function NewAppointmentPage() {
               <strong>Notes:</strong> <span style={{ color: 'var(--ps-slate)' }}>{notes}</span>
             </div>
           )}
+
+          {/* Confirmation text toggle */}
+          <label style={{ display: 'flex', alignItems: 'center', gap: 'var(--ps-space-sm)', cursor: 'pointer', fontSize: 'var(--ps-font-sm)', color: 'var(--ps-slate)', marginBottom: 'var(--ps-space-md)' }}>
+            <input type="checkbox" checked={sendConfirmation} onChange={(e) => setSendConfirmation(e.target.checked)} />
+            Send the patient an SMS confirmation
+            {!selectedPatient?.phone && <span style={{ color: 'var(--ps-warning)' }}> (no phone on file — will be skipped)</span>}
+          </label>
 
           <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 'var(--ps-space-lg)' }}>
             <button className="ps-btn ps-btn-secondary" onClick={() => setStep(selectedServiceId && activeForms.length > 0 ? 'form' : 'slot')}>

@@ -1,233 +1,127 @@
-# PharmStation Mobile App
+# PharmStation Mobile
 
-**Framework**: React Native  
-**Package Name**: `@pharmstation/mobile`
+**`@pharmstation/mobile`** — the role-based companion app for PharmStation.
 
-## Overview
+Built with **Expo (SDK 56) + Expo Router + React Native 0.85 + React 19**, TypeScript,
+Zustand, and Supabase.
 
-The mobile application for PharmStation built with React Native. This provides quick logging and photo-based entry capabilities for iOS and Android devices.
+One app, many roles. What a person sees is tightly gated by **who they are** and
+**which features they need** — exactly like the web app, adapted for mobile.
 
-## What Goes Here
+---
 
-### Mobile-Optimized Features
-- **Quick RP Sign-In/Out**: One-tap RP login widget
-- **Photo-Based Entry**: Snap photos of invoices/prescriptions for later processing
-- **Fridge Logging**: Log temperature while standing at the fridge
-- **Handover Notes**: View and create sticky notes on mobile
-- **Quick Views**: View register balances, recent entries
-- **Push Notifications**: Overdue tasks, urgent handover notes
-- **Offline Sync**: All features work offline, sync when online
+## The two-layer auth model
 
-### NOT Included in Mobile (Too Complex)
-- Full CD register entry (use web/desktop for detailed entry)
-- Complex reconciliation workflows
-- Full SOP library management
-- Advanced exports
+This is the single most important concept in the app. There are **two independent
+Supabase auth sessions**, distinguished only by their storage key (one Supabase
+project, two `createClient` instances — see `src/lib/supabase.ts`):
 
-## Tech Stack
+| Layer | Storage key | Identity | What it unlocks |
+| --- | --- | --- | --- |
+| **User** (primary) | `ps-user-session` | `ps_user_profiles` | Personal account. Standalone — you can log in here alone. |
+| **Org** (additive) | `ps-org-session` | `ps_organisations` | The pharmacy you're working at. Layered *on top of* a user session. |
 
-- **Framework**: React Native 0.73+
-- **Language**: TypeScript
-- **Navigation**: React Navigation
-- **State Management**: Zustand or React Context
-- **Forms**: React Hook Form + Zod
-- **UI Components**: React Native Paper or custom
-- **Camera**: react-native-camera or expo-camera
-- **Offline Storage**: AsyncStorage + SQLite
-- **Business Logic**: `@pharmstation/core`
-- **Types**: `@pharmstation/types`
+Flow:
 
-## Project Structure
+1. **Sign in as a user** → you reach your personal account and any user-level
+   modules (e.g. a locum browsing shifts across pharmacies). No pharmacy data.
+2. **Connect a pharmacy** (additive org login) → now you hold *both* tokens. If
+   `ps_organisation_members` confirms you're an **active** member, the org-scoped
+   modules appear, each **filtered by your `permissions`**.
+
+> This deliberately flips the web app's "org-first, then user" ordering into
+> "user-first, org-optional", which is the intended long-term vision.
+
+Org modules require **all** of: user session + org session + active membership.
+See `AuthState.canAccessOrgModules()` in `src/stores/auth-store.ts`.
+
+---
+
+## Modules & permission gates
+
+Every module is declared in **`src/modules/registry.ts`** with a `tier`
+(`user` | `org`) and a `visible(ctx)` predicate. The home launcher
+(`src/app/(app)/home.tsx`) renders only what each person is allowed to see.
+
+| Module | Tier | Gate (permission / rule) | Status |
+| --- | --- | --- | --- |
+| My Account | user | always | ✅ scaffolded |
+| Locum Shifts | user | locum-type user | 🔜 placeholder |
+| Deliveries (driver) | org | `delivery_drive` or `delivery_manage` | 🔜 placeholder |
+| Scanning (Rx / invoices) | org | `ai_scan_use` | 🔜 placeholder |
+| Pharmacy Management | org | `manage_users` or `org_settings` | 🔜 placeholder |
+
+Adding a module later = add an entry to the registry + build its screen. The
+gating is already enforced.
+
+---
+
+## Project structure
 
 ```
 apps/mobile/
-├── src/
-│   ├── components/        # React Native components
-│   │   ├── ui/           # Reusable UI components
-│   │   ├── forms/        # Form components
-│   │   └── camera/       # Camera components
-│   ├── screens/          # App screens
-│   │   ├── auth/         # Login, signup
-│   │   ├── rp-log/       # RP logging screen
-│   │   ├── camera/       # Photo capture screens
-│   │   ├── fridge/       # Fridge log
-│   │   └── handover/     # Handover notes
-│   ├── navigation/       # React Navigation setup
-│   ├── store/           # Zustand stores
-│   ├── services/        # API services, sync
-│   ├── utils/           # Helper functions
-│   └── types/           # TypeScript types
-├── android/             # Android native code
-├── ios/                # iOS native code
-├── app.json            # React Native config
-├── metro.config.js     # Metro bundler config
-├── tsconfig.json       # TypeScript config
-├── package.json        # Dependencies
-└── README.md          # This file
+├── app.json                 # Expo config
+├── .env / .env.example      # EXPO_PUBLIC_SUPABASE_URL / _ANON_KEY
+└── src/
+    ├── app/                 # Expo Router (file-based routes)
+    │   ├── _layout.tsx          # root: init auth, splash, providers
+    │   ├── index.tsx            # redirect by auth state
+    │   ├── (auth)/              # unauthenticated
+    │   │   ├── _layout.tsx
+    │   │   └── user-login.tsx   # primary user login
+    │   └── (app)/               # authenticated (user session required)
+    │       ├── _layout.tsx          # guard
+    │       ├── home.tsx             # role-gated module launcher
+    │       ├── connect-pharmacy.tsx # additive org login (modal)
+    │       └── module/[id].tsx      # account + module placeholders
+    ├── lib/supabase.ts      # dual client (AsyncStorage-backed sessions)
+    ├── stores/auth-store.ts # Zustand: user-first / org-additive
+    ├── modules/registry.ts  # module definitions + permission gates
+    ├── types/auth.ts        # vendored auth/permission types (mirror of @pharmstation/types)
+    ├── components/ui/        # Button, Field, Screen
+    └── theme/palette.ts      # brand palette
 ```
 
-## Platform Support
+---
 
-- **iOS**: iOS 14+
-- **Android**: Android 8.0+ (API level 26+)
+## Running it
 
-## Setup Instructions
+> **This app is an isolated install** — it is excluded from the pnpm workspace
+> (`pnpm-workspace.yaml`) and uses its own npm `node_modules` to avoid Metro
+> monorepo resolution pain. Install/run it from **inside `apps/mobile`** with
+> **npm**, not pnpm, and not from the repo root.
 
-**Note**: This is a scaffold. Actual setup will be documented once development begins.
-
-### Prerequisites
-- Node.js 20+
-- pnpm 9+
-- For iOS: Xcode 14+, CocoaPods
-- For Android: Android Studio, JDK 11+
-
-### Installation (Coming Soon)
 ```bash
-# From monorepo root
-pnpm install
+cd apps/mobile
 
-# iOS: Install pods
-cd apps/mobile/ios && pod install && cd ../../..
+# Install (standalone — the --no-workspaces flag avoids the parent workspace)
+npm install --no-workspaces
 
-# Run on iOS
-pnpm --filter @pharmstation/mobile ios
+# Start Metro / Expo dev server
+npm start            # then press a (Android) / i (iOS) / w (web)
+npm run android
+npm run ios
+npm run web
 
-# Run on Android
-pnpm --filter @pharmstation/mobile android
+# Typecheck
+npm run typecheck
 ```
 
-## Key Features to Implement
+You'll need the **Expo Go** app or a dev build on a device/emulator. Camera,
+GPS, push and biometrics (for the upcoming modules) will require a custom dev
+build via EAS rather than Expo Go.
 
-### Phase 3: Mobile App
-- [ ] Authentication (biometric login)
-- [ ] Quick RP sign-in/out widget
-- [ ] Camera integration for photos
-- [ ] Photo upload to cloud
-- [ ] Fridge log (temperature entry)
-- [ ] Handover notes (view, create)
-- [ ] Quick view: CD balances
-- [ ] Quick view: Recent entries
-- [ ] Offline storage (AsyncStorage + SQLite)
-- [ ] Background sync
-- [ ] Push notifications
-- [ ] Biometric authentication (Face ID, Touch ID, fingerprint)
+---
 
-## Mobile-Specific Considerations
+## Notes & follow-ups
 
-### UI/UX
-- **Touch Targets**: Minimum 44x44 pts (iOS) / 48x48 dp (Android)
-- **Safe Areas**: Respect notch, home indicator, status bar
-- **Gestures**: Swipe to delete, pull to refresh, etc.
-- **Loading States**: Skeleton screens, spinners
-- **Error Handling**: User-friendly error messages
-
-### Performance
-- **Fast Startup**: <2 seconds to interactive
-- **Smooth Scrolling**: 60 FPS
-- **Small Bundle**: <50MB
-- **Memory**: <100MB
-- **Battery**: Efficient, no background drain
-
-### Offline Support
-- Local SQLite database for critical data
-- Queue changes for sync
-- Visual indicator of online/offline status
-- Graceful degradation when offline
-
-### Camera
-- High-quality photo capture
-- Flash support
-- Focus and exposure control
-- Gallery access for existing photos
-- Photo cropping and rotation
-
-### Notifications
-- Local notifications (no backend needed)
-- Push notifications (Firebase Cloud Messaging)
-- Badge counts
-- Notification actions
-
-## Testing (Future)
-
-- **Unit Tests**: Jest
-- **Component Tests**: React Native Testing Library
-- **E2E Tests**: Detox or Maestro
-- **Device Testing**: iOS Simulator, Android Emulator, real devices
-
-## Build & Distribution
-
-### Development Builds
-```bash
-# iOS
-pnpm --filter @pharmstation/mobile ios
-
-# Android
-pnpm --filter @pharmstation/mobile android
+- **Shared code:** `src/types/auth.ts` is a small vendored mirror of
+  `packages/types`. Keep them in sync; when mobile matures we can extract a
+  platform-agnostic shared package and drop the copy.
+- **Session storage:** sessions persist via `AsyncStorage`. Tokens can later be
+  moved to `expo-secure-store` (note its ~2KB value limit) and biometric gating.
+- **Security:** the Supabase project currently has **RLS disabled on many
+  tables**. Mobile is an untrusted client using the public anon key, so RLS
+  policies should be in place before shipping the org modules. This is a
+  pre-existing backend issue, surfaced here for visibility.
 ```
-
-### Production Builds
-
-**iOS**:
-```bash
-# Build for App Store
-cd apps/mobile/ios
-xcodebuild -workspace PharmStation.xcworkspace \
-           -scheme PharmStation \
-           -configuration Release
-```
-
-**Android**:
-```bash
-# Build APK
-cd apps/mobile/android
-./gradlew assembleRelease
-
-# Build AAB (for Play Store)
-./gradlew bundleRelease
-```
-
-### App Store Submission
-- **iOS**: App Store Connect
-- **Android**: Google Play Console
-
-### Metadata
-- Screenshots (required for both stores)
-- App description
-- Keywords
-- Privacy policy
-- Support URL
-
-## Code Sharing with Web
-
-### Shared Code
-- `@pharmstation/core`: Business logic, validation
-- `@pharmstation/types`: TypeScript types
-- API client logic (adapted for mobile)
-
-### Platform-Specific
-- UI components (React Native vs. React)
-- Navigation (React Navigation vs. Next.js routing)
-- Storage (AsyncStorage vs. localStorage)
-- Camera (native vs. web APIs)
-
-## Security
-
-- Secure storage for tokens (react-native-keychain)
-- Certificate pinning
-- Biometric authentication
-- No sensitive data in logs
-- Obfuscation for production builds
-
-## Accessibility
-
-- VoiceOver (iOS) and TalkBack (Android) support
-- Sufficient color contrast
-- Accessible labels for all interactive elements
-- Font scaling support
-
-## Links
-
-- [Product Vision](../../documentation/product/PRODUCT_VISION.md)
-- [React Native Mobile Plan](../../documentation/technical/react-native-mobile-plan.md)
-- [Phase 3: Mobile & Desktop](../../documentation/product/phase-3-mobile-desktop.md)
-- [Offline Sync Strategy](../../documentation/technical/offline-sync-strategy.md)

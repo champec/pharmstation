@@ -51,7 +51,7 @@ export function SettingsPage() {
 
 function MessagingSettingsTab() {
   const { organisation } = useAuthStore()
-  const { settings, fetchSettings, testConnection, saveSettings, loading, error, clearError } = useMessagingStore()
+  const { settings, fetchSettings, testConnection, saveSettings, getCallbackInfo, error, clearError } = useMessagingStore()
 
   const [apiKey, setApiKey] = useState('')
   const [smsTemplateId, setSmsTemplateId] = useState('')
@@ -63,6 +63,8 @@ function MessagingSettingsTab() {
   const [testing, setTesting] = useState(false)
   const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null)
   const [saveSuccess, setSaveSuccess] = useState(false)
+  const [callback, setCallback] = useState<{ callback_url: string; callback_token: string | null } | null>(null)
+  const [copied, setCopied] = useState<string | null>(null)
 
   useEffect(() => {
     if (organisation?.id) fetchSettings(organisation.id)
@@ -77,13 +79,33 @@ function MessagingSettingsTab() {
     }
   }, [settings])
 
+  // Load (and mint, if needed) the per-org delivery callback URL + token.
+  useEffect(() => {
+    if (!organisation?.id) return
+    getCallbackInfo(organisation.id)
+      .then(setCallback)
+      .catch(() => { /* non-critical */ })
+  }, [organisation?.id, getCallbackInfo])
+
+  const copy = (label: string, value: string) => {
+    navigator.clipboard?.writeText(value)
+    setCopied(label)
+    setTimeout(() => setCopied(null), 1500)
+  }
+
   const handleTestConnection = async () => {
-    if (!organisation?.id || !apiKey.trim()) return
+    if (!organisation?.id) return
     setTesting(true)
     setTestResult(null)
     try {
-      const result = await testConnection(organisation.id)
-      setTestResult({ success: true, message: 'Connection successful! Notify API is working.' })
+      // Test the just-typed key when present, otherwise the saved (Vault) key.
+      const result = await testConnection(organisation.id, apiKey.trim() || undefined)
+      if (result.valid) {
+        const n = result.templates?.length ?? 0
+        setTestResult({ success: true, message: `Connection successful — ${n} template${n === 1 ? '' : 's'} found on your Notify account.` })
+      } else {
+        setTestResult({ success: false, message: result.error || 'Connection failed' })
+      }
     } catch (e: unknown) {
       setTestResult({ success: false, message: e instanceof Error ? e.message : 'Connection failed' })
     }
@@ -165,7 +187,7 @@ function MessagingSettingsTab() {
           />
           <button
             className="ps-btn ps-btn-secondary"
-            disabled={!apiKey.trim() || testing}
+            disabled={testing || (!apiKey.trim() && !settings?.has_api_key)}
             onClick={handleTestConnection}
           >
             {testing ? 'Testing...' : '🔌 Test Connection'}
@@ -184,9 +206,16 @@ function MessagingSettingsTab() {
       {/* Templates */}
       <div className="ps-card" style={{ padding: 'var(--ps-space-lg)', marginBottom: 'var(--ps-space-md)' }}>
         <h3 style={{ margin: '0 0 var(--ps-space-sm)' }}>Message Templates</h3>
-        <p style={{ color: 'var(--ps-slate)', margin: '0 0 var(--ps-space-md)', fontSize: '0.9rem' }}>
-          Enter the template IDs from your GOV.UK Notify dashboard. Each template should use a <code>((body))</code> placeholder for the message content.
+        <p style={{ color: 'var(--ps-slate)', margin: '0 0 var(--ps-space-sm)', fontSize: '0.9rem' }}>
+          GOV.UK Notify does not allow templates to be created via API, so create one
+          <strong> blank</strong> template per channel in your Notify dashboard, then paste the IDs here.
+          Use exactly these contents so any message can be sent through them:
         </p>
+        <ul style={{ margin: '0 0 var(--ps-space-md)', paddingLeft: 'var(--ps-space-lg)', color: 'var(--ps-slate)', fontSize: '0.85rem', lineHeight: 1.7 }}>
+          <li><strong>SMS</strong> — message: <code>((body))</code></li>
+          <li><strong>Email</strong> — subject: <code>((subject))</code>, message: <code>((body))</code></li>
+          <li><strong>Letter</strong> — message: <code>((body))</code> (plus the address placeholders Notify adds automatically)</li>
+        </ul>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--ps-space-md)' }}>
           <div>
             <label style={{ display: 'block', fontWeight: 600, marginBottom: 'var(--ps-space-xs)', fontSize: '0.9rem' }}>📱 SMS Template ID</label>
@@ -203,15 +232,53 @@ function MessagingSettingsTab() {
         </div>
       </div>
 
+      {/* Delivery callback */}
+      <div className="ps-card" style={{ padding: 'var(--ps-space-lg)', marginBottom: 'var(--ps-space-md)' }}>
+        <h3 style={{ margin: '0 0 var(--ps-space-sm)' }}>Delivery Receipts (Callback)</h3>
+        <p style={{ color: 'var(--ps-slate)', margin: '0 0 var(--ps-space-md)', fontSize: '0.9rem' }}>
+          To track whether each message was <strong>delivered</strong> or <strong>failed</strong>, add this callback in your
+          Notify dashboard under <em>API integration → Callbacks</em>. Paste the URL and the bearer token below.
+          This only needs to be done once.
+        </p>
+
+        <label style={{ display: 'block', fontWeight: 600, marginBottom: 'var(--ps-space-xs)', fontSize: '0.85rem' }}>Callback URL</label>
+        <div style={{ display: 'flex', gap: 'var(--ps-space-sm)', marginBottom: 'var(--ps-space-md)' }}>
+          <input className="ps-input" readOnly value={callback?.callback_url ?? 'Loading…'} style={{ flex: 1, fontFamily: 'monospace', fontSize: '0.85rem' }} />
+          <button className="ps-btn ps-btn-ghost" disabled={!callback?.callback_url} onClick={() => copy('url', callback!.callback_url)}>
+            {copied === 'url' ? '✓ Copied' : 'Copy'}
+          </button>
+        </div>
+
+        <label style={{ display: 'block', fontWeight: 600, marginBottom: 'var(--ps-space-xs)', fontSize: '0.85rem' }}>Bearer Token</label>
+        <div style={{ display: 'flex', gap: 'var(--ps-space-sm)' }}>
+          <input className="ps-input" readOnly value={callback?.callback_token ?? 'Loading…'} style={{ flex: 1, fontFamily: 'monospace', fontSize: '0.85rem' }} />
+          <button className="ps-btn ps-btn-ghost" disabled={!callback?.callback_token} onClick={() => copy('token', callback!.callback_token!)}>
+            {copied === 'token' ? '✓ Copied' : 'Copy'}
+          </button>
+        </div>
+      </div>
+
+      {/* Trial mode note */}
+      <div className="ps-card" style={{ padding: 'var(--ps-space-lg)', marginBottom: 'var(--ps-space-md)', borderLeft: '4px solid var(--ps-warning)' }}>
+        <h3 style={{ margin: '0 0 var(--ps-space-sm)' }}>⚠️ Trial mode</h3>
+        <p style={{ color: 'var(--ps-slate)', margin: 0, fontSize: '0.9rem', lineHeight: 1.7 }}>
+          While your Notify service is in <strong>trial mode</strong> you can only send to yourself and your
+          team, and letters are disabled. To test the integration safely, use Notify's smoke-test numbers
+          (<code>07700900000</code>, <code>07700900111</code>, <code>07700900222</code>) or email
+          (<code>simulate-delivered@notifications.service.gov.uk</code>). Request to go live in your Notify
+          dashboard to message any recipient.
+        </p>
+      </div>
+
       {/* Setup guide */}
       <div className="ps-card" style={{ padding: 'var(--ps-space-lg)', marginBottom: 'var(--ps-space-lg)' }}>
         <h3 style={{ margin: '0 0 var(--ps-space-sm)' }}>Setup Guide</h3>
         <ol style={{ margin: 0, paddingLeft: 'var(--ps-space-lg)', color: 'var(--ps-slate)', lineHeight: 1.8 }}>
           <li>Register at <a href="https://www.notifications.service.gov.uk" target="_blank" rel="noopener noreferrer">GOV.UK Notify</a></li>
           <li>Create an API key (choose "Team and guest list" for testing, "Live" for production)</li>
-          <li>Create one template per channel (SMS, Email, Letter) with a <code>((body))</code> personalisation field</li>
-          <li>Copy your API key and template IDs into the fields above</li>
-          <li>Click "Test Connection" to verify your key works</li>
+          <li>Create one blank template per channel using the contents shown above</li>
+          <li>Copy your API key and template IDs into the fields above, then "Test Connection"</li>
+          <li>Add the callback URL + bearer token in Notify (API integration → Callbacks)</li>
           <li>Save settings and enable messaging</li>
         </ol>
       </div>

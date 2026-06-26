@@ -1,3 +1,8 @@
+# React Native / Expo autolinking requires a flat (hoisted) node_modules layout.
+# pnpm's default "isolated" linker uses symlinks that break RN native module
+# resolution and EAS Build autolinking, so we opt the whole workspace into hoisted.
+nodeLinker: hoisted
+
 packages:
   - "apps/*"
   - "!apps/nhs111-sandbox"
