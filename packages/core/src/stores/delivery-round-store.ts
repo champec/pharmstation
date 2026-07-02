@@ -654,7 +654,7 @@ export const useDeliveryRoundStore = create<DeliveryRoundState>((set, get) => ({
     return round
   },
 
-  // ── Notifications (NHS Notify) ──
+  // ── Notifications (provider-aware: SMS Works / NHS Notify) ──
 
   sendRoundNotifications: async (roundId, orgId, message) => {
     // Fetch round with patients to get phone numbers
@@ -675,13 +675,10 @@ export const useDeliveryRoundStore = create<DeliveryRoundState>((set, get) => ({
     let sent = 0
     let failed = 0
 
-    // Get user session for auth
-    const client = getUserClient()
-    const { data: { session } } = await client.auth.getSession()
-    if (!session) throw new Error('Not authenticated')
-
-    const supabaseUrl = (client as any).supabaseUrl || import.meta.env?.VITE_SUPABASE_URL
-    const supabaseKey = (client as any).supabaseKey || import.meta.env?.VITE_SUPABASE_ANON_KEY
+    // Route through the messaging store's provider-aware notify seam
+    // (SMS Works for most pharmacies; NHS Notify for NHS-affiliated orgs).
+    const { useMessagingStore } = await import('./messaging-store')
+    const notify = useMessagingStore.getState().notify
 
     for (const rp of patients) {
       const patient = (rp as any).patient
@@ -694,25 +691,15 @@ export const useDeliveryRoundStore = create<DeliveryRoundState>((set, get) => ({
       const body = message || `Hello ${patient.first_name}, your pharmacy will be delivering your medication ${dateStr}.${round.time_window ? ` Expected time: ${round.time_window}.` : ''} If you have any questions, please contact the pharmacy.`
 
       try {
-        const res = await fetch(`${supabaseUrl}/functions/v1/nhs-notify`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${session.access_token}`,
-            'apikey': supabaseKey,
-          },
-          body: JSON.stringify({
-            action: 'send_sms',
-            org_id: orgId,
-            phone_number: patient.phone,
-            body,
-            patient_id: patient.id,
-            reference: `delivery_round_${roundId}`,
-          }),
+        await notify({
+          org_id: orgId,
+          channel: 'sms',
+          to: patient.phone,
+          patient_id: patient.id,
+          body,
+          feature: 'delivery',
+          reference: `delivery_round_${roundId}`,
         })
-
-        const result = await res.json()
-        if (result.error) { failed++; continue }
         sent++
       } catch {
         failed++

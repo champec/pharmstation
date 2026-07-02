@@ -1,0 +1,947 @@
+Overview
+Using the API
+What our API is for and how to get the best out of it.
+
+Our SMS API allows you to integrate reliable text messaging directly into your applications. There are several ways to integrate with The SMS Works to send and recieve messages. This overview will help you to decide on the best approach for each of your use-cases.
+
+What to Send
+You can send one message at a time (/message/send) or batches of messages. There are two types of batches, which allow you to send either (1) the same message to lots of people (/batch/send) or (2) a collection of unique messages personalised to your audience (/batch/any).
+
+Messages can be sent immediately from your application, or scheduled to go out at a specific date and time. This applies to both single messages and to the batch methods, giving you the flexibility to tailor the message and delivery to have the most impact.
+
+How to Send Messages
+We've provided cut-and-paste snippets of code that you can use in your applications to integrate our SMS sending capabilities. You can either call our end-points directly or use one of our Software Development Kits (SDK's) for enhanced error handling and integration with your business logic. Samples are provided for each approach.
+
+We also provide an Email 2 SMS service, which lets you integrate SMS elsewhere into your business processes in a simple way. To integrate with popular business applications with minimal coding we can also provide access to our Zapier app.
+
+Tracking Delivery
+When you send a message with our API, we'll respond with a confirmation that the message was sent, and a message ID. Whenever the status of the message is changed by the network we'll send you an up-to-date delivery report, with all of the details. You can register a webhook on your account page to receive these delivery reports into your application.
+
+Getting Replies
+We offer SMS Reply Numbers which allow your customers to reply to your out-going messages. You can either set up webhooks to receive these responses, or we can forward them to your preferred email address. This makes it easy to keep the conversation going, in a way that suits your technology, people and processes.
+
+
+SMS Credits
+A standard text message of up to 160 characters in length sent in the UK uses one SMS credit. Longer messages are split into to 153 character segments (with the remaining 7 characters being used to recombine the message on the device when it is delivered). Therefore, for a message of 307 characters in length, you will be charged 3 credits. You can use our message length calculator to work out how much you will be charged.
+
+Messages that use non-standard unicode characters and emojis are limited to 70 characters, with longer messages being split into 67 character segments per SMS credit.
+
+Text messages sent to non-UK mobile numbers from the SMS Works platform will likely cost more than one credit per standard text message. This includes messages sent to the Isle of Man and the Channel Islands. You should review our international pricing if you intend to send messages overseas.
+
+The SMS Works offers several cost saving tools to help you limit unnecessary credit usage. These can be enabled in your SMS Works account.
+
+Quick Start
+Get up and running
+
+Set up a free SMS Works account
+Sign in to your account and generate a JSON Web Token for authentication on the API Key tab, as shown below.
+
+JSON Web Token
+
+Once you have your Token and we've assigned your free test credits, you can send your first test message. There are three options:
+
+Install one of our SDK's
+Make a regular HTTP POST to our https://api.thesmsworks.co.uk/v1/message/send end-point from your application, or using our ready-made Postman collection.
+
+Make a simple cURL request using the code snippet below, to send a test message.
+curl --location --request POST 'https://api.thesmsworks.co.uk/v1/message/send'
+  --header 'Content-Type: application/json'
+  --header 'Authorization: Your JSON Web Token goes here'
+  --data-raw '{
+  "sender": "TheSMSWorks",
+  "destination": "44777777777",
+  "content": "My super awesome message"
+}'
+
+Authentication
+Authenticating API calls
+We use JSON Web Tokens (JWT) to authenticate calls to our API. You can generate tokens in the 'API Key' section your SMS Works Account, using a simple 2-step process. You only need to generate the token once; they don't expire.
+
+JSON Web Token
+
+JWT's contain a signature that identifies you when you make calls to any of our API end-points. You should keep them safe, inside your organisation, and do not share them with anyone, as they can be used to send SMS through your account.
+
+Token Management
+Whilst our tokens do not expire, you should treat your JSON Web Token like a password, and renew it periodically, inline with your organisation's password policy.
+
+Generating a new API key & secret invalidates your existing JSON Web Tokens. Your current integration will NO LONGER SEND TEXTS until you put the newly generated token into your code!
+
+Sending Messages
+Base URL
+All calls to the the SMS Works API use the base url https://api.thesmsworks.co.uk/v1.
+
+To send an SMS to our /message/send end-point you would therefore use this address:
+
+https://api.thesmsworks.co.uk/v1/message/send
+
+Headers
+You must include both of these headers in all of your API calls:
+
+'Content-Type' : 'application/json'
+'Authorization' : 'Your JSON Web Token goes here'
+You can read about obtaining a JSON Web Token in our authentication section.
+
+Character Encoding
+Message content is transmitted using the standard GSM character set. Messages using this character set can be up to 160 characters in length.
+
+If the message sent contains any character outside the GSM alphabet, UTF-16 encoding will be applied, along with a 70-character limit on message length. This determines the number of credits used to send the message (i.e. you will be charged 1 credit per 70 characters).
+Don't copy and paste content from Microsoft Word or other word processing applications. This would likely result in non-GSM characters being used and the message sent as UTF-16. Some characters, such as certain apostrophes and hyphens may appear to be in the GSM character set but actually contain subtle differences.
+
+You can use our free unicode detector to help identify and eliminate any unicode characters in your texts, and optionally enable our Unicode Replacement cost-saving tool, which will strip out the most common of these characters for you.
+
+Sender ID
+The sender ID is the display name for the sender of the text, i.e. who the message is from.
+
+Sender ID's are limited in length and can be either alphanumeric or numeric. Please see the parameter definitions for a detailed description of what's permitted.
+
+In the United Kingdom mobile networks will block messages that use generic terms, such as 'Verify', as the sender ID. The list of restricted terms can be found in our API Error Codes section.
+
+For many countries outside of the UK, including the United States, Canada and Australia, it's necessary to register your sender ID before you can send text messages there.
+
+Message Content
+Text messages are for transmitting text (no surprises there). Rich content like images, QR codes and attachments are not supported.
+
+You can format your messages by including new lines. Use '\n' in your message content to force a new line to appear in the message when it appears on the handset. New lines count towards the total character count of your messages.
+
+We support emojis in both outbound and inbound SMS 😃! Emojis are not included in the GSM alphabet, so your messages will be sent with a 70 character limit per SMS segment.
+
+Cost Saving
+As well as refunding the credits for any messages in the UK that are not delivered, The SMS Works provides four cost-saving capabilities that you can opt into to reduce you overall SMS spend, enabled individually in your SMS Works account:
+
+Unicode Character Replacement - We will replace common unicode characters before your SMS message is sent, to help prevent unusual quotes, dashes or apostrophes from causing your messages to be limited to 70 characters per message, instead of 160 characters.
+Emoji Removal - We will strip any emoji from your messages to help prevent them being sent as unicode, which limits messages to 70 characters per SMS credit, instead of the usual 160 characters.
+URL Shortener - We will replace any URLs in your SMS messages with short URLs generated on our 'smsw.uk' domain or a domain of your choice (technical limitations apply).
+AI Optimisation - For regular messages between either 161-180 or 307-326 characters in length and unicode messages between either 71-80 or 135-144 characters in length, we will seek to reduce the length of the message before it is sent using OpenAI's Chat-GPT model, so that fewer overall credits are used to send the message.
+Flooding
+A 'flooding filter' is in place to prevent individuals being sent the same message repeatedly in a short space of time.
+
+A single number can only receive 20 varied messages and 6 identical messages per hour.
+
+Please note that in some instances the flooding filter may not prevent multiple messages being delivered to the same number. Please ensure that you're not relying on it to prevent credits being consumed. We cannot offer refunds where the flooding filter has not prevented multiple deliveries.
+
+Also, if you have an SMS overdraft arranged and your overdraft is wholly or partially used, you are liable for the text credits used.
+
+Preflight Checks
+Things to check before your SMS integration goes live.
+
+Check your messages use the GSM character set to avoid using more credits than expected, using our free unicode detector.
+Check the SMS message length is as intended
+Set up the Low Credit Warning in your SMS Works account
+Whitelist our domains so that alerts and other emails can reach you: thesmsworks.co.uk, thesmsworks.net
+If you have a reply number, make sure that replies are being handled correctly
+Evaluate the cost-saving tools in your SMS Works account, to see if we can save you money by minimising your SMS credit spend.
+Triple-check your code in all possible scenarios
+This article highlights some of the more common things that are easily overlooked.
+
+
+Delivery Reports
+Webhooks
+You'll want to keep track of whether your messages have been delivered or not, so that you can monitor campaigns, keep records up to date and track your spend.
+
+We will make an HTTP POST containing each delivery report to a URL end-point that you can configure on your account page, under Delivery Reports > Webhook Configuration. You'll need to write the code to handle these reports as they arrive. Reports can also be exported from the Delivery Reports tab on the same page.
+
+Due to large file sizes, delivery reports are retained on our system for 3 months. If you wish to refer to reports that are older than this please ensure that you use the reporting tools in your account to download them before they are removed.
+For SMS messages which cannot be delivered, or are rejected, we record the details of SMS delivery error messages in the 'failurereason' object on the delivery report.
+
+IP Safelist
+If you wish, you can validate that the source IP address of any calls to your delivery report webhook is on our verified IP safe-list:
+
+18.170.59.20
+35.176.98.85
+52.56.112.179
+​​​
+Schema
+Delivery reports are JSON objects, with a format as shown below.
+
+Details of each parameter can be found in our Delivery Report parameter definitions.
+
+{
+	"batchid": "",
+	"characters": 30,
+	"content": "del rep structure confirmation",
+	"contentsafe": "del rep structure confirmation",
+	"country": "GB",
+	"created": "2022-06-15T10:23:26.226Z",
+	"credits": 1,
+	"customerid": "your-customer-id-is-found-here",
+	"destination": 447484777777,
+	"failurereason": {
+		"code": 5001,
+		"details": "Handset Error: Number does not exist or has not been assigned to a user.",
+		"permanent": true
+	},
+	"flash": false,
+	"identifier": "07484777777",
+	"international": false,
+	"keyword": "",
+	"messageid": "d87e93c0-fa08-4903-becd-aeb5b0ab3b6a",
+	"messageparts": 1,
+	"metadata":  {
+		"code": 01223,
+		"branch": "Cambridge"
+	},
+	"modified": "2022-06-15T10:31:52.259Z",
+	"optimised": false,
+	"originip": "57.202.131.6",
+	"raw:": "",
+	"responseemail": [
+		"youremail@yourdomain.co.uk"
+	],
+	"schedule": "2022-06-15T10:23:26.199Z",
+	"sender": "TheSMSWorks",
+	"status": "REJECTED",
+	"tag": "",
+	"ttl": 0,
+	"unread": true,
+	"validity": 2880
+}
+Data Retention
+SMS Delivery Reports are accessible in your account for 90 days, after which they are archived and retained for up to 7 years.
+
+If you have a data retention policy that requires us to remove your delivery report data from our system, we can do so prior to it being archived. You can select the age of the data for removal, as well as specifying specific attributes such as the sender, tag or metadata. You just need to contact us to arrange things for you.
+
+
+Receiving Messages
+You can use one of our virtual reply numbers, or set up a keyword on our 88440 shortcode, to allow people to send you SMS messages. You can include these numbers in your marketing or outbound SMS, and we'll forward any messages that we receive to you.
+
+Messages can be forwarded to an email address that you specify, or pushed to a URL on your system (a 'webhook'). Specific email addresses and webhooks can be configured for each reply number or keyword, giving you control over where messages go to.
+
+​​​
+Webhooks
+You can configure webhooks for each of the virtual reply numbers or keywords that are assigned to your account. We will perform an HTTP POST to configured webhooks with a JSON payload that contains the details of the incoming SMS, whenever we receive an incoming message.
+
+The format of the incoming messages that we forward to you will be the same, regardless of the whether it's received to a reply number or keyword, so you can use the same webhook for all numbers & keywords or set up dedicated webhooks for each one. See the schema below for more details.
+
+Authentication
+Optionally, you can use basic authentication to secure webhook end-points. You can configure a username and password on any reply number or keyword webhook in your account. These will be base-64 encoded and passed in an Authorization header when we perform the POST. You can decode this value and validate the credentials before you process each incoming message.
+
+You can also validate that the source IP address of calls to this webhook come from our verified IP safe-list.
+
+​​​
+Schema
+Incoming messages are forwarded as JSON objects, with a format as shown below.
+
+Details of each data type can be found in our incoming SMS parameter definitions.
+
+{
+	"content": "Your customer's message",
+	"from": "447777000000",
+	"messageid": "328827210622192878142",
+	"messagetype": "incoming",
+	"metadata": {
+		"branchGUID": "e60e5f31-etc",
+		"messageQueueID": "9648523"
+	},
+	"metatags": "my-tag",
+	"outbound": "Your outbound message",
+	"outbounddate": "Thu, 06 Oct 2022 14:54:45 GMT",
+	"outboundmessageid": "36506805320043357510",
+	"tag": "",
+	"to": "447491163543",
+	"parts": 1
+}
+​​​
+Alarms
+We expect to receive an HTTP 2xx response from your webhook end-points to indicate that you've received messages successfully. You can enable webhook alarms to trigger notifications to be sent to you if this does not happen. There are two types of triggers; one for incoming message webhooks and one for delivery report webhooks.
+
+If you have enabled these triggers we'll attempt to re-deliver any messages that we've been unable to forward up to 5 times - after 5, 10, 60, 180 and 720 minutes. If the first retry after 5 minutes for a given webhook also fails then we'll send an alert to the email addresses that you've configured, detailing the problem.
+
+If we subsequently manage to deliver messages to a given webhook you'll get an email update telling you that everything is okay, and that the alert has been closed. You'll also receive an email for any webhook that remains in an alarm state every 24 hours.
+
+If we still can't deliver individual messages after the final retry then these messages will be marked as 'EXPIRED'. However, you can manually trigger a retry for either the most recent message that we've attempted to send, or trigger a retry for any undelivered messages (including those that have expired) using the actions available on each alarm.
+
+
+One-Time Passwords (OTPs)
+One Time-Password verification is used to help you confirm that the person performing an action is who they say they are. Your customers can supply you with a mobile number when they sign-up for your application, and you can verify that they're in posession of that mobile device using an OTP. This allows you re-use their mobile number to verify that future activity is being conducted by the person who first signed up, and not by anyone else.
+
+Our One-Time Password API gives you the tools you need to integrate a second authentication factor into your application. It's suitable for verifying new users, confirming that you trust user sign-ins, or adding another layer of security to critical, time-sensitive transactions like check-out.
+
+One-Time Password Workflow
+
+​​​
+Sending OTPs
+Our OTP API uses the same authentication method as all of our other API calls.
+
+The /otp/send API method composes and sends an OTP SMS to the destination of your choice. You can also specify the sender ID (i.e. who the message appears to have been sent from when it arrives) to ensure that your customers recognise and trust the passcode source.
+
+We can generate the rest for you or, if you prefer, you can define any of several options to tailor the experience: the template for the message, the desired length of the passcode, or the number of seconds that the passcode will be valid for. You can even supply metadata of your choosing to associate with the passcode, which will be returned to you when you come to verify it.
+
+Using all of the options available, your payload would look something like this:
+
+{
+  \"sender\": \"YourCompany\",
+  \"destination\": \"447777000000\",
+  \"length\": 5,
+  \"template\": \"This is your one-time passcode: \",
+  \"validity\": 300,
+  \"metadata\": {
+    \"customer\": \"ABC123\",
+    \"cart_id\": \"XYZ789\"
+  }
+}
+Passcode Length
+By default, we generate fully numeric passcodes that are 6 characters in length. This is the industry standard, and supports ease of use for the recipient - it's not too long to remember it in one go and it supports the use of the numeric keyboard when the user comes to enter it, which is particularly helpful for people with accessibility issues.
+
+If you prefer to specify a different passcode length you can use the length parameter, as shown above. We've seen codes typically between 4 and 8 characters in length. All passcodes generated by us are numeric.
+
+You can also supply your own passcode, using the optional passcode parameter, and we will use this in preference to our own generated one and store it for later verification.
+
+Message Template
+OTP Message templateThe SMS Works default passcode template
+We follow best practices with our default OTP message template, to make them as easy as possible to use on the recipient's device. You can optionally supply your own message template, to support your own application flow, and we'll use this to send the OTP for you.
+
+As shown the example JSON payload above, you must ensure that you supply a {{passcode}} placeholder in the template. We'll replace this with the actual passcode when the message is sent. If your template doesn't have this placeholder, we'll fall back to using the default template instead.
+
+Validity
+By default our one-time passwords are valid for 10 minutes (600 seconds). You can optionally provide a shorter or longer validity, in seconds, if you prefer. The example payload above defines a validity of 300 seconds (5 minutes).
+
+When the passcode gets used in your application and you check it using our /otp/verify API method, we'll confirm that it's been used inside the validity period and return either a 'VERIFIED' or 'EXPIRED' status. Keep in mind that, if you set a short validity, the user may have to request a new OTP if they don't use the passcode quickly, which will incur a further SMS cost for you and will probably be quite frustrating for them.
+
+If a user requests a new passcode within the validity of one they have already requested we will send them the same passcode in a new SMS. You'll receive a new messageid in the API response, to use later when verifying this passcode.
+Metadata
+Our metadata parameter allows you to specify a JSON object, which we will store with the OTP record on our system. When the passcode is verified we'll return this metadata to you in the response to the /otp/verify API method.
+
+The JSON object can contain as many parameters as you like, as long as the object does not exceed 1024 bytes (1KB) in size. It must be valid JSON, otherwise it will not be stored.
+
+All of the details for the parameters available for this method can be found in the parameter definitions.
+
+​​​
+Verifying OTPs
+Overview
+In the response to your calls to the /otp/send end-point, you will receive a messageid. This is a unique identifier for the passcode sent to the mobile number you specified, and has 2 uses:
+
+As a reference for the delivery report that was used to send the OTP SMS. These are available in the Delivery Reports section of your SMS Works account, where you can also define a webhook to receive updates on the delivery status of the message.
+As an identifier for you to use during verification. As the messageid is returned when you send the OTP, you can store this in your database and confirm that it matches when you come to verify a password, as follows:
+You make an API call to our /otp/send end-point. Our response includes a messageid parameter.
+You store this messageid in your database with a key to associate with your application user, such as their mobile number.
+A passcode is entered in your application. You make and API call to our /otp/verify end-point, POSTing the passcode.
+We verify the passcode, and return the associated record, which includes the original messageid used to send the passcode.
+You match this messageid to the one in your database to confirm that the passcode has been submitted by the person you were expecting.
+Verification
+When your application user enters the passcode that they've received, you can POST that to our /otp/verify end-point. For matching passcodes, we'll return the status (either 'VERIFIED' or 'EXPIRED'), along with the messageid of the SMS used to deliver the original OTP.
+
+For any match, whether the passcode has expired or not, we'll also return any metadata you supplied when the passcode was sent, to help you trigger appropriate logic on your system. You can find the complete response schema in our parameter definitions.
+
+If no match is found we'll return an HTTP 404 status. The payload for this call is simple, as follows:
+
+About
+This section describes each of the methods in our SMS API, with sample scripts in several languages to get you started. We also provide request and response references for each method, to help you build your integration, as well as detailed parameter definitions.
+
+The sample code provided illustrates how you might integrate our API in to your solution, but is not certified for production environments. You are responsible for testing and QA.
+API Methods
+This section introduces the main methods in our SMS API, with code snippets in your preferred language to get you started. Each of the listed methods includes a link to our API Reference, where you can find details of the expected request and response, as well as more advanced methods for working with our API.
+Preferred language
+
+- select -
+/message/send
+POST
+https://api.thesmsworks.co.uk/v1/message/send
+Sends a single SMS message.
+
+Open Gist
+API Reference
+/message/schedule
+POST
+https://api.thesmsworks.co.uk/v1/message/schedule
+Shedule the delivery of a single SMS message.
+
+Open Gist
+API Reference
+/messages/schedule/{:messageid}
+DELETE
+https://api.thesmsworks.co.uk/v1/messages/schedule/{:messageid}
+Deletes a scheduled SMS message.
+
+Open Gist
+API Reference
+/messages
+POST
+https://api.thesmsworks.co.uk/v1/messages
+Return a list of messages matching your query. By default, up to 1000 messages will be returned. This method accepts 'skip' and 'limit' parameters to allow you to page more than 1000 results. See the API reference for full details.
+
+Open Gist
+API Reference
+/message/{:messageid}
+GET
+https://api.thesmsworks.co.uk/v1/message/{:messageid}
+Returns the delivery report for a single SMS message.
+
+Open Gist
+API Reference
+/batch/send
+POST
+https://api.thesmsworks.co.uk/v1/batch/send
+Sends a batch of identical SMS messages to up to 5000 recipients.
+
+Open Gist
+API Reference
+/batch/schedule
+POST
+https://api.thesmsworks.co.uk/v1/batch/schedule
+Schedules a batch of identical SMS messages to be sent to up to 5000 recipients.
+
+Open Gist
+API Reference
+/batches/schedule/{:batchid}
+DELETE
+https://api.thesmsworks.co.uk/v1/batches/schedule/{:batchid}
+Deletes a batch of scheduled messages.
+
+Open Gist
+API Reference
+/batch/any
+POST
+https://api.thesmsworks.co.uk/v1/batch/any
+Sends a batch of unique SMS messages to up to 5000 unique recipients.
+
+Open Gist
+API Reference
+/batch/{:batchid}
+GET
+https://api.thesmsworks.co.uk/v1/batch/{:batchid}
+Returns a list of delivery reports for each message in a given batch.
+
+Open Gist
+API Reference
+/otp/send
+POST
+https://api.thesmsworks.co.uk/v1/otp/send
+Generates and sends a One-Time Password.
+
+Open Gist
+API Reference
+/otp/verify
+POST
+https://api.thesmsworks.co.uk/v1/otp/verify
+Verifies a given One-Time Password.
+
+Parameter Definitions
+Outbound SMS
+Parameter	Type	Required	Definition
+sender
+String	required	
+This field specifies the sender ID or originator of the message (i.e. who the message appears to be from when it arrives).
+
+The sender can be alphanumeric and must be between 4 and 11 characters. No spaces or special characters are permitted. If the sender is alphanumeric, the recipient will not be able to reply to the text.
+
+
+In the United Kingdom the use of generic terms (such as 'Alert') as a sender ID is now restricted. You can find a list of the restricted terms in our API Error Codes section. Many international networks do not allow the setting of an alphanumeric sender ID.
+
+Alternatively, the sender can be numeric and up to 15 numeric characters in length. If you have an SMS Works reply number set up on your account, you would set the sender as this number (e.g 07900123456).
+
+Read more about SMS Sender IDs.
+
+destination
+String	required	
+The mobile number that you're sending to. Numbers can be either in UK format, 07900123456 or International format, 447900123456. Do not start numbers with the + sign.
+
+If your account has international SMS delivery enabled, numbers must begin with the country code, then drop the leading 0 from the number. (e.g 33123456789) Do not start numbers with 00.
+
+Please note that sending texts outside the UK often costs more. Please see our international SMS pricing table.
+
+content
+String	required	
+The message itself. A standard text is 160 characters, including spaces. You can send messages of up to 1280 characters in length.
+
+Texts over 160 characters will use more than 1 credit, so please check message length before sending. Longer messages are charged at 153 characters per text; the remaining characters are used to ensure that they are re-combined into a single message when they reach the handset.
+
+Messages which contain unicode characters will be charged at 70 characters per text.
+
+Use our free SMS message length calculator to check your message length and number of SMS credits required to send the message.
+
+deliveryreporturl
+String	optional	
+The url to which we should POST delivery reports to for this particular message. If none is specified, we'll use the global delivery report URL that you've configured on your SMS Works account page.
+
+metadata
+Array of objects	optional	
+An array of metadata objects. This can be used to store a series of key/value pairs that allow you to assign granular information to each message you send. This good for campaign analysis or onward billing to your customers, if required.
+
+Each metadata must have 'key' and 'value' parameters, as shown in the following example:
+
+"metadata": [{
+  "key": "branchGUID",
+  "value": "e60e5f31-etc"
+},{
+  "key": "messageQueueID",
+  "value": "9648523"
+}]
+This will be stored in the delivery report formatted as follows, making it easy for you to query later on:
+
+"metadata": {
+  "branchGUID": "e60e5f31-etc",
+  "messageQueueID": "9648523"
+}
+Any supplied metadata will be stored on your message delivery report for retrieval and analysis. If you have an SMS Works reply number, we will forward any metadata included in the last outbound SMS message to a recipient from that Reply Number, when they reply to your message. This can be especially useful in categorising content for your team, without forcing them to go elsewhere to find that information.
+
+responseemail
+Array of Strings	optional	
+An optional array of email addresses to forward responses to this specific message to. An SMS Works Reply Number is required to use this feature.
+
+schedule
+String	optional	
+The schedule date format should match the JavaScript date format, which is the same as the ISO 8601 specification, e.g Sun Sep 03 2017 15:34:23 GMT+0100 (BST).
+
+tag
+String	optional	
+You can add a tag to each message, which can be useful for identifying all numbers that were sent a particular message or were part of the same campaign. The tag can be alphanumeric and contain spaces. The maximum number of characters is 280, including the spaces.
+
+ttl
+String	optional	
+Time To Live. The optional number of minutes before the message is deleted, defined as an integer. Optional. Omit this parameter to prevent delivery report deletion.
+
+validity
+Number	optional	
+The optional number of minutes to attempt delivery before the message is marked as EXPIRED. The default is 2880 minutes (48 hours).
+
+ai
+Boolean	optional	
+If true, for the content of any standard messages of character lengths between either 161-180 or 307-326 and unicode messages between either 71-80 or 135-144 characters, we will seek to reduce the length of the message before it is sent using OpenAI's Chat-GPT.
+
+This paramater overrides the global AI Optimiser setting on your SMS Works account page (SMS Credits > Cost Saving > AI Optimiser). If that is enabled, you can exclude individual messages from being modified by the optimiser by setting this parameter to false. Conversely, to try the feature, you can set this parameter to true when the AI Optimiser is disabled in your account, to see how it performs on a few messages before enabling it globally.
+
+For messages that have a character length outside of the ranges above the optimiser will not run, and the content of your message will not be modified.
+
+​​​
+Inbound SMS
+The parameters used to forward inbound SMS messages to your webhooks
+
+Parameter	Type	Definition
+content
+String	
+The content of the incoming SMS. Longer messages that are split into several parts will be concatenated by us, once we have received them all, and sent to you in one go.
+
+from
+String	
+The mobile number from which the incoming SMS was sent.
+
+messageid
+String	
+The unique message ID used to identify the delivery report for this message.
+
+messagetype
+String	
+Hard-coded to "incoming".
+
+metadata
+Array of objects	
+An array of metadata objects supplied with the last outbound message to the sender of this message from your account. This can be used to store a series of key/value pairs that allow you to assign granular information to each message you send. This good for campaign analysis or onward billing to your customers, if required.
+
+Each metadata must have 'key' and 'value' parameters, as shown in the following example:
+
+"metadata": [{
+  "key": "branchGUID",
+  "value": "e60e5f31-etc"
+},{
+  "key": "messageQueueID",
+  "value": "9648523"
+}]
+This will be stored in the delivery report formatted as follows, making it easy for you to query later on:
+
+"metadata": {
+  "branchGUID": "e60e5f31-etc",
+  "messageQueueID": "9648523"
+}
+Any supplied metadata will be stored on your message delivery report for retrieval and analysis. If you have an SMS Works reply number, we will forward any metadata included in the last outbound SMS message to a recipient from that Reply Number, when they reply to your message. This can be especially useful in categorising content for your team, without forcing them to go elsewhere to find that information.
+
+metatags
+String	
+The tags assigned to the relevant Reply Number or Keyword that this incoming message was sent to. These tags can be configured in your SMS Works account under Reply Numbers or Keywords.
+
+Metatags allow you to identify which campaign or category the incoming SMS relates to.
+
+outbound
+String	
+The most recent message sent to the sender of this incoming message from your account.
+
+outbounddate
+String	
+The date/time when the most recent message from your account was sent to the sender of this incoming message. Uses the JavaScript date format, which is the same as the ISO 8601 specification, e.g Sun Sep 03 2017 15:34:23 GMT+0100 (BST).
+
+outboundmessageid
+String	
+The unique message ID used to identify the last message sent from your account to the sender of this incoming message.
+
+parts
+String	
+The number of parts used to send the message. 1 message part is 160 characters.
+
+tag
+String	
+The tag used on the last outbound SMS to the sender of this incoming SMS using the relevant Reply Number.
+
+Tags allow you to identify which campaign or category the incoming SMS relates to.
+
+to
+String	
+The SMS Works Reply Number to which the message was sent.
+
+​​​
+Delivery Reports
+The parameters used to forward SMS Delivery Reports to your webhooks
+
+Parameter	Type	Definition
+ai
+Boolean	
+Records whether The SMS Works AI Optimiser option was enabled when the message was sent.
+
+batchid
+String	
+If the message was sent as part of a batch, the batch ID is recorded here. You can use he /batch/{:batchid} end-point to retrieve all messages in a batch.
+
+characters
+Number	
+The number of characters in the SMS message that was sent.
+
+content
+String	
+The content of the message you sent.
+
+contentsafe
+String	
+The content of the message, with emojis removed. This may be easier to handle in your application than the raw content.
+
+created
+String	
+Date/time at which the message was sent, in ISO8601 format, e.g. 2019-11-14T00:55:31.820Z
+
+country
+String	
+The ISO-3166 2-letter country-code for the country in which the destination mobile is registered.
+
+credits
+Number	
+The number of SMS credits used to send the message.
+
+destination
+Number	
+The number of recipient handset used to send this message.
+
+failurereason
+Object	
+In the event that the message could not be delivered due to an error, the failurereason object records the details in three fields:
+
+code
+Number	
+The SMS error code.
+
+details
+String	
+The definition of the error (why the message was not delivered).
+
+permanent
+Boolean	
+If true, indicates that no further attempts will be made to deliver the message.
+
+flash
+Boolean	
+If true, the message was sent as a flash message, using our /message/flash end-point.
+
+identifier
+String	
+The number supplied when you sent the message, which we parse before sending. This can be useful when identifying issues in your data.
+
+international
+Boolean	
+If true, the message was sent to a country outside of the United Kingdom. Use this in combination with the 'identifier' and 'country' paramters to confirm that you are formatting destination numbers correctly.
+
+keyword
+String	
+For incoming messages to our 88440 shortcode, the Keyword used in the message.
+
+messageid
+String	
+The unique ID of the message.
+
+messageparts
+String	
+The number of SMS messages used to send the complete message to the recipient. This can be used to refine your message content, to remove unicode characters or limit the number of characters in future messages.
+
+Use our SMS testing tools to optimise your messages before you sned your campaigns.
+
+metadata
+Object	
+A JSON object containing the key/value pairs supplied in the API call used to send the message.
+
+"metadata": {
+  "customer_id": "e60e5f31",
+  "cart_id": "9648523"
+}
+modified
+String	
+The date/time at which this delivery report was last updated. Modification occurs whenever we receive message status updates from the relevant mobile network.
+
+optimised
+Boolean	
+For messages where AI was successfully used to reduce the length of the message, the value of this parameter will be true. You can compare the message that was sent in the content parameter with the originally supplied content in the raw parameter.
+
+originip
+String	
+The originating IP address for the API request to send this message.
+
+raw
+String	
+For messages where AI was successfully used to reduce the length of the message, this parameter holds the content of the message as it was when it was originally supplied to us.
+
+responseemail
+Array of Strings	
+The list of the email addresses to which we will forward any replies to this message. If none is specified, we will default to the optional Response Email address configured in your SMS Works Account.
+
+savings
+Object	
+In the event that the message was optimised using any of our cost saving tools, we will record the number of credits saved by the applicable tool in this object:
+
+ai
+Number	
+The AI Optimiser.
+
+emoji
+Number	
+The Emoji Filter.
+
+unicode
+Number	
+The Unicode Replacement tool.
+
+url
+Number	
+The URL Shortener.
+
+schedule
+String	
+The date/time at which this message was scheduled to be sent. This is specified by you when using our /message/schedule end-point, otherwise it defaults to the same value as the 'created' parameter.
+
+sender
+String	
+The Sender ID used to send the message.
+
+status
+String	
+The status of the message. Read further documentation on SMS Status & Error Codes.
+
+tag
+String	
+The optional tag used to identify the message when it was sent.
+
+ttl
+Number	
+The Time To Live, in minutes, specified when the message was sent. Once any specified TTL expires, the delivery report will be deleted.
+
+unread
+Boolean	
+For incoming messages, identifies whether the message has been previously retrieved using the /messages/inbox end-point.
+
+validity
+Number	
+The time, in minutes, specified to define the number of minutes to attempt delivery before the message is marked as EXPIRED. The default is 2880 minutes (48 hours).
+
+​​​
+One-Time Passwords
+Parameters used to generate and send One-Time Passwords
+
+Parameter	Type	Required	Definition
+sender
+String	required	
+This field specifies the sender ID or originator of the message. This is who the message is from when the message arrives on the recipient's phone. The sender can be alphanumeric and must be between 4 and 11 characters. No spaces or special characters are permitted in the sender.
+
+Alternatively, the sender can be up to 15 numeric characters. This is used if you want the recipient to be able to reply to the text. If you have a reply number set up on your account, you would set the sender as this number. (e.g 07900123456)
+
+If the sender is alphanumeric, the recipient will not be able to reply to the text. Many international networks do not allow the setting of an alphanumeric sender ID.
+
+Read more about SMS Sender IDs.
+
+destination
+String	required	
+The mobile number that you're sending to. Numbers can be either in UK format, 07900123456 or International format, 447900123456. Do not start numbers with the + sign.
+
+If your account has international SMS delivery enabled, numbers must begin with the country code, then drop the leading 0 from the number. (e.g 33123456789) Do not start numbers with 00.
+
+Please note that sending texts outside the UK often costs more. Please see our international SMS pricing table.
+
+template
+String	optional	
+A template to use as the content for the message. You must include the '{{passcode}}' placeholder, which will be replaced by the generated passcode when the message is sent.
+
+validity
+Number	optional	
+The length of time in seconds for which the generated passcode should be valid.
+
+The default validity is 600 seconds (10 minutes), which will apply if this parameter is omitted.
+
+length
+Number	optional	
+The length of the generated passcode. The default length is 6 characters, which will apply if this parameter is omitted. All generated passcodes are numeric.
+
+passcode
+String	optional	
+A passcode you can supply for use in the message template, which will override the passcode generated by us. This will be stored on the OTP record in our system for later verification.
+
+metadata
+Object	optional	
+A JSON object of no longer than 1024 bytes, containing as many parameters as you wish, to store data for use in your application. This will be returned when you verify the passcode.
+
+"metadata": {
+  "customer_id": "e60e5f31",
+  "cart_id": "9648523"
+}
+
+Status & Error Codes
+API Status Codes
+All API methods that send text messages (/message/send, /message/schedule, /batch/send, /batch/schedule, /batch/any) will respond with an HTTP 201 status code, if successful. All other API methods return an HTTP 200 status code if no errors occur.
+
+If you API request is poorly formed you will receive an HTTP 400 status code, along with a detailed description of the problem (see below for a full list of these).
+
+If we could not authenticate your call you will receive an HTTP 401 response (not authorized). If your account is not enabled for the service being requested (e.g. International SMS) then you will receive an HTTP 403 status code (forbidden).
+
+If a system error occurs you will receive an HTTP 5xx response.
+
+To see an overview of the possible response codes for each method click the button below:
+
+API Method Docs
+
+API Error Codes
+These errors are returned by our API in the event that your message could not be sent.
+Bad Message Content Errors (http 400)
+Code	Error Message	Notes
+4001	Message length is 0 characters. Cannot send message. Please check and try again.	
+4002	Cannot send messages longer than 1280 characters.	You can send messages up to 1280 characters in length.
+4003	Sender ID length invalid.	Please use 3 - 11 characters maximum length for alphanumeric sender IDs or 3 - 15 digits maximum length for numeric sender IDs.
+4004	Invalid destination number.	We were not able to determine a valid UK or international destination number.
+4005	Tag longer than 280 characters.	The maximum length of a tag is 280 characters, including spaces.
+4006	Message contains profanity.	Profane language has been detected in the content of the message. Message not sent.
+4007	Message contains blocked terms. Account disabled.	The message contains terms that match our phishing filters. Your account has been disabled as a precaution.
+4008	Invalid message ID.	Returned when an invalid message ID is supplied to the /message/{:messageid} method.
+4009	Invalid date/time supplied	Returned by the message scheduler if an invalid date, or a date in the past is supplied.
+4010	Batches must contain between 1 and 5,000 messages	Our /batch/send, /batch/any and /batch/schedule end-points are limited to a maximum of 5,000 recipients per call.
+4012	Sender is too generic. Your message will be blocked by the mobile network.	In the United Kingdom mobile networks now restrict the use of generic terms as the SMS sender ID. If your sender matches or starts with any of the terms listed below you will receive this error and your message will be rejected.
+2FA
+Accept
+Access
+Active
+Alert
+App
+Appointment
+Auth
+Aware
+Bank
+Banking
+Call
+Card
+Caution
+Code
+Confirm
+Contact
+Control
+Delivery
+Energy
+Fraud
+Help
+Info
+Loan
+Login
+Logistics
+Message
+Mobile
+MSG
+Network
+Notify
+Order
+OTP
+Parcel
+Pay
+Payment
+Pin
+Rebate
+Receipt
+Reminder
+Reply
+Schedule
+Secure
+Shipping
+SMS
+Support
+Text
+Trace
+TXT
+Update
+Verify
+Winner
+Authentication Errors (http 401)
+Code	Error Message	Notes
+4011	Not authenticated.	This error is returned if you supply an invalid API Key/Secret pair when obtaining a JSON Web Token.
+Credit Errors (http 402)
+Code	Error Message	Notes
+4021	Insufficient credit to send message.	Please add more credits to your account in order to continue sending messages.
+4022	Insufficient credit to send batch.	Please add more credits to your account to send your batch of messages.
+Authorisation Errors (http 403)
+Code	Error Message	Notes
+4031 / 4032	Not authorised.	The account was not found. Cannot send messages.
+4033	Account disabled.	The account was not prevented from sending SMS after triggering one of our spam filters.
+4034	This account is not enabled for international SMS.	Your message was addressed to an international mobile number, but your account is not enabled to send international SMS. Please contact support@thesmsworks.co.uk for assistance.
+4036	Invalid origin IP address.	For accounts where IP whitelisting is enabled, this error is returned if the origin IP address of the request is not in the whitelist configured on your account page.
+4037	Delivery to <country-name> is not enabled in your SMS Works account. You can configure this on your account page.	For accounts where international SMS is enabled, this error is returned if sending to the country this message is intended for is not enabled on your account page.
+Not Found Errors (http 404)
+Code	Error Message	Notes
+4041	Passcode not found.	The specified passcode could not be found. No record matches the given passcode.
+​​​
+Delivery Status
+For every text message that is sent through the SMS API, a delivery report is generated that provides detailed information on the delivery status of the SMS. Each time the status of the message is updated, we'll forward the delivery report to the webhook URL specified in your account.
+
+This section, along with the one below, detail the possible delivery report statuses and associated error codes, in the event that a message could not be delivered.
+
+If a UK message cannot be successfully delivered we will refund the relevant number of SMS credits to your account and you will not be charged. Many international mobile networks do not offer SMS delivery reports to anything like the detail or reliability of UK networks, thus failed international messages cannot be refunded.
+Status	Description
+SCHEDULED	The message has been accepted and scheduled to pass to the network for delivery.
+SENT	The message has been accepted and passed to the network for delivery to the handset. We have yet to receive a futher update on the delivery status.
+DELIVERED	Mobile number is valid and the message has been successfully delivered to the handset.
+UNDELIVERABLE	The message could not be delivered (see below for possible reasons why a message might be undelivered). For UK SMS, the text credit is refunded to your account.
+EXPIRED	The message was not delivered within the expressed validity period. By default, this is 2880 minutes (48 hours). You can specify a shorter validity period, in minutes, using the relevant parameter in our SMS API. This can be helpful if you need to take alternative action in the event that your message could not be delivered.
+REJECTED	The message was rejected by the network (see below for additional detail).
+​​​
+Delivery Report Error Codes
+Text messages may not be delivered for a wide variety of reaasons. We've simplified our error reporting, grouping them in to simple codes that you can build logic or reporting around, to help you quickly identify why your messages have not been delivered.
+
+If an error is recorded as being 'permanent' then the message will not be delivered. If it is not permanent the message may still be delivered within the expiry period described above.
+
+This information will be forwarded to your delivery report webhook URL in the failurereason object, and will be available in report exports and from our /messages and /messages/{:messageid} API end-points.
+
+Please note that due to very large file sizes, delivery reports are available for 3 months, after which they are permanently deleted. If you need access to historical delivery data, please ensure you download reports before they expire.
+
+Please be aware that the sms delivery report service offered by the networks comes with no guarantees, service level agreements or contracts.
+Code	Details	Permanent
+5001	Handset Error: Number does not exist or has not been assigned to a user (i.e. the mobile number is not recognised as active).	true
+5003	Sender ID is blocked or has not been registered. Networks in some countries require you to register your Sender ID's before they can be used. Please contact us for help with this.	true
+5004	The message has been sent to the network operator but has been rejected. This is normally due to the number no longer being active or being unreachable.	true
+5006	Handset Error: No response. Handset may be switched off or in a low signal area.	true
+5007	The message has been sent to the network operator but has been identified as potential spam and rejected.	true
+5008	Handset Error: The mobile phone is roaming internationally. Roaming is not allowed on the destination mobile handset.	true
+5009	Message has been sent to the operator, but has failed to be delivered. A delivery report with status UNDELIVERED was received from the network operator.	true
+5010	Message has been rejected due to the user being subscribed to DND (Do Not Disturb) services, disabling any service traffic to their number, or they have blocked communication.	true
+5011	The subscriber's mobile service has been suspended by the operator.	true
+5015	The message was received and sent to the network operator. It remained in pending state, without delivery, until the validity period expired. The network operator has now returned an EXPIRED delivery status (the default validity period is 48 hours).	false
+5020	The message has been rejected due to an anti-flooding mechanism. By default, a single number can only receive 20 varied messages or 6 identical messages per hour.	true
+5034	Handset Error: System failure.	true
+​​​
+API Service Errors
+Errors returned if the SMS Works experiences an internal system error.
+
+In the event of a system outage, http 504 or 503 errors will be returned by either our firewall or load balancers.
+
+Internal Server Errors (http 500)
+Code	Error Message	Notes
+5002	SMS Works database problem. Your scheduled message could not be stored for delivery.	Please contact support@thesmsworks.co.uk if this error persists.
+
+
+credentials - will be changed later via supabase ServiceType
+
+new credentials 
+
+Key
+5e8e8c31-3bac-431d-9982-74b5bc27e76e
+Secret
+f52cdf680ea91ddc6abeb0c307ffdcb3ef4e767baab5e6b5634f90060e3b1330
+
+
+new token 
+
+JWT eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJrZXkiOiI1ZThlOGMzMS0zYmFjLTQzMWQtOTk4Mi03NGI1YmMyN2U3NmUiLCJzZWNyZXQiOiJmNTJjZGY2ODBlYTkxZGRjNmFiZWIwYzMwN2ZmZGNiM2VmNGU3NjdiYWFiNWU2YjU2MzRmOTAwNjBlM2IxMzMwIiwiaWF0IjoxNzgzMDIzMDc3LCJleHAiOjI1NzE0MjMwNzd9.dObqYaQO0l_9qY8hRi-aUcX9U1N0Te8CU1Uo998BrA4

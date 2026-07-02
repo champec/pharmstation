@@ -16,6 +16,10 @@ export interface Organisation {
   is_active: boolean
   created_at: string
   updated_at: string
+  /** Which provider delivers this org's SMS ('smsworks' for everyone; 'nhs_notify' only for NHS-affiliated orgs). */
+  messaging_provider?: 'smsworks' | 'nhs_notify'
+  /** True only for NHS-affiliated orgs (NHS-funded, hospital, military, prison) — unlocks NHS Notify email/letter channels. */
+  nhs_channels_enabled?: boolean
 }
 
 export interface OrganisationAddress {
@@ -973,6 +977,8 @@ export interface VideoConsultation {
 // ============================================
 
 export type MessageChannel = 'sms' | 'letter' | 'email'
+/** Which provider actually delivers a pharmacy's SMS. */
+export type MessagingProvider = 'smsworks' | 'nhs_notify'
 export type NotifyMessageStatus =
   | 'pending'
   | 'sending'
@@ -1002,7 +1008,8 @@ export interface NotifyMessage {
   recipient_email: string | null
   recipient_address: Record<string, string> | null
   channel: MessageChannel
-  template_id: string
+  /** References a ps_sms_templates row when the message was rendered from a pharmacy template. */
+  template_id: string | null
   personalisation: Record<string, unknown>
   body: string | null
   subject: string | null
@@ -1011,7 +1018,7 @@ export interface NotifyMessage {
   sent_at: string | null
   created_by_user_id: string
   created_at: string
-  // Delivery lifecycle (set by the nhs-notify-callback / check_status)
+  // Delivery lifecycle (set by webhooks / check_status)
   delivered_at?: string | null
   failed_at?: string | null
   completed_at?: string | null
@@ -1022,6 +1029,12 @@ export interface NotifyMessage {
   feature?: string | null
   reference?: string | null
   broadcast_id?: string | null
+  // Provider + SMS Works billing fields
+  provider?: MessagingProvider
+  credits?: number | null
+  segments?: number | null
+  sms_sender?: string | null
+  reply_number?: string | null
   // Joined
   patient?: Patient
 }
@@ -1043,6 +1056,95 @@ export interface Broadcast {
   failed_count: number | null
   created_at: string
   created_by_user_id: string
+}
+
+// ============================================
+// Expansion Types — SMS Works (platform SMS provider)
+// ============================================
+
+/** 'alpha' = one-way branded sender (3–11 chars); 'number' = two-way reply number. */
+export type SmsSenderType = 'alpha' | 'number'
+export type SmsReplyNumberStatus = 'available' | 'assigned' | 'suspended' | 'released'
+
+/** Per-pharmacy SMS Works configuration (ps_sms_settings). */
+export interface SmsSettings {
+  id: string
+  org_id: string
+  sender_type: SmsSenderType
+  /** Alphanumeric sender ID (e.g. the pharmacy name) when sender_type='alpha'. */
+  sender_id: string | null
+  reply_enabled: boolean
+  /** The virtual number assigned from the platform pool when reply_enabled. */
+  reply_number: string | null
+  /** Optional email to forward inbound replies to. */
+  reply_forward_email: string | null
+  /** Appended to every outbound SMS, e.g. "— Hollowtree Pharmacy". */
+  signature: string | null
+  is_active: boolean
+  last_tested_at: string | null
+  created_at: string
+  updated_at: string
+}
+
+/** Pharmacy-authored SMS template with {{placeholder}} support (ps_sms_templates). */
+export interface SmsTemplate {
+  id: string
+  org_id: string
+  name: string
+  /** 'appointment' | 'reminder' | 'video' | 'delivery' | 'collection' | 'custom' */
+  category: string
+  body: string
+  description: string | null
+  is_active: boolean
+  created_by: string | null
+  created_at: string
+  updated_at: string
+}
+
+/** Platform pool of SMS Works virtual reply numbers (ps_sms_reply_numbers). */
+export interface SmsReplyNumber {
+  id: string
+  phone_number: string
+  org_id: string | null
+  status: SmsReplyNumberStatus
+  provider_ref: string | null
+  monthly_rental_pence: number
+  assigned_at: string | null
+  released_at: string | null
+  notes: string | null
+  created_at: string
+}
+
+/** Inbound SMS reply routed to a pharmacy (ps_sms_inbound). */
+export interface SmsInbound {
+  id: string
+  org_id: string
+  reply_number: string | null
+  from_number: string
+  patient_id: string | null
+  content: string
+  provider_message_id: string | null
+  /** The outbound ps_messages row this is a reply to (via echoed metadata). */
+  outbound_message_id: string | null
+  metadata: Record<string, unknown> | null
+  is_read: boolean
+  received_at: string
+  // Joined
+  patient?: Patient
+}
+
+/** Monthly per-org usage rollup for chargeback (ps_sms_billing_summary view). */
+export interface SmsUsageSummary {
+  org_id: string
+  /** 'YYYY-MM' */
+  period: string
+  outbound_count: number
+  inbound_count: number
+  credits: number
+  segments: number
+  reply_enabled: boolean
+  reply_number_rental_pence: number
+  estimated_charge_pence: number
 }
 
 // ============================================

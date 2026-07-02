@@ -15,6 +15,9 @@
 // NHS Digital Onboarding API assurance is passed.
 // ============================================
 
+// @ts-ignore — esm.sh URL import resolves in the Supabase Deno runtime, not tsc
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.0'
+
 // @ts-ignore Deno globals — this runs in Supabase Deno runtime, not Node/tsc
 declare const Deno: {
   env: { get(key: string): string | undefined }
@@ -87,6 +90,87 @@ function successResponse(data: unknown, status = 200) {
     status,
     headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
   })
+}
+
+// ============================================
+// Audit logging (Risks DosRESTAPI-003 / 004 / 007)
+// Every DoS query is recorded in ps_nhs_api_audit —
+// a dedicated, append-only API-query audit table — with
+// the caller's user_id, org, params, ODS code, HTTP
+// status and outcome. Written server-side via the
+// service role so the client cannot bypass or forge it.
+// ============================================
+function getAdminClient() {
+  return createClient(
+    Deno.env.get('SUPABASE_URL')!,
+    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
+  )
+}
+
+interface AuditEntry {
+  user_id: string
+  organisation_id?: string | null
+  action: string
+  query_params?: Record<string, unknown> | null
+  ods_code?: string | null
+  http_status: number
+  outcome: 'success' | 'error'
+  error_detail?: string | null
+  ip_address?: string | null
+  request_id?: string | null
+}
+
+async function writeAudit(entry: AuditEntry): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const admin = getAdminClient()
+    const { error } = await admin.from('ps_nhs_api_audit').insert({
+      user_id:         entry.user_id,
+      organisation_id: entry.organisation_id ?? null,
+      api:             'dos',
+      action:          entry.action,
+      query_params:    entry.query_params ?? null,
+      ods_code:        entry.ods_code ?? null,
+      http_status:     entry.http_status,
+      outcome:         entry.outcome,
+      error_detail:    entry.error_detail ?? null,
+      ip_address:      entry.ip_address ?? null,
+      request_id:      entry.request_id ?? null,
+    })
+    if (error) return { ok: false, error: error.message }
+    return { ok: true }
+  } catch (e: unknown) {
+    return { ok: false, error: e instanceof Error ? e.message : String(e) }
+  }
+}
+
+// Extract non-sensitive query params + ODS code for the
+// audit row, based on the action. DoS params (ODS codes,
+// postcodes, service names/IDs) are reference data, not
+// patient-identifiable data.
+function auditParamsFor(
+  action: string,
+  body: Record<string, unknown>,
+): { query_params: Record<string, unknown>; ods_code: string | null } {
+  switch (action) {
+    case 'byODSCode': {
+      const ods = typeof body.ods_code === 'string' ? body.ods_code.trim().toUpperCase() : null
+      return { query_params: { ods_code: body.ods_code ?? null }, ods_code: ods }
+    }
+    case 'byServiceId':
+      return { query_params: { service_id: body.service_id ?? null }, ods_code: null }
+    case 'search':
+      return {
+        query_params: {
+          postcode:        body.postcode ?? null,
+          name:            body.name ?? null,
+          service_types:   body.service_types ?? null,
+          search_distance: body.search_distance ?? null,
+        },
+        ods_code: null,
+      }
+    default:
+      return { query_params: {}, ods_code: null }
+  }
 }
 
 // ============================================
@@ -318,6 +402,49 @@ Deno.serve(async (req: Request) => {
     return errorResponse(405, 'METHOD_NOT_ALLOWED', 'Only POST requests are accepted.')
   }
 
+  // ============================================
+  // Auth guard (Risk DosRESTAPI-002)
+  // Reject unauthenticated requests at entry, before any
+  // DoS API call is made. Mirrors nhs-pds-lookup: validate
+  // the caller's Supabase JWT via auth.getUser(). A missing
+  // or invalid token returns a clean 401 UNAUTHORIZED.
+  // ============================================
+  const authHeader = req.headers.get('Authorization')
+  if (!authHeader) {
+    return errorResponse(
+      401,
+      'UNAUTHORIZED',
+      'Missing Authorization header. A valid Supabase access token is required.',
+    )
+  }
+
+  let userId: string
+  try {
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_ANON_KEY')!,
+      { global: { headers: { Authorization: authHeader } } },
+    )
+    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    if (authError || !user) {
+      return errorResponse(401, 'UNAUTHORIZED', 'Invalid or expired access token.')
+    }
+    userId = user.id
+  } catch (authErr: unknown) {
+    const msg = authErr instanceof Error ? authErr.message : String(authErr)
+    return errorResponse(401, 'UNAUTHORIZED', 'Authentication failed.', msg)
+  }
+
+  // Context for the audit trail. IP is behind the Supabase/CF edge.
+  let ipAddress: string | null =
+    req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
+    req.headers.get('cf-connecting-ip') ||
+    null
+  // Guard against a malformed value breaking the INET insert.
+  if (ipAddress && !/^[0-9a-fA-F:.]+$/.test(ipAddress)) ipAddress = null
+  const requestId =
+    req.headers.get('sb-request-id') || req.headers.get('x-request-id') || null
+
   let body: Record<string, unknown>
   try {
     body = await req.json()
@@ -335,16 +462,40 @@ Deno.serve(async (req: Request) => {
     )
   }
 
+  // Resolve org for the audit trail (best-effort): explicit
+  // body.org_id, else the caller's active membership.
+  let orgId: string | null = typeof body.org_id === 'string' ? body.org_id : null
+  if (!orgId) {
+    try {
+      const admin = getAdminClient()
+      const { data: membership } = await admin
+        .from('ps_organisation_members')
+        .select('organisation_id')
+        .eq('user_id', userId)
+        .eq('status', 'active')
+        .limit(1)
+        .maybeSingle()
+      orgId = (membership?.organisation_id as string) ?? null
+    } catch {
+      orgId = null
+    }
+  }
+
+  // Dispatch the action, then audit the outcome before returning.
+  let response: Response
   try {
     switch (action) {
       case 'byODSCode':
-        return await handleByOdsCode(body)
+        response = await handleByOdsCode(body)
+        break
       case 'byServiceId':
-        return await handleByServiceId(body)
+        response = await handleByServiceId(body)
+        break
       case 'search':
-        return await handleSearch(body)
+        response = await handleSearch(body)
+        break
       default:
-        return errorResponse(
+        response = errorResponse(
           400,
           'UNKNOWN_ACTION',
           `Unknown action: '${action}'. Expected one of: byODSCode | byServiceId | search`,
@@ -352,6 +503,50 @@ Deno.serve(async (req: Request) => {
     }
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err)
-    return errorResponse(500, 'INTERNAL_ERROR', 'Unexpected internal error', message)
+    response = errorResponse(500, 'INTERNAL_ERROR', 'Unexpected internal error', message)
   }
+
+  // ============================================
+  // Write the audit record (Risks 003 / 004 / 007).
+  // On the success path the audit write is MANDATORY:
+  // if it fails we do NOT return DoS data — we return 500
+  // instead, so no DoS detail is ever surfaced to a user
+  // without a corresponding audit entry.
+  // ============================================
+  const outcome: 'success' | 'error' = response.status < 400 ? 'success' : 'error'
+  const { query_params, ods_code } = auditParamsFor(action, body)
+
+  let errorDetail: string | null = null
+  if (outcome === 'error') {
+    try {
+      const cloned = await response.clone().json()
+      errorDetail = JSON.stringify(cloned).substring(0, 500)
+    } catch {
+      errorDetail = null
+    }
+  }
+
+  const audit = await writeAudit({
+    user_id:         userId,
+    organisation_id: orgId,
+    action,
+    query_params,
+    ods_code,
+    http_status:     response.status,
+    outcome,
+    error_detail:    errorDetail,
+    ip_address:      ipAddress,
+    request_id:      requestId,
+  })
+
+  if (!audit.ok && outcome === 'success') {
+    return errorResponse(
+      500,
+      'AUDIT_WRITE_FAILED',
+      'The query succeeded but its audit record could not be written, so the result has been withheld. Please retry.',
+      audit.error,
+    )
+  }
+
+  return response
 })

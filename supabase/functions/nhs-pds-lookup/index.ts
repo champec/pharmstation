@@ -9,7 +9,14 @@
 // Switch PDS_BASE to PDS_INT when NHS approval arrives.
 // ============================================
 
+// @ts-ignore — esm.sh URL import resolves in the Supabase Deno runtime, not tsc
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.0'
+
+// @ts-ignore Deno globals — this runs in Supabase Deno runtime, not Node/tsc
+declare const Deno: {
+  env: { get(key: string): string | undefined }
+  serve(handler: (req: Request) => Response | Promise<Response>): void
+}
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
@@ -62,6 +69,73 @@ function getAdminClient() {
 }
 
 // ============================================
+// Audit logging (Risk APPRESTPDSCONN-019)
+// Every PDS query is recorded in ps_nhs_api_audit —
+// a dedicated, append-only API-query audit table — with
+// the caller's user_id, org, action, the NHS number /
+// search params queried, HTTP status and outcome.
+// Written server-side via the service role so the client
+// cannot bypass or forge it. Mirrors nhs-dos-lookup.
+// ============================================
+interface AuditEntry {
+  user_id: string
+  organisation_id?: string | null
+  action: string
+  query_params?: Record<string, unknown> | null
+  http_status: number
+  outcome: 'success' | 'error'
+  error_detail?: string | null
+  ip_address?: string | null
+  request_id?: string | null
+}
+
+async function writeAudit(entry: AuditEntry): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const admin = getAdminClient()
+    const { error } = await admin.from('ps_nhs_api_audit').insert({
+      user_id:         entry.user_id,
+      organisation_id: entry.organisation_id ?? null,
+      api:             'pds',
+      action:          entry.action,
+      query_params:    entry.query_params ?? null,
+      ods_code:        null,
+      http_status:     entry.http_status,
+      outcome:         entry.outcome,
+      error_detail:    entry.error_detail ?? null,
+      ip_address:      entry.ip_address ?? null,
+      request_id:      entry.request_id ?? null,
+    })
+    if (error) return { ok: false, error: error.message }
+    return { ok: true }
+  } catch (e: unknown) {
+    return { ok: false, error: e instanceof Error ? e.message : String(e) }
+  }
+}
+
+// Capture the NHS number / search terms queried for the
+// audit row. Recording which patient was accessed is an
+// IG requirement (APPRESTPDSCONN-019); the audit table is
+// append-only and access-controlled by RLS.
+function pdsAuditParams(action: string, body: Record<string, unknown>): Record<string, unknown> {
+  const nhs = typeof body.nhs_number === 'string' ? body.nhs_number.replace(/\s/g, '') : null
+  switch (action) {
+    case 'lookup':
+    case 'verify':
+      return { nhs_number: nhs }
+    case 'search':
+      return {
+        family:    body.family ?? null,
+        given:     body.given ?? null,
+        birthdate: body.birthdate ?? null,
+        gender:    body.gender ?? null,
+        postcode:  body.postcode ?? null,
+      }
+    default:
+      return {}
+  }
+}
+
+// ============================================
 // Parse FHIR Patient resource into our format
 // ============================================
 function parseFHIRPatient(fhir: Record<string, unknown>): Record<string, unknown> {
@@ -83,7 +157,7 @@ function parseFHIRPatient(fhir: Record<string, unknown>): Record<string, unknown
   const gps = fhir.generalPractitioner as Array<Record<string, unknown>> | undefined
   const gpEntry = gps?.[0]
   const gpIdentifier = gpEntry?.identifier as Record<string, unknown> | undefined
-  let gpOds = (gpIdentifier?.value as string) ?? null
+  let gpOds: string | null = (gpIdentifier?.value as string) ?? null
 
   // Fix sandbox fake ODS codes so downstream GP name resolution works
   gpOds = fixSandboxOdsCode(gpOds)
@@ -300,6 +374,20 @@ async function handleVerify(body: Record<string, unknown>, userId: string) {
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS_HEADERS })
+
+  // Context captured for the audit trail once known.
+  let userId: string | null = null
+  let action: string | null = null
+  let orgId: string | null = null
+  let auditParams: Record<string, unknown> | null = null
+  let ipAddress: string | null =
+    req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
+    req.headers.get('cf-connecting-ip') ||
+    null
+  if (ipAddress && !/^[0-9a-fA-F:.]+$/.test(ipAddress)) ipAddress = null
+  const requestId =
+    req.headers.get('sb-request-id') || req.headers.get('x-request-id') || null
+
   try {
     const body = await req.json()
     if (!body.action) throw new Error('Missing action parameter')
@@ -308,6 +396,13 @@ Deno.serve(async (req) => {
     const supabase = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_ANON_KEY')!, { global: { headers: { Authorization: authHeader } } })
     const { data: { user }, error: authError } = await supabase.auth.getUser()
     if (authError || !user) throw new Error('Unauthorized')
+
+    // Capture context now that the caller is authenticated.
+    userId = user.id
+    action = body.action as string
+    orgId = typeof body.org_id === 'string' ? body.org_id : null
+    auditParams = pdsAuditParams(action, body)
+
     let result: unknown
     switch (body.action) {
       case 'lookup':  result = await handleLookup(body, user.id); break
@@ -315,9 +410,47 @@ Deno.serve(async (req) => {
       case 'verify':  result = await handleVerify(body, user.id); break
       default: throw new Error(`Unknown action: ${body.action}`)
     }
+
+    // ============================================
+    // Audit the successful PDS query (APPRESTPDSCONN-019).
+    // Mandatory on success: if the audit write fails we do
+    // NOT return patient data — we return 500 instead, so
+    // no PDS detail is surfaced without an audit entry.
+    // ============================================
+    const audit = await writeAudit({
+      user_id:         user.id,
+      organisation_id: orgId,
+      action,
+      query_params:    auditParams,
+      http_status:     200,
+      outcome:         'success',
+      ip_address:      ipAddress,
+      request_id:      requestId,
+    })
+    if (!audit.ok) {
+      return new Response(
+        JSON.stringify({ error: 'Query succeeded but its audit record could not be written, so the result has been withheld. Please retry.' }),
+        { status: 500, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } },
+      )
+    }
+
     return new Response(JSON.stringify(result), { headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } })
   } catch (err: unknown) {
     const errMsg = err instanceof Error ? err.message : 'Unknown error'
+    // Audit the failed PDS query when we know who made it.
+    if (userId && action) {
+      await writeAudit({
+        user_id:         userId,
+        organisation_id: orgId,
+        action,
+        query_params:    auditParams,
+        http_status:     400,
+        outcome:         'error',
+        error_detail:    errMsg.substring(0, 500),
+        ip_address:      ipAddress,
+        request_id:      requestId,
+      })
+    }
     return new Response(JSON.stringify({ error: errMsg }), { status: 400, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } })
   }
 })

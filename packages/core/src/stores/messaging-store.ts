@@ -3,11 +3,24 @@ import type {
   NotifyMessage,
   Broadcast,
   MessageChannel,
+  MessagingProvider,
+  SmsSettings,
+  SmsTemplate,
+  SmsInbound,
+  SmsUsageSummary,
 } from '@pharmstation/types'
 import { getUserClient } from '@pharmstation/supabase-client'
 
 // ============================================
 // Messaging Store — handles messages, broadcasts, settings, edge function calls
+//
+// Provider routing (post GOV Notify rejection):
+//   • SMS        → sms-works edge fn (platform SMS Works account) for everyone,
+//                  unless the org is NHS-affiliated with messaging_provider='nhs_notify'.
+//   • email/letter → nhs-notify edge fn, ONLY for orgs with nhs_channels_enabled
+//                  (NHS-funded / hospital / military / prison pharmacies).
+// The public `notify` / `sendMessage` / `sendBroadcast` signatures are unchanged,
+// so feature callers (appointments, video, reminders, delivery) need no edits.
 // ============================================
 
 export interface NotifySettingsSafe {
@@ -43,10 +56,14 @@ export interface NotifyParams {
   /** When set (and `to`/`address` omitted) the recipient is resolved from the patient. */
   patient_id?: string
   subject?: string
-  body: string
+  body?: string
+  /** SMS Works: render a pharmacy-authored ps_sms_templates row instead of a raw body. */
+  template_id?: string
+  /** Values for {{placeholders}} when template_id is used. */
+  personalisation?: Record<string, unknown>
   /** Tags the message for analytics/audit, e.g. 'appointment' | 'video' | 'reminder' | 'urgent'. */
   feature?: string
-  /** Optional Notify reference; defaults to `feature:patient_id`. */
+  /** Optional provider reference; defaults to `feature:patient_id`. */
   reference?: string
 }
 
@@ -55,6 +72,12 @@ export interface MessageStats {
   thisWeek: number
   thisMonth: number
   deliveryRate: number
+}
+
+/** Cached per-org routing decision (ps_organisations.messaging_provider / nhs_channels_enabled). */
+export interface OrgMessagingRouting {
+  provider: MessagingProvider
+  nhsChannelsEnabled: boolean
 }
 
 export interface MessagingState {
@@ -66,7 +89,16 @@ export interface MessagingState {
   loading: boolean
   error: string | null
 
+  // SMS Works data
+  smsSettings: SmsSettings | null
+  smsTemplates: SmsTemplate[]
+  inbound: SmsInbound[]
+  unreadInboundCount: number
+  usage: SmsUsageSummary[]
+  routing: OrgMessagingRouting | null
+
   // Actions
+  fetchRouting: (orgId: string) => Promise<OrgMessagingRouting>
   fetchSettings: (orgId: string) => Promise<void>
   fetchMessages: (orgId: string, filters?: {
     channel?: MessageChannel
@@ -90,6 +122,8 @@ export interface MessagingState {
     subject?: string
     body: string
     patient_id?: string
+    template_id?: string
+    personalisation?: Record<string, unknown>
   }) => Promise<NotifyMessage>
   /** Reusable functional notification — the plug & play hook for any feature. */
   notify: (params: NotifyParams) => Promise<NotifyMessage>
@@ -107,16 +141,49 @@ export interface MessagingState {
     is_active?: boolean
   }) => Promise<void>
   getRecipientCount: (orgId: string, channel: MessageChannel, recipientFilter?: string) => Promise<number>
+
+  // SMS Works actions
+  fetchSmsSettings: (orgId: string) => Promise<void>
+  saveSmsSettings: (params: {
+    org_id: string
+    sender_type?: 'alpha' | 'number'
+    sender_id?: string
+    signature?: string
+    reply_forward_email?: string
+    is_active?: boolean
+  }) => Promise<void>
+  testSmsConnection: (orgId: string) => Promise<{ valid: boolean; balance?: number | null; error?: string }>
+  fetchSmsTemplates: (orgId: string) => Promise<void>
+  saveSmsTemplate: (params: {
+    org_id: string
+    id?: string
+    name?: string
+    category?: string
+    body?: string
+    description?: string
+    is_active?: boolean
+  }) => Promise<SmsTemplate>
+  deleteSmsTemplate: (orgId: string, templateId: string) => Promise<void>
+  assignReplyNumber: (orgId: string) => Promise<{ assigned: boolean; phone_number?: string; pending_provisioning?: boolean; message?: string }>
+  releaseReplyNumber: (orgId: string) => Promise<void>
+  fetchInbound: (orgId: string, opts?: { unreadOnly?: boolean; limit?: number }) => Promise<void>
+  markInboundRead: (orgId: string, inboundId: string) => Promise<void>
+  fetchSmsUsage: (orgId: string) => Promise<void>
   clearError: () => void
 }
 
-// Helper to call the nhs-notify edge function
-async function callNotifyFunction(action: string, params: Record<string, unknown>) {
+// ============================================
+// Edge function helpers + provider routing
+// ============================================
+
+type EdgeFn = 'nhs-notify' | 'sms-works'
+
+async function callEdgeFunction(fn: EdgeFn, action: string, params: Record<string, unknown>) {
   const client = getUserClient()
   const { data: { session } } = await client.auth.getSession()
 
   const res = await fetch(
-    `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/nhs-notify`,
+    `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/${fn}`,
     {
       method: 'POST',
       headers: {
@@ -133,13 +200,65 @@ async function callNotifyFunction(action: string, params: Record<string, unknown
   return result
 }
 
-export const useMessagingStore = create<MessagingState>((set) => ({
+// Back-compat alias used by NHS Notify-only actions.
+const callNotifyFunction = (action: string, params: Record<string, unknown>) =>
+  callEdgeFunction('nhs-notify', action, params)
+
+// Per-org routing cache (module scope — survives across store consumers).
+const routingCache = new Map<string, OrgMessagingRouting>()
+
+async function resolveRouting(orgId: string): Promise<OrgMessagingRouting> {
+  const cached = routingCache.get(orgId)
+  if (cached) return cached
+  const { data } = await getUserClient()
+    .from('ps_organisations')
+    .select('messaging_provider, nhs_channels_enabled')
+    .eq('id', orgId)
+    .maybeSingle()
+  const routing: OrgMessagingRouting = {
+    provider: (data?.messaging_provider as MessagingProvider) || 'smsworks',
+    nhsChannelsEnabled: Boolean(data?.nhs_channels_enabled),
+  }
+  routingCache.set(orgId, routing)
+  return routing
+}
+
+/** Which edge function should deliver a message on this channel for this org? */
+async function resolveFnForChannel(orgId: string, channel: MessageChannel): Promise<EdgeFn> {
+  const routing = await resolveRouting(orgId)
+  if (channel === 'sms') {
+    return routing.provider === 'nhs_notify' && routing.nhsChannelsEnabled ? 'nhs-notify' : 'sms-works'
+  }
+  // email / letter are NHS Notify-only capabilities.
+  if (!routing.nhsChannelsEnabled) {
+    throw new Error(
+      `${channel === 'email' ? 'Email' : 'Letter'} messaging is only available to NHS-affiliated pharmacies ` +
+      '(NHS-funded, hospital, military or prison). Please use SMS instead.',
+    )
+  }
+  return 'nhs-notify'
+}
+
+export const useMessagingStore = create<MessagingState>((set, get) => ({
   messages: [],
   broadcasts: [],
   settings: null,
   stats: null,
   loading: false,
   error: null,
+
+  smsSettings: null,
+  smsTemplates: [],
+  inbound: [],
+  unreadInboundCount: 0,
+  usage: [],
+  routing: null,
+
+  fetchRouting: async (orgId) => {
+    const routing = await resolveRouting(orgId)
+    set({ routing })
+    return routing
+  },
 
   fetchSettings: async (orgId) => {
     try {
@@ -264,14 +383,18 @@ export const useMessagingStore = create<MessagingState>((set) => ({
   },
 
   sendMessage: async (params) => {
-    const result = await callNotifyFunction(params.action, params)
+    const channel: MessageChannel =
+      params.action === 'send_sms' ? 'sms' : params.action === 'send_email' ? 'email' : 'letter'
+    const fn = await resolveFnForChannel(params.org_id, channel)
+    const result = await callEdgeFunction(fn, params.action, params)
     // Add to local messages
     set((s) => ({ messages: [result as NotifyMessage, ...s.messages] }))
     return result as NotifyMessage
   },
 
   notify: async (params) => {
-    const result = await callNotifyFunction('notify', params as unknown as Record<string, unknown>)
+    const fn = await resolveFnForChannel(params.org_id, params.channel)
+    const result = await callEdgeFunction(fn, 'notify', params as unknown as Record<string, unknown>)
     set((s) => ({ messages: [result as NotifyMessage, ...s.messages] }))
     return result as NotifyMessage
   },
@@ -290,7 +413,16 @@ export const useMessagingStore = create<MessagingState>((set) => ({
   },
 
   sendBroadcast: async (orgId, broadcastId) => {
-    const result = await callNotifyFunction('send_broadcast', { org_id: orgId, broadcast_id: broadcastId })
+    // Route on the broadcast's channel (sms → provider routing; email/letter → NHS Notify, gated).
+    let broadcast = get().broadcasts.find((b) => b.id === broadcastId)
+    if (!broadcast) {
+      const { data } = await getUserClient()
+        .from('ps_broadcasts').select('*').eq('id', broadcastId).maybeSingle()
+      broadcast = (data ?? undefined) as Broadcast | undefined
+    }
+    const channel: MessageChannel = broadcast?.channel ?? 'sms'
+    const fn = await resolveFnForChannel(orgId, channel)
+    const result = await callEdgeFunction(fn, 'send_broadcast', { org_id: orgId, broadcast_id: broadcastId })
 
     // Update broadcast in local state
     set((s) => ({
@@ -305,7 +437,15 @@ export const useMessagingStore = create<MessagingState>((set) => ({
   },
 
   checkStatus: async (orgId, messageId) => {
-    const result = await callNotifyFunction('check_status', { org_id: orgId, message_id: messageId })
+    // Route on the message's provider (falls back to a DB lookup, then org routing).
+    let provider = get().messages.find((m) => m.id === messageId)?.provider
+    if (!provider) {
+      const { data } = await getUserClient()
+        .from('ps_messages').select('provider').eq('id', messageId).maybeSingle()
+      provider = (data?.provider as MessagingProvider | undefined)
+    }
+    const fn: EdgeFn = provider === 'nhs_notify' ? 'nhs-notify' : 'sms-works'
+    const result = await callEdgeFunction(fn, 'check_status', { org_id: orgId, message_id: messageId })
 
     // Update message in local state
     set((s) => ({
@@ -349,6 +489,123 @@ export const useMessagingStore = create<MessagingState>((set) => ({
 
     const { count } = await query
     return count || 0
+  },
+
+  // ============================================
+  // SMS Works actions
+  // ============================================
+
+  fetchSmsSettings: async (orgId) => {
+    try {
+      const data = await callEdgeFunction('sms-works', 'get_settings', { org_id: orgId })
+      set({ smsSettings: data as SmsSettings | null })
+    } catch {
+      set({ smsSettings: null })
+    }
+  },
+
+  saveSmsSettings: async (params) => {
+    const data = await callEdgeFunction('sms-works', 'save_settings', params)
+    set({ smsSettings: data as SmsSettings })
+  },
+
+  testSmsConnection: async (orgId) => {
+    return callEdgeFunction('sms-works', 'test_connection', { org_id: orgId })
+  },
+
+  fetchSmsTemplates: async (orgId) => {
+    // Direct RLS-protected read — templates are org-member CRUD.
+    const { data, error } = await getUserClient()
+      .from('ps_sms_templates')
+      .select('*')
+      .eq('org_id', orgId)
+      .order('created_at', { ascending: false })
+    if (error) {
+      set({ error: error.message })
+      return
+    }
+    set({ smsTemplates: (data ?? []) as SmsTemplate[] })
+  },
+
+  saveSmsTemplate: async (params) => {
+    const data = await callEdgeFunction('sms-works', 'save_template', params)
+    const saved = data as SmsTemplate
+    set((s) => {
+      const exists = s.smsTemplates.some((t) => t.id === saved.id)
+      return {
+        smsTemplates: exists
+          ? s.smsTemplates.map((t) => (t.id === saved.id ? saved : t))
+          : [saved, ...s.smsTemplates],
+      }
+    })
+    return saved
+  },
+
+  deleteSmsTemplate: async (orgId, templateId) => {
+    await callEdgeFunction('sms-works', 'delete_template', { org_id: orgId, id: templateId })
+    set((s) => ({ smsTemplates: s.smsTemplates.filter((t) => t.id !== templateId) }))
+  },
+
+  assignReplyNumber: async (orgId) => {
+    const result = await callEdgeFunction('sms-works', 'assign_reply_number', { org_id: orgId })
+    if (result.assigned) {
+      // Reflect the new reply number in settings immediately.
+      await get().fetchSmsSettings(orgId)
+    }
+    return result
+  },
+
+  releaseReplyNumber: async (orgId) => {
+    await callEdgeFunction('sms-works', 'release_reply_number', { org_id: orgId })
+    await get().fetchSmsSettings(orgId)
+  },
+
+  fetchInbound: async (orgId, opts = {}) => {
+    const { unreadOnly = false, limit = 100 } = opts
+    let query = getUserClient()
+      .from('ps_sms_inbound')
+      .select('*, patient:ps_patients(id, first_name, last_name)')
+      .eq('org_id', orgId)
+      .order('received_at', { ascending: false })
+      .limit(limit)
+    if (unreadOnly) query = query.eq('is_read', false)
+
+    const { data, error } = await query
+    if (error) {
+      set({ error: error.message })
+      return
+    }
+    const rows = (data ?? []) as SmsInbound[]
+    set({
+      inbound: rows,
+      unreadInboundCount: rows.filter((r) => !r.is_read).length,
+    })
+  },
+
+  markInboundRead: async (orgId, inboundId) => {
+    const { error } = await getUserClient()
+      .from('ps_sms_inbound')
+      .update({ is_read: true })
+      .eq('id', inboundId)
+      .eq('org_id', orgId)
+    if (error) throw new Error(error.message)
+    set((s) => ({
+      inbound: s.inbound.map((r) => (r.id === inboundId ? { ...r, is_read: true } : r)),
+      unreadInboundCount: Math.max(0, s.unreadInboundCount - 1),
+    }))
+  },
+
+  fetchSmsUsage: async (orgId) => {
+    const { data, error } = await getUserClient()
+      .from('ps_sms_billing_summary')
+      .select('*')
+      .eq('org_id', orgId)
+      .order('period', { ascending: false })
+    if (error) {
+      set({ error: error.message })
+      return
+    }
+    set({ usage: (data ?? []) as SmsUsageSummary[] })
   },
 
   clearError: () => set({ error: null }),
