@@ -798,6 +798,54 @@ export interface Service {
   is_nhs_service: boolean
   duration_minutes: number
   created_at: string
+  /** Stripe payments: whether patients are charged for this service */
+  is_chargeable?: boolean
+  /** Price in pence (server-side source of truth for checkout) */
+  price_pence?: number | null
+  /** ISO currency code, defaults to gbp */
+  currency?: string
+}
+
+// ============ Payments (Stripe) ============
+
+export type PaymentStatus =
+  | 'pending'
+  | 'processing'
+  | 'succeeded'
+  | 'failed'
+  | 'refunded'
+  | 'partially_refunded'
+  | 'canceled'
+
+export type PaymentKind =
+  | 'service'
+  | 'delivery'
+  | 'subscription'
+  | 'credits'
+  | 'locum'
+  | 'platform_fee'
+  | 'other'
+
+export interface PsPayment {
+  id: string
+  org_id: string
+  patient_id: string | null
+  service_id: string | null
+  appointment_id: string | null
+  kind: PaymentKind
+  description: string | null
+  amount_pence: number
+  currency: string
+  status: PaymentStatus
+  refunded_pence: number
+  stripe_checkout_session_id: string | null
+  stripe_payment_intent_id: string | null
+  stripe_charge_id: string | null
+  payer_email: string | null
+  metadata: Record<string, unknown>
+  paid_at: string | null
+  created_at: string
+  updated_at: string
 }
 
 export interface ServiceForm {

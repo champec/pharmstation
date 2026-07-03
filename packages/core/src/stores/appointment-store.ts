@@ -21,6 +21,7 @@ export interface AppointmentState {
   // Slot actions
   fetchSlots: (orgId: string, range?: { start: string; end: string }) => Promise<void>
   createSlot: (slot: Partial<AppointmentSlot>) => Promise<AppointmentSlot>
+  createSlotsBulk: (slots: Partial<AppointmentSlot>[]) => Promise<AppointmentSlot[]>
   updateSlot: (slotId: string, updates: Partial<AppointmentSlot>) => Promise<void>
   deleteSlot: (slotId: string) => Promise<void>
 
@@ -90,6 +91,17 @@ export const useAppointmentStore = create<AppointmentState>((set, get) => ({
     if (error) throw error
     const created = data as AppointmentSlot
     set((s) => ({ slots: [...s.slots, created] }))
+    return created
+  },
+
+  createSlotsBulk: async (slotsToCreate) => {
+    const { data, error } = await getUserClient()
+      .from('ps_appointment_slots')
+      .insert(slotsToCreate)
+      .select()
+    if (error) throw error
+    const created = (data ?? []) as AppointmentSlot[]
+    set((s) => ({ slots: [...s.slots, ...created] }))
     return created
   },
 

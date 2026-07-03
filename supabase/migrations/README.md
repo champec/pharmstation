@@ -1,14 +1,25 @@
-# Database Migrations
+# Database Migrations# Database Migrations
 
-This directory contains database migration files for PharmStation.
 
-## What Goes Here
 
-All SQL migration files that modify the database schema:
-- Creating tables
-- Adding columns
+**⚠️ This folder intentionally contains no SQL files.**This directory contains database migration files for PharmStation.
+
+
+
+The database schema is managed directly on the hosted Supabase project## What Goes Here
+
+(`xsqwpmqfbirqdncoephf`) via the Supabase MCP server (`apply_migration` /
+
+`execute_sql`). The full, authoritative migration history lives in SupabaseAll SQL migration files that modify the database schema:
+
+itself — view it with the MCP `list_migrations` tool or in the dashboard- Creating tables
+
+under **Database → Migrations**.- Adding columns
+
 - Creating indexes
-- Adding constraints
+
+Do not add local `.sql` files here; they will drift from reality.- Adding constraints
+
 - Creating functions/triggers
 - Modifying existing schema
 

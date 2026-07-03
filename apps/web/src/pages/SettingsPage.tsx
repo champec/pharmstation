@@ -1,15 +1,16 @@
 import { useState, useEffect } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useAuthStore, useNHSStore } from '@pharmstation/core'
+import { getUserClient } from '@pharmstation/supabase-client'
 import { MessagingSettingsTab } from './settings/MessagingSettingsTab'
 
-type Tab = 'general' | 'messaging' | 'nhs'
+type Tab = 'general' | 'messaging' | 'nhs' | 'payments'
 
 export function SettingsPage() {
   const [searchParams] = useSearchParams()
   const [tab, setTab] = useState<Tab>(() => {
     const t = searchParams.get('tab')
-    if (t === 'nhs' || t === 'messaging') return t
+    if (t === 'nhs' || t === 'messaging' || t === 'payments') return t
     return 'general'
   })
 
@@ -25,6 +26,7 @@ export function SettingsPage() {
           { key: 'general' as Tab, label: 'General' },
           { key: 'messaging' as Tab, label: '📨 Messaging' },
           { key: 'nhs' as Tab, label: '🏥 NHS' },
+          { key: 'payments' as Tab, label: '💳 Payments' },
         ]).map((t) => (
           <button
             key={t.key}
@@ -46,6 +48,152 @@ export function SettingsPage() {
 
       {tab === 'messaging' && <MessagingSettingsTab />}
       {tab === 'nhs' && <NHSSettingsTab />}
+      {tab === 'payments' && <PaymentsSettingsTab />}
+    </div>
+  )
+}
+
+// ============================================================
+// Payments Settings Tab — Stripe Connect onboarding
+// ============================================================
+
+type ConnectStatus = {
+  status: 'not_onboarded' | 'pending' | 'active' | 'restricted'
+  charges_enabled: boolean
+  payouts_enabled: boolean
+  stripe_account_id: string | null
+}
+
+function PaymentsSettingsTab() {
+  const { organisation } = useAuthStore()
+  const orgId = organisation?.id
+  const [searchParams] = useSearchParams()
+  const returnedFromStripe = searchParams.get('stripe_return') === '1'
+
+  const [status, setStatus] = useState<ConnectStatus | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [starting, setStarting] = useState(false)
+  const [error, setError] = useState('')
+
+  /** Pull the real error message out of a FunctionsHttpError response body. */
+  const extractFnError = async (e: any): Promise<string> => {
+    try {
+      if (e?.context && typeof e.context.json === 'function') {
+        const body = await e.context.json()
+        if (body?.error) return body.error as string
+      }
+    } catch { /* fall through */ }
+    return e?.message || 'Something went wrong.'
+  }
+
+  const fetchStatus = async () => {
+    if (!orgId) return
+    setLoading(true)
+    setError('')
+    try {
+      const { data, error: fnErr } = await getUserClient().functions.invoke('stripe-connect', {
+        body: { action: 'get_status', org_id: orgId },
+      })
+      if (fnErr) throw fnErr
+      setStatus(data as ConnectStatus)
+    } catch (e: any) {
+      setError(await extractFnError(e))
+    }
+    setLoading(false)
+  }
+
+  useEffect(() => { fetchStatus() }, [orgId]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const handleStartOnboarding = async () => {
+    if (!orgId) return
+    setStarting(true)
+    setError('')
+    try {
+      const base = window.location.origin
+      const { data, error: fnErr } = await getUserClient().functions.invoke('stripe-connect', {
+        body: {
+          action: 'start_onboarding',
+          org_id: orgId,
+          return_url: `${base}/settings?tab=payments&stripe_return=1`,
+          refresh_url: `${base}/settings?tab=payments&stripe_refresh=1`,
+        },
+      })
+      if (fnErr || !data?.url) {
+        // Try to surface the function's returned error body (Stripe message)
+        const msg = (data && data.error) ? data.error : undefined
+        throw new Error(msg || 'Could not start onboarding.')
+      }
+      window.location.href = data.url as string
+    } catch (e: any) {
+      setError(await extractFnError(e))
+      setStarting(false)
+    }
+  }
+
+  const badge = (s: ConnectStatus['status']) => {
+    switch (s) {
+      case 'active': return <span className="ps-badge ps-badge-green">✅ Active — payments route to your bank</span>
+      case 'pending': return <span className="ps-badge ps-badge-amber">⏳ Pending — verification in progress</span>
+      case 'restricted': return <span className="ps-badge ps-badge-red">⚠️ Restricted — action needed</span>
+      default: return <span className="ps-badge">Not set up</span>
+    }
+  }
+
+  return (
+    <div>
+      {returnedFromStripe && status?.status !== 'active' && (
+        <div className="ps-card" style={{ padding: 'var(--ps-space-md)', marginBottom: 'var(--ps-space-md)', borderLeft: '4px solid var(--ps-electric-cyan)' }}>
+          Welcome back! Stripe is verifying your details — this can take a few minutes. Use "Refresh status" to check.
+        </div>
+      )}
+
+      {error && (
+        <div className="auth-error" style={{ marginBottom: 'var(--ps-space-md)' }}>{error}</div>
+      )}
+
+      <div className="ps-card" style={{ padding: 'var(--ps-space-lg)', marginBottom: 'var(--ps-space-md)' }}>
+        <h3 style={{ margin: '0 0 var(--ps-space-sm)' }}>Receive payments (Stripe)</h3>
+        <p style={{ color: 'var(--ps-slate)', fontSize: 'var(--ps-font-sm)', marginBottom: 'var(--ps-space-md)' }}>
+          Connect your pharmacy to Stripe to receive patient payments for chargeable services directly
+          into your bank account. Stripe securely collects your business details, bank account and ID —
+          PharmStation never sees or stores them.
+        </p>
+
+        {loading ? (
+          <p style={{ color: 'var(--ps-slate)' }}>Loading status…</p>
+        ) : (
+          <>
+            <div style={{ marginBottom: 'var(--ps-space-md)' }}>{badge(status?.status ?? 'not_onboarded')}</div>
+
+            <div style={{ display: 'flex', gap: 'var(--ps-space-sm)', flexWrap: 'wrap' }}>
+              {status?.status !== 'active' && (
+                <button className="ps-btn ps-btn-primary" onClick={handleStartOnboarding} disabled={starting}>
+                  {starting ? 'Redirecting to Stripe…' : status?.status === 'not_onboarded' ? '🚀 Set up payments' : '▶ Continue setup'}
+                </button>
+              )}
+              <button className="ps-btn ps-btn-secondary" onClick={fetchStatus} disabled={loading}>
+                🔄 Refresh status
+              </button>
+            </div>
+
+            {status?.status === 'active' && (
+              <p style={{ color: 'var(--ps-slate)', fontSize: 'var(--ps-font-sm)', marginTop: 'var(--ps-space-md)', marginBottom: 0 }}>
+                Payouts are managed by Stripe on your payout schedule. Account ID: <code>{status.stripe_account_id}</code>
+              </p>
+            )}
+          </>
+        )}
+      </div>
+
+      <div className="ps-card" style={{ padding: 'var(--ps-space-lg)' }}>
+        <h3 style={{ margin: '0 0 var(--ps-space-sm)' }}>How it works</h3>
+        <ol style={{ color: 'var(--ps-slate)', fontSize: 'var(--ps-font-sm)', margin: 0, paddingLeft: 'var(--ps-space-lg)' }}>
+          <li>Mark services as chargeable with a price (Services → service → Payments)</li>
+          <li>Patients pay by card when booking online — handled by Stripe Checkout</li>
+          <li>Once connected, funds route automatically to your bank (Stripe payout schedule)</li>
+          <li>Track everything in the Payments page; refunds are issued from your Stripe dashboard</li>
+        </ol>
+      </div>
     </div>
   )
 }

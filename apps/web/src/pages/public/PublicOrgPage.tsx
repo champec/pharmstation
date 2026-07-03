@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { getUserClient } from '@pharmstation/supabase-client'
 import type { Organisation, Service } from '@pharmstation/types'
+import { orgSlugOrIdFilter } from '../../lib/orgSlugFilter'
 
 export function PublicOrgPage() {
   const { orgSlug } = useParams<{ orgSlug: string }>()
@@ -19,7 +20,7 @@ export function PublicOrgPage() {
       .from('ps_organisations')
       .select('*')
       .eq('is_public', true)
-      .or(`slug.eq.${orgSlug},id.eq.${orgSlug}`)
+      .or(orgSlugOrIdFilter(orgSlug))
       .limit(1)
       .single()
       .then(({ data, error: err }) => {

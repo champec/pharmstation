@@ -87,6 +87,8 @@ import { PublicBookingHomePage } from './pages/public/PublicBookingHomePage'
 import { PublicOrgPage } from './pages/public/PublicOrgPage'
 import { PublicServicePage } from './pages/public/PublicServicePage'
 import { PublicBookingConfirmPage } from './pages/public/PublicBookingConfirmPage'
+import { PaymentResultPage } from './pages/public/PaymentResultPage'
+import { PaymentsPage } from './pages/payments/PaymentsPage'
 import { AboutPage } from './pages/public/AboutPage'
 import { PublicPharmacyMapPage } from './pages/public/PublicPharmacyMapPage'
 import { PrivacyNoticePage } from './pages/public/PrivacyNoticePage'
@@ -144,6 +146,7 @@ export function App() {
       <Route path="/book/:orgSlug" element={<PublicOrgPage />} />
       <Route path="/book/:orgSlug/:serviceId" element={<PublicServicePage />} />
       <Route path="/book/:orgSlug/:serviceId/confirm" element={<PublicBookingConfirmPage />} />
+      <Route path="/book/:orgSlug/payment-result" element={<PaymentResultPage />} />
       <Route path="/about" element={<AboutPage />} />
       <Route path="/privacy" element={<PrivacyNoticePage />} />
 
@@ -222,6 +225,9 @@ export function App() {
         <Route path="/registers/rp" element={<RPLogPage />} />
         <Route path="/registers/returns" element={<ReturnsPage />} />
         <Route path="/settings" element={<SettingsPage />} />
+
+        {/* Payments */}
+        <Route path="/payments" element={<PaymentsPage />} />
 
         {/* Services */}
         <Route path="/services" element={<ServicesPage />} />

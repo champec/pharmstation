@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { getUserClient } from '@pharmstation/supabase-client'
 import type { Organisation, Service, AppointmentSlot, ServiceForm, ServiceFormField } from '@pharmstation/types'
+import { orgSlugOrIdFilter } from '../../lib/orgSlugFilter'
 
 export function PublicBookingConfirmPage() {
   const { orgSlug, serviceId } = useParams<{ orgSlug: string; serviceId: string }>()
@@ -38,7 +39,7 @@ export function PublicBookingConfirmPage() {
     }
     const client = getUserClient()
     Promise.all([
-      client.from('ps_organisations').select('*').eq('is_public', true).or(`slug.eq.${orgSlug},id.eq.${orgSlug}`).limit(1).single(),
+      client.from('ps_organisations').select('*').eq('is_public', true).or(orgSlugOrIdFilter(orgSlug)).limit(1).single(),
       client.from('ps_services').select('*').eq('id', serviceId).single(),
       client.from('ps_appointment_slots').select('*').eq('id', slotId).single(),
       client.from('ps_service_forms').select('*, fields:ps_service_form_fields(*)').eq('service_id', serviceId).eq('is_default', true).limit(1).maybeSingle(),
@@ -62,28 +63,29 @@ export function PublicBookingConfirmPage() {
     setError('')
     try {
       const client = getUserClient()
-      // 1. Create or find patient
-      const { data: patientData, error: patientErr } = await client
-        .from('ps_patients')
-        .insert({
-          organisation_id: org.id,
-          first_name: firstName.trim(),
-          last_name: lastName.trim(),
-          email: email.trim() || null,
-          phone: phone.trim() || null,
-          dob: dob || null,
-          nhs_number: nhsNumber.trim() || null,
-        })
-        .select()
-        .single()
-      if (patientErr) throw patientErr
+      // 1. Find or create patient via SECURITY DEFINER RPC — works for
+      //    anonymous patients (no INSERT policy on ps_patients for anon) and
+      //    reuses the existing record when the NHS number is already known.
+      const { data: patientId, error: patientErr } = await client.rpc('ps_public_find_or_create_patient', {
+        p_org_id: org.id,
+        p_first_name: firstName.trim(),
+        p_last_name: lastName.trim(),
+        p_email: email.trim() || null,
+        p_phone: phone.trim() || null,
+        p_dob: dob || null,
+        p_nhs_number: nhsNumber.trim() || null,
+      })
+      if (patientErr || !patientId) throw new Error(patientErr?.message || 'Could not save your details.')
 
-      // 2. Create appointment
+      // 2. Create appointment (id generated client-side — anon role has no
+      //    SELECT policy on ps_appointments, so INSERT..RETURNING would fail)
+      const appointmentId = crypto.randomUUID()
       const { error: apptErr } = await client
         .from('ps_appointments')
         .insert({
+          id: appointmentId,
           org_id: org.id,
-          patient_id: patientData.id,
+          patient_id: patientId,
           service_id: serviceId,
           slot_id: slotId,
           form_id: form?.id || null,
@@ -92,6 +94,35 @@ export function PublicBookingConfirmPage() {
           notes: notes.trim() || null,
         })
       if (apptErr) throw apptErr
+
+      // 3. Chargeable service → redirect to Stripe Checkout
+      const chargeable = service?.is_chargeable && service.price_pence != null && service.price_pence > 0
+      if (chargeable) {
+        const base = window.location.origin
+        const { data: checkout, error: checkoutErr } = await client.functions.invoke('stripe-checkout', {
+          body: {
+            action: 'create_checkout_session',
+            org_id: org.id,
+            service_id: serviceId,
+            appointment_id: appointmentId,
+            patient_id: patientId,
+            payer_email: email.trim() || null,
+            success_url: `${base}/book/${orgSlug}/payment-result`,
+            cancel_url: `${base}/book/${orgSlug}/payment-result?canceled=1`,
+          },
+        })
+        if (checkoutErr || !checkout?.url) {
+          // Dig the real error out of the function's response body
+          let detail = checkout?.error as string | undefined
+          if (!detail && checkoutErr && typeof (checkoutErr as any).context?.json === 'function') {
+            try { detail = (await (checkoutErr as any).context.json())?.error } catch { /* ignore */ }
+          }
+          throw new Error(detail || 'Payment could not be started. Please try again.')
+        }
+        window.location.href = checkout.url as string
+        return
+      }
+
       setSubmitted(true)
     } catch (e: any) {
       setError(e.message || 'Failed to create booking.')

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useAuthStore, useAppointmentStore, useServiceStore } from '@pharmstation/core'
 import type { Service } from '@pharmstation/types'
 import { Modal } from '../../components/Modal'
+import { expandRecurrenceDates, toLocalDateString, RECURRENCE_HORIZON_DAYS } from '../../lib/recurrence'
 
 export function AppointmentSlotsPage() {
   const navigate = useNavigate()
@@ -13,6 +14,7 @@ export function AppointmentSlotsPage() {
     error,
     fetchSlots,
     createSlot,
+    createSlotsBulk,
     updateSlot,
     deleteSlot,
     clearError,
@@ -75,15 +77,47 @@ export function AppointmentSlotsPage() {
           is_recurring: formIsRecurring,
           recurrence_rule: formIsRecurring ? formRecurrenceRule : null,
         })
+      } else if (formIsRecurring && formRecurrenceRule) {
+        // Expand the recurrence rule into concrete bookable slots (next 8 weeks),
+        // skipping any occurrence that would start in the past.
+        const now = new Date()
+        const occurrences = expandRecurrenceDates(new Date(`${formDate}T00:00:00`), formRecurrenceRule)
+        const rows = occurrences
+          .map((day) => {
+            const dateStr = toLocalDateString(day)
+            return {
+              org_id: organisation.id,
+              service_id: formServiceId,
+              start_time: new Date(`${dateStr}T${formStartTime}`),
+              end_time: new Date(`${dateStr}T${formEndTime}`),
+            }
+          })
+          .filter((r) => r.start_time > now)
+          .map((r) => ({
+            org_id: r.org_id,
+            service_id: r.service_id,
+            start_time: r.start_time.toISOString(),
+            end_time: r.end_time.toISOString(),
+            max_bookings: formMaxBookings,
+            is_recurring: true,
+            recurrence_rule: formRecurrenceRule,
+          }))
+        if (rows.length === 0) {
+          throw new Error('All occurrences would be in the past — check the date and start time.')
+        }
+        await createSlotsBulk(rows)
       } else {
+        if (new Date(startTime) <= new Date()) {
+          throw new Error('Start time is in the past — patients can only book future slots.')
+        }
         await createSlot({
           org_id: organisation.id,
           service_id: formServiceId,
           start_time: startTime,
           end_time: endTime,
           max_bookings: formMaxBookings,
-          is_recurring: formIsRecurring,
-          recurrence_rule: formIsRecurring ? formRecurrenceRule : null,
+          is_recurring: false,
+          recurrence_rule: null,
         })
       }
       setShowModal(false)
@@ -313,12 +347,18 @@ export function AppointmentSlotsPage() {
                 type="checkbox"
                 checked={formIsRecurring}
                 onChange={(e) => setFormIsRecurring(e.target.checked)}
+                disabled={!!editingSlotId}
               />
               Recurring slot
             </label>
+            {editingSlotId && (
+              <p style={{ color: 'var(--ps-slate)', fontSize: 'var(--ps-font-xs)', margin: '4px 0 0' }}>
+                Editing only changes this occurrence.
+              </p>
+            )}
           </div>
 
-          {formIsRecurring && (
+          {formIsRecurring && !editingSlotId && (
             <div className="form-group">
               <label>Recurrence Rule (RRULE)</label>
               <select
@@ -339,6 +379,10 @@ export function AppointmentSlotsPage() {
                 onChange={(e) => setFormRecurrenceRule(e.target.value)}
                 placeholder="Or enter custom RRULE…"
               />
+              <p style={{ color: 'var(--ps-slate)', fontSize: 'var(--ps-font-xs)', margin: '4px 0 0' }}>
+                📅 Individual bookable slots will be created for the next {RECURRENCE_HORIZON_DAYS / 7} weeks
+                (past occurrences are skipped).
+              </p>
             </div>
           )}
 

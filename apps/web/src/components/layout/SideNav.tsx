@@ -54,6 +54,7 @@ const menuSections: NavSection[] = [
       { to: '/services/library', icon: '📚', label: 'Library' },
       { to: '/services/claims', icon: '📝', label: 'Claims' },
       { to: '/services/111-referrals', icon: '📞', label: '111 Referrals' },
+      { to: '/payments', icon: '💳', label: 'Payments' },
     ],
   },
   {

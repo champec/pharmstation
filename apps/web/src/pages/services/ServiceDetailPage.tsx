@@ -31,11 +31,24 @@ export function ServiceDetailPage() {
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
   const [deleteFormId, setDeleteFormId] = useState<string | null>(null)
 
+  // Pricing state
+  const [priceInput, setPriceInput] = useState('')
+  const [savingPrice, setSavingPrice] = useState(false)
+
   const load = useCallback(() => {
     if (serviceId) fetchServiceDetail(serviceId)
   }, [serviceId, fetchServiceDetail])
 
   useEffect(() => { load() }, [load])
+
+  // Keep price input in sync when service loads
+  useEffect(() => {
+    if (activeService?.price_pence != null) {
+      setPriceInput((activeService.price_pence / 100).toFixed(2))
+    } else {
+      setPriceInput('')
+    }
+  }, [activeService?.price_pence])
 
   // Populate edit modal with current values
   const openEditModal = () => {
@@ -69,6 +82,22 @@ export function ServiceDetailPage() {
   const handleTogglePublic = async () => {
     if (!serviceId || !activeService) return
     await updateService(serviceId, { is_public: !activeService.is_public })
+  }
+
+  const handleToggleChargeable = async () => {
+    if (!serviceId || !activeService) return
+    await updateService(serviceId, { is_chargeable: !activeService.is_chargeable })
+  }
+
+  const handleSavePrice = async () => {
+    if (!serviceId) return
+    const pounds = parseFloat(priceInput)
+    if (isNaN(pounds) || pounds < 0) return
+    setSavingPrice(true)
+    try {
+      await updateService(serviceId, { price_pence: Math.round(pounds * 100) })
+    } catch { /* error handled by store */ }
+    setSavingPrice(false)
   }
 
   const handleDelete = async () => {
@@ -177,6 +206,9 @@ export function ServiceDetailPage() {
                 {activeService.is_active ? 'Active' : 'Inactive'}
               </span>
               {activeService.is_public && <span className="ps-badge ps-badge-amber">🌐 Public</span>}
+              {activeService.is_chargeable && activeService.price_pence != null && (
+                <span className="ps-badge ps-badge-green">💳 £{(activeService.price_pence / 100).toFixed(2)}</span>
+              )}
             </div>
           </div>
           <button className="ps-btn ps-btn-secondary ps-btn-sm" onClick={openEditModal}>
@@ -202,6 +234,50 @@ export function ServiceDetailPage() {
             Publicly Bookable
           </label>
         </div>
+      </div>
+
+      {/* Payments card */}
+      <div className="ps-card" style={{ padding: 'var(--ps-space-lg)', marginBottom: 'var(--ps-space-lg)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 'var(--ps-space-sm)' }}>
+          <h3 style={{ margin: 0, fontSize: 'var(--ps-font-md)', fontWeight: 600, color: 'var(--ps-midnight)' }}>💳 Payments</h3>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 'var(--ps-space-xs)', cursor: 'pointer', fontSize: 'var(--ps-font-sm)' }}>
+            <input
+              type="checkbox"
+              checked={!!activeService.is_chargeable}
+              onChange={handleToggleChargeable}
+            />
+            Charge patients for this service
+          </label>
+        </div>
+        {activeService.is_chargeable ? (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--ps-space-sm)' }}>
+            <span style={{ fontSize: 'var(--ps-font-md)', color: 'var(--ps-slate)' }}>£</span>
+            <input
+              className="ps-input"
+              type="number"
+              min="0"
+              step="0.01"
+              placeholder="0.00"
+              value={priceInput}
+              onChange={(e) => setPriceInput(e.target.value)}
+              style={{ width: '140px' }}
+            />
+            <button
+              className="ps-btn ps-btn-primary ps-btn-sm"
+              onClick={handleSavePrice}
+              disabled={savingPrice || !priceInput}
+            >
+              {savingPrice ? 'Saving…' : 'Save Price'}
+            </button>
+            <span style={{ fontSize: 'var(--ps-font-sm)', color: 'var(--ps-slate)' }}>
+              Patients pay online (Stripe) when booking.
+            </span>
+          </div>
+        ) : (
+          <p style={{ margin: 0, color: 'var(--ps-slate)', fontSize: 'var(--ps-font-sm)' }}>
+            This service is free — no payment is taken during booking.
+          </p>
+        )}
       </div>
 
       {/* Forms section */}

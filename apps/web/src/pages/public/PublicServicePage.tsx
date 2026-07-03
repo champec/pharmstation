@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { getUserClient } from '@pharmstation/supabase-client'
 import type { Organisation, Service, AppointmentSlot } from '@pharmstation/types'
+import { orgSlugOrIdFilter } from '../../lib/orgSlugFilter'
 
 export function PublicServicePage() {
   const { orgSlug, serviceId } = useParams<{ orgSlug: string; serviceId: string }>()
@@ -21,7 +22,7 @@ export function PublicServicePage() {
       .from('ps_organisations')
       .select('*')
       .eq('is_public', true)
-      .or(`slug.eq.${orgSlug},id.eq.${orgSlug}`)
+      .or(orgSlugOrIdFilter(orgSlug))
       .limit(1)
       .single()
       .then(({ data }) => {
@@ -93,6 +94,11 @@ export function PublicServicePage() {
         <h2 style={{ margin: '0 0 4px' }}>{service?.name}</h2>
         <p style={{ color: 'var(--ps-slate)', margin: 0 }}>{service?.description}</p>
         <p style={{ color: 'var(--ps-slate)', margin: '4px 0 0', fontSize: 'var(--ps-font-sm)' }}>⏱️ {service?.duration_minutes} minutes</p>
+        {service?.is_chargeable && service.price_pence != null && service.price_pence > 0 && (
+          <p style={{ margin: '8px 0 0', fontWeight: 600, color: 'var(--ps-midnight)' }}>
+            💳 £{(service.price_pence / 100).toFixed(2)} <span style={{ fontWeight: 400, color: 'var(--ps-slate)', fontSize: 'var(--ps-font-sm)' }}>— paid online when booking</span>
+          </p>
+        )}
       </div>
 
       <h3 style={{ marginBottom: 'var(--ps-space-sm)' }}>1. Select a date</h3>
