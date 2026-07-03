@@ -2,13 +2,14 @@ import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuthStore, useMessagingStore } from '@pharmstation/core'
 import type { NotifyMessage } from '@pharmstation/types'
+import { MessageDetailModal } from '../../components/messaging/MessageDetailModal'
 
 /* ---- Status badge config ---- */
 const STATUS_CONFIG: Record<string, { label: string; cssClass: string }> = {
   pending: { label: 'Pending', cssClass: 'ps-badge' },
-  sending: { label: 'Sending', cssClass: 'ps-badge ps-badge-blue' },
-  sent: { label: 'Sent', cssClass: 'ps-badge ps-badge-blue' },
-  delivered: { label: 'Delivered', cssClass: 'ps-badge ps-badge-green' },
+  sending: { label: '⏳ Pending', cssClass: 'ps-badge ps-badge-amber' },
+  sent: { label: '⏳ Pending', cssClass: 'ps-badge ps-badge-amber' },
+  delivered: { label: '✓ Delivered', cssClass: 'ps-badge ps-badge-green' },
   failed: { label: 'Failed', cssClass: 'ps-badge ps-badge-red' },
   'permanent-failure': { label: 'Perm. Failure', cssClass: 'ps-badge ps-badge-red' },
   'temporary-failure': { label: 'Temp. Failure', cssClass: 'ps-badge ps-badge-amber' },
@@ -47,24 +48,31 @@ export function MessagingHubPage() {
     messages,
     stats,
     settings,
+    routing,
+    smsSettings,
     loading,
     error,
     fetchSettings,
+    fetchRouting,
+    fetchSmsSettings,
     fetchMessages,
     fetchStats,
     clearError,
   } = useMessagingStore()
 
   const [recentMessages, setRecentMessages] = useState<NotifyMessage[]>([])
+  const [selected, setSelected] = useState<NotifyMessage | null>(null)
 
   const load = useCallback(async () => {
     if (!organisation?.id) return
     await Promise.all([
+      fetchRouting(organisation.id),
+      fetchSmsSettings(organisation.id),
       fetchSettings(organisation.id),
       fetchMessages(organisation.id, { page: 0, pageSize: 20 }),
       fetchStats(organisation.id),
     ])
-  }, [organisation?.id, fetchSettings, fetchMessages, fetchStats])
+  }, [organisation?.id, fetchRouting, fetchSmsSettings, fetchSettings, fetchMessages, fetchStats])
 
   useEffect(() => { load() }, [load])
 
@@ -72,7 +80,10 @@ export function MessagingHubPage() {
     setRecentMessages(messages.slice(0, 20))
   }, [messages])
 
-  const isConfigured = settings?.has_api_key && settings?.is_active
+  // Configured when SMS (platform SMS Works) is enabled, or — for
+  // NHS-affiliated orgs — when NHS Notify is set up for email/letters.
+  const isConfigured = !!smsSettings?.is_active ||
+    (!!routing?.nhsChannelsEnabled && !!settings?.has_api_key && !!settings?.is_active)
 
   return (
     <div>
@@ -108,11 +119,12 @@ export function MessagingHubPage() {
         }}>
           <h3 style={{ margin: '0 0 var(--ps-space-sm)' }}>⚙️ Messaging Not Configured</h3>
           <p style={{ color: 'var(--ps-slate)', margin: '0 0 var(--ps-space-md)' }}>
-            To send SMS, email, or letters to patients, you need to configure your NHS Notify (GOV.UK Notify) API key.
+            To text patients, enable SMS in Settings → Messaging. SMS is sent through PharmStation's
+            gateway — no account or API key needed.
           </p>
           <button
             className="ps-btn ps-btn-primary"
-            onClick={() => navigate('/settings')}
+            onClick={() => navigate('/settings?tab=messaging')}
           >
             Go to Settings → Messaging
           </button>
@@ -197,7 +209,7 @@ export function MessagingHubPage() {
                 <th>Channel</th>
                 <th>Message</th>
                 <th>Status</th>
-                <th>Sent</th>
+                <th>Submitted</th>
               </tr>
             </thead>
             <tbody>
@@ -205,7 +217,12 @@ export function MessagingHubPage() {
                 const channelBadge = CHANNEL_BADGE[msg.channel] || { label: msg.channel, cssClass: 'ps-badge' }
                 const statusBadge = STATUS_CONFIG[msg.status] || { label: msg.status, cssClass: 'ps-badge' }
                 return (
-                  <tr key={msg.id}>
+                  <tr
+                    key={msg.id}
+                    onClick={() => setSelected(msg)}
+                    style={{ cursor: 'pointer' }}
+                    title="Click to view details"
+                  >
                     <td style={{ fontWeight: 500 }}>{getRecipient(msg)}</td>
                     <td><span className={channelBadge.cssClass}>{channelBadge.label}</span></td>
                     <td style={{ maxWidth: '300px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'var(--ps-slate)' }}>
@@ -222,6 +239,12 @@ export function MessagingHubPage() {
           </table>
         )}
       </div>
+
+      <MessageDetailModal
+        message={selected}
+        onClose={() => setSelected(null)}
+        onChanged={load}
+      />
     </div>
   )
 }

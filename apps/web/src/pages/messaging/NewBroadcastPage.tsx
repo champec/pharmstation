@@ -19,7 +19,7 @@ function smsFragments(text: string): number {
 export function NewBroadcastPage() {
   const navigate = useNavigate()
   const { organisation } = useAuthStore()
-  const { createBroadcast, sendBroadcast, getRecipientCount, fetchSettings, settings } = useMessagingStore()
+  const { createBroadcast, sendBroadcast, getRecipientCount, fetchSettings, settings, routing, fetchRouting, smsSettings, fetchSmsSettings } = useMessagingStore()
 
   const [name, setName] = useState('')
   const [channel, setChannel] = useState<Channel>('sms')
@@ -34,7 +34,9 @@ export function NewBroadcastPage() {
 
   useEffect(() => {
     if (organisation?.id) {
-      fetchSettings(organisation.id)
+      fetchRouting(organisation.id)
+      fetchSmsSettings(organisation.id)
+      fetchSettings(organisation.id) // NHS Notify (email/letter, NHS-affiliated orgs only)
       loadRecipientCount()
     }
   }, [organisation?.id])
@@ -108,7 +110,18 @@ export function NewBroadcastPage() {
     setSaving(false)
   }
 
-  const isNotConfigured = !settings?.has_api_key || !settings?.is_active
+  // Provider-aware availability:
+  //  • SMS → platform SMS Works gateway (ps_sms_settings.is_active)
+  //  • Email/Letter → NHS Notify, only for NHS-affiliated orgs (nhs_channels_enabled)
+  const smsReady = !!smsSettings?.is_active
+  const nhsReady = !!routing?.nhsChannelsEnabled && !!settings?.has_api_key && !!settings?.is_active
+  const isNotConfigured = channel === 'sms' ? !smsReady : !nhsReady
+
+  const configureMessage = channel === 'sms'
+    ? <>SMS is not enabled for this pharmacy. Enable it in <a href="/settings?tab=messaging" onClick={(e) => { e.preventDefault(); navigate('/settings?tab=messaging') }}>Settings → Messaging</a>.</>
+    : routing?.nhsChannelsEnabled
+      ? <>NHS Notify is not fully configured. Add your API key in <a href="/settings?tab=messaging" onClick={(e) => { e.preventDefault(); navigate('/settings?tab=messaging') }}>Settings → Messaging</a>.</>
+      : <>Email and letters are only available to NHS-affiliated organisations (via NHS Notify). Use SMS instead, or contact support if your pharmacy qualifies.</>
 
   return (
     <div>
@@ -127,7 +140,7 @@ export function NewBroadcastPage() {
 
       {isNotConfigured && (
         <div className="auth-error" style={{ marginBottom: 'var(--ps-space-md)' }}>
-          Messaging is not configured. Please set up your NHS Notify API key in Settings first.
+          {configureMessage}
         </div>
       )}
 
@@ -149,15 +162,20 @@ export function NewBroadcastPage() {
           <div style={{ marginBottom: 'var(--ps-space-lg)' }}>
             <label style={{ display: 'block', fontWeight: 600, marginBottom: 'var(--ps-space-sm)' }}>Channel</label>
             <div style={{ display: 'flex', gap: 'var(--ps-space-sm)' }}>
-              {CHANNELS.map((ch) => (
-                <button
-                  key={ch.value}
-                  className={`ps-btn ${channel === ch.value ? 'ps-btn-primary' : 'ps-btn-secondary'}`}
-                  onClick={() => setChannel(ch.value)}
-                >
-                  {ch.icon} {ch.label}
-                </button>
-              ))}
+              {CHANNELS.map((ch) => {
+                const unavailable = ch.value !== 'sms' && !routing?.nhsChannelsEnabled
+                return (
+                  <button
+                    key={ch.value}
+                    className={`ps-btn ${channel === ch.value ? 'ps-btn-primary' : 'ps-btn-secondary'}`}
+                    onClick={() => setChannel(ch.value)}
+                    style={unavailable ? { opacity: 0.5 } : undefined}
+                    title={unavailable ? 'NHS-affiliated organisations only' : undefined}
+                  >
+                    {ch.icon} {ch.label}{unavailable ? ' 🔒' : ''}
+                  </button>
+                )
+              })}
             </div>
           </div>
 

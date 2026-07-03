@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { useNavigate, useSearchParams } from 'react-router-dom'
+import { useNavigate, useSearchParams, useLocation } from 'react-router-dom'
 import { useAuthStore, useMessagingStore } from '@pharmstation/core'
 import { getUserClient } from '@pharmstation/supabase-client'
 import type { MessageChannel, Patient } from '@pharmstation/types'
@@ -21,8 +21,12 @@ function smsFragments(text: string): number {
 export function ComposeMessagePage() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
+  const location = useLocation()
   const { organisation, activeUser: userProfile } = useAuthStore()
-  const { sendMessage, fetchSettings, settings } = useMessagingStore()
+  const { sendMessage, fetchSettings, settings, routing, fetchRouting, smsSettings, fetchSmsSettings } = useMessagingStore()
+
+  // Prefill passed from "Reuse message" in history (navigation state).
+  const reuse = (location.state ?? {}) as { body?: string; subject?: string }
 
   // Channel
   const initialChannel = (searchParams.get('channel') as Channel) || 'sms'
@@ -42,8 +46,8 @@ export function ComposeMessagePage() {
   const [addressLine4, setAddressLine4] = useState('')
 
   // Message content
-  const [subject, setSubject] = useState('')
-  const [body, setBody] = useState('')
+  const [subject, setSubject] = useState(reuse.subject ?? '')
+  const [body, setBody] = useState(reuse.body ?? '')
 
   // State
   const [sending, setSending] = useState(false)
@@ -51,8 +55,12 @@ export function ComposeMessagePage() {
   const [showSuccess, setShowSuccess] = useState(false)
 
   useEffect(() => {
-    if (organisation?.id) fetchSettings(organisation.id)
-  }, [organisation?.id, fetchSettings])
+    if (organisation?.id) {
+      fetchRouting(organisation.id)
+      fetchSmsSettings(organisation.id)
+      fetchSettings(organisation.id) // NHS Notify (email/letter, NHS-affiliated orgs only)
+    }
+  }, [organisation?.id, fetchRouting, fetchSmsSettings, fetchSettings])
 
   /* ---- Patient search ---- */
   const searchPatients = useCallback(async (query: string) => {
@@ -154,7 +162,18 @@ export function ComposeMessagePage() {
     setShowSuccess(false)
   }
 
-  const isNotConfigured = !settings?.has_api_key || !settings?.is_active
+  // Provider-aware availability:
+  //  • SMS → platform SMS Works gateway (ps_sms_settings.is_active)
+  //  • Email/Letter → NHS Notify, only for NHS-affiliated orgs (nhs_channels_enabled)
+  const smsReady = !!smsSettings?.is_active
+  const nhsReady = !!routing?.nhsChannelsEnabled && !!settings?.has_api_key && !!settings?.is_active
+  const isNotConfigured = channel === 'sms' ? !smsReady : !nhsReady
+
+  const configureMessage = channel === 'sms'
+    ? <>SMS is not enabled for this pharmacy. Enable it in <a href="/settings?tab=messaging" onClick={(e) => { e.preventDefault(); navigate('/settings?tab=messaging') }}>Settings → Messaging</a>.</>
+    : routing?.nhsChannelsEnabled
+      ? <>NHS Notify is not fully configured. Add your API key in <a href="/settings?tab=messaging" onClick={(e) => { e.preventDefault(); navigate('/settings?tab=messaging') }}>Settings → Messaging</a>.</>
+      : <>Email and letters are only available to NHS-affiliated organisations (via NHS Notify). Use SMS instead, or contact support if your pharmacy qualifies.</>
 
   return (
     <div>
@@ -171,7 +190,7 @@ export function ComposeMessagePage() {
 
       {isNotConfigured && (
         <div className="auth-error" style={{ marginBottom: 'var(--ps-space-md)' }}>
-          Messaging is not configured. Please set up your NHS Notify API key in Settings first.
+          {configureMessage}
         </div>
       )}
 
@@ -182,15 +201,20 @@ export function ComposeMessagePage() {
           <div style={{ marginBottom: 'var(--ps-space-lg)' }}>
             <label style={{ display: 'block', fontWeight: 600, marginBottom: 'var(--ps-space-sm)' }}>Channel</label>
             <div style={{ display: 'flex', gap: 'var(--ps-space-sm)' }}>
-              {CHANNELS.map((ch) => (
-                <button
-                  key={ch.value}
-                  className={`ps-btn ${channel === ch.value ? 'ps-btn-primary' : 'ps-btn-secondary'}`}
-                  onClick={() => setChannel(ch.value)}
-                >
-                  {ch.icon} {ch.label}
-                </button>
-              ))}
+              {CHANNELS.map((ch) => {
+                const unavailable = ch.value !== 'sms' && !routing?.nhsChannelsEnabled
+                return (
+                  <button
+                    key={ch.value}
+                    className={`ps-btn ${channel === ch.value ? 'ps-btn-primary' : 'ps-btn-secondary'}`}
+                    onClick={() => setChannel(ch.value)}
+                    style={unavailable ? { opacity: 0.5 } : undefined}
+                    title={unavailable ? 'NHS-affiliated organisations only' : undefined}
+                  >
+                    {ch.icon} {ch.label}{unavailable ? ' 🔒' : ''}
+                  </button>
+                )
+              })}
             </div>
           </div>
 
@@ -401,10 +425,11 @@ export function ComposeMessagePage() {
       </div>
 
       {/* Success modal */}
-      <Modal isOpen={showSuccess} onClose={() => setShowSuccess(false)} title="Message Sent">
+      <Modal isOpen={showSuccess} onClose={() => setShowSuccess(false)} title="Message Queued">
         <p style={{ color: 'var(--ps-slate)' }}>
-          Your {channel === 'sms' ? 'SMS' : channel === 'email' ? 'email' : 'letter'} has been sent successfully.
-          It may take a few moments for the delivery status to update.
+          Your {channel === 'sms' ? 'SMS' : channel === 'email' ? 'email' : 'letter'} has been handed to the
+          gateway and is pending delivery. The status will update to Delivered once the network confirms receipt —
+          you can track it in Message History.
         </p>
         <div style={{ display: 'flex', gap: 'var(--ps-space-sm)', marginTop: 'var(--ps-space-lg)' }}>
           <button className="ps-btn ps-btn-primary" onClick={() => { resetForm() }}>
