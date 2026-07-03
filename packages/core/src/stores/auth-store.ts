@@ -41,9 +41,16 @@ export interface AuthState {
   initialize: () => Promise<void>
   orgLogin: (email: string, password: string) => Promise<void>
   orgLogout: () => Promise<void>
-  userLogin: (email: string, password: string) => Promise<void>
+  userLogin: (
+    email: string,
+    password: string,
+    opts?: { requireOrgMembership?: boolean }
+  ) => Promise<void>
   userLogout: () => Promise<void>
   switchUser: () => Promise<void>
+  /** Re-read the user-layer session + profile + membership from the client.
+   *  Used by portal flows (locum/patient/personal) after they sign in. */
+  refreshUserLayer: () => Promise<void>
 }
 
 export const useAuthStore = create<AuthState>((set, get) => ({
@@ -210,8 +217,13 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   // ============================================
   // User Login
+  // Staff flow (default): org session present ⇒ membership REQUIRED.
+  // Portal flows (locum/patient/personal) pass
+  // { requireOrgMembership: false } — signing in is a user-layer
+  // operation; roles decide what they can see afterwards.
   // ============================================
-  userLogin: async (email: string, password: string) => {
+  userLogin: async (email: string, password: string, opts?: { requireOrgMembership?: boolean }) => {
+    const requireOrgMembership = opts?.requireOrgMembership ?? true
     set({ userLoading: true })
     try {
       const { data, error } = await _userSignIn(email, password)
@@ -245,16 +257,23 @@ export const useAuthStore = create<AuthState>((set, get) => ({
             permissions = resolvePermissions(membership.role, membership.permissions)
           }
         } catch {
-          await getUserClient().auth.signOut()
-          throw new Error('You are not a member of this pharmacy. Contact your manager.')
+          if (requireOrgMembership) {
+            await getUserClient().auth.signOut()
+            throw new Error('You are not a member of this pharmacy. Contact your manager.')
+          }
+          // Portal login on an org terminal by a non-member: allowed,
+          // but no membership ⇒ no org permissions.
+          membership = null
         }
       }
 
-      // Save email to recent staff list in localStorage
-      const savedStaff = JSON.parse(localStorage.getItem('ps-saved-staff') || '[]') as string[]
-      if (!savedStaff.includes(email)) {
-        savedStaff.unshift(email)
-        localStorage.setItem('ps-saved-staff', JSON.stringify(savedStaff.slice(0, 10)))
+      // Save email to recent staff list — only for actual staff at this org
+      if (membership) {
+        const savedStaff = JSON.parse(localStorage.getItem('ps-saved-staff') || '[]') as string[]
+        if (!savedStaff.includes(email)) {
+          savedStaff.unshift(email)
+          localStorage.setItem('ps-saved-staff', JSON.stringify(savedStaff.slice(0, 10)))
+        }
       }
 
       set({
@@ -300,5 +319,62 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       isFullyAuthenticated: false,
       permissions: null,
     })
+  },
+
+  // ============================================
+  // Refresh user layer — re-read session/profile/membership from the
+  // client. Portal flows (locum/patient/personal) call this after signing
+  // in directly, so the whole app agrees on who's at the keyboard.
+  // Never throws on missing membership — roles gate views, not sign-in.
+  // ============================================
+  refreshUserLayer: async () => {
+    try {
+      const { data } = await getUserClient().auth.getSession()
+      const session = data.session
+      if (!session?.user) {
+        set({
+          userSession: null,
+          activeUser: null,
+          membership: null,
+          isUserLoggedIn: false,
+          isFullyAuthenticated: false,
+          permissions: null,
+        })
+        return
+      }
+
+      let profile = null
+      try {
+        profile = await fetchUserProfile(session.user.id)
+      } catch {
+        // Profile row may not exist yet (e.g. mid-registration) — stay signed in
+      }
+
+      const org = get().organisation
+      let membership: OrganisationMember | null = null
+      let permissions: Permissions | null = null
+      if (org) {
+        try {
+          membership = await fetchOrgMembership(org.id, session.user.id)
+          if (membership) {
+            permissions = resolvePermissions(membership.role, membership.permissions)
+          }
+        } catch {
+          membership = null
+        }
+      }
+
+      set({
+        userSession: session,
+        activeUser: profile,
+        membership,
+        isUserLoggedIn: true,
+        isFullyAuthenticated: !!org && !!membership,
+        permissions,
+        userLoading: false,
+      })
+    } catch {
+      // Leave state as-is on unexpected failure
+    }
   },
 }))

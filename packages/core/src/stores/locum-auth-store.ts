@@ -1,24 +1,27 @@
 // ============================================
-// Locum Auth Store — Zustand
-// Separate from main auth store — locums don't
-// require org context. Uses ps-locum-session
-// storage key to avoid conflict with staff client.
+// Locum Module Store — Zustand
+// Locum is a ROLE on the user account, not an account type.
+// This store rides the user-layer session (getUserClient) and holds the
+// locum-specific profile row (ps_locum_profiles). RLS keys off auth.uid().
+//
+// isLoggedIn here simply means "a user-layer session exists" — the /locum/*
+// route guards combine it with locumProfile to gate the portal.
 // ============================================
 
 import { create } from 'zustand'
 import type { UserProfile, LocumProfile } from '@pharmstation/types'
 import {
-  getLocumClient,
-  locumSignIn as _locumSignIn,
-  locumSignOut as _locumSignOut,
+  getUserClient,
+  userSignIn as _userSignIn,
   fetchLocumUserProfile,
   fetchLocumExtendedProfile,
 } from '@pharmstation/supabase-client'
+import { useAuthStore } from './auth-store'
 
 export interface LocumAuthState {
-  // Core user profile (ps_user_profiles)
+  // Core user profile (ps_user_profiles) — mirror of the signed-in user
   userProfile: UserProfile | null
-  // Extended locum profile (ps_locum_profiles) — null if not yet completed onboarding
+  // Extended locum profile (ps_locum_profiles) — null until the role is activated
   locumProfile: LocumProfile | null
   isLoggedIn: boolean
   loading: boolean
@@ -30,22 +33,28 @@ export interface LocumAuthState {
   refreshProfile: () => Promise<void>
 }
 
-export const useLocumAuthStore = create<LocumAuthState>((set, get) => ({
+async function loadProfiles(userId: string) {
+  const userProfile = await fetchLocumUserProfile(userId)
+  const locumProfile = await fetchLocumExtendedProfile(userId)
+  return { userProfile, locumProfile }
+}
+
+export const useLocumAuthStore = create<LocumAuthState>((set) => ({
   userProfile: null,
   locumProfile: null,
   isLoggedIn: false,
   loading: true,
 
   // ==========================================
-  // Initialize — restore session from storage
+  // Initialize — read the user-layer session, then stay in sync with the
+  // auth store (staff logins/switches/logouts all flow through it).
   // ==========================================
   initialize: async () => {
     try {
-      const { data: { session } } = await getLocumClient().auth.getSession()
+      const { data: { session } } = await getUserClient().auth.getSession()
       if (session?.user) {
-        const userProfile = await fetchLocumUserProfile(session.user.id)
-        const locumProfile = await fetchLocumExtendedProfile(session.user.id)
-        set({ userProfile, locumProfile, isLoggedIn: true, loading: false })
+        const profiles = await loadProfiles(session.user.id)
+        set({ ...profiles, isLoggedIn: true, loading: false })
       } else {
         set({ loading: false })
       }
@@ -53,36 +62,43 @@ export const useLocumAuthStore = create<LocumAuthState>((set, get) => ({
       set({ loading: false })
     }
 
-    // Listen for sign-out
-    getLocumClient().auth.onAuthStateChange((event) => {
-      if (event === 'SIGNED_OUT') {
+    // Follow the user layer: login/switch loads profiles, logout clears
+    useAuthStore.subscribe((state, prev) => {
+      const uid = state.userSession?.user?.id
+      const prevUid = prev.userSession?.user?.id
+      if (uid && uid !== prevUid) {
+        loadProfiles(uid)
+          .then((profiles) => set({ ...profiles, isLoggedIn: true }))
+          .catch(() => { /* profiles may not exist yet */ })
+      } else if (!uid && prevUid) {
         set({ userProfile: null, locumProfile: null, isLoggedIn: false })
       }
     })
   },
 
   // ==========================================
-  // Login
+  // Login — user-layer sign-in via the portal door.
+  // Handles first-login profile recovery (email-confirmation flow), then
+  // syncs the main auth store so the whole app knows who's signed in.
   // ==========================================
   login: async (email: string, password: string) => {
     set({ loading: true })
     try {
-      const data = await _locumSignIn(email, password)
+      const { data, error } = await _userSignIn(email, password)
+      if (error) throw error
       if (!data.user) throw new Error('Login returned no session.')
 
       let userProfile = await fetchLocumUserProfile(data.user.id)
 
-      // Profile row missing — happens when email confirmation was required and the
-      // user confirmed their email but the profiles weren't created yet.
-      // Try to recover from localStorage data stored at registration time.
+      // Profile row missing — happens when email confirmation was required and
+      // the profiles weren't created yet. Recover from registration-time data.
       if (!userProfile) {
         const pending = localStorage.getItem('locum_pending_profile')
         if (pending) {
           try {
             const p = JSON.parse(pending)
-            const client = (await import('@pharmstation/supabase-client')).getLocumClient()
             const fullName = `${p.firstName ?? ''} ${p.lastName ?? ''}`.trim() || p.fullName || email
-            await client.from('ps_user_profiles').insert({
+            await getUserClient().from('ps_user_profiles').insert({
               id: data.user.id,
               email: p.email ?? email,
               full_name: fullName,
@@ -100,11 +116,9 @@ export const useLocumAuthStore = create<LocumAuthState>((set, get) => ({
       }
 
       if (!userProfile) {
-        // Auth succeeded but no profile row at all — this shouldn't normally happen,
-        // but if it does we create a minimal profile from the auth user's email.
+        // Auth succeeded but no profile row at all — create a minimal one.
         try {
-          const client = (await import('@pharmstation/supabase-client')).getLocumClient()
-          await client.from('ps_user_profiles').insert({
+          await getUserClient().from('ps_user_profiles').insert({
             id: data.user.id,
             email: data.user.email ?? email,
             full_name: data.user.email ?? email,
@@ -119,6 +133,9 @@ export const useLocumAuthStore = create<LocumAuthState>((set, get) => ({
       // Load locum-specific profile (may be null if not yet completed)
       const locumProfile = await fetchLocumExtendedProfile(data.user.id)
 
+      // Tell the main auth store the user layer changed (no membership required)
+      await useAuthStore.getState().refreshUserLayer()
+
       set({ userProfile, locumProfile, isLoggedIn: true, loading: false })
     } catch (err) {
       set({ loading: false })
@@ -127,22 +144,23 @@ export const useLocumAuthStore = create<LocumAuthState>((set, get) => ({
   },
 
   // ==========================================
-  // Logout
+  // Logout — user-layer sign-out (org session, if any, survives)
   // ==========================================
   logout: async () => {
-    await _locumSignOut()
+    await useAuthStore.getState().userLogout()
     set({ userProfile: null, locumProfile: null, isLoggedIn: false })
   },
 
   // ==========================================
-  // Refresh — re-fetch after profile updates
+  // Refresh — re-fetch profiles for the current session
   // ==========================================
   refreshProfile: async () => {
-    const { userProfile } = get()
-    if (!userProfile) return
     try {
-      const locumProfile = await fetchLocumExtendedProfile(userProfile.id)
-      set({ locumProfile })
+      const { data: { session } } = await getUserClient().auth.getSession()
+      const uid = session?.user?.id
+      if (!uid) return
+      const profiles = await loadProfiles(uid)
+      set({ ...profiles, isLoggedIn: true })
     } catch {
       // Silent — non-critical
     }

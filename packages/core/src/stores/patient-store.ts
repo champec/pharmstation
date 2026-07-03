@@ -7,6 +7,7 @@ import {
   patientSignOut,
   fetchPatientProfile,
 } from '@pharmstation/supabase-client'
+import { useAuthStore } from './auth-store'
 
 export interface PatientState {
   patient: Patient | null
@@ -46,6 +47,8 @@ export const usePatientStore = create<PatientState>((set) => ({
     const data = await patientSignIn(email, password)
     if (data.user) {
       const profile = await fetchPatientProfile(data.user.id)
+      // Patient is a role on the user account — keep the main auth store in sync
+      await useAuthStore.getState().refreshUserLayer()
       set({ patient: profile as Patient, isLoggedIn: true })
     }
   },
@@ -56,12 +59,14 @@ export const usePatientStore = create<PatientState>((set) => ({
     const data = await patientSignIn(email, password)
     if (data.user) {
       const profile = await fetchPatientProfile(data.user.id)
+      await useAuthStore.getState().refreshUserLayer()
       set({ patient: profile as Patient, isLoggedIn: true })
     }
   },
 
   logout: async () => {
     await patientSignOut()
+    await useAuthStore.getState().refreshUserLayer()
     set({ patient: null, isLoggedIn: false })
   },
 }))

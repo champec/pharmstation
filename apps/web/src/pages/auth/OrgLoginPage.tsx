@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from 'react'
+import { Link } from 'react-router-dom'
 import { useAuthStore } from '@pharmstation/core'
 
 export function OrgLoginPage() {
@@ -76,6 +77,12 @@ export function OrgLoginPage() {
           {loading ? 'Signing in...' : 'Sign In to Pharmacy'}
         </button>
       </form>
+
+      <div style={{ marginTop: '16px', textAlign: 'center' }}>
+        <Link to="/me/login" style={{ fontSize: 'var(--ps-font-sm)' }}>
+          👤 Personal account sign in instead
+        </Link>
+      </div>
     </div>
   )
 }

@@ -1,12 +1,16 @@
 import { useState, type FormEvent } from 'react'
-import { useNavigate, Link } from 'react-router-dom'
+import { useNavigate, Link, useSearchParams } from 'react-router-dom'
 import { useLocumAuthStore } from '@pharmstation/core'
 import { getLocumClient } from '@pharmstation/supabase-client'
 
 export function LocumLoginPage() {
   const navigate = useNavigate()
   const { login } = useLocumAuthStore()
-  const [email, setEmail] = useState('')
+  const [searchParams] = useSearchParams()
+  // Prefill from /me "Become a locum" (existing accounts sign in — no re-register)
+  const prefillEmail = searchParams.get('email') ?? ''
+  const isExistingAccount = searchParams.get('existing') === '1'
+  const [email, setEmail] = useState(prefillEmail)
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
@@ -116,6 +120,12 @@ export function LocumLoginPage() {
         ) : (
           /* ── Sign in panel ── */
           <>
+            {isExistingAccount && !error && (
+              <div className="ps-alert ps-alert-info" style={{ marginBottom: 'var(--ps-space-md)', fontSize: '0.875rem' }}>
+                Sign in with your <strong>existing PharmStation password</strong> — you'll
+                then be guided to complete your locum profile. No new account needed.
+              </div>
+            )}
             {error && (
               <div className="auth-error" style={{ marginBottom: 'var(--ps-space-md)' }}>
                 {error}
@@ -132,7 +142,7 @@ export function LocumLoginPage() {
                   placeholder="you@example.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  autoFocus
+                  autoFocus={!prefillEmail}
                   required
                 />
               </div>
@@ -155,6 +165,7 @@ export function LocumLoginPage() {
                   placeholder="Your password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
+                  autoFocus={!!prefillEmail}
                   required
                 />
               </div>

@@ -29,20 +29,25 @@ Key characteristics:
 
 ### Supabase Clients
 
-There are **four** Supabase clients in `packages/supabase-client/src/index.ts`. All four connect to
-the **same Supabase project** and share `auth.users`. They differ only in their `localStorage` key,
-which keeps their sessions isolated in the browser.
+There are **two** Supabase clients in `packages/supabase-client/src/index.ts` —
+one per *concurrent session*, not per role:
 
 | Client | Storage Key | Used by |
 |---|---|---|
-| `getOrgClient()` | `ps-org-session` | Pharmacy organisation login |
-| `getUserClient()` | `ps-user-session` | Pharmacy staff login |
-| `getPatientClient()` | `ps-patient-session` | Patient portal |
-| `getLocumClient()` | `ps-locum-session` | Locum portal |
+| `getOrgClient()` | `ps-org-session` | Pharmacy organisation login (workstation, all day) |
+| `getUserClient()` | `ps-user-session` | The current human — staff, locum, patient, driver… |
 
-Because all clients share `auth.users`, **a single email address can hold one auth account** and
-access multiple portals. An existing pharmacist staff member does **not** need a second account to
-use the locum portal — they just need a `ps_locum_profiles` row.
+> **Locum/patient are ROLES, not account types.** `getLocumClient()` and
+> `getPatientClient()` still exist but are deprecated aliases of
+> `getUserClient()`. RLS keys off `auth.uid()`; roles are profile/permission
+> rows (`ps_locum_profiles`, `ps_organisation_members`, patient linkage).
+> Portals are differently-gated routes riding the same user session.
+> **Never add a per-role client.**
+
+A single email holds one auth account and unlocks multiple portals. An
+existing staff member does **not** need a second account or a second login to
+use the locum portal — they just need a `ps_locum_profiles` row (created via
+the complete-profile flow).
 
 ### User Identity
 

@@ -178,6 +178,14 @@ export function TopNav() {
           <strong>{activeUser?.full_name ?? 'Unknown'}</strong>
         </div>
 
+        <button
+          className="ps-btn ps-btn-ghost"
+          onClick={() => navigate('/me')}
+          title="My personal account"
+        >
+          👤
+        </button>
+
         <button className="ps-btn ps-btn-ghost" onClick={switchUser} title="Switch user">
           🔄 Switch
         </button>

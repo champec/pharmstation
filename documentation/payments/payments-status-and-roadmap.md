@@ -105,17 +105,32 @@ longer collide), and `ps_public_find_or_create_patient` SECURITY DEFINER RPC
 Locums are essentially micro-businesses selling shifts to pharmacies — same
 Connect Express pattern as pharmacies, different direction of money.
 
-- [ ] `ps_locum_billing` (or generalise `ps_org_billing` with an `entity_type`) —
-      locum's `stripe_account_id` + status
-- [ ] Locum-side UI: profile → "Get paid" → Express onboarding (reuse
-      `stripe-connect` with an `entity=locum` mode, auth = locum's own user id)
+**Phase 3a — locum onboarding: DONE (3 Jul 2026)**
+
+- [x] Locum Stripe account stored on `ps_locum_profiles`
+      (`stripe_account_id`, `stripe_onboarded`) — no new table needed
+- [x] `stripe-connect` **v4** — entity adapter pattern: `entity: 'org' | 'locum'`.
+      Locum accounts created as Express + `business_type: 'individual'`, metadata
+      `{ locum_user_id }`. Caller auth = locum's own JWT (any client).
+- [x] `stripe-webhook` **v5** — `account.updated` routes by metadata:
+      `locum_user_id` → `ps_locum_profiles`, else org → `ps_org_billing`
+- [x] Locum-side UI: `/locum/profile` → **💰 Get Paid** tab (status badge,
+      Set up payments → Stripe, refresh; handles `?stripe_return=1`)
+- [x] **Personal profile tier**: `/me` (personal details, workplace, locum
+      section, billing placeholder) + `/me/login` (user-layer login that
+      bypasses org login). Entry points: 👤 button in org TopNav, link on
+      `/login/org`.
+
+**Phase 3b — invoice payments: NEXT**
+
 - [ ] Pharmacy-side: locum invoice list (`ps_locum_invoices` already has
       subtotal/platform_fee/total pence columns) → **authorize / adjust / pay**
       per invoice → `stripe-checkout` variant or PaymentIntent with
       `transfer_data.destination` = locum's account
 - [ ] **"Pay all outstanding"** batch action (sequential PaymentIntents; simple v1)
 - [ ] Webhook: mark invoice paid on success; ledger rows `kind='locum'`
-- [ ] Deferred: tips (explicitly out of scope for launch)
+- [ ] Deferred: tips (explicitly out of scope for launch), Bacs mandates
+      (`ps_locum_payment_mandates`), invoice PDFs
 
 ### Phase 4 — Platform monetization (webmaster tooling)
 

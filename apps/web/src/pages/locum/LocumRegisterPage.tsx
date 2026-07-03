@@ -134,7 +134,7 @@ export function LocumRegisterPage() {
 
       // Supabase returns user with empty identities array when the email already exists
       if (user.identities?.length === 0) {
-        setError('This email already has an account. Sign in at /locum/login — your locum profile will be set up automatically.')
+        setError('This email already has a PharmStation account — locum is a role on it, not a new account. Sign in instead and you\'ll be guided to complete your locum profile.')
         setSubmitting(false)
         return
       }

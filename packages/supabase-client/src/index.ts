@@ -1,14 +1,19 @@
 // ============================================
 // PharmStation Supabase Dual-Client
-// Two real Supabase Auth clients, two sessions, no clash
+// TWO clients, because two sessions run concurrently on one device:
+//   orgClient  (ps-org-session)  — the pharmacy workstation, signed in all day
+//   userClient (ps-user-session) — the current human at the keyboard
+//
+// Everything else — locum, patient, driver, dispenser — is a ROLE on the
+// user account, not an account type. Roles are profile/permission rows;
+// RLS keys off auth.uid(). Portals are just differently-gated routes that
+// ride the user session. Do NOT add per-role clients.
 // ============================================
 
 import { createClient, type SupabaseClient, type Session, type User } from '@supabase/supabase-js'
 
 let _orgClient: SupabaseClient | null = null
 let _userClient: SupabaseClient | null = null
-let _patientClient: SupabaseClient | null = null
-let _locumClient: SupabaseClient | null = null
 
 export interface SupabaseConfig {
   url: string
@@ -36,23 +41,7 @@ export function initSupabase(config: SupabaseConfig) {
     },
   })
 
-  _patientClient = createClient(config.url, config.anonKey, {
-    auth: {
-      storageKey: 'ps-patient-session',
-      autoRefreshToken: true,
-      persistSession: true,
-    },
-  })
-
-  _locumClient = createClient(config.url, config.anonKey, {
-    auth: {
-      storageKey: 'ps-locum-session',
-      autoRefreshToken: true,
-      persistSession: true,
-    },
-  })
-
-  return { orgClient: _orgClient, userClient: _userClient, patientClient: _patientClient, locumClient: _locumClient }
+  return { orgClient: _orgClient, userClient: _userClient }
 }
 
 /**
@@ -65,8 +54,9 @@ export function getOrgClient(): SupabaseClient {
 }
 
 /**
- * User client — switches when staff change.
- * Used for: all writes (entered_by = auth.uid()), user profile access.
+ * User client — the current human. Switches when staff change.
+ * Used for: all writes (entered_by = auth.uid()), user profile access,
+ * and every role-gated portal (locum, patient, driver, …).
  */
 export function getUserClient(): SupabaseClient {
   if (!_userClient) throw new Error('Supabase not initialized. Call initSupabase() first.')
@@ -74,22 +64,19 @@ export function getUserClient(): SupabaseClient {
 }
 
 /**
- * Patient client — for patient-facing auth and data access.
- * Used for: patient portal login, patient profile, patient appointments.
+ * @deprecated Patient is a role, not an account — alias of getUserClient().
+ * Kept so existing patient-portal pages keep working unchanged.
  */
 export function getPatientClient(): SupabaseClient {
-  if (!_patientClient) throw new Error('Supabase not initialized. Call initSupabase() first.')
-  return _patientClient
+  return getUserClient()
 }
 
 /**
- * Locum client — for locum-facing auth and data access.
- * Used for: locum portal login, locum profile, shift browsing and bookings.
- * Separate storage key (ps-locum-session) to avoid conflict with staff user client.
+ * @deprecated Locum is a role, not an account — alias of getUserClient().
+ * Kept so existing locum-portal pages keep working unchanged.
  */
 export function getLocumClient(): SupabaseClient {
-  if (!_locumClient) throw new Error('Supabase not initialized. Call initSupabase() first.')
-  return _locumClient
+  return getUserClient()
 }
 
 // ============================================
@@ -226,22 +213,24 @@ export async function fetchPatientProfile(authUserId: string) {
 
 // ============================================
 // Locum auth helpers
+// Locum is a role on the user account — these are thin wrappers around
+// the user-layer auth, kept for backwards compatibility.
 // ============================================
 
 export async function locumSignUp(email: string, password: string) {
-  const { data, error } = await getLocumClient().auth.signUp({ email, password })
+  const { data, error } = await getUserClient().auth.signUp({ email, password })
   if (error) throw error
   return data
 }
 
 export async function locumSignIn(email: string, password: string) {
-  const { data, error } = await getLocumClient().auth.signInWithPassword({ email, password })
+  const { data, error } = await getUserClient().auth.signInWithPassword({ email, password })
   if (error) throw error
   return data
 }
 
 export async function locumSignOut() {
-  const { error } = await getLocumClient().auth.signOut()
+  const { error } = await getUserClient().auth.signOut()
   if (error) throw error
 }
 

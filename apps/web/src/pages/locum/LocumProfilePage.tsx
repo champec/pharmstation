@@ -2,10 +2,30 @@ import { useCallback, useEffect, useState } from 'react'
 import { getLocumClient } from '@pharmstation/supabase-client'
 import { useLocumAuthStore } from '@pharmstation/core'
 
-type Tab = 'profile' | 'services' | 'documents'
+type Tab = 'profile' | 'services' | 'documents' | 'payments'
 
 interface ServiceOption { id: string; name: string; category: string }
 interface DocRecord { id: string; doc_type: string; label: string | null; file_url: string; expiry_date: string | null; uploaded_at: string; is_current: boolean }
+
+interface StripeStatus {
+  status: string
+  account_id?: string
+  charges_enabled: boolean
+  payouts_enabled: boolean
+  details_submitted: boolean
+}
+
+/** Pull the real error message out of a failed functions.invoke call. */
+async function extractFnError(err: unknown): Promise<string> {
+  const anyErr = err as { context?: Response; message?: string }
+  if (anyErr?.context && typeof anyErr.context.json === 'function') {
+    try {
+      const body = await anyErr.context.json()
+      if (body?.error) return String(body.error)
+    } catch { /* fall through */ }
+  }
+  return anyErr?.message ?? 'Request failed'
+}
 
 const DOC_TYPES = [
   { type: 'gphc_certificate',     label: 'GPhC Registration Certificate',    hasExpiry: true  },
@@ -57,6 +77,12 @@ export function LocumProfilePage() {
   const [expiryInputs, setExpiryInputs] = useState<Record<string, string>>({})
   const [docMsg, setDocMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
   const [loadingDocUrl, setLoadingDocUrl] = useState<string | null>(null)
+
+  /* Payments tab */
+  const [stripeStatus, setStripeStatus] = useState<StripeStatus | null>(null)
+  const [loadingStripe, setLoadingStripe] = useState(false)
+  const [startingOnboarding, setStartingOnboarding] = useState(false)
+  const [payMsg, setPayMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
 
   useEffect(() => {
     setFirstName(userProfile?.first_name ?? '')
@@ -115,6 +141,62 @@ export function LocumProfilePage() {
   useEffect(() => {
     if (tab === 'documents') loadDocuments()
   }, [tab, loadDocuments])
+
+  /* ---- Stripe payments (Get Paid) ---- */
+  const loadStripeStatus = useCallback(async () => {
+    setLoadingStripe(true)
+    setPayMsg(null)
+    try {
+      const { data, error } = await getLocumClient().functions.invoke('stripe-connect', {
+        body: { action: 'get_status', entity: 'locum' },
+      })
+      if (error) throw error
+      setStripeStatus(data as StripeStatus)
+    } catch (err) {
+      setPayMsg({ type: 'error', text: await extractFnError(err) })
+    } finally {
+      setLoadingStripe(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (tab === 'payments') loadStripeStatus()
+  }, [tab, loadStripeStatus])
+
+  // Returning from Stripe onboarding (?stripe_return=1 / ?stripe_refresh=1) →
+  // jump to the payments tab and refresh status.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    if (params.has('stripe_return') || params.has('stripe_refresh')) {
+      setTab('payments')
+      window.history.replaceState({}, '', window.location.pathname)
+    }
+  }, [])
+
+  async function handleStartPayments() {
+    setStartingOnboarding(true)
+    setPayMsg(null)
+    try {
+      const origin = window.location.origin
+      const { data, error } = await getLocumClient().functions.invoke('stripe-connect', {
+        body: {
+          action: 'start_onboarding',
+          entity: 'locum',
+          return_url: `${origin}/locum/profile?stripe_return=1`,
+          refresh_url: `${origin}/locum/profile?stripe_refresh=1`,
+        },
+      })
+      if (error) throw error
+      if (data?.url) {
+        window.location.href = data.url as string
+        return
+      }
+      throw new Error('No onboarding URL returned')
+    } catch (err) {
+      setPayMsg({ type: 'error', text: await extractFnError(err) })
+      setStartingOnboarding(false)
+    }
+  }
 
   async function handleUploadDoc(docType: string, file: File) {
     if (!locumProfile?.id || !userProfile?.id) return
@@ -276,9 +358,9 @@ export function LocumProfilePage() {
       </div>
 
       <div className="ps-tabs" style={{ marginBottom: '1.5rem' }}>
-        {(['profile', 'services', 'documents'] as Tab[]).map((t) => (
-          <button key={t} className={`ps-tab${tab === t ? ' active' : ''}`} onClick={() => { setTab(t); setProfileMsg(null); setServicesMsg(null) }}>
-            {t === 'profile' ? 'Compliance Details' : t === 'services' ? 'My Services' : 'Documents'}
+        {(['profile', 'services', 'documents', 'payments'] as Tab[]).map((t) => (
+          <button key={t} className={`ps-tab${tab === t ? ' active' : ''}`} onClick={() => { setTab(t); setProfileMsg(null); setServicesMsg(null); setPayMsg(null) }}>
+            {t === 'profile' ? 'Compliance Details' : t === 'services' ? 'My Services' : t === 'documents' ? 'Documents' : '💰 Get Paid'}
           </button>
         ))}
       </div>
@@ -529,6 +611,76 @@ export function LocumProfilePage() {
               )
             })
           )}
+        </div>
+      )}
+
+      {tab === 'payments' && (
+        <div style={{ maxWidth: 640 }}>
+          {payMsg && <div className={`ps-alert ps-alert-${payMsg.type}`} style={{ marginBottom: '1rem' }}>{payMsg.text}</div>}
+          <div className="ps-card">
+            <div className="ps-card-header">
+              <h2 className="ps-card-title">💰 Get paid by pharmacies</h2>
+            </div>
+            <div className="ps-card-body">
+              {loadingStripe ? (
+                <div className="loading-indicator">Checking payment account…</div>
+              ) : (
+                <>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.75rem' }}>
+                    <span style={{ fontWeight: 600, fontSize: '0.875rem' }}>Payment account status:</span>
+                    {stripeStatus?.status === 'active' ? (
+                      <span className="ps-badge ps-badge-success">Active — ready to receive payments</span>
+                    ) : stripeStatus?.status === 'pending_verification' ? (
+                      <span className="ps-badge ps-badge-warning">Pending verification</span>
+                    ) : stripeStatus?.status === 'onboarding' ? (
+                      <span className="ps-badge ps-badge-warning">Onboarding incomplete</span>
+                    ) : (
+                      <span className="ps-badge">Not set up</span>
+                    )}
+                  </div>
+
+                  <p className="text-muted" style={{ marginBottom: '1rem', fontSize: '0.875rem' }}>
+                    Connect a payment account so pharmacies can pay your invoices directly.
+                    You'll be taken to Stripe to verify your identity and add your bank details —
+                    PharmStation never sees or stores your banking information.
+                  </p>
+
+                  {stripeStatus?.status === 'active' ? (
+                    <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                      <button className="ps-btn ps-btn-ghost" onClick={loadStripeStatus}>
+                        Refresh status
+                      </button>
+                    </div>
+                  ) : (
+                    <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                      <button
+                        className="ps-btn ps-btn-primary"
+                        onClick={handleStartPayments}
+                        disabled={startingOnboarding}
+                      >
+                        {startingOnboarding
+                          ? 'Redirecting to Stripe…'
+                          : stripeStatus?.status === 'not_onboarded' || !stripeStatus
+                            ? 'Set up payments'
+                            : 'Continue setup'}
+                      </button>
+                      <button className="ps-btn ps-btn-ghost" onClick={loadStripeStatus} disabled={startingOnboarding}>
+                        Refresh status
+                      </button>
+                    </div>
+                  )}
+
+                  {stripeStatus?.account_id && (
+                    <div style={{ marginTop: '0.75rem', fontSize: '0.78rem', color: 'var(--ps-slate)' }}>
+                      Account: {stripeStatus.account_id}
+                      {' · '}Charges: {stripeStatus.charges_enabled ? '✓' : '✗'}
+                      {' · '}Payouts: {stripeStatus.payouts_enabled ? '✓' : '✗'}
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          </div>
         </div>
       )}
     </div>

@@ -1,4 +1,4 @@
-import { Outlet, NavLink, useNavigate } from 'react-router-dom'
+import { Outlet, NavLink, useNavigate, Link } from 'react-router-dom'
 import { useLocumAuthStore } from '@pharmstation/core'
 
 export function LocumLayout() {
@@ -47,6 +47,9 @@ export function LocumLayout() {
                   : userProfile.first_name ?? userProfile.full_name ?? userProfile.email}
               </span>
           )}
+          <Link to="/me" className="ps-btn ps-btn-ghost ps-btn-sm" title="My personal account">
+            👤 My Account
+          </Link>
           <button className="ps-btn ps-btn-ghost ps-btn-sm" onClick={handleLogout}>
             Sign Out
           </button>

@@ -10,7 +10,9 @@
 //   payment_intent.payment_failed     → mark failed
 //   charge.refunded                   → mark refunded / partially_refunded
 // Handled events (Phase 2 — Connect):
-//   account.updated                   → sync ps_org_billing status
+//   account.updated                   → sync ps_org_billing (orgs) or
+//                                       ps_locum_profiles (locums, via
+//                                       metadata.locum_user_id)
 //
 // Two webhook endpoints point here (each with its own signing secret):
 //   STRIPE_WEBHOOK_SECRET          — platform events endpoint
@@ -98,10 +100,25 @@ async function onChargeRefunded(db: Db, charge: Stripe.Charge) {
   if (error) throw new Error(`ps_payments refund-update failed: ${error.message}`)
 }
 
-// Connect: keep ps_org_billing in sync as the pharmacy completes KYC
+// Connect: keep billing records in sync as the entity completes KYC.
+// Routes by account metadata:
+//   metadata.locum_user_id → ps_locum_profiles
+//   metadata.org_id (or account-id fallback) → ps_org_billing
 async function onAccountUpdated(db: Db, acct: Stripe.Account) {
+  const locumUserId = acct.metadata?.locum_user_id
+  const active = !!acct.charges_enabled && !!acct.payouts_enabled
+
+  if (locumUserId) {
+    const { error } = await db
+      .from('ps_locum_profiles')
+      .update({ stripe_account_id: acct.id, stripe_onboarded: active })
+      .eq('user_id', locumUserId)
+    if (error) throw new Error(`ps_locum_profiles update failed: ${error.message}`)
+    return
+  }
+
   const orgId = acct.metadata?.org_id
-  const status = acct.charges_enabled && acct.payouts_enabled
+  const status = active
     ? 'active'
     : acct.requirements?.disabled_reason ? 'restricted' : 'pending'
   const update = {

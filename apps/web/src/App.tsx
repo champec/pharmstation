@@ -6,6 +6,8 @@ import { DashboardLayout } from './layouts/DashboardLayout'
 import { LocumLayout } from './layouts/LocumLayout'
 import { OrgLoginPage } from './pages/auth/OrgLoginPage'
 import { UserLoginPage } from './pages/auth/UserLoginPage'
+import { PersonalLoginPage } from './pages/auth/PersonalLoginPage'
+import { PersonalProfilePage } from './pages/PersonalProfilePage'
 import { DashboardPage } from './pages/DashboardPage'
 import { RegistersPage } from './pages/registers/RegistersPage'
 import { CDRegisterPage } from './pages/registers/CDRegisterPage'
@@ -203,7 +205,18 @@ export function App() {
             )
           }
         />
+        {/* Personal (individual-tier) login — bypasses org entirely */}
+        <Route
+          path="/me/login"
+          element={isUserLoggedIn ? <Navigate to="/me" replace /> : <PersonalLoginPage />}
+        />
       </Route>
+
+      {/* Personal profile — needs only a user-layer session (no org) */}
+      <Route
+        path="/me"
+        element={isUserLoggedIn ? <PersonalProfilePage /> : <Navigate to="/me/login" replace />}
+      />
 
       {/* Protected routes (staff) */}
       <Route
