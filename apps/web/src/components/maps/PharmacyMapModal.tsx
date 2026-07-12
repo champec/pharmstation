@@ -26,6 +26,7 @@ type SymbolLayer = mapboxgl.SymbolLayer
 import { useNavigate } from 'react-router-dom'
 import { getUserClient } from '@pharmstation/supabase-client'
 import { useAuthStore, useNetworkStore } from '@pharmstation/core'
+import { useMapboxToken } from '../../hooks/useMapboxToken'
 
 // ── Types ───────────────────────────────────────────────────
 
@@ -79,7 +80,6 @@ export interface MapRecipient {
   distanceKm: number | null
 }
 
-const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN as string
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string
 const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY as string
 const UK_CENTER: [number, number] = [-1.5, 52.5]
@@ -415,6 +415,7 @@ export function PharmacyMapModal({ isOpen, onClose }: Props) {
   const navigate = useNavigate()
   const { organisation } = useAuthStore()
   const { myLink, fetchMyLink } = useNetworkStore()
+  const { token: mapboxToken, loading: mapboxTokenLoading, error: mapboxTokenError } = useMapboxToken(isOpen)
 
   // Map state
   const mapRef = useRef<MapRef>(null)
@@ -695,12 +696,24 @@ export function PharmacyMapModal({ isOpen, onClose }: Props) {
 
   if (!isOpen) return null
 
-  if (!MAPBOX_TOKEN) {
+  if (mapboxTokenLoading) {
+    return (
+      <div className="modal-backdrop">
+        <div className="modal-dialog" style={{ maxWidth: 400 }}>
+          <p style={{ padding: '2rem', textAlign: 'center', color: 'var(--ps-slate)' }}>
+            Loading map…
+          </p>
+        </div>
+      </div>
+    )
+  }
+
+  if (!mapboxToken) {
     return (
       <div className="modal-backdrop" onClick={onClose}>
         <div className="modal-dialog" style={{ maxWidth: 400 }}>
           <p style={{ padding: '2rem', textAlign: 'center', color: 'var(--ps-error)' }}>
-            Mapbox token not configured. Add VITE_MAPBOX_TOKEN to .env.local
+            {mapboxTokenError ?? 'Map configuration is unavailable. Please try again later.'}
           </p>
         </div>
       </div>
@@ -791,7 +804,7 @@ export function PharmacyMapModal({ isOpen, onClose }: Props) {
             onMoveEnd={handleMoveEnd}
             onLoad={handleMapLoad}
             onClick={handleMapClick}
-            mapboxAccessToken={MAPBOX_TOKEN}
+            mapboxAccessToken={mapboxToken}
             mapStyle="mapbox://styles/mapbox/light-v11"
             style={{ width: '100%', height: '100%' }}
             cursor="pointer"

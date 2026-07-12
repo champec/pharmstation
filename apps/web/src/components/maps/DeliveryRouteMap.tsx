@@ -3,8 +3,7 @@ import MapGL, { Marker, NavigationControl, type MapRef } from 'react-map-gl/mapb
 import 'mapbox-gl/dist/mapbox-gl.css'
 import type { DeliveryRoundPatient, DeliveryLocationUpdate } from '@pharmstation/types'
 import { getUserClient } from '@pharmstation/supabase-client'
-
-const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN as string
+import { useMapboxToken } from '../../hooks/useMapboxToken'
 
 // UK default center
 const DEFAULT_CENTER = { latitude: 53.5, longitude: -1.5, zoom: 6 }
@@ -48,6 +47,7 @@ export function DeliveryRouteMap({ patients, roundId, driverId, height = 400, sh
   const [patientCoords, setPatientCoords] = useState<Map<string, { lat: number; lng: number }>>(new Map())
   const [driverLocation, setDriverLocation] = useState<{ lat: number; lng: number } | null>(null)
   const [loading, setLoading] = useState(true)
+  const { token: mapboxToken, loading: mapboxTokenLoading, error: mapboxTokenError } = useMapboxToken()
 
   // Geocode all patient postcodes
   useEffect(() => {
@@ -148,10 +148,18 @@ export function DeliveryRouteMap({ patients, roundId, driverId, height = 400, sh
     }
   }, [showDriverLocation, driverId, roundId])
 
-  if (!MAPBOX_TOKEN) {
+  if (mapboxTokenLoading) {
     return (
       <div style={{ height, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--ps-off-white)', borderRadius: 'var(--ps-radius-md)', color: 'var(--ps-slate)' }}>
-        Mapbox token not configured. Add VITE_MAPBOX_TOKEN to .env.local
+        Loading map…
+      </div>
+    )
+  }
+
+  if (!mapboxToken) {
+    return (
+      <div style={{ height, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--ps-off-white)', borderRadius: 'var(--ps-radius-md)', color: 'var(--ps-slate)' }}>
+        {mapboxTokenError ?? 'Map configuration is unavailable. Please try again later.'}
       </div>
     )
   }
@@ -166,7 +174,7 @@ export function DeliveryRouteMap({ patients, roundId, driverId, height = 400, sh
       <MapGL
         ref={mapRef}
         initialViewState={DEFAULT_CENTER}
-        mapboxAccessToken={MAPBOX_TOKEN}
+        mapboxAccessToken={mapboxToken}
         mapStyle="mapbox://styles/mapbox/light-v11"
         style={{ width: '100%', height: '100%' }}
       >

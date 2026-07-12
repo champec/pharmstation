@@ -29,6 +29,11 @@ const toLocalDateTimeValue = (date = new Date()) => {
   return localTime.toISOString().slice(0, 16)
 }
 
+const getPublicPatientLink = (path: string) => {
+  const origin = (import.meta.env.VITE_PUBLIC_APP_URL || window.location.origin).replace(/\/$/, '')
+  return `${origin}${path.startsWith('/') ? path : `/${path}`}`
+}
+
 export function VideoConsultsPage() {
   const navigate = useNavigate()
   const { organisation } = useAuthStore()
@@ -83,7 +88,7 @@ export function VideoConsultsPage() {
     setTextState('sending')
     setTextError(null)
     try {
-      await sendVideoLink(createdConsultation, `${window.location.origin}${createdPatientLink}`)
+      await sendVideoLink(createdConsultation, getPublicPatientLink(createdPatientLink))
       setTextState('sent')
     } catch (e: unknown) {
       setTextState('error')
@@ -94,7 +99,7 @@ export function VideoConsultsPage() {
   const handleResendPatientLink = async (consultation: VideoConsultation) => {
     setResendStates((states) => ({ ...states, [consultation.id]: { status: 'sending' } }))
     try {
-      await sendVideoLink(consultation, `${window.location.origin}/consult/${consultation.id}`)
+      await sendVideoLink(consultation, getPublicPatientLink(`/consult/${consultation.id}`))
       setResendStates((states) => ({ ...states, [consultation.id]: { status: 'sent' } }))
     } catch (e: unknown) {
       const message = e instanceof Error ? e.message : 'Failed to resend link'
@@ -160,7 +165,7 @@ export function VideoConsultsPage() {
       resetForm()
       load()
       try {
-        await sendVideoLink(result.consultation, `${window.location.origin}${result.patient_link}`)
+        await sendVideoLink(result.consultation, getPublicPatientLink(result.patient_link))
         setTextState('sent')
       } catch (e: unknown) {
         setTextState('error')
@@ -209,7 +214,7 @@ export function VideoConsultsPage() {
   }
 
   const getPatientLink = (c: VideoConsultation) => {
-    return `${window.location.origin}/consult/${c.id}`
+    return getPublicPatientLink(`/consult/${c.id}`)
   }
 
   /* ---- Format date ---- */
@@ -537,7 +542,7 @@ export function VideoConsultsPage() {
               <button
                 className="ps-btn ps-btn-primary"
                 style={{ flex: 1 }}
-                onClick={() => copyToClipboard(`${window.location.origin}${createdPatientLink}`)}
+                onClick={() => copyToClipboard(getPublicPatientLink(createdPatientLink))}
               >
                 🔗 Copy Patient Link
               </button>
