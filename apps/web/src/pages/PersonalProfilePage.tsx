@@ -108,7 +108,14 @@ export function PersonalProfilePage() {
             {activeUser?.email ? ` · ${activeUser.email}` : ''}
           </p>
         </div>
-        <button className="ps-btn ps-btn-ghost" onClick={handleSignOut}>Sign out</button>
+        <div style={{ display: 'flex', gap: '0.5rem', flexShrink: 0 }}>
+          {isOrgLoggedIn && organisation && (
+            <Link to="/" className="ps-btn ps-btn-primary">
+              ← Back to {organisation.name}
+            </Link>
+          )}
+          <button className="ps-btn ps-btn-ghost" onClick={handleSignOut}>Sign out</button>
+        </div>
       </div>
 
       {msg && <div className={`ps-alert ps-alert-${msg.type}`} style={{ marginBottom: '1rem' }}>{msg.text}</div>}
@@ -155,9 +162,7 @@ export function PersonalProfilePage() {
                 Signed in at <strong>{organisation.name}</strong>
                 {membership ? ` as ${membership.role}` : ' (no active membership)'}
               </p>
-              {membership && (
-                <Link to="/" className="ps-btn ps-btn-primary ps-btn-sm">Go to pharmacy dashboard</Link>
-              )}
+              <Link to="/" className="ps-btn ps-btn-primary ps-btn-sm">Go to pharmacy dashboard</Link>
             </>
           ) : (
             <>

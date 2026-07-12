@@ -15,12 +15,18 @@ const STATUS_CONFIG: Record<VideoConsultationStatus, { label: string; cssClass: 
 }
 
 type TabFilter = 'upcoming' | 'active' | 'past'
+type TextSendState = 'idle' | 'sending' | 'sent' | 'error'
 
 interface PatientOption {
   id: string
   first_name: string
   last_name: string
   phone: string | null
+}
+
+const toLocalDateTimeValue = (date = new Date()) => {
+  const localTime = new Date(date.getTime() - date.getTimezoneOffset() * 60_000)
+  return localTime.toISOString().slice(0, 16)
 }
 
 export function VideoConsultsPage() {
@@ -48,7 +54,7 @@ export function VideoConsultsPage() {
   const [selectedPatient, setSelectedPatient] = useState<PatientOption | null>(null)
   const [patientName, setPatientName] = useState('')
   const [patientPhone, setPatientPhone] = useState('')
-  const [scheduledFor, setScheduledFor] = useState('')
+  const [scheduledFor, setScheduledFor] = useState(() => toLocalDateTimeValue())
   const [saving, setSaving] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
 
@@ -56,26 +62,43 @@ export function VideoConsultsPage() {
   const [cancelTarget, setCancelTarget] = useState<VideoConsultation | null>(null)
 
   // Texting the patient their video link (via NHS Notify)
-  const [textState, setTextState] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle')
+  const [textState, setTextState] = useState<TextSendState>('idle')
   const [textError, setTextError] = useState<string | null>(null)
+  const [resendStates, setResendStates] = useState<Record<string, { status: TextSendState; error?: string }>>({})
+
+  const sendVideoLink = (consultation: VideoConsultation, link: string) => {
+    if (!organisation?.id) throw new Error('No organisation selected')
+    return psNotify.videoLink({
+      orgId: organisation.id,
+      patientId: consultation.patient_id ?? undefined,
+      to: consultation.patient_phone ?? undefined,
+      link,
+      accessCode: consultation.patient_access_code,
+      when: `${fmtDate(consultation.scheduled_for)} ${fmtTime(consultation.scheduled_for)}`,
+    })
+  }
 
   const handleTextPatientLink = async () => {
     if (!organisation?.id || !createdConsultation) return
     setTextState('sending')
     setTextError(null)
     try {
-      await psNotify.videoLink({
-        orgId: organisation.id,
-        patientId: createdConsultation.patient_id ?? undefined,
-        to: createdConsultation.patient_phone ?? undefined,
-        link: `${window.location.origin}${createdPatientLink}`,
-        accessCode: createdConsultation.patient_access_code,
-        when: `${fmtDate(createdConsultation.scheduled_for)} ${fmtTime(createdConsultation.scheduled_for)}`,
-      })
+      await sendVideoLink(createdConsultation, `${window.location.origin}${createdPatientLink}`)
       setTextState('sent')
     } catch (e: unknown) {
       setTextState('error')
       setTextError(e instanceof Error ? e.message : 'Failed to send text')
+    }
+  }
+
+  const handleResendPatientLink = async (consultation: VideoConsultation) => {
+    setResendStates((states) => ({ ...states, [consultation.id]: { status: 'sending' } }))
+    try {
+      await sendVideoLink(consultation, `${window.location.origin}/consult/${consultation.id}`)
+      setResendStates((states) => ({ ...states, [consultation.id]: { status: 'sent' } }))
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : 'Failed to resend link'
+      setResendStates((states) => ({ ...states, [consultation.id]: { status: 'error', error: message } }))
     }
   }
 
@@ -114,8 +137,8 @@ export function VideoConsultsPage() {
 
   /* ---- Create consultation ---- */
   const handleCreate = async () => {
-    if (!organisation?.id || !patientName.trim() || !scheduledFor) {
-      setFormError('Patient name and scheduled time are required.')
+    if (!organisation?.id || !patientName.trim() || !patientPhone.trim() || !scheduledFor) {
+      setFormError('Patient name, phone and scheduled time are required.')
       return
     }
     setSaving(true)
@@ -130,12 +153,19 @@ export function VideoConsultsPage() {
       })
       setCreatedConsultation(result.consultation)
       setCreatedPatientLink(result.patient_link)
-      setTextState('idle')
+      setTextState('sending')
       setTextError(null)
       setShowNewDrawer(false)
       setShowSuccessModal(true)
       resetForm()
       load()
+      try {
+        await sendVideoLink(result.consultation, `${window.location.origin}${result.patient_link}`)
+        setTextState('sent')
+      } catch (e: unknown) {
+        setTextState('error')
+        setTextError(e instanceof Error ? e.message : 'Consultation created, but the patient text could not be sent')
+      }
     } catch (e: any) {
       setFormError(e.message)
     }
@@ -148,8 +178,17 @@ export function VideoConsultsPage() {
     setSelectedPatient(null)
     setPatientName('')
     setPatientPhone('')
-    setScheduledFor('')
+    setScheduledFor(toLocalDateTimeValue())
     setFormError(null)
+  }
+
+  const openNewConsultation = () => {
+    resetForm()
+    setShowNewDrawer(true)
+  }
+
+  const scheduleIn = (minutes: number) => {
+    setScheduledFor(toLocalDateTimeValue(new Date(Date.now() + minutes * 60_000)))
   }
 
   /* ---- Cancel consultation ---- */
@@ -193,7 +232,7 @@ export function VideoConsultsPage() {
         </div>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--ps-space-md)' }}>
           <h1>📹 Video Consultations</h1>
-          <button className="ps-btn ps-btn-primary" onClick={() => setShowNewDrawer(true)}>
+          <button className="ps-btn ps-btn-primary" onClick={openNewConsultation}>
             + New Consultation
           </button>
         </div>
@@ -232,7 +271,7 @@ export function VideoConsultsPage() {
             {tab === 'upcoming' ? 'No upcoming consultations.' : tab === 'active' ? 'No active consultations.' : 'No past consultations in the last 30 days.'}
           </p>
           {tab === 'upcoming' && (
-            <button className="ps-btn ps-btn-primary" style={{ marginTop: 'var(--ps-space-md)' }} onClick={() => setShowNewDrawer(true)}>
+            <button className="ps-btn ps-btn-primary" style={{ marginTop: 'var(--ps-space-md)' }} onClick={openNewConsultation}>
               Schedule Your First Consultation
             </button>
           )}
@@ -301,6 +340,29 @@ export function VideoConsultsPage() {
                             >
                               🔗 Link
                             </button>
+                            {c.status === 'scheduled' && (
+                              <>
+                                <button
+                                  className="ps-btn ps-btn-secondary"
+                                  style={{ padding: '4px 12px', fontSize: 'var(--ps-font-sm)' }}
+                                  onClick={() => handleResendPatientLink(c)}
+                                  disabled={resendStates[c.id]?.status === 'sending' || (!c.patient_phone && !c.patient_id)}
+                                  title={
+                                    !c.patient_phone && !c.patient_id
+                                      ? 'No patient phone on file'
+                                      : resendStates[c.id]?.error || 'Text the patient their consultation link and access code again'
+                                  }
+                                >
+                                  {resendStates[c.id]?.status === 'sending' ? 'Sending…' : '📲 Resend Link'}
+                                </button>
+                                {resendStates[c.id]?.status === 'sent' && (
+                                  <span style={{ alignSelf: 'center', color: 'var(--ps-success)', fontSize: 'var(--ps-font-xs)', whiteSpace: 'nowrap' }}>✓ Sent</span>
+                                )}
+                                {resendStates[c.id]?.status === 'error' && (
+                                  <span style={{ alignSelf: 'center', color: 'var(--ps-error)', fontSize: 'var(--ps-font-xs)', whiteSpace: 'nowrap' }}>⚠ Failed</span>
+                                )}
+                              </>
+                            )}
                             <button
                               className="ps-btn ps-btn-danger"
                               style={{ padding: '4px 12px', fontSize: 'var(--ps-font-sm)' }}
@@ -393,7 +455,7 @@ export function VideoConsultsPage() {
           {/* Patient phone */}
           <div>
             <label style={{ display: 'block', marginBottom: 'var(--ps-space-xs)', fontWeight: 500, fontSize: 'var(--ps-font-sm)' }}>
-              Patient Phone
+              Patient Phone *
             </label>
             <input
               className="ps-input"
@@ -402,11 +464,19 @@ export function VideoConsultsPage() {
               value={patientPhone}
               onChange={(e) => setPatientPhone(e.target.value)}
               style={{ width: '100%' }}
+              required
             />
           </div>
 
           {/* Scheduled time */}
           <div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--ps-space-xs)', marginBottom: 'var(--ps-space-sm)' }}>
+              <button type="button" className="ps-btn ps-btn-secondary" onClick={() => scheduleIn(0)}>Now</button>
+              <button type="button" className="ps-btn ps-btn-secondary" onClick={() => scheduleIn(5)}>In 5m</button>
+              <button type="button" className="ps-btn ps-btn-secondary" onClick={() => scheduleIn(10)}>In 10m</button>
+              <button type="button" className="ps-btn ps-btn-secondary" onClick={() => scheduleIn(30)}>In 30m</button>
+              <button type="button" className="ps-btn ps-btn-secondary" onClick={() => scheduleIn(60)}>In 1hr</button>
+            </div>
             <label style={{ display: 'block', marginBottom: 'var(--ps-space-xs)', fontWeight: 500, fontSize: 'var(--ps-font-sm)' }}>
               Date & Time *
             </label>
@@ -473,17 +543,22 @@ export function VideoConsultsPage() {
               </button>
             </div>
 
-            {/* Text the patient their link + code via NHS Notify */}
+            {/* The initial text is automatic; this button is for resending. */}
             <button
               className="ps-btn ps-btn-secondary"
               onClick={handleTextPatientLink}
-              disabled={textState === 'sending' || textState === 'sent' || (!createdConsultation.patient_phone && !createdConsultation.patient_id)}
-              title={!createdConsultation.patient_phone && !createdConsultation.patient_id ? 'No patient phone on file' : 'Send the link and access code by SMS'}
+              disabled={textState === 'sending'}
+              title="Text the patient their consultation link and access code again"
             >
-              {textState === 'sending' ? 'Sending…' : textState === 'sent' ? '✓ Text sent' : '📲 Text patient the link'}
+              {textState === 'sending' ? 'Sending link…' : '📲 Resend Link'}
             </button>
+            {textState === 'sent' && (
+              <p style={{ color: 'var(--ps-success)', fontSize: 'var(--ps-font-sm)', margin: 0 }}>✓ Patient link sent by text.</p>
+            )}
             {textState === 'error' && (
-              <p style={{ color: 'var(--ps-error)', fontSize: 'var(--ps-font-sm)', margin: 0 }}>{textError}</p>
+              <p style={{ color: 'var(--ps-error)', fontSize: 'var(--ps-font-sm)', margin: 0 }}>
+                The consultation was created, but the text failed: {textError}. Use Resend Link to try again.
+              </p>
             )}
 
             <button
