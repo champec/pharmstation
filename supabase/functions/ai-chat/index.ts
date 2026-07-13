@@ -13,328 +13,154 @@ const CORS_HEADERS = {
 }
 
 // ============================================
-// Provider-specific API adapters
+// OpenRouter streaming client
 // ============================================
 
-interface ChatInput {
-  messages: { role: string; content: string | object[] }[]
-  model: string
-  tools?: object[]
-  stream: boolean
-  max_tokens?: number
+type OpenRouterMessage = {
+  role: 'system' | 'user' | 'assistant' | 'tool'
+  content: string | null
+  tool_call_id?: string
+  tool_calls?: OpenRouterToolCall[]
 }
 
-interface ProviderAdapter {
-  buildRequest: (input: ChatInput, apiKey: string) => { url: string; init: RequestInit }
-  parseStream: (reader: ReadableStreamDefaultReader<Uint8Array>, writer: WritableStreamDefaultWriter<Uint8Array>) => Promise<{ inputTokens: number; outputTokens: number }>
+type OpenRouterToolCall = {
+  id: string
+  type: 'function'
+  function: { name: string; arguments: string }
 }
 
-// --- OPENAI ---
-const openaiAdapter: ProviderAdapter = {
-  buildRequest: (input, apiKey) => ({
-    url: 'https://api.openai.com/v1/chat/completions',
-    init: {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model: input.model,
-        messages: input.messages,
-        tools: input.tools,
-        stream: true,
-        stream_options: { include_usage: true },
-        max_tokens: input.max_tokens ?? 4096,
-      }),
+type StreamRound = {
+  content: string
+  toolCalls: OpenRouterToolCall[]
+  inputTokens: number
+  outputTokens: number
+}
+
+async function sendEvent(
+  writer: WritableStreamDefaultWriter<Uint8Array>,
+  event: Record<string, unknown>,
+) {
+  await writer.write(new TextEncoder().encode(`data: ${JSON.stringify(event)}\n\n`))
+}
+
+function safeProviderError(status: number): string {
+  if (status === 429) return 'Genie is temporarily busy. Please wait a moment and try again.'
+  if (status >= 500) return 'The AI service is temporarily unavailable. Please try again shortly.'
+  return 'The AI service could not complete this request.'
+}
+
+async function streamOpenRouterRound(
+  apiKey: string,
+  model: string,
+  messages: OpenRouterMessage[],
+  writer: WritableStreamDefaultWriter<Uint8Array>,
+): Promise<StreamRound> {
+  const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${apiKey}`,
+      'X-Title': 'PharmStation Genie',
     },
-  }),
-  parseStream: async (reader, writer) => {
-    const encoder = new TextEncoder()
-    const decoder = new TextDecoder()
-    let inputTokens = 0
-    let outputTokens = 0
-    let buffer = ''
-
-    while (true) {
-      const { done, value } = await reader.read()
-      if (done) break
-      buffer += decoder.decode(value, { stream: true })
-      const lines = buffer.split('\n')
-      buffer = lines.pop() ?? ''
-
-      for (const line of lines) {
-        if (!line.startsWith('data: ')) continue
-        const data = line.slice(6).trim()
-        if (data === '[DONE]') continue
-
-        try {
-          const parsed = JSON.parse(data)
-
-          // Usage info
-          if (parsed.usage) {
-            inputTokens = parsed.usage.prompt_tokens ?? 0
-            outputTokens = parsed.usage.completion_tokens ?? 0
-          }
-
-          const choice = parsed.choices?.[0]
-          if (!choice) continue
-          const delta = choice.delta
-
-          // Text content
-          if (delta?.content) {
-            await writer.write(encoder.encode(`data: ${JSON.stringify({ type: 'text_delta', content: delta.content })}\n\n`))
-          }
-
-          // Tool calls
-          if (delta?.tool_calls) {
-            for (const tc of delta.tool_calls) {
-              if (tc.function?.name) {
-                await writer.write(encoder.encode(`data: ${JSON.stringify({
-                  type: 'tool_call_start',
-                  tool_call_id: tc.id,
-                  tool_name: tc.function.name,
-                })}\n\n`))
-              }
-              if (tc.function?.arguments) {
-                await writer.write(encoder.encode(`data: ${JSON.stringify({
-                  type: 'tool_call_delta',
-                  tool_call_id: tc.id,
-                  tool_arguments: tc.function.arguments,
-                })}\n\n`))
-              }
-            }
-          }
-        } catch {
-          // skip malformed
-        }
-      }
-    }
-    return { inputTokens, outputTokens }
-  },
-}
-
-// --- ANTHROPIC ---
-const anthropicAdapter: ProviderAdapter = {
-  buildRequest: (input, apiKey) => {
-    // Separate system message from the rest
-    const systemMsg = input.messages.find((m) => m.role === 'system')
-    const otherMsgs = input.messages.filter((m) => m.role !== 'system')
-
-    const body: Record<string, unknown> = {
-      model: input.model,
-      messages: otherMsgs,
+    body: JSON.stringify({
+      model,
+      messages,
+      tools: GENIE_TOOLS,
+      tool_choice: 'auto',
       stream: true,
-      max_tokens: input.max_tokens ?? 4096,
+      stream_options: { include_usage: true },
+      max_tokens: 4096,
+      temperature: 0.2,
+    }),
+  })
+
+  if (!response.ok || !response.body) {
+    console.error('OpenRouter chat request failed', response.status, (await response.text()).slice(0, 500))
+    throw new Error(safeProviderError(response.status))
+  }
+
+  const reader = response.body.getReader()
+  const decoder = new TextDecoder()
+  let buffer = ''
+  let content = ''
+  let inputTokens = 0
+  let outputTokens = 0
+  const toolCalls = new Map<number, OpenRouterToolCall>()
+
+  const processLine = async (line: string) => {
+    if (!line.startsWith('data: ')) return
+    const data = line.slice(6).trim()
+    if (!data || data === '[DONE]') return
+
+    let parsed: Record<string, any>
+    try {
+      parsed = JSON.parse(data)
+    } catch {
+      return
     }
-    if (systemMsg) {
-      body.system = typeof systemMsg.content === 'string' ? systemMsg.content : JSON.stringify(systemMsg.content)
-    }
-    if (input.tools && input.tools.length > 0) {
-      // Convert OpenAI-style tools to Anthropic format
-      body.tools = (input.tools as { function: { name: string; description?: string; parameters?: object } }[]).map((t) => ({
-        name: t.function.name,
-        description: t.function.description ?? '',
-        input_schema: t.function.parameters ?? { type: 'object', properties: {} },
-      }))
+
+    if (parsed.error) throw new Error('The AI service could not complete this request.')
+    if (parsed.usage) {
+      inputTokens = parsed.usage.prompt_tokens ?? inputTokens
+      outputTokens = parsed.usage.completion_tokens ?? outputTokens
     }
 
-    return {
-      url: 'https://api.anthropic.com/v1/messages',
-      init: {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': apiKey,
-          'anthropic-version': '2023-06-01',
-        },
-        body: JSON.stringify(body),
-      },
+    const delta = parsed.choices?.[0]?.delta
+    if (typeof delta?.content === 'string' && delta.content) {
+      content += delta.content
+      await sendEvent(writer, { type: 'text_delta', content: delta.content })
     }
-  },
-  parseStream: async (reader, writer) => {
-    const encoder = new TextEncoder()
-    const decoder = new TextDecoder()
-    let inputTokens = 0
-    let outputTokens = 0
-    let buffer = ''
-    let currentToolId = ''
 
-    while (true) {
-      const { done, value } = await reader.read()
-      if (done) break
-      buffer += decoder.decode(value, { stream: true })
-      const lines = buffer.split('\n')
-      buffer = lines.pop() ?? ''
-
-      for (const line of lines) {
-        if (!line.startsWith('data: ')) continue
-        const data = line.slice(6).trim()
-        if (!data) continue
-
-        try {
-          const parsed = JSON.parse(data)
-
-          if (parsed.type === 'message_start' && parsed.message?.usage) {
-            inputTokens = parsed.message.usage.input_tokens ?? 0
-          }
-          if (parsed.type === 'message_delta' && parsed.usage) {
-            outputTokens = parsed.usage.output_tokens ?? 0
-          }
-
-          if (parsed.type === 'content_block_start') {
-            if (parsed.content_block?.type === 'tool_use') {
-              currentToolId = parsed.content_block.id ?? ''
-              await writer.write(encoder.encode(`data: ${JSON.stringify({
-                type: 'tool_call_start',
-                tool_call_id: currentToolId,
-                tool_name: parsed.content_block.name,
-              })}\n\n`))
-            }
-          }
-
-          if (parsed.type === 'content_block_delta') {
-            if (parsed.delta?.type === 'text_delta') {
-              await writer.write(encoder.encode(`data: ${JSON.stringify({
-                type: 'text_delta',
-                content: parsed.delta.text,
-              })}\n\n`))
-            }
-            if (parsed.delta?.type === 'input_json_delta') {
-              await writer.write(encoder.encode(`data: ${JSON.stringify({
-                type: 'tool_call_delta',
-                tool_call_id: currentToolId,
-                tool_arguments: parsed.delta.partial_json,
-              })}\n\n`))
-            }
-          }
-
-          if (parsed.type === 'content_block_stop' && currentToolId) {
-            await writer.write(encoder.encode(`data: ${JSON.stringify({
-              type: 'tool_call_end',
-              tool_call_id: currentToolId,
-            })}\n\n`))
-            currentToolId = ''
-          }
-        } catch {
-          // skip
+    for (const part of delta?.tool_calls ?? []) {
+      const index = Number(part.index ?? 0)
+      let call = toolCalls.get(index)
+      if (!call) {
+        call = {
+          id: part.id || crypto.randomUUID(),
+          type: 'function',
+          function: { name: part.function?.name ?? '', arguments: '' },
         }
+        toolCalls.set(index, call)
+        await sendEvent(writer, {
+          type: 'tool_call_start',
+          tool_call_id: call.id,
+          tool_name: call.function.name,
+        })
+      }
+      if (part.id) call.id = part.id
+      if (part.function?.name) call.function.name = part.function.name
+      if (part.function?.arguments) {
+        call.function.arguments += part.function.arguments
+        await sendEvent(writer, {
+          type: 'tool_call_delta',
+          tool_call_id: call.id,
+          tool_arguments: part.function.arguments,
+        })
       }
     }
-    return { inputTokens, outputTokens }
-  },
-}
+  }
 
-// --- GOOGLE ---
-const googleAdapter: ProviderAdapter = {
-  buildRequest: (input, apiKey) => {
-    // Convert messages to Gemini format
-    const systemInstruction = input.messages.find((m) => m.role === 'system')
-    const contents = input.messages
-      .filter((m) => m.role !== 'system')
-      .map((m) => ({
-        role: m.role === 'assistant' ? 'model' : 'user',
-        parts: [{ text: typeof m.content === 'string' ? m.content : JSON.stringify(m.content) }],
-      }))
+  while (true) {
+    const { done, value } = await reader.read()
+    if (done) break
+    buffer += decoder.decode(value, { stream: true })
+    const lines = buffer.split('\n')
+    buffer = lines.pop() ?? ''
+    for (const line of lines) await processLine(line.replace(/\r$/, ''))
+  }
+  buffer += decoder.decode()
+  if (buffer.trim()) await processLine(buffer.trim())
 
-    const body: Record<string, unknown> = {
-      contents,
-      generationConfig: {
-        maxOutputTokens: input.max_tokens ?? 4096,
-      },
-    }
-    if (systemInstruction) {
-      body.system_instruction = {
-        parts: [{ text: typeof systemInstruction.content === 'string' ? systemInstruction.content : JSON.stringify(systemInstruction.content) }],
-      }
-    }
-    if (input.tools && input.tools.length > 0) {
-      body.tools = [{
-        function_declarations: (input.tools as { function: { name: string; description?: string; parameters?: object } }[]).map((t) => ({
-          name: t.function.name,
-          description: t.function.description ?? '',
-          parameters: t.function.parameters ?? { type: 'object', properties: {} },
-        })),
-      }]
-    }
+  for (const call of toolCalls.values()) {
+    await sendEvent(writer, { type: 'tool_call_end', tool_call_id: call.id })
+  }
 
-    return {
-      url: `https://generativelanguage.googleapis.com/v1beta/models/${input.model}:streamGenerateContent?alt=sse&key=${apiKey}`,
-      init: {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-      },
-    }
-  },
-  parseStream: async (reader, writer) => {
-    const encoder = new TextEncoder()
-    const decoder = new TextDecoder()
-    let inputTokens = 0
-    let outputTokens = 0
-    let buffer = ''
-
-    while (true) {
-      const { done, value } = await reader.read()
-      if (done) break
-      buffer += decoder.decode(value, { stream: true })
-      const lines = buffer.split('\n')
-      buffer = lines.pop() ?? ''
-
-      for (const line of lines) {
-        if (!line.startsWith('data: ')) continue
-        const data = line.slice(6).trim()
-        if (!data) continue
-
-        try {
-          const parsed = JSON.parse(data)
-
-          if (parsed.usageMetadata) {
-            inputTokens = parsed.usageMetadata.promptTokenCount ?? 0
-            outputTokens = parsed.usageMetadata.candidatesTokenCount ?? 0
-          }
-
-          const parts = parsed.candidates?.[0]?.content?.parts
-          if (parts) {
-            for (const part of parts) {
-              if (part.text) {
-                await writer.write(encoder.encode(`data: ${JSON.stringify({
-                  type: 'text_delta',
-                  content: part.text,
-                })}\n\n`))
-              }
-              if (part.functionCall) {
-                const callId = crypto.randomUUID()
-                await writer.write(encoder.encode(`data: ${JSON.stringify({
-                  type: 'tool_call_start',
-                  tool_call_id: callId,
-                  tool_name: part.functionCall.name,
-                })}\n\n`))
-                await writer.write(encoder.encode(`data: ${JSON.stringify({
-                  type: 'tool_call_delta',
-                  tool_call_id: callId,
-                  tool_arguments: JSON.stringify(part.functionCall.args),
-                })}\n\n`))
-                await writer.write(encoder.encode(`data: ${JSON.stringify({
-                  type: 'tool_call_end',
-                  tool_call_id: callId,
-                })}\n\n`))
-              }
-            }
-          }
-        } catch {
-          // skip
-        }
-      }
-    }
-    return { inputTokens, outputTokens }
-  },
-}
-
-const adapters: Record<string, ProviderAdapter> = {
-  openai: openaiAdapter,
-  anthropic: anthropicAdapter,
-  google: googleAdapter,
+  return {
+    content,
+    toolCalls: [...toolCalls.values()],
+    inputTokens,
+    outputTokens,
+  }
 }
 
 // ============================================
@@ -596,8 +422,15 @@ Deno.serve(async (req) => {
       model_id,
     } = body
 
-    if (!organisation_id || !message) {
+    if (!organisation_id || typeof message !== 'string' || !message.trim()) {
       return new Response(JSON.stringify({ error: 'Missing organisation_id or message' }), {
+        status: 400,
+        headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+      })
+    }
+
+    if (message.length > 20000) {
+      return new Response(JSON.stringify({ error: 'Message is too long' }), {
         status: 400,
         headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
       })
@@ -627,6 +460,8 @@ Deno.serve(async (req) => {
         .from('ps_ai_models')
         .select('*')
         .eq('id', model_id)
+        .eq('provider', 'openrouter')
+        .contains('capabilities', ['text', 'function_calling'])
         .eq('is_active', true)
         .single()
       modelRecord = data
@@ -645,6 +480,8 @@ Deno.serve(async (req) => {
           .from('ps_ai_models')
           .select('*')
           .eq('id', orgSettings.standard_model_id)
+          .eq('provider', 'openrouter')
+          .contains('capabilities', ['text', 'function_calling'])
           .eq('is_active', true)
           .single()
         modelRecord = data
@@ -656,6 +493,8 @@ Deno.serve(async (req) => {
       const { data } = await supabaseAdmin
         .from('ps_ai_models')
         .select('*')
+        .eq('provider', 'openrouter')
+        .eq('model_id', 'z-ai/glm-5.2')
         .eq('model_type', 'standard')
         .eq('is_default', true)
         .eq('is_active', true)
@@ -672,16 +511,9 @@ Deno.serve(async (req) => {
       })
     }
 
-    // Get API key for provider
-    const apiKeyMap: Record<string, string> = {
-      openai: Deno.env.get('openai_api_key') ?? Deno.env.get('OPENAI_API_KEY') ?? '',
-      anthropic: Deno.env.get('anthropic_api_key') ?? Deno.env.get('ANTHROPIC_API_KEY') ?? '',
-      google: Deno.env.get('google_api_key') ?? Deno.env.get('GOOGLE_API_KEY') ?? '',
-    }
-
-    const apiKey = apiKeyMap[modelRecord.provider]
+    const apiKey = Deno.env.get('OPENROUTER_API_KEY') ?? ''
     if (!apiKey) {
-      return new Response(JSON.stringify({ error: `No API key for provider: ${modelRecord.provider}` }), {
+      return new Response(JSON.stringify({ error: 'AI service is not configured' }), {
         status: 500,
         headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
       })
@@ -691,13 +523,28 @@ Deno.serve(async (req) => {
     let convId = conversation_id
     let isNewConversation = false
 
-    if (!convId) {
+    if (convId) {
+      const { data: existingConversation } = await supabaseAdmin
+        .from('ps_chat_conversations')
+        .select('id')
+        .eq('id', convId)
+        .eq('organisation_id', organisation_id)
+        .eq('user_id', user.id)
+        .maybeSingle()
+
+      if (!existingConversation) {
+        return new Response(JSON.stringify({ error: 'Conversation not found' }), {
+          status: 404,
+          headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+        })
+      }
+    } else {
       const { data: newConv, error: convError } = await supabaseAdmin
         .from('ps_chat_conversations')
         .insert({
           organisation_id,
           user_id: user.id,
-          title: message.slice(0, 80) + (message.length > 80 ? '...' : ''),
+          title: message.trim().slice(0, 80) + (message.trim().length > 80 ? '...' : ''),
           model_id: modelRecord.id,
         })
         .select('id')
@@ -714,13 +561,20 @@ Deno.serve(async (req) => {
     }
 
     // Save user message
-    await supabaseAdmin.from('ps_chat_messages').insert({
+    const { error: userMessageError } = await supabaseAdmin.from('ps_chat_messages').insert({
       conversation_id: convId,
       role: 'user',
-      content: message,
+      content: message.trim(),
       attachments: attachments,
       status: 'completed',
     })
+
+    if (userMessageError) {
+      return new Response(JSON.stringify({ error: 'Failed to save message' }), {
+        status: 500,
+        headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+      })
+    }
 
     // Load conversation history
     const { data: history } = await supabaseAdmin
@@ -767,22 +621,16 @@ IMPORTANT RULES:
 - If you're unsure about something, say so rather than making up information
 - For any provisional register entries, clearly mark them as provisional/pending`
 
-    const messages: { role: string; content: string }[] = [
+    const messages: OpenRouterMessage[] = [
       { role: 'system', content: systemPrompt },
     ]
 
     // Add history
     if (history) {
       for (const msg of history) {
-        if (msg.role === 'tool') {
+        if (msg.role === 'user' || msg.role === 'assistant') {
           messages.push({
-            role: 'tool',
-            content: msg.content ?? '',
-            ...(msg.tool_call_id ? { tool_call_id: msg.tool_call_id } as Record<string, string> : {}),
-          } as { role: string; content: string })
-        } else {
-          messages.push({
-            role: msg.role,
+            role: msg.role as 'user' | 'assistant',
             content: msg.content ?? '',
           })
         }
@@ -792,69 +640,99 @@ IMPORTANT RULES:
     // Set up SSE stream
     const { readable, writable } = new TransformStream()
     const writer = writable.getWriter()
-    const encoder = new TextEncoder()
-
-    const adapter = adapters[modelRecord.provider]
-    if (!adapter) {
-      return new Response(JSON.stringify({ error: `Unsupported provider: ${modelRecord.provider}` }), {
-        status: 500,
-        headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
-      })
-    }
 
     // Stream in background
     const streamPromise = (async () => {
       try {
         // Send conversation_created event if new
         if (isNewConversation) {
-          await writer.write(encoder.encode(`data: ${JSON.stringify({
+          await sendEvent(writer, {
             type: 'conversation_created',
             conversation_id: convId,
-          })}\n\n`))
+          })
         }
 
-        // Call the LLM
-        const { url, init } = adapter.buildRequest(
-          {
+        let fullContent = ''
+        let inputTokens = 0
+        let outputTokens = 0
+        const savedToolCalls: { id: string; name: string; arguments: string }[] = []
+
+        for (let roundNumber = 0; roundNumber < 5; roundNumber += 1) {
+          const round = await streamOpenRouterRound(
+            apiKey,
+            modelRecord!.model_id,
             messages,
-            model: modelRecord!.model_id,
-            tools: GENIE_TOOLS,
-            stream: true,
-            max_tokens: 4096,
-          },
-          apiKey,
-        )
+            writer,
+          )
+          fullContent += round.content
+          inputTokens += round.inputTokens
+          outputTokens += round.outputTokens
 
-        const llmResponse = await fetch(url, init)
+          if (round.toolCalls.length === 0) break
 
-        if (!llmResponse.ok) {
-          const errBody = await llmResponse.text()
-          await writer.write(encoder.encode(`data: ${JSON.stringify({
-            type: 'error',
-            error: `LLM API error (${llmResponse.status}): ${errBody.slice(0, 200)}`,
-          })}\n\n`))
-          await writer.close()
-          return
+          messages.push({
+            role: 'assistant',
+            content: round.content || null,
+            tool_calls: round.toolCalls,
+          })
+
+          for (const call of round.toolCalls) {
+            savedToolCalls.push({
+              id: call.id,
+              name: call.function.name,
+              arguments: call.function.arguments,
+            })
+
+            let parsedArgs: Record<string, unknown> = {}
+            try {
+              parsedArgs = JSON.parse(call.function.arguments || '{}')
+            } catch {
+              parsedArgs = {}
+            }
+
+            const result = await executeTool(call.function.name, parsedArgs, organisation_id, supabaseAdmin)
+            messages.push({ role: 'tool', tool_call_id: call.id, content: result })
+            await sendEvent(writer, {
+              type: 'tool_result',
+              tool_call_id: call.id,
+              tool_name: call.function.name,
+              tool_result: result,
+            })
+          }
+
+          if (roundNumber === 4) {
+            throw new Error('Genie could not finish the tool workflow. Please try a more specific question.')
+          }
         }
 
-        const reader = llmResponse.body!.getReader()
-        const { inputTokens, outputTokens } = await adapter.parseStream(reader, writer)
+        const { data: assistantMessage, error: assistantMessageError } = await supabaseAdmin
+          .from('ps_chat_messages')
+          .insert({
+            conversation_id: convId,
+            role: 'assistant',
+            content: fullContent || null,
+            tool_calls: savedToolCalls.length > 0 ? savedToolCalls : null,
+            input_tokens: inputTokens,
+            output_tokens: outputTokens,
+            model_provider: 'openrouter',
+            model_id_str: modelRecord!.model_id,
+            status: 'completed',
+          })
+          .select('id')
+          .single()
 
-        // TODO: Handle tool calls by executing tools and sending results back
-        // For now, tool call events are streamed to the client for display
+        if (assistantMessageError || !assistantMessage) throw new Error('Failed to save Genie response')
 
-        // Send done event
-        await writer.write(encoder.encode(`data: ${JSON.stringify({
+        await sendEvent(writer, {
+          type: 'message_saved',
+          message_id: assistantMessage.id,
+        })
+        await sendEvent(writer, {
           type: 'done',
+          message_id: assistantMessage.id,
           input_tokens: inputTokens,
           output_tokens: outputTokens,
-        })}\n\n`))
-
-        // Save assistant message to DB
-        // We need to collect the full content — re-read from what was streamed
-        // The adapter already streamed everything, so we parse from the accumulated events
-        // For simplicity, we save after streaming completes
-        // The client accumulates content from text_delta events
+        })
 
         // Update conversation updated_at
         await supabaseAdmin
@@ -863,10 +741,10 @@ IMPORTANT RULES:
           .eq('id', convId)
       } catch (err) {
         try {
-          await writer.write(encoder.encode(`data: ${JSON.stringify({
+          await sendEvent(writer, {
             type: 'error',
             error: (err as Error).message,
-          })}\n\n`))
+          })
         } catch {
           // Writer might be closed
         }

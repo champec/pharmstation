@@ -5,6 +5,7 @@ import { useAuthStore, useRegisterStore } from '@pharmstation/core'
 import type { CDDrug, SubscribedRegister } from '@pharmstation/types'
 import { Modal } from '../../components/Modal'
 import { BalanceCheckModal } from '../../components/balance-check/BalanceCheckModal'
+import { BarcodeScanModal } from '../../components/scan/BarcodeScanModal'
 
 export function CDRegisterPage() {
   const navigate = useNavigate()
@@ -22,6 +23,7 @@ export function CDRegisterPage() {
 
   // Balance Check modal state
   const [balanceCheckOpen, setBalanceCheckOpen] = useState(false)
+  const [barcodeScanOpen, setBarcodeScanOpen] = useState(false)
 
   // ============================================
   // Fetch subscribed registers for this org
@@ -155,6 +157,13 @@ export function CDRegisterPage() {
               📸 AI Scan
             </button>
             <button
+              className="ps-btn ps-btn-ghost"
+              onClick={() => setBarcodeScanOpen(true)}
+              title="Identify a medicine pack from its barcode"
+            >
+              ▦ Barcode Scan
+            </button>
+            <button
               className="ps-btn ps-btn-primary"
               onClick={() => { setAddModalInitialSearch(''); setAddModalOpen(true) }}
             >
@@ -163,6 +172,11 @@ export function CDRegisterPage() {
           </div>
         </div>
       </div>
+
+      <BarcodeScanModal
+        isOpen={barcodeScanOpen}
+        onClose={() => setBarcodeScanOpen(false)}
+      />
 
       {/* Global search */}
       <div style={{ marginBottom: 'var(--ps-space-md)', maxWidth: '400px' }}>

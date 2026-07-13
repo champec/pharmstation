@@ -4,12 +4,13 @@
 // Click any item to open review modal
 // ============================================
 
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuthStore, useScanStore } from '@pharmstation/core'
 import type { ScanQueueItem } from '@pharmstation/types'
 import { ScanUploadModal } from '../../components/scan/ScanUploadModal'
 import { ScanReviewModal } from '../../components/scan/ScanReviewModal'
+import { BarcodeScanModal } from '../../components/scan/BarcodeScanModal'
 
 const CONFIDENCE_CONFIG: Record<number, { label: string; dot: string; border: string }> = {
   0: { label: 'Rejected', dot: '#6b7280', border: '#d1d5db' },
@@ -21,9 +22,13 @@ const CONFIDENCE_CONFIG: Record<number, { label: string; dot: string; border: st
 export function ScanQueuePage() {
   const navigate = useNavigate()
   const { organisation } = useAuthStore()
-  const { queue, queueLoading, uploadsInProgress, loadQueue, deleteScan } = useScanStore()
+  const {
+    queue, queueLoading, uploadsInProgress, latestUploadError,
+    loadQueue, deleteScan, clearUploadError,
+  } = useScanStore()
 
   const [uploadModalOpen, setUploadModalOpen] = useState(false)
+  const [barcodeModalOpen, setBarcodeModalOpen] = useState(false)
   const [reviewScanId, setReviewScanId] = useState<string | null>(null)
 
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
@@ -95,9 +100,14 @@ export function ScanQueuePage() {
               </p>
             )}
           </div>
-          <button className="ps-btn ps-btn-primary" onClick={() => setUploadModalOpen(true)}>
-            📷 Scan Document
-          </button>
+          <div className="sq-header-actions">
+            <button className="ps-btn ps-btn-ghost" onClick={() => setBarcodeModalOpen(true)}>
+              ▦ Barcode Scan
+            </button>
+            <button className="ps-btn ps-btn-primary" onClick={() => setUploadModalOpen(true)}>
+              📷 Scan Document
+            </button>
+          </div>
         </div>
       </div>
 
@@ -108,6 +118,15 @@ export function ScanQueuePage() {
           Uploading {uploadsInProgress === 1 ? 'scan' : `${uploadsInProgress} scans`}...
         </div>
       )}
+      {latestUploadError && (
+        <div className="sq-background-error" role="alert">
+          <div>
+            <strong>Scan processing needs attention</strong>
+            <span>{latestUploadError}</span>
+          </div>
+          <button className="ps-btn ps-btn-ghost ps-btn-sm" onClick={clearUploadError}>Dismiss</button>
+        </div>
+      )}
       {queueLoading && activeQueue.length === 0 && uploadsInProgress === 0 ? (
         <p style={{ color: 'var(--ps-slate)', padding: 'var(--ps-space-lg)' }}>Loading...</p>
       ) : activeQueue.length === 0 ? (
@@ -115,9 +134,14 @@ export function ScanQueuePage() {
           <div className="cd-empty-icon">📸</div>
           <h3>Queue is empty</h3>
           <p>All scans have been processed. Take a photo of a prescription or invoice to start.</p>
-          <button className="ps-btn ps-btn-primary" onClick={() => setUploadModalOpen(true)}>
-            📷 Scan Document
-          </button>
+          <div className="sq-empty-actions">
+            <button className="ps-btn ps-btn-ghost" onClick={() => setBarcodeModalOpen(true)}>
+              ▦ Barcode Scan
+            </button>
+            <button className="ps-btn ps-btn-primary" onClick={() => setUploadModalOpen(true)}>
+              📷 Scan Document
+            </button>
+          </div>
         </div>
       ) : (
         <div className="sq-list">
@@ -136,6 +160,11 @@ export function ScanQueuePage() {
       <ScanUploadModal
         isOpen={uploadModalOpen}
         onClose={() => setUploadModalOpen(false)}
+      />
+
+      <BarcodeScanModal
+        isOpen={barcodeModalOpen}
+        onClose={() => setBarcodeModalOpen(false)}
       />
 
       {reviewScanId && (
@@ -194,11 +223,7 @@ function ScanQueueRow({
     >
       {/* Thumbnail */}
       <div className="sq-thumb">
-        {scan.image_url ? (
-          <img src={scan.image_url} alt="" loading="lazy" />
-        ) : (
-          <span className="sq-thumb-icon">{isProcessing ? '⏳' : '📄'}</span>
-        )}
+        <ScanQueueThumbnail scan={scan} isProcessing={isProcessing} />
       </div>
 
       {/* Content */}
@@ -249,5 +274,53 @@ function ScanQueueRow({
         </button>
       </div>
     </div>
+  )
+}
+
+function ScanQueueThumbnail({
+  scan,
+  isProcessing,
+}: {
+  scan: ScanQueueItem
+  isProcessing: boolean
+}) {
+  const { refreshImageUrl } = useScanStore()
+  const [imageUrl, setImageUrl] = useState<string | null>(scan.image_url)
+  const [imageFailed, setImageFailed] = useState(false)
+
+  useEffect(() => {
+    let cancelled = false
+    setImageFailed(false)
+
+    if (isProcessing || !scan.image_path) {
+      setImageUrl(null)
+      return
+    }
+
+    if (scan.image_url) {
+      setImageUrl(scan.image_url)
+      return
+    }
+
+    refreshImageUrl(scan.id).then((url) => {
+      if (!cancelled) setImageUrl(url)
+    })
+
+    return () => {
+      cancelled = true
+    }
+  }, [isProcessing, scan.id, scan.image_path, scan.image_url, refreshImageUrl])
+
+  if (!imageUrl || imageFailed) {
+    return <span className="sq-thumb-icon">{isProcessing ? '⏳' : '📄'}</span>
+  }
+
+  return (
+    <img
+      src={imageUrl}
+      alt=""
+      loading="lazy"
+      onError={() => setImageFailed(true)}
+    />
   )
 }

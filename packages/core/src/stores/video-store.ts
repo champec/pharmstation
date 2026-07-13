@@ -2,6 +2,8 @@ import { create } from 'zustand'
 import type { VideoConsultation } from '@pharmstation/types'
 import { getUserClient } from '@pharmstation/supabase-client'
 
+const VIDEO_ROOM_LIFETIME_MS = 2 * 60 * 60 * 1000
+
 export interface VideoState {
   consultations: VideoConsultation[]
   activeConsultation: VideoConsultation | null
@@ -33,22 +35,28 @@ export const useVideoStore = create<VideoState>((set, get) => ({
   fetchConsultations: async (orgId, filter = 'upcoming') => {
     set({ loading: true, error: null })
     try {
+      const now = new Date()
+      const roomExpiryCutoff = new Date(now.getTime() - VIDEO_ROOM_LIFETIME_MS)
       let query = getUserClient()
         .from('ps_video_consultations')
         .select('*')
         .eq('org_id', orgId)
 
       if (filter === 'upcoming') {
-        query = query.in('status', ['scheduled']).order('scheduled_for', { ascending: true })
+        query = query
+          .eq('status', 'scheduled')
+          .gte('scheduled_for', roomExpiryCutoff.toISOString())
+          .order('scheduled_for', { ascending: true })
       } else if (filter === 'active') {
         query = query.eq('status', 'active').order('scheduled_for', { ascending: true })
       } else {
-        // past: completed + cancelled, last 30 days
-        const thirtyDaysAgo = new Date()
+        // Past includes completed/cancelled consultations and scheduled rooms
+        // that have passed Daily's two-hour room lifetime, for the last 30 days.
+        const thirtyDaysAgo = new Date(now)
         thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
         query = query
-          .in('status', ['completed', 'cancelled'])
-          .gte('created_at', thirtyDaysAgo.toISOString())
+          .or(`status.in.(completed,cancelled),and(status.eq.scheduled,scheduled_for.lt.${roomExpiryCutoff.toISOString()})`)
+          .gte('scheduled_for', thirtyDaysAgo.toISOString())
           .order('scheduled_for', { ascending: false })
       }
 

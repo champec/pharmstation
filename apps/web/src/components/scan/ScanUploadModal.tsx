@@ -14,6 +14,52 @@ interface ScanUploadModalProps {
 
 const ACCEPTED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif']
 const MAX_FILE_SIZE = 10 * 1024 * 1024 // 10MB
+const MAX_IMAGE_DIMENSION = 2048
+
+async function optimizeDocumentImage(file: File): Promise<{ blob: Blob; base64: string }> {
+  let bitmap: ImageBitmap
+  try {
+    bitmap = await createImageBitmap(file, { imageOrientation: 'from-image' })
+  } catch {
+    throw new Error(
+      file.type === 'image/heic' || file.type === 'image/heif'
+        ? 'This browser cannot decode this HEIC image. Export it as JPEG, PNG, or WebP and try again.'
+        : 'This image could not be decoded. Try a different image or take a new photo.',
+    )
+  }
+
+  const scale = Math.min(1, MAX_IMAGE_DIMENSION / Math.max(bitmap.width, bitmap.height))
+  const width = Math.max(1, Math.round(bitmap.width * scale))
+  const height = Math.max(1, Math.round(bitmap.height * scale))
+  const canvas = document.createElement('canvas')
+  canvas.width = width
+  canvas.height = height
+  const context = canvas.getContext('2d')
+  if (!context) {
+    bitmap.close()
+    throw new Error('Image processing is not available in this browser.')
+  }
+
+  context.fillStyle = '#ffffff'
+  context.fillRect(0, 0, width, height)
+  context.drawImage(bitmap, 0, 0, width, height)
+  bitmap.close()
+
+  const blob = await new Promise<Blob>((resolve, reject) => {
+    canvas.toBlob(
+      (output) => output ? resolve(output) : reject(new Error('Could not prepare this image.')),
+      'image/jpeg',
+      0.9,
+    )
+  })
+  const dataUrl = await new Promise<string>((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(reader.result as string)
+    reader.onerror = () => reject(new Error('Could not read the prepared image.'))
+    reader.readAsDataURL(blob)
+  })
+  return { blob, base64: dataUrl.split(',')[1] }
+}
 
 export function ScanUploadModal({ isOpen, onClose }: ScanUploadModalProps) {
   const { organisation, userSession } = useAuthStore()
@@ -24,6 +70,7 @@ export function ScanUploadModal({ isOpen, onClose }: ScanUploadModalProps) {
   const [selectedFile, setSelectedFile] = useState<{ base64: string; mimeType: string; name: string } | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [isDragOver, setIsDragOver] = useState(false)
+  const [isPreparing, setIsPreparing] = useState(false)
 
   // Camera state
   const [cameraActive, setCameraActive] = useState(false)
@@ -33,6 +80,13 @@ export function ScanUploadModal({ isOpen, onClose }: ScanUploadModalProps) {
   const streamRef = useRef<MediaStream | null>(null)
 
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  const replacePreviewUrl = useCallback((nextUrl: string | null) => {
+    setPreviewUrl((current) => {
+      if (current?.startsWith('blob:')) URL.revokeObjectURL(current)
+      return nextUrl
+    })
+  }, [])
 
   const stopCamera = useCallback(() => {
     if (streamRef.current) {
@@ -45,11 +99,17 @@ export function ScanUploadModal({ isOpen, onClose }: ScanUploadModalProps) {
 
   useEffect(() => {
     if (!isOpen) stopCamera()
-    return () => stopCamera()
+    return () => {
+      stopCamera()
+      setPreviewUrl((current) => {
+        if (current?.startsWith('blob:')) URL.revokeObjectURL(current)
+        return null
+      })
+    }
   }, [isOpen, stopCamera])
 
   const resetState = () => {
-    setPreviewUrl(null)
+    replacePreviewUrl(null)
     setSelectedFile(null)
     setError(null)
     setIsDragOver(false)
@@ -61,7 +121,7 @@ export function ScanUploadModal({ isOpen, onClose }: ScanUploadModalProps) {
     onClose()
   }
 
-  const processFile = useCallback((file: File) => {
+  const processFile = useCallback(async (file: File) => {
     setError(null)
 
     if (!ACCEPTED_TYPES.includes(file.type)) {
@@ -73,17 +133,23 @@ export function ScanUploadModal({ isOpen, onClose }: ScanUploadModalProps) {
       return
     }
 
-    const url = URL.createObjectURL(file)
-    setPreviewUrl(url)
-
-    const reader = new FileReader()
-    reader.onload = () => {
-      const result = reader.result as string
-      const base64 = result.split(',')[1]
-      setSelectedFile({ base64, mimeType: file.type, name: file.name })
+    setIsPreparing(true)
+    try {
+      const optimized = await optimizeDocumentImage(file)
+      replacePreviewUrl(URL.createObjectURL(optimized.blob))
+      setSelectedFile({
+        base64: optimized.base64,
+        mimeType: 'image/jpeg',
+        name: file.name.replace(/\.[^.]+$/, '') + '.jpg',
+      })
+    } catch (err) {
+      setError((err as Error).message)
+      replacePreviewUrl(null)
+      setSelectedFile(null)
+    } finally {
+      setIsPreparing(false)
     }
-    reader.readAsDataURL(file)
-  }, [])
+  }, [replacePreviewUrl])
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -157,7 +223,7 @@ export function ScanUploadModal({ isOpen, onClose }: ScanUploadModalProps) {
     const dataUrl = canvas.toDataURL('image/jpeg', 0.92)
     const base64 = dataUrl.split(',')[1]
 
-    setPreviewUrl(dataUrl)
+    replacePreviewUrl(dataUrl)
     setSelectedFile({ base64, mimeType: 'image/jpeg', name: `scan-${Date.now()}.jpg` })
     stopCamera()
   }
@@ -188,17 +254,27 @@ export function ScanUploadModal({ isOpen, onClose }: ScanUploadModalProps) {
       <div className="scan-upload-modal">
         {error && <div className="auth-error">{error}</div>}
         {cameraError && <div className="auth-error">{cameraError}</div>}
+        <div className="scan-capture-guidance">
+          <strong>Capture the complete document</strong>
+          <span>Use bright, even light. Keep all corners visible, hold the camera directly above, and check that printed and handwritten text is sharp.</span>
+        </div>
 
         {/* Camera active — show live video feed */}
         {cameraActive ? (
           <div className="scan-camera-area">
             <video ref={videoRef} autoPlay playsInline muted className="scan-camera-video" />
+            <div className="scan-camera-frame" aria-hidden="true"><span>Align document inside frame</span></div>
             <div className="scan-camera-controls">
               <button className="ps-btn ps-btn-ghost" onClick={stopCamera}>✕ Cancel</button>
               <button className="scan-camera-shutter" onClick={capturePhoto} title="Take photo">📸</button>
               <div style={{ width: 80 }} />
             </div>
             <canvas ref={canvasRef} style={{ display: 'none' }} />
+          </div>
+        ) : isPreparing ? (
+          <div className="scan-preparing-image">
+            <span className="sq-uploading-spinner" />
+            Preparing image for accurate document reading…
           </div>
         ) : !selectedFile ? (
           /* Drop zone */
@@ -211,7 +287,7 @@ export function ScanUploadModal({ isOpen, onClose }: ScanUploadModalProps) {
           >
             <div className="scan-drop-icon">📄</div>
             <p className="scan-drop-text">Drag & drop an image here, or click to browse</p>
-            <p className="scan-drop-hint">JPEG, PNG, WebP — max 10MB</p>
+            <p className="scan-drop-hint">JPEG, PNG, WebP or HEIC — max 10MB · optimised before upload</p>
             <div className="scan-drop-actions">
               <button
                 className="ps-btn ps-btn-primary"
@@ -235,7 +311,7 @@ export function ScanUploadModal({ isOpen, onClose }: ScanUploadModalProps) {
             </div>
             <div className="scan-capture-actions">
               <button className="ps-btn ps-btn-ghost" onClick={resetState}>↩ Retake</button>
-              <button className="ps-btn ps-btn-primary" onClick={handleSubmit}>✨ Send to AI</button>
+              <button className="ps-btn ps-btn-primary" onClick={handleSubmit}>✨ Add to scan queue</button>
             </div>
           </div>
         )}

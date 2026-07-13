@@ -58,17 +58,26 @@ export function ScanReviewModal({ isOpen, scanId, onClose }: ScanReviewModalProp
 
   // Load image URL
   useEffect(() => {
-    if (activeScan?.image_url) {
-      setImageUrl(activeScan.image_url)
+    if (!activeScan?.id || !activeScan.image_path) {
+      setImageUrl(null)
       setImageLoading(false)
-    } else if (activeScan?.id) {
-      setImageLoading(true)
-      refreshImageUrl(activeScan.id).then((url) => {
+      return
+    }
+
+    let cancelled = false
+    setImageUrl(null)
+    setImageLoading(true)
+    refreshImageUrl(activeScan.id).then((url) => {
+      if (!cancelled) {
         setImageUrl(url)
         setImageLoading(false)
-      })
+      }
+    })
+
+    return () => {
+      cancelled = true
     }
-  }, [activeScan?.id, activeScan?.image_url, refreshImageUrl])
+  }, [activeScan?.id, activeScan?.image_path, refreshImageUrl])
 
   // Sync doc fields when scan loads
   useEffect(() => {
@@ -184,6 +193,10 @@ export function ScanReviewModal({ isOpen, scanId, onClose }: ScanReviewModalProp
           <div className="scan-review-body">
             {/* Left panel — image */}
             <div className="scan-review-image-panel">
+              <div className="scan-review-safety-banner">
+                <strong>Verify against the original image</strong>
+                <span>AI-extracted values are suggestions. Approval creates an irreversible CD register entry.</span>
+              </div>
               {imageLoading ? (
                 <div className="scan-review-image-placeholder">Loading image...</div>
               ) : imageUrl ? (
@@ -191,6 +204,7 @@ export function ScanReviewModal({ isOpen, scanId, onClose }: ScanReviewModalProp
                   src={imageUrl}
                   alt="Scanned document"
                   className="scan-review-image"
+                  onError={() => setImageUrl(null)}
                 />
               ) : (
                 <div className="scan-review-image-placeholder">
@@ -404,6 +418,8 @@ function ScanItemCard({ item, scan, userId, onApprove, onReject, onEdit }: ScanI
 
   // Matched drug display details (fetched on demand)
   const [matchedDrugDetails, setMatchedDrugDetails] = useState<CDDrug | null>(null)
+  const [catalogueCandidate, setCatalogueCandidate] = useState<CDDrug | null>(null)
+  const [confirmingCandidate, setConfirmingCandidate] = useState(false)
 
   const confidenceInfo = item.confidence !== null
     ? CONFIDENCE_LABELS[item.confidence] ?? CONFIDENCE_LABELS[0]
@@ -433,12 +449,45 @@ function ScanItemCard({ item, scan, userId, onApprove, onReject, onEdit }: ScanI
     return () => { cancelled = true }
   }, [effectiveDrugId, isDone])
 
+  // A strict auto-match may intentionally fail when the AI formulation differs
+  // from the catalogue. Look for an exact brand + strength candidate so the UI
+  // can explain the distinction and require an explicit human confirmation.
+  useEffect(() => {
+    if (effectiveDrugId || isDone || !item.drug_name_raw || !item.drug_strength_raw) {
+      setCatalogueCandidate(null)
+      return
+    }
+
+    let cancelled = false
+    ;(async () => {
+      try {
+        const { data } = await getUserClient()
+          .from('cdr_drugs_unique')
+          .select('*')
+          .ilike('drug_brand', item.drug_name_raw!)
+          .ilike('drug_strength', item.drug_strength_raw!)
+          .limit(10)
+
+        if (cancelled) return
+        const candidates = (data ?? []) as CDDrug[]
+        const exactForm = candidates.find((drug) =>
+          drug.drug_form.toLowerCase() === (item.drug_form_raw ?? '').toLowerCase(),
+        )
+        setCatalogueCandidate(exactForm ?? (candidates.length === 1 ? candidates[0] : null))
+      } catch {
+        if (!cancelled) setCatalogueCandidate(null)
+      }
+    })()
+
+    return () => { cancelled = true }
+  }, [effectiveDrugId, isDone, item.drug_form_raw, item.drug_name_raw, item.drug_strength_raw])
+
   // Detect if this was a generic prescription that got auto-matched to a brand
   const isAutoSelectedBrand = !!(effectiveDrugId && item.drug_name_raw && item.drug_class_raw
     && item.drug_name_raw.toLowerCase().trim() === item.drug_class_raw.toLowerCase().trim())
 
   // Detect form mismatch between AI reading and matched drug
-  const hasFormMismatch = !isDone && item.matched_drug_form && item.drug_form_raw
+  const hasFormMismatch = !isDone && item.status !== 'edited' && item.matched_drug_form && item.drug_form_raw
     && item.matched_drug_form.toLowerCase() !== item.drug_form_raw.toLowerCase()
 
   // Check if register exists for the matched drug
@@ -583,6 +632,16 @@ function ScanItemCard({ item, scan, userId, onApprove, onReject, onEdit }: ScanI
     setEditModalOpen(false)
   }
 
+  const handleConfirmCandidate = async () => {
+    if (!catalogueCandidate) return
+    setConfirmingCandidate(true)
+    try {
+      await onEdit(item.id, catalogueCandidate.id, effectiveQuantity)
+    } finally {
+      setConfirmingCandidate(false)
+    }
+  }
+
   return (
     <div className={`scan-item-card ${isDone ? 'done' : ''} ${item.status === 'rejected' ? 'rejected' : ''}`}>
       {/* Status indicator */}
@@ -598,7 +657,7 @@ function ScanItemCard({ item, scan, userId, onApprove, onReject, onEdit }: ScanI
 
       {/* AI extraction */}
       <div className="scan-item-ai-data">
-        <h4>AI Read:</h4>
+        <h4>AI extraction — unverified</h4>
         <div className="scan-item-raw">
           <span><strong>Brand:</strong> {item.drug_name_raw ?? '—'}</span>
           <span><strong>Class:</strong> {item.drug_class_raw ?? '—'}</span>
@@ -614,7 +673,7 @@ function ScanItemCard({ item, scan, userId, onApprove, onReject, onEdit }: ScanI
       {/* Matched drug display */}
       {!isDone && effectiveDrugId && matchedDrugDetails && (
         <div className="scan-item-match">
-          <h4>Matched To:</h4>
+          <h4>Database match — verify before approval</h4>
           <div className="scan-item-matched-drug">
             <span className="scan-drug-name">{matchedDrugDetails.drug_brand}</span>
             <span className="scan-drug-detail">
@@ -668,7 +727,44 @@ function ScanItemCard({ item, scan, userId, onApprove, onReject, onEdit }: ScanI
         </div>
       )}
 
-      {!isDone && !effectiveDrugId && (
+      {!isDone && !effectiveDrugId && catalogueCandidate && (
+        <div className="scan-catalogue-candidate">
+          <div className="scan-catalogue-candidate-header">
+            <div>
+              <strong>CD catalogue candidate found</strong>
+              <p>
+                This drug exists in the PharmStation drug database, but it was not auto-linked because
+                the AI formulation does not exactly match the catalogue formulation.
+              </p>
+            </div>
+            <span className="ps-badge ps-badge-amber">Confirmation required</span>
+          </div>
+          <div className="scan-catalogue-comparison">
+            <div>
+              <span>AI extracted</span>
+              <strong>{item.drug_name_raw} · {item.drug_form_raw} · {item.drug_strength_raw}</strong>
+            </div>
+            <div>
+              <span>Drug catalogue</span>
+              <strong>{catalogueCandidate.drug_brand} · {catalogueCandidate.drug_form} · {catalogueCandidate.drug_strength}</strong>
+            </div>
+          </div>
+          <p className="scan-catalogue-safety-note">
+            Verify the original document. Confirming selects the catalogue drug; it does not create a register entry.
+            The organisation-register check happens next.
+          </p>
+          <div className="scan-catalogue-actions">
+            <button className="ps-btn ps-btn-primary ps-btn-sm" onClick={handleConfirmCandidate} disabled={confirmingCandidate}>
+              {confirmingCandidate ? 'Confirming…' : 'Confirm catalogue match'}
+            </button>
+            <button className="ps-btn ps-btn-ghost ps-btn-sm" onClick={() => setEditModalOpen(true)}>
+              Choose a different drug
+            </button>
+          </div>
+        </div>
+      )}
+
+      {!isDone && !effectiveDrugId && !catalogueCandidate && (
         <div className="scan-item-no-match">
           {item.drug_name_raw && item.drug_class_raw &&
            item.drug_name_raw.toLowerCase().trim() === item.drug_class_raw.toLowerCase().trim() ? (
@@ -680,10 +776,11 @@ function ScanItemCard({ item, scan, userId, onApprove, onReject, onEdit }: ScanI
             </>
           ) : (
             <>
-              <p>⚠️ No exact match found — click <strong>Edit</strong> to select the correct drug</p>
+              <p>⚠️ No safe automatic catalogue match was found</p>
               {item.drug_class_raw && (
                 <p className="scan-no-match-hint">
-                  AI read: {item.drug_class_raw} {item.drug_form_raw} {item.drug_strength_raw}
+                  This does not mean your organisation lacks a register. First select the correct drug from
+                  the PharmStation catalogue using <strong>Edit</strong>; the organisation register is checked afterwards.
                 </p>
               )}
             </>
@@ -706,10 +803,10 @@ function ScanItemCard({ item, scan, userId, onApprove, onReject, onEdit }: ScanI
           <div className="scan-no-register-header">
             <span className="scan-no-register-icon">⚠️</span>
             <div>
-              <strong>No register exists for this drug</strong>
+              <strong>Your organisation does not maintain a register for this drug</strong>
               <p>
-                {item.matched_drug_brand ?? item.drug_name_raw} needs a CD register
-                before an entry can be made.
+                The drug exists in the PharmStation catalogue, but this organisation has no subscribed CD register
+                for it. Create the organisation register before making an entry.
               </p>
             </div>
           </div>

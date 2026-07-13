@@ -33,6 +33,8 @@ export interface ChatState {
   isStreaming: boolean
   streamingContent: string
   streamingToolCalls: { id: string; name: string; arguments: string }[]
+  abortController: AbortController | null
+  lastError: string | null
 
   // UI
   isOpen: boolean
@@ -79,6 +81,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
   isStreaming: false,
   streamingContent: '',
   streamingToolCalls: [],
+  abortController: null,
+  lastError: null,
 
   isOpen: false,
   showSettings: false,
@@ -186,6 +190,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
       messages: [],
       streamingContent: '',
       streamingToolCalls: [],
+      lastError: null,
       showHistory: false,
     })
   },
@@ -275,11 +280,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
       streamingToolCalls: [],
     })
 
-    let abortController: AbortController | null = new AbortController()
-
-    // Store abort controller for stopStreaming
-    ;(get() as unknown as { _abortController: AbortController })._abortController =
-      abortController
+    const abortController = new AbortController()
+    set({ abortController })
 
     try {
       const body: Record<string, unknown> = {
@@ -307,7 +309,12 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
       if (!response.ok) {
         const errText = await response.text()
-        throw new Error(errText || `HTTP ${response.status}`)
+        let errorMessage = 'Genie could not start this request. Please try again.'
+        try {
+          const parsed = JSON.parse(errText)
+          if (typeof parsed.error === 'string') errorMessage = parsed.error
+        } catch { /* use friendly fallback */ }
+        throw new Error(errorMessage)
       }
 
       const reader = response.body?.getReader()
@@ -316,124 +323,111 @@ export const useChatStore = create<ChatState>((set, get) => ({
       const decoder = new TextDecoder()
       let accumulatedContent = ''
       let newConversationId = activeConversationId
+      let sseBuffer = ''
+      let streamCompleted = false
+      let savedMessageId: string | null = null
+
+      const handleEvent = (event: ChatStreamEvent) => {
+        switch (event.type) {
+          case 'conversation_created':
+            newConversationId = event.conversation_id ?? null
+            set({ activeConversationId: newConversationId })
+            break
+
+          case 'text_delta':
+            accumulatedContent += event.content ?? ''
+            set({ streamingContent: accumulatedContent })
+            break
+
+          case 'tool_call_start':
+            set({
+              streamingToolCalls: [
+                ...get().streamingToolCalls,
+                { id: event.tool_call_id ?? '', name: event.tool_name ?? '', arguments: '' },
+              ],
+            })
+            break
+
+          case 'tool_call_delta':
+            set({
+              streamingToolCalls: get().streamingToolCalls.map((tc) =>
+                tc.id === event.tool_call_id
+                  ? { ...tc, arguments: tc.arguments + (event.tool_arguments ?? '') }
+                  : tc,
+              ),
+            })
+            break
+
+          case 'message_saved':
+            savedMessageId = event.message_id ?? savedMessageId
+            break
+
+          case 'done': {
+            streamCompleted = true
+            const assistantMsg: ChatMessage = {
+              id: event.message_id ?? savedMessageId ?? crypto.randomUUID(),
+              conversation_id: newConversationId ?? '',
+              role: 'assistant',
+              content: accumulatedContent || null,
+              tool_calls: get().streamingToolCalls.length > 0 ? get().streamingToolCalls : null,
+              tool_call_id: null,
+              tool_name: null,
+              attachments: [],
+              input_tokens: event.input_tokens ?? null,
+              output_tokens: event.output_tokens ?? null,
+              model_provider: 'openrouter',
+              model_id_str: null,
+              status: 'completed',
+              error_message: null,
+              created_at: new Date().toISOString(),
+            }
+            set({
+              messages: [...get().messages, assistantMsg],
+              isStreaming: false,
+              streamingContent: '',
+              streamingToolCalls: [],
+              abortController: null,
+              lastError: null,
+            })
+            break
+          }
+
+          case 'error':
+            throw new Error(event.error ?? 'Genie could not complete this request.')
+        }
+      }
+
+      const processSseLines = (flush = false) => {
+        const lines = sseBuffer.split('\n')
+        sseBuffer = flush ? '' : (lines.pop() ?? '')
+        for (const rawLine of lines) {
+          const line = rawLine.replace(/\r$/, '')
+          if (!line.startsWith('data: ')) continue
+          const jsonStr = line.slice(6).trim()
+          if (!jsonStr || jsonStr === '[DONE]') continue
+          try {
+            handleEvent(JSON.parse(jsonStr) as ChatStreamEvent)
+          } catch (err) {
+            if (err instanceof SyntaxError) continue
+            throw err
+          }
+        }
+      }
 
       while (true) {
         const { done, value } = await reader.read()
         if (done) break
 
-        const chunk = decoder.decode(value, { stream: true })
-        const lines = chunk.split('\n')
-
-        for (const line of lines) {
-          if (!line.startsWith('data: ')) continue
-          const jsonStr = line.slice(6).trim()
-          if (!jsonStr || jsonStr === '[DONE]') continue
-
-          try {
-            const event: ChatStreamEvent = JSON.parse(jsonStr)
-
-            switch (event.type) {
-              case 'conversation_created':
-                newConversationId = event.conversation_id ?? null
-                set({ activeConversationId: newConversationId })
-                break
-
-              case 'text_delta':
-                accumulatedContent += event.content ?? ''
-                set({ streamingContent: accumulatedContent })
-                break
-
-              case 'tool_call_start':
-                set({
-                  streamingToolCalls: [
-                    ...get().streamingToolCalls,
-                    {
-                      id: event.tool_call_id ?? '',
-                      name: event.tool_name ?? '',
-                      arguments: '',
-                    },
-                  ],
-                })
-                break
-
-              case 'tool_call_delta':
-                set({
-                  streamingToolCalls: get().streamingToolCalls.map((tc) =>
-                    tc.id === event.tool_call_id
-                      ? { ...tc, arguments: tc.arguments + (event.tool_arguments ?? '') }
-                      : tc,
-                  ),
-                })
-                break
-
-              case 'tool_result':
-                // Tool result received — could display in UI
-                break
-
-              case 'done': {
-                // Build the final assistant message
-                const assistantMsg: ChatMessage = {
-                  id: event.message_id ?? crypto.randomUUID(),
-                  conversation_id: newConversationId ?? '',
-                  role: 'assistant',
-                  content: accumulatedContent || null,
-                  tool_calls:
-                    get().streamingToolCalls.length > 0
-                      ? get().streamingToolCalls
-                      : null,
-                  tool_call_id: null,
-                  tool_name: null,
-                  attachments: [],
-                  input_tokens: event.input_tokens ?? null,
-                  output_tokens: event.output_tokens ?? null,
-                  model_provider: null,
-                  model_id_str: null,
-                  status: 'completed',
-                  error_message: null,
-                  created_at: new Date().toISOString(),
-                }
-
-                set({
-                  messages: [...get().messages, assistantMsg],
-                  isStreaming: false,
-                  streamingContent: '',
-                  streamingToolCalls: [],
-                })
-                break
-              }
-
-              case 'error':
-                set({
-                  isStreaming: false,
-                  streamingContent: '',
-                  messages: [
-                    ...get().messages,
-                    {
-                      id: crypto.randomUUID(),
-                      conversation_id: newConversationId ?? '',
-                      role: 'assistant',
-                      content: `Error: ${event.error ?? 'Unknown error'}`,
-                      tool_calls: null,
-                      tool_call_id: null,
-                      tool_name: null,
-                      attachments: [],
-                      input_tokens: null,
-                      output_tokens: null,
-                      model_provider: null,
-                      model_id_str: null,
-                      status: 'error',
-                      error_message: event.error ?? null,
-                      created_at: new Date().toISOString(),
-                    },
-                  ],
-                })
-                break
-            }
-          } catch {
-            // Skip malformed SSE lines
-          }
-        }
+        sseBuffer += decoder.decode(value, { stream: true })
+        processSseLines()
       }
+      sseBuffer += decoder.decode()
+      if (sseBuffer.trim()) {
+        sseBuffer += '\n'
+        processSseLines(true)
+      }
+
+      if (!streamCompleted) throw new Error('The connection ended before Genie finished. Please try again.')
 
       // Reload conversations to get the new/updated one
       if (organisationId) {
@@ -441,19 +435,23 @@ export const useChatStore = create<ChatState>((set, get) => ({
       }
     } catch (err) {
       if ((err as Error).name === 'AbortError') {
-        set({ isStreaming: false })
+        set({ isStreaming: false, abortController: null, streamingContent: '', streamingToolCalls: [] })
         return
       }
+      const friendlyError = (err as Error).message || 'Genie could not complete this request.'
       set({
         isStreaming: false,
         streamingContent: '',
+        streamingToolCalls: [],
+        abortController: null,
+        lastError: friendlyError,
         messages: [
           ...get().messages,
           {
             id: crypto.randomUUID(),
             conversation_id: activeConversationId ?? '',
             role: 'assistant',
-            content: `Error: ${(err as Error).message}`,
+            content: 'Genie could not complete that request.',
             tool_calls: null,
             tool_call_id: null,
             tool_name: null,
@@ -463,13 +461,13 @@ export const useChatStore = create<ChatState>((set, get) => ({
             model_provider: null,
             model_id_str: null,
             status: 'error',
-            error_message: (err as Error).message,
+            error_message: friendlyError,
             created_at: new Date().toISOString(),
           },
         ],
       })
     } finally {
-      abortController = null
+      set({ abortController: null })
     }
   },
 
@@ -477,8 +475,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
   // Stop streaming
   // ============================================
   stopStreaming: () => {
-    const ctrl = (get() as unknown as { _abortController?: AbortController })
-      ._abortController
+    const ctrl = get().abortController
     if (ctrl) ctrl.abort()
     set({ isStreaming: false })
   },
@@ -498,6 +495,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
       isStreaming: false,
       streamingContent: '',
       streamingToolCalls: [],
+      abortController: null,
+      lastError: null,
       isOpen: false,
       showSettings: false,
       showHistory: false,

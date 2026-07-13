@@ -18,6 +18,7 @@ export function GeniePanel() {
     isStreaming,
     streamingContent,
     streamingToolCalls,
+    lastError,
     showHistory,
     showSettings,
     modelsLoading,
@@ -65,11 +66,8 @@ export function GeniePanel() {
     }
   }, [isOpen, activeConversationId])
 
-  const handleSend = async () => {
-    const text = inputValue.trim()
+  const sendText = async (text: string) => {
     if (!text || isStreaming || !organisation?.id || !userSession?.access_token) return
-
-    setInputValue('')
     await sendMessage({
       organisationId: organisation.id,
       message: text,
@@ -77,6 +75,18 @@ export function GeniePanel() {
       supabaseUrl,
       accessToken: userSession.access_token,
     })
+  }
+
+  const handleSend = async () => {
+    const text = inputValue.trim()
+    if (!text) return
+    setInputValue('')
+    await sendText(text)
+  }
+
+  const handleRetry = () => {
+    const lastUserMessage = [...messages].reverse().find((message) => message.role === 'user')
+    if (lastUserMessage?.content) void sendText(lastUserMessage.content)
   }
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -103,7 +113,7 @@ export function GeniePanel() {
           <span className="genie-header-icon">✨</span>
           <span className="genie-header-title">Genie</span>
           {activeModel && (
-            <span className="genie-model-badge">{activeModel.display_name}</span>
+            <span className="genie-model-badge">{activeModel.display_name} · OpenRouter</span>
           )}
         </div>
         <div className="genie-header-actions">
@@ -232,7 +242,7 @@ export function GeniePanel() {
           )}
 
           {messages.map((msg) => (
-            <MessageBubble key={msg.id} message={msg} />
+            <MessageBubble key={msg.id} message={msg} onRetry={handleRetry} />
           ))}
 
           {/* Streaming message */}
@@ -254,7 +264,7 @@ export function GeniePanel() {
                     {streamingToolCalls.map((tc) => (
                       <div key={tc.id} className="genie-tool-call">
                         <span className="genie-tool-icon">🔧</span>
-                        <span className="genie-tool-name">{formatToolName(tc.name)}</span>
+                        <span className="genie-tool-name">{formatActiveToolName(tc.name)}</span>
                         <span className="genie-tool-spinner" />
                       </div>
                     ))}
@@ -270,6 +280,12 @@ export function GeniePanel() {
 
       {/* Input area */}
       <div className="genie-input-area">
+        {lastError && !isStreaming && (
+          <div className="genie-error-notice" role="alert">
+            <span>{lastError}</span>
+            <button type="button" onClick={handleRetry}>Retry</button>
+          </div>
+        )}
         {isStreaming && (
           <button className="genie-stop-btn" onClick={stopStreaming}>
             ⏹ Stop
@@ -303,7 +319,7 @@ export function GeniePanel() {
 // Sub-components
 // ============================================
 
-function MessageBubble({ message }: { message: ChatMessage }) {
+function MessageBubble({ message, onRetry }: { message: ChatMessage; onRetry: () => void }) {
   const isUser = message.role === 'user'
   const isError = message.status === 'error'
 
@@ -322,6 +338,13 @@ function MessageBubble({ message }: { message: ChatMessage }) {
             ))}
           </div>
         )}
+        <div className="genie-message-meta">
+          <span>{new Date(message.created_at).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}</span>
+          {!isUser && !isError && message.content && (
+            <button type="button" onClick={() => navigator.clipboard?.writeText(message.content ?? '')}>Copy</button>
+          )}
+          {isError && <button type="button" onClick={onRetry}>Retry</button>}
+        </div>
       </div>
       {isUser && <div className="genie-message-avatar genie-avatar-user">👤</div>}
     </div>
@@ -337,24 +360,18 @@ function ModelOption({
   isSelected: boolean
   onSelect: () => void
 }) {
-  const providerIcons: Record<string, string> = {
-    openai: '🟢',
-    anthropic: '🟠',
-    google: '🔵',
-  }
-
   return (
     <button
       className={`genie-model-option ${isSelected ? 'selected' : ''}`}
       onClick={onSelect}
     >
       <span className="genie-model-provider-icon">
-        {providerIcons[model.provider] ?? '🤖'}
+        🔀
       </span>
       <div className="genie-model-info">
         <span className="genie-model-name">{model.display_name}</span>
         <span className="genie-model-desc">
-          {model.provider.charAt(0).toUpperCase() + model.provider.slice(1)} ·{' '}
+          OpenRouter ·{' '}
           ${model.input_cost_per_1k}/1k in · ${model.output_cost_per_1k}/1k out
         </span>
       </div>
@@ -371,4 +388,15 @@ function formatToolName(name: string): string {
   return name
     .replace(/_/g, ' ')
     .replace(/\b\w/g, (c) => c.toUpperCase())
+}
+
+function formatActiveToolName(name: string): string {
+  const labels: Record<string, string> = {
+    search_cd_register: 'Searching the CD register…',
+    search_rp_log: 'Searching the RP log…',
+    get_drug_info: 'Looking up drug information…',
+    list_organisation_members: 'Checking organisation members…',
+    get_register_balance: 'Checking the register balance…',
+  }
+  return labels[name] ?? `${formatToolName(name)}…`
 }

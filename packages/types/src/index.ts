@@ -470,7 +470,7 @@ export function resolvePermissions(role: UserRole, overrides: Permissions = {}):
 
 // --- AI Provider ---
 
-export type AIProvider = 'openai' | 'anthropic' | 'google'
+export type AIProvider = 'openrouter'
 
 export type AIModelType = 'standard' | 'cheap' | 'ultra_cheap' | 'image_gen' | 'realtime'
 
@@ -503,6 +503,7 @@ export interface AIOrgSettings {
   cheap_model_id: string | null
   ultra_cheap_model_id: string | null
   image_gen_model_id: string | null
+  scan_model_id: string | null
   monthly_token_limit: number | null
   tokens_used_this_month: number
   enable_ai_features: boolean

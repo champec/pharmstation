@@ -14,6 +14,12 @@ const STATUS_CONFIG: Record<VideoConsultationStatus, { label: string; cssClass: 
   cancelled: { label: 'Cancelled', cssClass: 'ps-badge ps-badge-red' },
 }
 
+const VIDEO_ROOM_LIFETIME_MS = 2 * 60 * 60 * 1000
+
+const isExpiredConsultation = (consultation: VideoConsultation) =>
+  consultation.status === 'scheduled' &&
+  new Date(consultation.scheduled_for).getTime() + VIDEO_ROOM_LIFETIME_MS < Date.now()
+
 type TabFilter = 'upcoming' | 'active' | 'past'
 type TextSendState = 'idle' | 'sending' | 'sent' | 'error'
 
@@ -296,7 +302,10 @@ export function VideoConsultsPage() {
             </thead>
             <tbody>
               {consultations.map((c) => {
-                const status = STATUS_CONFIG[c.status]
+                const isExpired = isExpiredConsultation(c)
+                const status = isExpired
+                  ? { label: 'Expired', cssClass: 'ps-badge ps-badge-red' }
+                  : STATUS_CONFIG[c.status]
                 return (
                   <tr key={c.id} style={{ borderTop: '1px solid var(--ps-off-white)' }}>
                     <td style={{ padding: 'var(--ps-space-sm) var(--ps-space-md)', fontWeight: 500 }}>
@@ -312,7 +321,7 @@ export function VideoConsultsPage() {
                       <span className={status.cssClass}>{status.label}</span>
                     </td>
                     <td style={{ padding: 'var(--ps-space-sm) var(--ps-space-md)' }}>
-                      {c.status !== 'completed' && c.status !== 'cancelled' ? (
+                      {c.status !== 'completed' && c.status !== 'cancelled' && !isExpired ? (
                         <span style={{ display: 'flex', alignItems: 'center', gap: 'var(--ps-space-xs)' }}>
                           <code style={{ fontFamily: 'var(--ps-font-mono)', fontSize: 'var(--ps-font-base)', letterSpacing: '0.15em' }}>
                             {c.patient_access_code}
@@ -328,7 +337,7 @@ export function VideoConsultsPage() {
                     </td>
                     <td style={{ padding: 'var(--ps-space-sm) var(--ps-space-md)', textAlign: 'right' }}>
                       <div style={{ display: 'flex', gap: 'var(--ps-space-xs)', justifyContent: 'flex-end' }}>
-                        {(c.status === 'scheduled' || c.status === 'active') && (
+                        {(c.status === 'scheduled' || c.status === 'active') && !isExpired && (
                           <>
                             <button
                               className="ps-btn ps-btn-primary"

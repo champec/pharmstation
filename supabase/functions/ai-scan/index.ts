@@ -132,6 +132,9 @@ A valid Schedule 2/3 CD prescription MUST contain:
 - If NO brand is stated (prescription is generic), set drug_name to the generic/class name (e.g. "Oxycodone"). The brand is NOT a legal requirement.
 - The drug_class field should ALWAYS be the generic name (e.g. "Oxycodone", "Morphine Sulfate") regardless of whether a brand is used.
 - The drug_form should be the formulation as stated (e.g. "tablets", "modified-release tablets", "oral solution"). Do NOT assume "modified-release" unless explicitly stated. Plain "tablets" means immediate-release.
+- **Brand-specific formulations are safety-critical.** When a proprietary brand only exists in a particular release formulation, preserve that formulation even if the document also uses a shortened dosage-form word such as "tablets". Do not convert a modified-release/prolonged-release brand into immediate-release tablets.
+- **OxyContin specifically is a modified-release tablet product in the PharmStation drug catalogue; there is no plain immediate-release "OxyContin tablets" catalogue product.** If the brand is clearly OxyContin, return drug_form as exactly "modified-release tablets". If the brand itself is uncertain or the image appears inconsistent, lower confidence and explain the concern in confidence_notes instead of returning plain "tablets" with high confidence.
+- Before assigning confidence 3, check that the extracted brand, formulation, and strength form a clinically plausible product combination. A clear quantity does not make an incompatible brand/formulation combination high confidence.
 - For partial supplies: look for handwritten notes like "supplied 28/56", a date, and initials. Use the ACTUALLY SUPPLIED quantity, not the full prescribed quantity.
 - For invoices: extract every Schedule 2 CD line item with its quantity (pack size × number of packs = total quantity).
 - Dates should be in YYYY-MM-DD format when possible.
@@ -317,171 +320,145 @@ async function reconcileDrug(
 }
 
 // ============================================
-// Gemini API — process image
+// OpenRouter multimodal processing
 // ============================================
 
-async function processWithGemini(
-  apiKey: string,
-  modelId: string,
-  systemPrompt: string,
-  imageBase64: string,
-  mimeType: string,
-): Promise<Record<string, unknown>> {
-  const body = {
-    contents: [
-      {
-        parts: [
-          { text: 'Analyze this pharmacy document and extract all Schedule 2 Controlled Drug information according to your instructions. Respond ONLY with the JSON object matching the required schema.' },
-          {
-            inline_data: {
-              mime_type: mimeType,
-              data: imageBase64,
-            },
-          },
-        ],
-      },
-    ],
-    system_instruction: {
-      parts: [{ text: systemPrompt }],
-    },
-    generationConfig: {
-      responseMimeType: 'application/json',
-      responseSchema: SCAN_RESPONSE_SCHEMA,
-      maxOutputTokens: 4096,
-      temperature: 0.1, // Low temperature for accuracy
-    },
+const SUPPORTED_IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp'])
+const MAX_IMAGE_BYTES = 10 * 1024 * 1024
+
+type ScanModel = { modelId: string; displayName: string }
+
+function validateImage(imageBase64: string, mimeType: string) {
+  if (!SUPPORTED_IMAGE_TYPES.has(mimeType)) {
+    throw new Error('Unsupported image type. Use JPEG, PNG, or WebP.')
   }
-
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelId}:generateContent?key=${apiKey}`
-  const response = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  })
-
-  if (!response.ok) {
-    const errBody = await response.text()
-    throw new Error(`Gemini API error (${response.status}): ${errBody.slice(0, 500)}`)
+  const estimatedBytes = Math.floor((imageBase64.length * 3) / 4)
+  if (estimatedBytes > MAX_IMAGE_BYTES) {
+    throw new Error('Image is too large. The maximum processed image size is 10 MB.')
   }
-
-  const result = await response.json()
-  const content = result.candidates?.[0]?.content?.parts?.[0]?.text
-  if (!content) throw new Error('No content in Gemini response')
-
-  return JSON.parse(content)
 }
 
-// ============================================
-// OpenAI API — process image
-// ============================================
+function parseScanResult(content: string): Record<string, unknown> {
+  const cleaned = content.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim()
+  let parsed: Record<string, unknown>
+  try {
+    parsed = JSON.parse(cleaned)
+  } catch {
+    throw new Error('The selected model returned an invalid structured response.')
+  }
 
-async function processWithOpenAI(
+  if (!['prescription', 'invoice', 'unknown'].includes(String(parsed.document_type))) {
+    parsed.document_type = 'unknown'
+  }
+  const confidence = Number(parsed.overall_confidence)
+  parsed.overall_confidence = Number.isInteger(confidence) && confidence >= 0 && confidence <= 3
+    ? String(confidence)
+    : '0'
+  if (!Array.isArray(parsed.drugs)) parsed.drugs = []
+  if (typeof parsed.notes !== 'string') parsed.notes = ''
+  return parsed
+}
+
+async function resolveScanModel(
+  supabaseAdmin: ReturnType<typeof createClient>,
+  organisationId: string,
+): Promise<ScanModel> {
+  const { data: settings } = await supabaseAdmin
+    .from('ps_ai_org_settings')
+    .select('scan_model_id')
+    .eq('organisation_id', organisationId)
+    .maybeSingle()
+
+  if (settings?.scan_model_id) {
+    const { data: selectedModel } = await supabaseAdmin
+      .from('ps_ai_models')
+      .select('model_id, display_name, capabilities')
+      .eq('id', settings.scan_model_id)
+      .eq('provider', 'openrouter')
+      .eq('is_active', true)
+      .maybeSingle()
+
+    if (selectedModel && Array.isArray(selectedModel.capabilities) && selectedModel.capabilities.includes('image_input')) {
+      return { modelId: selectedModel.model_id, displayName: selectedModel.display_name }
+    }
+  }
+
+  // Organisations created before AI settings were introduced may not have a
+  // ps_ai_org_settings row. Always fall back to the verified scan default.
+  const { data: defaultModel, error: defaultModelError } = await supabaseAdmin
+    .from('ps_ai_models')
+    .select('model_id, display_name, capabilities')
+    .eq('provider', 'openrouter')
+    .eq('model_id', 'google/gemini-3.5-flash')
+    .eq('is_active', true)
+    .maybeSingle()
+
+  if (
+    defaultModelError ||
+    !defaultModel ||
+    !Array.isArray(defaultModel.capabilities) ||
+    !defaultModel.capabilities.includes('image_input')
+  ) {
+    console.error('Default image model resolution failed', defaultModelError?.message ?? 'model unavailable')
+    throw new Error('No valid image-understanding model is configured for this organisation.')
+  }
+
+  return { modelId: defaultModel.model_id, displayName: defaultModel.display_name }
+}
+
+async function processWithOpenRouter(
   apiKey: string,
   modelId: string,
   systemPrompt: string,
   imageBase64: string,
   mimeType: string,
 ): Promise<Record<string, unknown>> {
-  const body = {
-    model: modelId,
-    messages: [
-      { role: 'system', content: systemPrompt },
-      {
-        role: 'user',
-        content: [
-          { type: 'text', text: 'Analyze this pharmacy document and extract all Schedule 2 Controlled Drug information. Respond with JSON matching the required schema.' },
-          {
-            type: 'image_url',
-            image_url: { url: `data:${mimeType};base64,${imageBase64}` },
-          },
-        ],
-      },
-    ],
-    response_format: { type: 'json_object' },
-    max_tokens: 4096,
-    temperature: 0.1,
-  }
+  validateImage(imageBase64, mimeType)
 
-  const response = await fetch('https://api.openai.com/v1/chat/completions', {
+  const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       Authorization: `Bearer ${apiKey}`,
+      'X-Title': 'PharmStation AI Scan',
     },
-    body: JSON.stringify(body),
+    body: JSON.stringify({
+      model: modelId,
+      messages: [
+        { role: 'system', content: systemPrompt },
+        {
+          role: 'user',
+          content: [
+            {
+              type: 'text',
+              text: 'Analyze this pharmacy document. Extract only Schedule 2 Controlled Drug information and return the required JSON object. Do not include markdown.',
+            },
+            { type: 'image_url', image_url: { url: `data:${mimeType};base64,${imageBase64}` } },
+          ],
+        },
+      ],
+      response_format: {
+        type: 'json_schema',
+        json_schema: { name: 'pharmacy_cd_scan', strict: false, schema: SCAN_RESPONSE_SCHEMA },
+      },
+      max_tokens: 4096,
+      temperature: 0.1,
+    }),
   })
 
   if (!response.ok) {
-    const errBody = await response.text()
-    throw new Error(`OpenAI API error (${response.status}): ${errBody.slice(0, 500)}`)
+    console.error('OpenRouter scan request failed', response.status, (await response.text()).slice(0, 500))
+    if (response.status === 429) throw new Error('The selected AI model is temporarily busy. Please try again shortly.')
+    if (response.status >= 500) throw new Error('The AI image service is temporarily unavailable. Please try again shortly.')
+    throw new Error('The selected AI model could not process this image.')
   }
 
   const result = await response.json()
   const content = result.choices?.[0]?.message?.content
-  if (!content) throw new Error('No content in OpenAI response')
-
-  return JSON.parse(content)
-}
-
-// ============================================
-// Anthropic API — process image
-// ============================================
-
-async function processWithAnthropic(
-  apiKey: string,
-  modelId: string,
-  systemPrompt: string,
-  imageBase64: string,
-  mimeType: string,
-): Promise<Record<string, unknown>> {
-  // Anthropic uses media_type not mime_type, and supports specific types
-  const anthropicMime = mimeType === 'image/heic' || mimeType === 'image/heif' ? 'image/jpeg' : mimeType
-
-  const body = {
-    model: modelId,
-    system: systemPrompt,
-    messages: [
-      {
-        role: 'user',
-        content: [
-          {
-            type: 'image',
-            source: {
-              type: 'base64',
-              media_type: anthropicMime,
-              data: imageBase64,
-            },
-          },
-          { type: 'text', text: 'Analyze this pharmacy document and extract all Schedule 2 Controlled Drug information. Respond ONLY with raw JSON matching the required schema, no markdown wrapping.' },
-        ],
-      },
-    ],
-    max_tokens: 4096,
-    temperature: 0.1,
+  if (typeof content !== 'string' || !content.trim()) {
+    throw new Error('The selected model did not return scan data.')
   }
-
-  const response = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': apiKey,
-      'anthropic-version': '2023-06-01',
-    },
-    body: JSON.stringify(body),
-  })
-
-  if (!response.ok) {
-    const errBody = await response.text()
-    throw new Error(`Anthropic API error (${response.status}): ${errBody.slice(0, 500)}`)
-  }
-
-  const result = await response.json()
-  const content = result.content?.[0]?.text
-  if (!content) throw new Error('No content in Anthropic response')
-
-  // Strip markdown code fences if present
-  const cleaned = content.replace(/^```json?\n?/i, '').replace(/\n?```$/i, '').trim()
-  return JSON.parse(cleaned)
+  return parseScanResult(content)
 }
 
 // ============================================
@@ -611,6 +588,35 @@ Deno.serve(async (req) => {
         })
       }
 
+      const { data: processMembership } = await supabaseAdmin
+        .from('ps_organisation_members')
+        .select('permissions')
+        .eq('organisation_id', organisation_id)
+        .eq('user_id', user.id)
+        .eq('status', 'active')
+        .maybeSingle()
+
+      if (!processMembership || processMembership.permissions?.ai_scan_use === false) {
+        return new Response(JSON.stringify({ error: 'AI scan permission not granted' }), {
+          status: 403,
+          headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+        })
+      }
+
+      try {
+        validateImage(image_base64, mime_type)
+      } catch (err) {
+        await supabaseAdmin.from('ps_ai_scan_queue').update({
+          status: 'error',
+          error_message: (err as Error).message,
+          processed_at: new Date().toISOString(),
+        }).eq('id', scan_id).eq('organisation_id', organisation_id)
+        return new Response(JSON.stringify({ error: (err as Error).message }), {
+          status: 400,
+          headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+        })
+      }
+
       // Fetch scan record (must exist from upload phase)
       const { data: scanRecord, error: scanFetchError } = await supabaseAdmin
         .from('ps_ai_scan_queue')
@@ -640,10 +646,7 @@ Deno.serve(async (req) => {
             console.error('Storage upload failed (non-blocking):', storageError.message)
             return null
           }
-          const { data: urlData } = await supabaseAdmin.storage
-            .from('scan-images')
-            .createSignedUrl(storagePath, 315360000)
-          return { path: storagePath, url: urlData?.signedUrl ?? null }
+          return { path: storagePath }
         } catch (err) {
           console.error('Storage upload error (non-blocking):', err)
           return null
@@ -659,50 +662,30 @@ Deno.serve(async (req) => {
         .order('scope')
         .order('category')
 
-      // Resolve AI model
-      const { data: orgSettings } = await supabaseAdmin
-        .from('ps_ai_org_settings')
-        .select('standard_model_id')
-        .eq('organisation_id', organisation_id)
-        .maybeSingle()
-
-      let provider = 'google'
-      let modelId = 'gemini-3-pro-preview'
-      let modelDisplayName = 'Gemini 3 Pro'
-
-      if (orgSettings?.standard_model_id) {
-        const { data: modelRecord } = await supabaseAdmin
-          .from('ps_ai_models')
-          .select('provider, model_id, display_name, capabilities')
-          .eq('id', orgSettings.standard_model_id)
-          .eq('is_active', true)
-          .single()
-
-        if (modelRecord) {
-          const caps = modelRecord.capabilities as string[]
-          if (caps.includes('image_input')) {
-            provider = modelRecord.provider
-            modelId = modelRecord.model_id
-            modelDisplayName = modelRecord.display_name
-          }
-        }
+      let scanModel: ScanModel
+      try {
+        scanModel = await resolveScanModel(supabaseAdmin, organisation_id)
+      } catch (err) {
+        await supabaseAdmin.from('ps_ai_scan_queue').update({
+          status: 'error',
+          error_message: (err as Error).message,
+          processed_at: new Date().toISOString(),
+        }).eq('id', scan_id)
+        return new Response(JSON.stringify({ error: (err as Error).message }), {
+          status: 500,
+          headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+        })
       }
 
-      // Get API key
-      const apiKeyMap: Record<string, string> = {
-        openai: Deno.env.get('openai_api_key') ?? Deno.env.get('OPENAI_API_KEY') ?? '',
-        anthropic: Deno.env.get('anthropic_api_key') ?? Deno.env.get('ANTHROPIC_API_KEY') ?? '',
-        google: Deno.env.get('google_api_key') ?? Deno.env.get('GOOGLE_API_KEY') ?? '',
-      }
-      const apiKey = apiKeyMap[provider]
+      const apiKey = Deno.env.get('OPENROUTER_API_KEY') ?? ''
 
       if (!apiKey) {
         await supabaseAdmin.from('ps_ai_scan_queue').update({
           status: 'error',
-          error_message: `No API key configured for provider: ${provider}`,
+          error_message: 'AI image service is not configured',
         }).eq('id', scan_id)
 
-        return new Response(JSON.stringify({ error: `No API key for provider: ${provider}` }), {
+        return new Response(JSON.stringify({ error: 'AI image service is not configured' }), {
           status: 500,
           headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
         })
@@ -713,24 +696,18 @@ Deno.serve(async (req) => {
 
       let aiResult: Record<string, unknown>
       try {
-        switch (provider) {
-          case 'google':
-            aiResult = await processWithGemini(apiKey, modelId, systemPrompt, image_base64, mime_type)
-            break
-          case 'openai':
-            aiResult = await processWithOpenAI(apiKey, modelId, systemPrompt, image_base64, mime_type)
-            break
-          case 'anthropic':
-            aiResult = await processWithAnthropic(apiKey, modelId, systemPrompt, image_base64, mime_type)
-            break
-          default:
-            throw new Error(`Unsupported provider: ${provider}`)
-        }
+        aiResult = await processWithOpenRouter(
+          apiKey,
+          scanModel.modelId,
+          systemPrompt,
+          image_base64,
+          mime_type,
+        )
       } catch (err) {
         await supabaseAdmin.from('ps_ai_scan_queue').update({
           status: 'error',
           error_message: (err as Error).message,
-          model_used: modelDisplayName,
+          model_used: scanModel.displayName,
           processed_at: new Date().toISOString(),
         }).eq('id', scan_id)
 
@@ -765,10 +742,10 @@ Deno.serve(async (req) => {
         status: scanStatus,
         raw_ai_response: aiResult,
         ai_notes: aiNotes,
-        model_used: modelDisplayName,
+        model_used: scanModel.displayName,
         // Storage fields (from parallel upload)
         image_path: storageResult?.path ?? '',
-        image_url: storageResult?.url ?? null,
+        image_url: null,
         // Document fields
         supplier_name: supplierInfo?.name ?? null,
         invoice_number: supplierInfo?.invoice_number ?? null,
@@ -875,6 +852,15 @@ Deno.serve(async (req) => {
       })
     }
 
+    try {
+      validateImage(image_base64, mime_type)
+    } catch (err) {
+      return new Response(JSON.stringify({ error: (err as Error).message }), {
+        status: 400,
+        headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+      })
+    }
+
     // 1. Store image
     const ext = mime_type.split('/')[1]?.replace('jpeg', 'jpg') || 'jpg'
     const storagePath = `${organisation_id}/${crypto.randomUUID()}.${ext}`
@@ -891,11 +877,6 @@ Deno.serve(async (req) => {
       })
     }
 
-    const { data: urlData } = await supabaseAdmin.storage
-      .from('scan-images')
-      .createSignedUrl(storagePath, 315360000)
-    const imageUrl = urlData?.signedUrl ?? null
-
     // 2. Create record
     const { data: scanRecord, error: scanInsertError } = await supabaseAdmin
       .from('ps_ai_scan_queue')
@@ -903,7 +884,7 @@ Deno.serve(async (req) => {
         organisation_id,
         uploaded_by: user.id,
         image_path: storagePath,
-        image_url: imageUrl,
+        image_url: null,
         status: 'processing',
       })
       .select('id')
@@ -927,49 +908,30 @@ Deno.serve(async (req) => {
       .order('scope')
       .order('category')
 
-    // 4. Resolve model
-    const { data: orgSettings } = await supabaseAdmin
-      .from('ps_ai_org_settings')
-      .select('standard_model_id')
-      .eq('organisation_id', organisation_id)
-      .maybeSingle()
-
-    let provider = 'google'
-    let modelId = 'gemini-3-pro-preview'
-    let modelDisplayName = 'Gemini 3 Pro'
-
-    if (orgSettings?.standard_model_id) {
-      const { data: modelRecord } = await supabaseAdmin
-        .from('ps_ai_models')
-        .select('provider, model_id, display_name, capabilities')
-        .eq('id', orgSettings.standard_model_id)
-        .eq('is_active', true)
-        .single()
-
-      if (modelRecord) {
-        const caps = modelRecord.capabilities as string[]
-        if (caps.includes('image_input')) {
-          provider = modelRecord.provider
-          modelId = modelRecord.model_id
-          modelDisplayName = modelRecord.display_name
-        }
-      }
+    let scanModel: ScanModel
+    try {
+      scanModel = await resolveScanModel(supabaseAdmin, organisation_id)
+    } catch (err) {
+      await supabaseAdmin.from('ps_ai_scan_queue').update({
+        status: 'error',
+        error_message: (err as Error).message,
+        processed_at: new Date().toISOString(),
+      }).eq('id', scanId)
+      return new Response(JSON.stringify({ error: (err as Error).message }), {
+        status: 500,
+        headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+      })
     }
 
-    const apiKeyMap: Record<string, string> = {
-      openai: Deno.env.get('openai_api_key') ?? Deno.env.get('OPENAI_API_KEY') ?? '',
-      anthropic: Deno.env.get('anthropic_api_key') ?? Deno.env.get('ANTHROPIC_API_KEY') ?? '',
-      google: Deno.env.get('google_api_key') ?? Deno.env.get('GOOGLE_API_KEY') ?? '',
-    }
-    const apiKey = apiKeyMap[provider]
+    const apiKey = Deno.env.get('OPENROUTER_API_KEY') ?? ''
 
     if (!apiKey) {
       await supabaseAdmin.from('ps_ai_scan_queue').update({
         status: 'error',
-        error_message: `No API key configured for provider: ${provider}`,
+        error_message: 'AI image service is not configured',
       }).eq('id', scanId)
 
-      return new Response(JSON.stringify({ error: `No API key for provider: ${provider}` }), {
+      return new Response(JSON.stringify({ error: 'AI image service is not configured' }), {
         status: 500,
         headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
       })
@@ -980,24 +942,18 @@ Deno.serve(async (req) => {
 
     let aiResult: Record<string, unknown>
     try {
-      switch (provider) {
-        case 'google':
-          aiResult = await processWithGemini(apiKey, modelId, systemPrompt, image_base64, mime_type)
-          break
-        case 'openai':
-          aiResult = await processWithOpenAI(apiKey, modelId, systemPrompt, image_base64, mime_type)
-          break
-        case 'anthropic':
-          aiResult = await processWithAnthropic(apiKey, modelId, systemPrompt, image_base64, mime_type)
-          break
-        default:
-          throw new Error(`Unsupported provider: ${provider}`)
-      }
+      aiResult = await processWithOpenRouter(
+        apiKey,
+        scanModel.modelId,
+        systemPrompt,
+        image_base64,
+        mime_type,
+      )
     } catch (err) {
       await supabaseAdmin.from('ps_ai_scan_queue').update({
         status: 'error',
         error_message: (err as Error).message,
-        model_used: modelDisplayName,
+        model_used: scanModel.displayName,
         processed_at: new Date().toISOString(),
       }).eq('id', scanId)
 
@@ -1029,7 +985,7 @@ Deno.serve(async (req) => {
       status: scanStatus,
       raw_ai_response: aiResult,
       ai_notes: aiNotes,
-      model_used: modelDisplayName,
+      model_used: scanModel.displayName,
       supplier_name: supplierInfo?.name ?? null,
       invoice_number: supplierInfo?.invoice_number ?? null,
       invoice_date: supplierInfo?.date ?? null,

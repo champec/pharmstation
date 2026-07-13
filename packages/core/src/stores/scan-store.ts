@@ -18,6 +18,7 @@ export interface ScanState {
 
   // How many scans are currently uploading (shown as indicator on queue page)
   uploadsInProgress: number
+  latestUploadError: string | null
 
   // Active scan being reviewed
   activeScan: ScanQueueItem | null
@@ -59,6 +60,7 @@ export interface ScanState {
   editScanItem: (itemId: string, drugId: string, quantity: number) => Promise<boolean>
   deleteScan: (scanId: string) => Promise<boolean>
   refreshImageUrl: (scanId: string) => Promise<string | null>
+  clearUploadError: () => void
   reset: () => void
 }
 
@@ -67,6 +69,7 @@ export const useScanStore = create<ScanState>((set, get) => ({
   queueLoading: false,
 
   uploadsInProgress: 0,
+  latestUploadError: null,
 
   activeScan: null,
   activeScanItems: [],
@@ -90,7 +93,23 @@ export const useScanStore = create<ScanState>((set, get) => ({
         .limit(100)
 
       if (error) throw error
-      set({ queue: (data as ScanQueueItem[]) ?? [] })
+
+      const scans = (data as ScanQueueItem[]) ?? []
+      set((state) => {
+        const currentImageUrls = new Map(
+          state.queue
+            .filter((scan) => scan.image_path && scan.image_url)
+            .map((scan) => [`${scan.id}:${scan.image_path}`, scan.image_url]),
+        )
+
+        return {
+          queue: scans.map((scan) => ({
+            ...scan,
+            // Signed URLs stored in the database can become invalid after key rotation.
+            image_url: currentImageUrls.get(`${scan.id}:${scan.image_path}`) ?? null,
+          })),
+        }
+      })
     } catch (err) {
       console.error('Failed to load scan queue:', err)
     } finally {
@@ -108,7 +127,7 @@ export const useScanStore = create<ScanState>((set, get) => ({
   // ============================================
   fireAndForgetScan: ({ organisationId, imageBase64, mimeType, filename, supabaseUrl, accessToken }) => {
     // Increment upload counter (shows "Uploading..." indicator on queue page)
-    set({ uploadsInProgress: get().uploadsInProgress + 1 })
+    set({ uploadsInProgress: get().uploadsInProgress + 1, latestUploadError: null })
 
     const headers = {
       'Content-Type': 'application/json',
@@ -135,6 +154,7 @@ export const useScanStore = create<ScanState>((set, get) => ({
 
         if (!uploadRes.ok) {
           console.error('Scan upload failed:', uploadData.error)
+          set({ latestUploadError: uploadData.error || 'The scan could not be added to the queue.' })
           return
         }
 
@@ -149,22 +169,36 @@ export const useScanStore = create<ScanState>((set, get) => ({
         }
 
         // Phase 2: Send image directly for AI + storage in parallel (fire and forget)
-        fetch(fnUrl, {
-          method: 'POST',
-          headers,
-          body: JSON.stringify({
-            action: 'process',
-            scan_id: uploadData.scan_id,
-            organisation_id: organisationId,
-            image_base64: imageBase64,
-            mime_type: mimeType,
-          }),
-        }).catch(err => {
-          console.error('AI processing request failed:', err)
-        })
+        void (async () => {
+          try {
+            const processRes = await fetch(fnUrl, {
+              method: 'POST',
+              headers,
+              body: JSON.stringify({
+                action: 'process',
+                scan_id: uploadData.scan_id,
+                organisation_id: organisationId,
+                image_base64: imageBase64,
+                mime_type: mimeType,
+              }),
+            })
+            const processData = await processRes.json().catch(() => ({}))
+            if (!processRes.ok) {
+              set({ latestUploadError: processData.error || 'AI processing failed. Open the queue item for details.' })
+            }
+            await get().loadQueue(organisationId)
+          } catch (err) {
+            console.error('AI processing request failed:', err)
+            set({ latestUploadError: 'The scan connection was interrupted. Check the queue before trying again.' })
+            await get().loadQueue(organisationId)
+          }
+        })()
       } catch (err) {
         console.error('Scan upload failed:', err)
-        set({ uploadsInProgress: Math.max(0, get().uploadsInProgress - 1) })
+        set({
+          uploadsInProgress: Math.max(0, get().uploadsInProgress - 1),
+          latestUploadError: 'The scan could not be uploaded. Check your connection and try again.',
+        })
       }
     })()
   },
@@ -191,8 +225,13 @@ export const useScanStore = create<ScanState>((set, get) => ({
 
       if (itemsError) throw itemsError
 
+      const loadedScan = scan as ScanQueueItem
+      const currentImageUrl = get().queue.find(
+        (queueScan) => queueScan.id === loadedScan.id && queueScan.image_path === loadedScan.image_path,
+      )?.image_url ?? null
+
       set({
-        activeScan: scan as ScanQueueItem,
+        activeScan: { ...loadedScan, image_url: currentImageUrl },
         activeScanItems: (items as ScanDrugItem[]) ?? [],
       })
     } catch (err) {
@@ -203,6 +242,8 @@ export const useScanStore = create<ScanState>((set, get) => ({
   },
 
   setActiveScan: (scan) => set({ activeScan: scan, activeScanItems: [] }),
+
+  clearUploadError: () => set({ latestUploadError: null }),
 
   // ============================================
   // Upload image and process via edge function
@@ -515,9 +556,11 @@ export const useScanStore = create<ScanState>((set, get) => ({
       const scan = get().queue.find((s) => s.id === scanId) ?? get().activeScan
       if (!scan?.image_path) return null
 
-      const { data } = await getUserClient().storage
+      const { data, error } = await getUserClient().storage
         .from('scan-images')
         .createSignedUrl(scan.image_path, 3600) // 1 hour
+
+      if (error) throw error
 
       const url = data?.signedUrl ?? null
 
@@ -530,7 +573,8 @@ export const useScanStore = create<ScanState>((set, get) => ({
       }
 
       return url
-    } catch {
+    } catch (err) {
+      console.error('Failed to refresh scan image URL:', err)
       return null
     }
   },
@@ -539,6 +583,7 @@ export const useScanStore = create<ScanState>((set, get) => ({
     queue: [],
     queueLoading: false,
     uploadsInProgress: 0,
+    latestUploadError: null,
     activeScan: null,
     activeScanItems: [],
     activeScanLoading: false,

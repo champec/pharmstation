@@ -1,16 +1,16 @@
 import { useState, useEffect } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { useAuthStore, useNHSStore } from '@pharmstation/core'
+import { useAuthStore, useChatStore, useNHSStore } from '@pharmstation/core'
 import { getUserClient } from '@pharmstation/supabase-client'
 import { MessagingSettingsTab } from './settings/MessagingSettingsTab'
 
-type Tab = 'general' | 'messaging' | 'nhs' | 'payments'
+type Tab = 'general' | 'ai' | 'messaging' | 'nhs' | 'payments'
 
 export function SettingsPage() {
   const [searchParams] = useSearchParams()
   const [tab, setTab] = useState<Tab>(() => {
     const t = searchParams.get('tab')
-    if (t === 'nhs' || t === 'messaging' || t === 'payments') return t
+    if (t === 'ai' || t === 'nhs' || t === 'messaging' || t === 'payments') return t
     return 'general'
   })
 
@@ -24,6 +24,7 @@ export function SettingsPage() {
       <div style={{ display: 'flex', gap: 'var(--ps-space-sm)', marginBottom: 'var(--ps-space-lg)', borderBottom: '2px solid var(--ps-mist)', paddingBottom: 'var(--ps-space-sm)' }}>
         {([
           { key: 'general' as Tab, label: 'General' },
+          { key: 'ai' as Tab, label: '✨ AI' },
           { key: 'messaging' as Tab, label: '📨 Messaging' },
           { key: 'nhs' as Tab, label: '🏥 NHS' },
           { key: 'payments' as Tab, label: '💳 Payments' },
@@ -47,8 +48,141 @@ export function SettingsPage() {
       )}
 
       {tab === 'messaging' && <MessagingSettingsTab />}
+      {tab === 'ai' && <AISettingsTab />}
       {tab === 'nhs' && <NHSSettingsTab />}
       {tab === 'payments' && <PaymentsSettingsTab />}
+    </div>
+  )
+}
+
+// ============================================================
+// AI Settings Tab — organisation-wide model configuration
+// ============================================================
+
+function AISettingsTab() {
+  const { organisation, permissions } = useAuthStore()
+  const { models, modelsLoading, orgAISettings, loadModels, loadOrgAISettings } = useChatStore()
+  const [selectedModelId, setSelectedModelId] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [saved, setSaved] = useState(false)
+  const [error, setError] = useState('')
+  const canManage = permissions?.org_settings === true
+
+  useEffect(() => {
+    loadModels()
+    if (organisation?.id) loadOrgAISettings(organisation.id)
+  }, [organisation?.id, loadModels, loadOrgAISettings])
+
+  const imageModels = models.filter((model) => model.capabilities.includes('image_input'))
+  const defaultModel = imageModels.find((model) => model.model_id === 'google/gemini-3.5-flash')
+
+  useEffect(() => {
+    setSelectedModelId(orgAISettings?.scan_model_id ?? defaultModel?.id ?? '')
+  }, [orgAISettings?.scan_model_id, defaultModel?.id])
+
+  const handleSave = async () => {
+    if (!organisation?.id || !selectedModelId || !canManage) return
+    setSaving(true)
+    setSaved(false)
+    setError('')
+    try {
+      const { error: saveError } = await getUserClient()
+        .from('ps_ai_org_settings')
+        .upsert({
+          organisation_id: organisation.id,
+          scan_model_id: selectedModelId,
+        }, { onConflict: 'organisation_id' })
+      if (saveError) throw saveError
+      await loadOrgAISettings(organisation.id)
+      setSaved(true)
+    } catch (err) {
+      setError((err as Error).message || 'Could not save AI settings.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const formatCost = (cost: number | null) => {
+    if (cost === null) return 'Price unavailable'
+    if (cost === 0) return 'Free'
+    return `$${cost.toFixed(cost < 0.0001 ? 6 : 4)} / 1K tokens`
+  }
+
+  return (
+    <div>
+      <div className="ps-card ai-settings-intro">
+        <div>
+          <span className="ai-settings-eyebrow">Organisation-wide</span>
+          <h2>AI image understanding</h2>
+          <p>
+            Choose the model used to read prescription and invoice images. This setting applies to every
+            scanner in the organisation and can be changed between test scans.
+          </p>
+        </div>
+        <div className="ai-settings-safety">
+          <strong>Human review is always required</strong>
+          <span>AI extraction never creates a CD register entry until a staff member verifies and approves it.</span>
+        </div>
+      </div>
+
+      {!canManage && (
+        <div className="ai-settings-notice">
+          This setting is read-only. Organisation settings permission is required to change the model.
+        </div>
+      )}
+      {error && <div className="auth-error">{error}</div>}
+      {saved && <div className="ai-settings-success">✓ AI model setting saved for the organisation</div>}
+
+      <div className="ai-model-grid" role="radiogroup" aria-label="Image-understanding model">
+        {modelsLoading && imageModels.length === 0 ? (
+          <div className="ps-card ai-model-loading">Loading available models…</div>
+        ) : imageModels.map((model) => {
+          const selected = selectedModelId === model.id
+          const recommended = model.model_id === 'google/gemini-3.5-flash'
+          const experimental = model.model_id.startsWith('~')
+          const economy = model.model_type === 'ultra_cheap'
+          return (
+            <button
+              type="button"
+              role="radio"
+              aria-checked={selected}
+              key={model.id}
+              className={`ai-model-card ${selected ? 'selected' : ''}`}
+              onClick={() => canManage && setSelectedModelId(model.id)}
+              disabled={!canManage}
+            >
+              <div className="ai-model-card-top">
+                <span className="ai-model-radio" aria-hidden="true" />
+                <div>
+                  <strong>{model.display_name}</strong>
+                  <code>{model.model_id}</code>
+                </div>
+              </div>
+              <div className="ai-model-tags">
+                {recommended && <span className="ps-badge ps-badge-green">Recommended · default</span>}
+                {experimental && <span className="ps-badge ps-badge-amber">Latest alias</span>}
+                {economy && <span className="ps-badge ps-badge-blue">Economy</span>}
+              </div>
+              <div className="ai-model-meta">
+                <span>Input: {formatCost(model.input_cost_per_1k)}</span>
+                <span>Output: {formatCost(model.output_cost_per_1k)}</span>
+                {model.context_window && <span>{model.context_window.toLocaleString()} token context</span>}
+              </div>
+            </button>
+          )
+        })}
+      </div>
+
+      <div className="ai-settings-actions">
+        <button
+          className="ps-btn ps-btn-primary"
+          onClick={handleSave}
+          disabled={!canManage || !selectedModelId || saving || selectedModelId === orgAISettings?.scan_model_id}
+        >
+          {saving ? 'Saving…' : 'Save image model'}
+        </button>
+        <span>The next scan will use the saved model.</span>
+      </div>
     </div>
   )
 }
