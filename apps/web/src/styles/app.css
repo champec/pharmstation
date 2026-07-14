@@ -5482,6 +5482,311 @@
   text-decoration: underline;
 }
 
+/* ============================================
+   Entry Annotations (appendage under register entries)
+   & Part Supply tracking
+   ============================================ */
+
+/* Toggle button in the entries table */
+.annotation-toggle {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: var(--ps-radius-sm);
+  font-size: var(--ps-font-sm);
+  line-height: 1;
+  opacity: 0.55;
+  transition: opacity 0.15s, background 0.15s;
+}
+
+.annotation-toggle:disabled {
+  opacity: 0.25;
+  cursor: default;
+}
+
+.annotation-toggle:hover {
+  opacity: 1;
+  background: var(--ps-off-white);
+}
+
+.annotation-toggle-open {
+  opacity: 1;
+  background: rgba(59, 130, 246, 0.1);
+}
+
+.annotation-count {
+  font-size: var(--ps-font-xs);
+  font-weight: 700;
+  color: var(--ps-slate);
+  font-family: var(--ps-font-mono);
+}
+
+/* Expanded sub-row */
+.entry-sub-row td {
+  padding: 0 !important;
+  border-top: none !important;
+}
+
+.annotation-panel {
+  background: rgba(245, 158, 11, 0.04);
+  border-left: 3px solid rgba(245, 158, 11, 0.45);
+  padding: var(--ps-space-sm) var(--ps-space-md);
+  display: flex;
+  flex-direction: column;
+  gap: var(--ps-space-sm);
+}
+
+.annotation-empty {
+  color: var(--ps-mist);
+  font-size: var(--ps-font-xs);
+  font-style: italic;
+  margin: 0;
+}
+
+.annotation-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.annotation-item {
+  display: flex;
+  align-items: baseline;
+  gap: var(--ps-space-sm);
+  font-size: var(--ps-font-sm);
+  flex-wrap: wrap;
+}
+
+.annotation-text {
+  flex: 1;
+  min-width: 200px;
+}
+
+.annotation-meta {
+  color: var(--ps-mist);
+  font-size: var(--ps-font-xs);
+  white-space: nowrap;
+}
+
+/* Annotation type badges */
+.annotation-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 1px 8px;
+  border-radius: var(--ps-radius-full);
+  font-size: var(--ps-font-xs);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.annotation-badge-note {
+  background: rgba(59, 130, 246, 0.1);
+  color: #2563eb;
+}
+
+.annotation-badge-flag {
+  background: rgba(239, 68, 68, 0.1);
+  color: #dc2626;
+}
+
+.annotation-badge-part {
+  background: rgba(245, 158, 11, 0.14);
+  color: #d97706;
+}
+
+.annotation-badge-closed {
+  background: rgba(34, 197, 94, 0.12);
+  color: #16a34a;
+}
+
+/* Add-note form */
+.annotation-add-form {
+  display: flex;
+  gap: var(--ps-space-sm);
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+/* Collapsed action buttons (form only shows after clicking one) */
+.annotation-actions {
+  display: flex;
+  gap: var(--ps-space-sm);
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.annotation-input {
+  flex: 1;
+  min-width: 240px;
+  font-size: var(--ps-font-sm);
+  padding: 6px 10px;
+}
+
+.annotation-btn {
+  font-size: var(--ps-font-xs);
+  padding: 6px 10px;
+  white-space: nowrap;
+}
+
+.annotation-btn-part {
+  color: #d97706;
+  border-color: rgba(245, 158, 11, 0.4);
+}
+
+.annotation-btn-close {
+  color: #16a34a;
+  border-color: rgba(34, 197, 94, 0.4);
+}
+
+/* Closed part supply badge in entries table */
+.part-supply-closed-badge {
+  background: var(--ps-off-white);
+  color: var(--ps-mist);
+  text-decoration: line-through;
+}
+
+/* Inline provision row — part supply tick (inside extras popover) */
+.prov-part-supply {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--ps-font-xs);
+  color: #d97706;
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+}
+
+.prov-part-supply input {
+  cursor: pointer;
+  accent-color: #d97706;
+}
+
+/* Inline provision row — extras popover (note + part supply) */
+.prov-extras-pop {
+  position: absolute;
+  bottom: 100%;
+  right: 0;
+  margin-bottom: 6px;
+  width: 260px;
+  background: #fff;
+  border: 1px solid var(--ps-off-white);
+  border-radius: var(--ps-radius-sm);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+  padding: var(--ps-space-sm);
+  display: flex;
+  flex-direction: column;
+  gap: var(--ps-space-sm);
+  z-index: 20;
+  white-space: normal;
+  text-align: left;
+  overflow-wrap: break-word;
+}
+
+.prov-extras-label {
+  font-size: var(--ps-font-xs);
+  font-weight: 600;
+  color: var(--ps-slate);
+}
+
+/* Outstanding part supply linking options inside the extras popover */
+.prov-part-link {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: var(--ps-space-sm);
+  background: rgba(245, 158, 11, 0.06);
+  border: 1px solid rgba(245, 158, 11, 0.3);
+  border-radius: var(--ps-radius-sm);
+}
+
+.prov-part-link .prov-extras-label {
+  color: #d97706;
+}
+
+.prov-part-link-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  font-size: var(--ps-font-xs);
+  cursor: pointer;
+  user-select: none;
+}
+
+.prov-part-link-option input {
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.prov-part-link-option span {
+  min-width: 0;
+}
+
+.prov-part-link-option input {
+  cursor: pointer;
+  accent-color: #d97706;
+}
+
+.annotation-toggle-header {
+  margin: 0 auto;
+}
+
+.entry-warning-intro {
+  margin: 0 0 var(--ps-space-md);
+  color: var(--ps-slate);
+}
+
+.entry-warning-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ps-space-sm);
+  margin: 0 0 var(--ps-space-lg);
+  padding: 0;
+  list-style: none;
+}
+
+.entry-warning-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--ps-space-sm) var(--ps-space-md);
+  background: rgba(245, 158, 11, 0.08);
+  border-left: 3px solid #d97706;
+  border-radius: var(--ps-radius-sm);
+}
+
+.entry-warning-item span {
+  color: var(--ps-slate);
+  font-size: var(--ps-font-sm);
+}
+
+.prov-extras-dot {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #d97706;
+}
+
+@media print {
+  .annotation-toggle,
+  .annotation-add-form {
+    display: none;
+  }
+}
+
+
 .rte-content .tiptap hr {
   border: none;
   border-top: 1px solid var(--ps-border);

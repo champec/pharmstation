@@ -194,13 +194,24 @@ export interface RegisterEntry {
 }
 
 // --- Entry Annotation ---
+// Append-only notes attached underneath a register entry (entries themselves
+// are legally immutable). 'part_supply' flags an entry as a part supply;
+// 'part_supply_closed' closes it (balance supplied later, or Rx expired etc.)
+
+export type EntryAnnotationType =
+  | 'note'
+  | 'flag'
+  | 'query'
+  | 'resolution'
+  | 'part_supply'
+  | 'part_supply_closed'
 
 export interface EntryAnnotation {
   id: string
   entry_id: string
   organisation_id: string
   annotation_text: string
-  annotation_type: 'note' | 'flag' | 'query' | 'resolution'
+  annotation_type: EntryAnnotationType
   created_by: string
   created_at: string
   created_by_profile?: UserProfile

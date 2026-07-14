@@ -4,18 +4,26 @@
 // is filled first (supplier = IN, patient = OUT)
 // ============================================
 
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef, type ReactNode } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { createColumnHelper, type ColumnDef, type Row } from '@tanstack/react-table'
 import { getUserClient } from '@pharmstation/supabase-client'
 import { useAuthStore, useRegisterStore } from '@pharmstation/core'
-import type { RegisterEntry, RegisterLedger, CDDrug, KnownContact } from '@pharmstation/types'
+import type { RegisterEntry, RegisterLedger, CDDrug, KnownContact, EntryAnnotation } from '@pharmstation/types'
 import { RegisterTable, type RowMerge } from '../../components/table/RegisterTable'
 import { Drawer } from '../../components/Drawer'
 import { CDEntryForm } from '../../components/forms/CDEntryForm'
 import { ContactModal } from '../../components/ContactModal'
 import { Modal } from '../../components/Modal'
 import { ScanImageBadge } from '../../components/scan/ScanImageBadge'
+import {
+  EntryAnnotationsPanel,
+  addEntryAnnotation,
+  hasOpenPartSupply,
+  hasClosedPartSupply,
+} from '../../components/annotations/EntryAnnotationsPanel'
+import { CDEntryWarningModal } from '../../components/registers/CDEntryWarningModal'
+import { getCDEntryWarnings, type CDEntryWarning } from '../../utils/cdEntryWarnings'
 
 const columnHelper = createColumnHelper<RegisterEntry>()
 
@@ -30,6 +38,34 @@ export function CDLedgerPage() {
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [entryDirection, setEntryDirection] = useState<'in' | 'out'>('in')
   const [searchFilter, setSearchFilter] = useState('')
+
+  // Annotations (appendage under entries) + part supply filter
+  const [expandedEntryIds, setExpandedEntryIds] = useState<Set<string>>(new Set())
+  const [showPartSupplyOnly, setShowPartSupplyOnly] = useState(false)
+
+  const toggleAnnotations = useCallback((entryId: string) => {
+    setExpandedEntryIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(entryId)) next.delete(entryId)
+      else next.add(entryId)
+      return next
+    })
+  }, [])
+
+  const commentedEntryIds = useMemo(
+    () => entries.filter((entry) => (entry.annotations?.length ?? 0) > 0).map((entry) => entry.id),
+    [entries],
+  )
+  const allCommentsExpanded =
+    commentedEntryIds.length > 0 && commentedEntryIds.every((id) => expandedEntryIds.has(id))
+
+  const toggleAllAnnotations = useCallback(() => {
+    setExpandedEntryIds((prev) => {
+      const allExpanded =
+        commentedEntryIds.length > 0 && commentedEntryIds.every((id) => prev.has(id))
+      return allExpanded ? new Set() : new Set(commentedEntryIds)
+    })
+  }, [commentedEntryIds])
 
   // Fetch drug info
   useEffect(() => {
@@ -94,11 +130,14 @@ export function CDLedgerPage() {
 
     const { data } = await getUserClient()
       .from('ps_register_entries')
-      .select('*')
+      .select('*, annotations:ps_entry_annotations(*, created_by_profile:created_by(full_name))')
       .eq('ledger_id', activeLedger.id)
       .order('entry_number', { ascending: true })
 
-    setEntries((data as RegisterEntry[]) ?? [])
+    const loaded = (data as RegisterEntry[]) ?? []
+    setEntries(loaded)
+    // Entries with existing notes start expanded (list only — input stays hidden)
+    setExpandedEntryIds(new Set(loaded.filter((e) => (e.annotations?.length ?? 0) > 0).map((e) => e.id)))
     setEntriesLoading(false)
   }, [activeLedger, setEntries, setEntriesLoading])
 
@@ -422,24 +461,86 @@ export function CDLedgerPage() {
       }),
       columnHelper.accessor('entry_type', {
         header: '',
-        size: 30,
+        size: 60,
         enableSorting: false,
         cell: (info) => {
+          const row = info.row.original
+          const badges: ReactNode[] = []
           if (info.getValue() === 'correction') {
-            return <span title="Correction entry" className="ps-badge ps-badge-red">C</span>
+            badges.push(<span key="c" title="Correction entry" className="ps-badge ps-badge-red">C</span>)
           }
           if (info.getValue() === 'balance_check') {
-            return <span title="Balance check" className="ps-badge ps-badge-blue">BC</span>
+            badges.push(<span key="bc" title="Balance check" className="ps-badge ps-badge-blue">BC</span>)
           }
-          return null
+          if (hasOpenPartSupply(row)) {
+            badges.push(
+              <span key="ps" title="Part supply — balance owed (outstanding)" className="ps-badge ps-badge-amber">PART</span>,
+            )
+          } else if (hasClosedPartSupply(row)) {
+            badges.push(
+              <span key="psc" title="Part supply — closed" className="ps-badge part-supply-closed-badge">PART ✓</span>,
+            )
+          }
+          if (badges.length === 0) return null
+          return <span style={{ display: 'inline-flex', gap: '4px' }}>{badges}</span>
+        },
+      }),
+      columnHelper.display({
+        id: 'annotations',
+        header: () => (
+          <button
+            type="button"
+            className={`annotation-toggle annotation-toggle-header ${allCommentsExpanded ? 'annotation-toggle-open' : ''}`}
+            onClick={toggleAllAnnotations}
+            disabled={commentedEntryIds.length === 0}
+            title={allCommentsExpanded ? 'Close all comments' : 'Expand all comments'}
+            aria-label={allCommentsExpanded ? 'Close all comments' : 'Expand all comments'}
+          >
+            💬
+          </button>
+        ),
+        size: 48,
+        cell: (info) => {
+          const row = info.row.original
+          const count = row.annotations?.length ?? 0
+          const expanded = expandedEntryIds.has(row.id)
+          return (
+            <button
+              type="button"
+              className={`annotation-toggle ${expanded ? 'annotation-toggle-open' : ''}`}
+              onClick={() => toggleAnnotations(row.id)}
+              title={count > 0 ? `${count} note${count === 1 ? '' : 's'} — click to view` : 'Add a note to this entry'}
+            >
+              💬
+              {count > 0 && <span className="annotation-count">{count}</span>}
+            </button>
+          )
         },
       }),
     ] as ColumnDef<RegisterEntry, unknown>[],
-    [],
+    [allCommentsExpanded, commentedEntryIds.length, expandedEntryIds, toggleAllAnnotations, toggleAnnotations],
+  )
+
+  const handleAnnotationAdded = (entryId: string, annotation: EntryAnnotation) => {
+    setEntries(
+      entries.map((e) =>
+        e.id === entryId ? { ...e, annotations: [...(e.annotations ?? []), annotation] } : e,
+      ),
+    )
+  }
+
+  // Outstanding part supplies (flagged, not yet closed)
+  const outstandingPartCount = useMemo(() => entries.filter(hasOpenPartSupply).length, [entries])
+  const displayEntries = useMemo(
+    () => (showPartSupplyOnly ? entries.filter(hasOpenPartSupply) : entries),
+    [entries, showPartSupplyOnly],
   )
 
   const handleEntrySuccess = (entry: RegisterEntry) => {
     setEntries([...entries, entry])
+    if ((entry.annotations?.length ?? 0) > 0) {
+      setExpandedEntryIds((prev) => new Set(prev).add(entry.id))
+    }
     setDrawerOpen(false)
     loadLedger()
   }
@@ -465,9 +566,13 @@ export function CDLedgerPage() {
   const [provIdRequested, setProvIdRequested] = useState(false)
   const [provIdProvided, setProvIdProvided] = useState(false)
   const [provQty, setProvQty] = useState('')
+  const [provPartSupply, setProvPartSupply] = useState(false)
+  const [provPartLink, setProvPartLink] = useState<'none' | 'completes' | 'continues'>('none')
+  const [provNote, setProvNote] = useState('')
+  const [provExtrasOpen, setProvExtrasOpen] = useState(false)
   const [provSaving, setProvSaving] = useState(false)
   const [provError, setProvError] = useState<string | null>(null)
-  const [showNegativeBalanceConfirm, setShowNegativeBalanceConfirm] = useState(false)
+  const [entryWarnings, setEntryWarnings] = useState<CDEntryWarning[]>([])
 
   // Direction is determined by which field the user fills first
   // null = undetermined, 'in' = supplier filled first, 'out' = patient filled first
@@ -493,10 +598,6 @@ export function CDLedgerPage() {
   const [contactModalType, setContactModalType] = useState<'patient' | 'prescriber' | 'supplier'>('patient')
   const [contactModalEdit, setContactModalEdit] = useState<KnownContact | null>(null)
   const [contactModalInitialName, setContactModalInitialName] = useState('')
-
-  // Negative balance warning modal
-  const [showNegativeWarning, setShowNegativeWarning] = useState(false)
-  const [pendingSubmit, setPendingSubmit] = useState(false)
 
   // Previous invoice from localStorage
   const { lastInvoice, setLastInvoice } = useRegisterStore()
@@ -681,22 +782,37 @@ export function CDLedgerPage() {
     setProvIdRequested(false)
     setProvIdProvided(false)
     setProvQty('')
+    setProvPartSupply(false)
+    setProvPartLink('none')
+    setProvNote('')
+    setProvExtrasOpen(false)
     setProvError(null)
+    setEntryWarnings([])
     setEntryMode(null)
     setSelectedPatientContact(null)
     setSelectedPrescriberContact(null)
     setSelectedSupplierContact(null)
   }
 
-  // Check if submitting would cause negative balance
-  const wouldGoNegative = () => {
-    if (!activeLedger || entryMode !== 'out') return false
-    const qty = parseFloat(provQty)
-    if (!qty || qty <= 0) return false
-    return (activeLedger.current_balance - qty) < 0
-  }
+  // Most recent outstanding part supply for the patient currently being entered.
+  // Lets the user record this new supply as completing (or continuing) it.
+  const linkedOutstanding = useMemo(() => {
+    if (entryMode !== 'out' || !provPatient.trim()) return null
+    const name = provPatient.trim().toLowerCase()
+    const matches = entries.filter(
+      (e) => e.patient_name?.trim().toLowerCase() === name && hasOpenPartSupply(e),
+    )
+    return matches.length > 0 ? matches[matches.length - 1] : null
+  }, [entryMode, provPatient, entries])
 
-  const submitProvision = async (forceNegative = false) => {
+  // Surface the outstanding part supply as soon as the patient is matched,
+  // so the user can record this supply as completing/continuing it
+  const linkedOutstandingId = linkedOutstanding?.id ?? null
+  useEffect(() => {
+    if (linkedOutstandingId) setProvExtrasOpen(true)
+  }, [linkedOutstandingId])
+
+  const submitProvision = async (skipWarnings = false) => {
     if (!activeLedger || !activeUser) return
     const isIn = entryMode === 'in'
 
@@ -708,15 +824,26 @@ export function CDLedgerPage() {
     const qty = parseFloat(provQty)
     if (!qty || qty <= 0) { setProvError('Valid quantity required'); return }
 
-    // Negative balance warning — show confirmation modal instead of blocking
-    if (!isIn && !forceNegative && (activeLedger.current_balance - qty) < 0) {
-      setShowNegativeBalanceConfirm(true)
+    const warnings = getCDEntryWarnings({
+      direction: isIn ? 'in' : 'out',
+      date: provDate,
+      quantity: qty,
+      supplierName: provSupplier,
+      invoiceNumber: provInvoice,
+      patientName: provPatient,
+      wasIdRequested: provIdRequested,
+      wasIdProvided: provIdProvided,
+      packLabel: drug?.units,
+      currentBalance: activeLedger.current_balance,
+    }, entries)
+    if (!skipWarnings && warnings.length > 0) {
+      setEntryWarnings(warnings)
       return
     }
 
     setProvSaving(true)
     setProvError(null)
-    setShowNegativeBalanceConfirm(false)
+    setEntryWarnings([])
 
     try {
       const { data: entry, error } = await getUserClient().rpc('ps_make_register_entry', {
@@ -760,7 +887,68 @@ export function CDLedgerPage() {
         setLastInvoice(provInvoice.trim())
       }
 
-      setEntries([...entries, entry as RegisterEntry])
+      // Appended annotations (note / part supply) — entries are immutable
+      let newEntry = entry as RegisterEntry
+      let updatedEntries = [...entries]
+      if (organisation) {
+        const appended: EntryAnnotation[] = []
+        if (provNote.trim()) {
+          const { annotation } = await addEntryAnnotation({
+            entryId: newEntry.id,
+            organisationId: organisation.id,
+            userId: activeUser.id,
+            text: provNote.trim(),
+            type: 'note',
+          })
+          if (annotation) appended.push(annotation)
+        }
+        if (!isIn && linkedOutstanding && provPartLink !== 'none') {
+          // This supply relates to an earlier outstanding part supply — close it
+          const { annotation: closeAnn } = await addEntryAnnotation({
+            entryId: linkedOutstanding.id,
+            organisationId: organisation.id,
+            userId: activeUser.id,
+            text:
+              provPartLink === 'completes'
+                ? `Balance supplied — see entry #${newEntry.entry_number}`
+                : `Further part supply — see entry #${newEntry.entry_number}`,
+            type: 'part_supply_closed',
+          })
+          if (closeAnn) {
+            updatedEntries = updatedEntries.map((e) =>
+              e.id === linkedOutstanding.id
+                ? { ...e, annotations: [...(e.annotations ?? []), closeAnn] }
+                : e,
+            )
+          }
+          if (provPartLink === 'continues') {
+            // Still not fully supplied — the outstanding marker moves to this entry
+            const { annotation } = await addEntryAnnotation({
+              entryId: newEntry.id,
+              organisationId: organisation.id,
+              userId: activeUser.id,
+              text: `Part supply — balance owed (continues entry #${linkedOutstanding.entry_number})`,
+              type: 'part_supply',
+            })
+            if (annotation) appended.push(annotation)
+          }
+        } else if (!isIn && provPartSupply) {
+          const { annotation } = await addEntryAnnotation({
+            entryId: newEntry.id,
+            organisationId: organisation.id,
+            userId: activeUser.id,
+            text: 'Part supply — balance owed to patient',
+            type: 'part_supply',
+          })
+          if (annotation) appended.push(annotation)
+        }
+        if (appended.length > 0) {
+          newEntry = { ...newEntry, annotations: appended }
+          setExpandedEntryIds((prev) => new Set(prev).add(newEntry.id))
+        }
+      }
+
+      setEntries([...updatedEntries, newEntry])
       loadLedger()
       resetProvisionRow()
       // Focus appropriate field for next entry
@@ -1098,6 +1286,87 @@ export function CDLedgerPage() {
           )}
         </div>
       </td>
+      {/* Note / part supply for the new entry — subtle icon, rarely needed */}
+      <td style={{ position: 'relative' }}>
+        <div className="prov-cell-wrap">
+          <button
+            type="button"
+            className={`annotation-toggle ${provExtrasOpen || provNote.trim() || provPartSupply || provPartLink !== 'none' ? 'annotation-toggle-open' : ''}`}
+            onClick={() => setProvExtrasOpen((v) => !v)}
+            title="Add a note or mark part supply for this entry (optional)"
+            disabled={!entryMode}
+          >
+            💬
+            {(provNote.trim() !== '' || provPartSupply || provPartLink !== 'none') && <span className="prov-extras-dot" />}
+          </button>
+          {provExtrasOpen && entryMode && (
+            <div className="prov-extras-pop">
+              <label className="prov-extras-label">Append note</label>
+              <input
+                className="ps-input annotation-input"
+                placeholder="Optional note…"
+                value={provNote}
+                onChange={(e) => setProvNote(e.target.value)}
+              />
+              {entryMode === 'out' && (
+                linkedOutstanding ? (
+                  /* This patient has an outstanding part supply — offer to link this entry to it */
+                  <div className="prov-part-link">
+                    <span className="prov-extras-label">
+                      ⏳ Part supply owed — entry #{linkedOutstanding.entry_number}
+                      {' '}({new Date(linkedOutstanding.date_of_transaction).toLocaleDateString('en-GB')}
+                      {linkedOutstanding.quantity_deducted ? `, -${linkedOutstanding.quantity_deducted}` : ''})
+                    </span>
+                    <label className="prov-part-link-option">
+                      <input
+                        type="radio"
+                        name="prov-part-link"
+                        checked={provPartLink === 'none'}
+                        onChange={() => setProvPartLink('none')}
+                      />
+                      <span>Not related</span>
+                    </label>
+                    <label className="prov-part-link-option">
+                      <input
+                        type="radio"
+                        name="prov-part-link"
+                        checked={provPartLink === 'completes'}
+                        onChange={() => setProvPartLink('completes')}
+                      />
+                      <span>✔ Completes it</span>
+                    </label>
+                    <label className="prov-part-link-option">
+                      <input
+                        type="radio"
+                        name="prov-part-link"
+                        checked={provPartLink === 'continues'}
+                        onChange={() => setProvPartLink('continues')}
+                      />
+                      <span>⏳ Further part supply</span>
+                    </label>
+                  </div>
+                ) : (
+                  <label className="prov-part-supply" title="Only part of the prescribed quantity supplied — balance owed to patient">
+                    <input
+                      type="checkbox"
+                      checked={provPartSupply}
+                      onChange={(e) => setProvPartSupply(e.target.checked)}
+                    />
+                    <span>⏳ Part supply — balance owed</span>
+                  </label>
+                )
+              )}
+              <button
+                type="button"
+                className="ps-btn ps-btn-ghost annotation-btn"
+                onClick={() => setProvExtrasOpen(false)}
+              >
+                Done
+              </button>
+            </div>
+          )}
+        </div>
+      </td>
     </tr>
   ) : null
 
@@ -1171,26 +1440,44 @@ export function CDLedgerPage() {
         </div>
       </div>
 
-      {/* Search bar */}
-      <div style={{ marginBottom: 'var(--ps-space-md)', maxWidth: '300px' }}>
+      {/* Search bar + part supply filter */}
+      <div style={{ marginBottom: 'var(--ps-space-md)', display: 'flex', gap: 'var(--ps-space-sm)', alignItems: 'center' }}>
         <input
           className="ps-input"
           placeholder="Search entries..."
           value={searchFilter}
           onChange={(e) => setSearchFilter(e.target.value)}
+          style={{ maxWidth: '300px' }}
         />
+        <button
+          type="button"
+          className={`ps-btn ${showPartSupplyOnly ? 'ps-btn-primary' : 'ps-btn-ghost'}`}
+          onClick={() => setShowPartSupplyOnly((v) => !v)}
+          title="Show only entries with an outstanding part supply (balance owed)"
+        >
+          ⏳ Outstanding Part Supplies{outstandingPartCount > 0 ? ` (${outstandingPartCount})` : ''}
+        </button>
       </div>
 
       {/* Entries Table */}
       <RegisterTable
-        data={entries}
+        data={displayEntries}
         columns={columns}
         loading={entriesLoading}
-        emptyMessage="No entries yet. Start by entering a supplier (IN) or patient (OUT) in the row below."
+        emptyMessage={
+          showPartSupplyOnly
+            ? 'No outstanding part supplies. 🎉'
+            : 'No entries yet. Start by entering a supplier (IN) or patient (OUT) in the row below.'
+        }
         globalFilter={searchFilter}
         onGlobalFilterChange={setSearchFilter}
         footerRow={provisionFooterRow}
         rowClassName={(row) => row.entry_type === 'balance_check' ? 'bc-entry-row' : undefined}
+        subRow={(row: Row<RegisterEntry>) =>
+          expandedEntryIds.has(row.original.id) ? (
+            <EntryAnnotationsPanel entry={row.original} onAnnotationAdded={handleAnnotationAdded} />
+          ) : null
+        }
         rowMerge={(row: Row<RegisterEntry>): RowMerge | undefined => {
           if (row.original.entry_type !== 'balance_check') return undefined
           const r = row.original
@@ -1229,6 +1516,7 @@ export function CDLedgerPage() {
       >
         <CDEntryForm
           direction={entryDirection}
+          packLabel={drug?.units}
           onSuccess={handleEntrySuccess}
           onCancel={() => setDrawerOpen(false)}
         />
@@ -1265,43 +1553,13 @@ export function CDLedgerPage() {
         }}
       />
 
-      {/* Negative Balance Confirmation Modal */}
-      <Modal
-        isOpen={showNegativeBalanceConfirm}
-        onClose={() => setShowNegativeBalanceConfirm(false)}
-        title="⚠️ Negative Balance Warning"
-        width="480px"
-      >
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--ps-space-md)' }}>
-          <div className="add-register-confirm-warning" style={{ marginTop: 0 }}>
-            Submitting this entry will cause the balance to go <strong>negative</strong>.
-            <br /><br />
-            <strong>Current balance:</strong> {activeLedger?.current_balance ?? 0}
-            <br />
-            <strong>Deducting:</strong> {provQty}
-            <br />
-            <strong>New balance:</strong> {(activeLedger?.current_balance ?? 0) - (parseFloat(provQty) || 0)}
-            <br /><br />
-            This usually means there is a discrepancy that needs investigating. <strong>This entry cannot be reversed.</strong>
-          </div>
-          <div className="form-actions" style={{ justifyContent: 'center' }}>
-            <button
-              className="ps-btn ps-btn-ghost"
-              onClick={() => setShowNegativeBalanceConfirm(false)}
-            >
-              Cancel
-            </button>
-            <button
-              className="ps-btn ps-btn-primary"
-              style={{ background: 'var(--ps-error)' }}
-              onClick={() => submitProvision(true)}
-              disabled={provSaving}
-            >
-              {provSaving ? 'Saving...' : 'Yes, submit anyway'}
-            </button>
-          </div>
-        </div>
-      </Modal>
+      <CDEntryWarningModal
+        isOpen={entryWarnings.length > 0}
+        warnings={entryWarnings}
+        submitting={provSaving}
+        onCancel={() => setEntryWarnings([])}
+        onConfirm={() => submitProvision(true)}
+      />
 
       {/* Single-register Balance Check Modal */}
       <Modal

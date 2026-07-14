@@ -3,7 +3,7 @@
 // Used for CD Register, RP Log, Returns
 // ============================================
 
-import { useState, useEffect, type ReactNode } from 'react'
+import { useState, useEffect, Fragment, type ReactNode } from 'react'
 import {
   useReactTable,
   getCoreRowModel,
@@ -51,6 +51,11 @@ interface RegisterTableProps<T> {
    * Return a RowMerge to merge columns, or undefined for normal rendering.
    */
   rowMerge?: (row: Row<T>) => RowMerge | undefined
+  /**
+   * Optional callback rendering an expandable sub-row underneath a data row
+   * (e.g. entry annotations). Return null/undefined for no sub-row.
+   */
+  subRow?: (row: Row<T>) => ReactNode | null | undefined
 }
 
 export function RegisterTable<T>({
@@ -66,6 +71,7 @@ export function RegisterTable<T>({
   alwaysShowPagination = false,
   printId,
   rowMerge,
+  subRow,
 }: RegisterTableProps<T>) {
   const [sorting, setSorting] = useState<SortingState>([])
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
@@ -145,8 +151,10 @@ export function RegisterTable<T>({
               table.getRowModel().rows.map((row) => {
                 const extraClass = rowClassName ? rowClassName(row.original) : ''
                 const merge = rowMerge ? rowMerge(row) : undefined
+                const sub = subRow ? subRow(row) : null
                 return (
-                <tr key={row.id} className={`${row.index % 2 === 0 ? 'even' : 'odd'} ${extraClass ?? ''}`}>
+                <Fragment key={row.id}>
+                <tr className={`${row.index % 2 === 0 ? 'even' : 'odd'} ${extraClass ?? ''}`}>
                   {merge
                     ? row.getVisibleCells().map((cell, colIdx) => {
                         // Inside the merged span — skip these cells
@@ -175,6 +183,12 @@ export function RegisterTable<T>({
                       ))
                   }
                 </tr>
+                {sub && (
+                  <tr className="entry-sub-row">
+                    <td colSpan={columns.length}>{sub}</td>
+                  </tr>
+                )}
+                </Fragment>
               )})
             )}
           </tbody>

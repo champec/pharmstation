@@ -11,6 +11,9 @@ import { useState, useEffect, useCallback } from 'react'
 import { getUserClient } from '@pharmstation/supabase-client'
 import { useAuthStore, useRegisterStore } from '@pharmstation/core'
 import type { KnownContact, RegisterEntry } from '@pharmstation/types'
+import { addEntryAnnotation } from '../annotations/EntryAnnotationsPanel'
+import { CDEntryWarningModal } from '../registers/CDEntryWarningModal'
+import { getCDEntryWarnings, type CDEntryWarning } from '../../utils/cdEntryWarnings'
 
 // Schema changes based on direction (IN vs OUT)
 const cdInSchema = z.object({
@@ -32,6 +35,7 @@ const cdOutSchema = z.object({
   collector_name: z.string().optional().nullable(),
   was_id_requested: z.boolean(),
   was_id_provided: z.boolean(),
+  is_partial_supply: z.boolean(),
   quantity: z.coerce.number().min(0.01, 'Quantity must be greater than 0'),
   notes: z.string().optional().nullable(),
 })
@@ -42,15 +46,18 @@ type CDEntryFormData = z.infer<typeof cdEntrySchema>
 
 interface CDEntryFormProps {
   direction: 'in' | 'out'
+  packLabel?: string | null
   onSuccess: (entry: RegisterEntry) => void
   onCancel: () => void
 }
 
-export function CDEntryForm({ direction, onSuccess, onCancel }: CDEntryFormProps) {
+export function CDEntryForm({ direction, packLabel, onSuccess, onCancel }: CDEntryFormProps) {
   const { organisation, activeUser } = useAuthStore()
-  const { activeLedger, lastUsedValues, setLastUsedValue } = useRegisterStore()
+  const { activeLedger, entries, lastUsedValues, setLastUsedValue } = useRegisterStore()
   const [submitting, setSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState<string | null>(null)
+  const [entryWarnings, setEntryWarnings] = useState<CDEntryWarning[]>([])
+  const [pendingWarningData, setPendingWarningData] = useState<CDEntryFormData | null>(null)
   const [patientSuggestions, setPatientSuggestions] = useState<KnownContact[]>([])
   const [prescriberSuggestions, setPrescriberSuggestions] = useState<KnownContact[]>([])
   const [supplierSuggestions, setSupplierSuggestions] = useState<KnownContact[]>([])
@@ -77,6 +84,7 @@ export function CDEntryForm({ direction, onSuccess, onCancel }: CDEntryFormProps
         collector_name: '',
         was_id_requested: false,
         was_id_provided: false,
+        is_partial_supply: false,
         quantity: 0,
         notes: '',
       }
@@ -180,7 +188,7 @@ export function CDEntryForm({ direction, onSuccess, onCancel }: CDEntryFormProps
     }
   }
 
-  const onSubmit = async (data: CDEntryFormData) => {
+  const submitEntry = async (data: CDEntryFormData) => {
     if (!activeLedger || !activeUser) return
     setSubmitting(true)
     setSubmitError(null)
@@ -224,6 +232,19 @@ export function CDEntryForm({ direction, onSuccess, onCancel }: CDEntryFormProps
         return
       }
 
+      // Part supply — append an annotation to the new entry (entries are immutable)
+      let newEntry = entry as RegisterEntry
+      if (!isIn && (data as z.infer<typeof cdOutSchema>).is_partial_supply && organisation) {
+        const { annotation } = await addEntryAnnotation({
+          entryId: newEntry.id,
+          organisationId: organisation.id,
+          userId: activeUser.id,
+          text: 'Part supply — balance owed to patient',
+          type: 'part_supply',
+        })
+        if (annotation) newEntry = { ...newEntry, annotations: [annotation] }
+      }
+
       // Save frequently used values
       if (isIn) {
         setLastUsedValue('supplier_name', (data as z.infer<typeof cdInSchema>).supplier_name)
@@ -233,12 +254,45 @@ export function CDEntryForm({ direction, onSuccess, onCancel }: CDEntryFormProps
         if (outData.prescriber_address) setLastUsedValue('prescriber_address', outData.prescriber_address)
       }
 
-      onSuccess(entry as RegisterEntry)
+      onSuccess(newEntry)
     } catch (err) {
       setSubmitError(err instanceof Error ? err.message : 'Failed to create entry')
     } finally {
       setSubmitting(false)
     }
+  }
+
+  const onSubmit = async (data: CDEntryFormData) => {
+    if (!activeLedger) return
+    const isIn = data.direction === 'in'
+    const warnings = getCDEntryWarnings({
+      direction: data.direction,
+      date: data.date_of_transaction,
+      quantity: data.quantity,
+      supplierName: isIn ? (data as z.infer<typeof cdInSchema>).supplier_name : null,
+      invoiceNumber: isIn ? (data as z.infer<typeof cdInSchema>).invoice_number : null,
+      patientName: !isIn ? (data as z.infer<typeof cdOutSchema>).patient_name : null,
+      wasIdRequested: !isIn ? (data as z.infer<typeof cdOutSchema>).was_id_requested : false,
+      wasIdProvided: !isIn ? (data as z.infer<typeof cdOutSchema>).was_id_provided : false,
+      packLabel,
+      currentBalance: activeLedger.current_balance,
+    }, entries)
+
+    if (warnings.length > 0) {
+      setPendingWarningData(data)
+      setEntryWarnings(warnings)
+      return
+    }
+
+    await submitEntry(data)
+  }
+
+  const confirmWarnings = () => {
+    if (!pendingWarningData) return
+    const data = pendingWarningData
+    setEntryWarnings([])
+    setPendingWarningData(null)
+    void submitEntry(data)
   }
 
   if (!activeLedger) return null
@@ -398,6 +452,14 @@ export function CDEntryForm({ direction, onSuccess, onCancel }: CDEntryFormProps
             <input type="number" className="ps-input" step="any" min="0" {...register('quantity')} />
             {errors.quantity && <div className="form-error">{errors.quantity.message}</div>}
           </div>
+
+          {/* Part supply */}
+          <div className="form-group">
+            <label className="checkbox-label" title="Tick when only part of the prescribed quantity is being supplied — balance owed to patient. Recorded as an appended note under the entry.">
+              <input type="checkbox" {...register('is_partial_supply')} />
+              <span>⏳ Part supply (balance owed to patient)</span>
+            </label>
+          </div>
         </>
       )}
 
@@ -432,6 +494,17 @@ export function CDEntryForm({ direction, onSuccess, onCancel }: CDEntryFormProps
           {submitting ? 'Saving...' : direction === 'in' ? '📥 Record Receipt' : '📤 Record Supply'}
         </button>
       </div>
+
+      <CDEntryWarningModal
+        isOpen={entryWarnings.length > 0}
+        warnings={entryWarnings}
+        submitting={submitting}
+        onCancel={() => {
+          setEntryWarnings([])
+          setPendingWarningData(null)
+        }}
+        onConfirm={confirmWarnings}
+      />
     </form>
   )
 }
