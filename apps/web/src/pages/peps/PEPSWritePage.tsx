@@ -171,7 +171,7 @@ export function PEPSWritePage() {
             ods_code: prescribingOrg.ods_code,
             address: [prescribingOrg.address_line_1, prescribingOrg.city, prescribingOrg.postcode].filter(Boolean).join(', ') || null,
           }
-        : { name: orgText.trim() || null }
+        : { name: orgText.trim() || undefined }
 
       const rx = await createPrescription({
         prescriber: myPrescriber,
