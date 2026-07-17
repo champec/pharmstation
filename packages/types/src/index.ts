@@ -929,7 +929,8 @@ export interface PsPayment {
 
 export interface ServiceForm {
   id: string
-  service_id: string
+  service_id: string | null
+  org_service_id: string | null
   name: string
   is_default: boolean
   version: number
@@ -947,6 +948,58 @@ export type FieldType =
   | 'textarea'
   | 'signature'
   | 'canvas'
+  | 'heading'
+  | 'info'
+  | 'table'
+  | 'prescribing'
+
+export interface ServicePgdRegimen {
+  id: string
+  label: string
+  drug_name: string
+  dmd_code?: string | null
+  dmd_type?: 'vmp' | 'amp' | null
+  dose: string
+  frequency: string
+  duration: string
+  quantity: number | null
+  unit: string
+  pack_query?: string
+}
+
+export interface ServicePrescriptionOrder {
+  dmd_code: string | null
+  dmd_type: 'vmp' | 'amp' | 'free_text'
+  manual_entry: boolean
+  drug_name: string
+  dose: string
+  frequency: string
+  duration: string
+  quantity: number | null
+  unit: string
+}
+
+export interface ServiceSuppliedPack {
+  appid: string
+  pack_name: string
+  apid: string | null
+  vppid: string | null
+  pack_quantity: number | null
+  quantity_uom_code: string | null
+  packs_supplied: number
+  prescription_charge_code: string | null
+  dispensing_fee_code: string | null
+  reimbursement_info: string | null
+}
+
+export interface ServicePrescriptionValue {
+  prescribing_basis: 'pgd' | 'independent_prescriber' | 'custom'
+  pgd_regimen_id: string | null
+  clinical_order: ServicePrescriptionOrder
+  supplied_pack: ServiceSuppliedPack | null
+}
+
+export type ServicePrescribingValue = ServicePrescriptionValue[]
 
 export interface ServiceFormField {
   id: string

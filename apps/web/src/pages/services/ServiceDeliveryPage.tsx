@@ -5,15 +5,21 @@ import type { GPSearchResult } from '@pharmstation/core'
 import { getUserClient } from '@pharmstation/supabase-client'
 import type { Patient, ServiceForm, ServiceFormField } from '@pharmstation/types'
 import { MedicationPrescriber, createEmptyMedication, type PrescribedMedication } from '../../components/outcomes/MedicationPrescriber'
+import { ServicePrescribingField } from '../../components/forms/ServicePrescribingField'
 
 /* ---- Human-readable labels for NHS field option codes ---- */
 const NHS_OPTION_LABELS: Record<string, string> = {
   // Consultation methods
   FACE_TO_FACE: 'Face to Face',
+  FTF: 'Face to face',
   TELEPHONE: 'Telephone',
   VIDEO: 'Video',
+  TELEMEDICINE: 'Telemedicine',
   // Professional roles
   PHARMACIST: 'Pharmacist',
+  '46255001': 'Pharmacist',
+  '159040006': 'Pharmacy Technician',
+  '734294007': 'Independent Prescriber',
   PHARMACY_TECHNICIAN: 'Pharmacy Technician',
   ACCREDITED_CHECKING_TECHNICIAN: 'Accredited Checking Technician',
   // CCS / Pharmacy First — Clinical Pathways presenting complaints
@@ -25,15 +31,20 @@ const NHS_OPTION_LABELS: Record<string, string> = {
   U_UTI: 'Uncomplicated UTI',
   A_S_T: 'Acute Sore Throat',
   // CCS no-supply reasons
-  A: 'A – Referred to GP',
-  B: 'B – Referred to A&E / 999',
-  C: 'C – Patient declined treatment',
-  D: 'D – Medicine not available',
-  E: 'E – Not appropriate to supply',
-  F: 'F – Other',
+  A: 'Does not meet PGD inclusion criteria',
+  B: 'Excluded under the PGD',
+  C: 'Patient does not consent to treatment',
+  D: 'Self-care preferred after shared decision making',
+  E: 'Delayed treatment; return if symptoms persist',
+  F: 'Other reason',
   // Outcomes
   ADVICE_ONLY: 'Advice Only',
   MEDICINE_SUPPLIED: 'Medicine Supplied',
+  OTC_MEDICINE_SALE: 'OTC medicine sale',
+  LOCAL_COMMISSIONED_REFERRAL: 'Locally commissioned service',
+  SUPPLY_NO_SUPPLY: 'Medicine supplied / not supplied',
+  NON_URGENT: 'Non-urgent signposting',
+  URGENT: 'Urgent escalation',
   REFERRAL_TO_GP: 'Referral to GP',
   REFERRAL_TO_ED: 'Referral to A&E',
   OTHER: 'Other',
@@ -85,6 +96,26 @@ interface PatientOption {
   nhs_number: string | null
   dob: string | null
   phone: string | null
+}
+
+const LAYOUT_FIELD_TYPES = new Set(['heading', 'info'])
+
+function hasFieldValue(field: ServiceFormField, value: unknown): boolean {
+  if (LAYOUT_FIELD_TYPES.has(field.field_type)) return true
+  if (field.field_type === 'table') {
+    return Array.isArray(value) && value.some((row) =>
+      row && typeof row === 'object' && Object.values(row).some((cell) => cell !== '' && cell !== null && cell !== undefined)
+    )
+  }
+  if (field.field_type === 'prescribing') {
+    const prescriptions = Array.isArray(value) ? value : value && typeof value === 'object' ? [value] : []
+    const config = field.options && !Array.isArray(field.options) ? field.options as Record<string, unknown> : {}
+    return prescriptions.length > 0 && prescriptions.every((prescription: any) =>
+      !!prescription.clinical_order?.drug_name && (config.requirePack !== true || !!prescription.supplied_pack?.appid)
+    )
+  }
+  if (Array.isArray(value)) return value.length > 0
+  return value !== undefined && value !== null && value !== ''
 }
 
 export function ServiceDeliveryPage() {
@@ -151,6 +182,18 @@ export function ServiceDeliveryPage() {
 
   useEffect(() => { load() }, [load])
 
+  // React Router reuses this page between service IDs. Clear the previous
+  // service's form state before resolving the next service's template.
+  useEffect(() => {
+    setSelectedForm(null)
+    setFormData({})
+    setNotes('')
+    setMedications([])
+    setStep('patient')
+    setCompleted(false)
+    setSubmitError(null)
+  }, [serviceId])
+
   // Auto-select default form when forms load
   useEffect(() => {
     if (activeForms.length > 0 && !selectedForm) {
@@ -165,6 +208,21 @@ export function ServiceDeliveryPage() {
       fetchFormFields(selectedForm.id)
     }
   }, [selectedForm, fetchFormFields])
+
+  // Apply template defaults without overwriting patient/PDS populated values.
+  useEffect(() => {
+    if (activeFields.length === 0) return
+    setFormData((current) => {
+      const next = { ...current }
+      for (const field of activeFields) {
+        const config = field.options && !Array.isArray(field.options) ? field.options as Record<string, unknown> : {}
+        if (next[field.field_key] === undefined && config.defaultValue !== undefined) {
+          next[field.field_key] = config.defaultValue
+        }
+      }
+      return next
+    })
+  }, [activeFields])
 
   /* ---- Patient search ---- */
   const searchPatients = useCallback(async (query: string) => {
@@ -210,7 +268,7 @@ export function ServiceDeliveryPage() {
         next['PROFESSIONAL_IDENTIFIER'] = activeUser.gphc_number
       }
       // Professional role defaults to PHARMACIST
-      if (!next['PROFESSIONAL_ROLE']) next['PROFESSIONAL_ROLE'] = 'PHARMACIST'
+      if (!next['PROFESSIONAL_ROLE']) next['PROFESSIONAL_ROLE'] = '46255001'
       // Assessment date defaults to today
       if (!next['ASSESSMENT_DATE']) next['ASSESSMENT_DATE'] = new Date().toISOString().split('T')[0]
       return next
@@ -304,11 +362,8 @@ export function ServiceDeliveryPage() {
   /* ---- Validation ---- */
   const requiredFieldsMissing = useMemo(() => {
     return activeFields
-      .filter((f) => f.is_required)
-      .filter((f) => {
-        const val = formData[f.field_key]
-        return val === undefined || val === null || val === ''
-      })
+      .filter((field) => field.is_required && !LAYOUT_FIELD_TYPES.has(field.field_type))
+      .filter((field) => !hasFieldValue(field, formData[field.field_key]))
   }, [activeFields, formData])
 
   /* ---- Derive whether medicine was supplied from form data ---- */
@@ -739,6 +794,8 @@ export function ServiceDeliveryPage() {
               )}
 
               {activeFields.map((field) => {
+                const fieldConfig = field.options && !Array.isArray(field.options) ? field.options as Record<string, unknown> : {}
+                if (fieldConfig.hidden === true) return null
                 // GP ODS Code — render searchable dropdown instead of text input
                 if (field.field_key === 'GP_ODS_CODE') {
                   return (
@@ -1042,8 +1099,9 @@ export function ServiceDeliveryPage() {
               <h3 style={{ fontSize: 'var(--ps-font-md)', fontWeight: 600, marginBottom: 'var(--ps-space-sm)' }}>Form Responses</h3>
               <div style={{ background: 'var(--ps-off-white)', borderRadius: 'var(--ps-radius-md)', padding: 'var(--ps-space-md)' }}>
                 {activeFields.map((field) => {
+                  if (LAYOUT_FIELD_TYPES.has(field.field_type)) return null
                   const val = formData[field.field_key]
-                  if (val === undefined || val === null || val === '') return null
+                  if (!hasFieldValue(field, val)) return null
                   // Show GP name alongside ODS code in review
                   const displayVal = field.field_key === 'GP_ODS_CODE' && selectedGP
                     ? `${selectedGP.name} (${selectedGP.odsCode})`
@@ -1129,6 +1187,27 @@ function DynamicField({
     : Array.isArray((field.options as any)?.values)
       ? (field.options as any).values
       : []
+  const config = field.options && !Array.isArray(field.options) ? field.options as Record<string, any> : {}
+  const choices = Array.isArray(config.choices) ? config.choices as Array<{ value: string; label: string }> : []
+  const renderedOptions = choices.length > 0 ? choices.map((choice) => choice.value) : optionValues
+  const getOptionLabel = (code: string) => choices.find((choice) => choice.value === code)?.label ?? optionLabel(code)
+  const readOnly = config.readOnly === true
+
+  if (field.field_type === 'heading') {
+    return <div className="service-form-section-heading"><h3>{field.label}</h3></div>
+  }
+
+  if (field.field_type === 'info') {
+    return <div className="service-form-guidance"><span aria-hidden="true">i</span><p>{field.label}</p></div>
+  }
+
+  if (field.field_type === 'table') {
+    return <RepeatableTableField field={field} value={value} onChange={onChange} />
+  }
+
+  if (field.field_type === 'prescribing') {
+    return <ServicePrescribingField field={field} value={value} onChange={onChange} />
+  }
 
   return (
     <div className="form-group">
@@ -1143,6 +1222,7 @@ function DynamicField({
           value={(value as string) || ''}
           onChange={(e) => onChange(e.target.value)}
           placeholder={field.label}
+          readOnly={readOnly}
         />
       )}
 
@@ -1184,29 +1264,31 @@ function DynamicField({
           className="ps-input"
           value={(value as string) || ''}
           onChange={(e) => onChange(e.target.value)}
+          disabled={readOnly}
         >
           <option value="">Select…</option>
-          {optionValues.map((v) => (
-            <option key={v} value={v}>{optionLabel(v)}</option>
+          {renderedOptions.map((v) => (
+            <option key={v} value={v}>{getOptionLabel(v)}</option>
           ))}
         </select>
       )}
 
       {field.field_type === 'multiselect' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-          {optionValues.map((v) => {
+          {renderedOptions.map((v) => {
             const selected = Array.isArray(value) ? value : []
             return (
               <label key={v} style={{ display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer' }}>
                 <input
                   type="checkbox"
                   checked={selected.includes(v)}
+                  disabled={readOnly}
                   onChange={(e) => {
                     if (e.target.checked) onChange([...selected, v])
                     else onChange(selected.filter((s: string) => s !== v))
                   }}
                 />
-                {optionLabel(v)}
+                {getOptionLabel(v)}
               </label>
             )
           })}
@@ -1260,11 +1342,96 @@ function DynamicField({
   )
 }
 
+interface TableColumn {
+  key: string
+  label: string
+  type?: 'text' | 'number' | 'date' | 'select'
+  values?: string[]
+}
+
+function RepeatableTableField({ field, value, onChange }: {
+  field: ServiceFormField
+  value: unknown
+  onChange: (val: unknown) => void
+}) {
+  const config = field.options && !Array.isArray(field.options) ? field.options as Record<string, unknown> : {}
+  const columns = (Array.isArray(config.columns) ? config.columns : []) as TableColumn[]
+  const rows = Array.isArray(value) ? value as Array<Record<string, unknown>> : []
+  const minimumRows = typeof config.minRows === 'number' ? Math.max(0, config.minRows) : 1
+
+  const visibleRows = rows.length > 0
+    ? rows
+    : Array.from({ length: minimumRows }, () => Object.fromEntries(columns.map((column) => [column.key, ''])))
+
+  const updateCell = (rowIndex: number, column: TableColumn, nextValue: string) => {
+    const nextRows = visibleRows.map((row) => ({ ...row }))
+    nextRows[rowIndex][column.key] = column.type === 'number' && nextValue !== '' ? Number(nextValue) : nextValue
+    onChange(nextRows)
+  }
+
+  const addRow = () => {
+    onChange([...visibleRows, Object.fromEntries(columns.map((column) => [column.key, '']))])
+  }
+
+  const removeRow = (rowIndex: number) => {
+    onChange(visibleRows.filter((_, index) => index !== rowIndex))
+  }
+
+  return (
+    <div className="form-group service-form-table-field">
+      <div className="service-form-table-heading">
+        <label>{field.label}{field.is_required && <span style={{ color: 'var(--ps-error)', marginLeft: 4 }}>*</span>}</label>
+        <button type="button" className="ps-btn ps-btn-secondary ps-btn-sm" onClick={addRow}>+ Add row</button>
+      </div>
+      {columns.length === 0 ? (
+        <div className="service-form-guidance"><span aria-hidden="true">i</span><p>This table has no configured columns.</p></div>
+      ) : (
+        <div className="service-form-table-scroll">
+          <table className="service-form-table">
+            <thead><tr>{columns.map((column) => <th key={column.key}>{column.label}</th>)}<th aria-label="Row actions" /></tr></thead>
+            <tbody>
+              {visibleRows.map((row, rowIndex) => (
+                <tr key={rowIndex}>
+                  {columns.map((column) => (
+                    <td key={column.key}>
+                      {column.type === 'select' ? (
+                        <select className="ps-input" value={String(row[column.key] ?? '')} onChange={(event) => updateCell(rowIndex, column, event.target.value)}>
+                          <option value="">Select…</option>
+                          {(column.values ?? []).map((option) => <option key={option} value={option}>{optionLabel(option)}</option>)}
+                        </select>
+                      ) : (
+                        <input className="ps-input" type={column.type === 'number' ? 'number' : column.type === 'date' ? 'date' : 'text'} value={String(row[column.key] ?? '')} onChange={(event) => updateCell(rowIndex, column, event.target.value)} />
+                      )}
+                    </td>
+                  ))}
+                  <td><button type="button" className="ps-btn ps-btn-ghost ps-btn-sm" onClick={() => removeRow(rowIndex)} disabled={visibleRows.length <= minimumRows} aria-label={`Remove ${field.label} row ${rowIndex + 1}`}>×</button></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  )
+}
+
 /* ==== Value formatter for review ==== */
 
 function formatValue(field: ServiceFormField, val: unknown): string {
   if (field.field_type === 'boolean') return val ? 'Yes' : 'No'
   if (field.field_type === 'select' && typeof val === 'string') return optionLabel(val)
+  if (field.field_type === 'table' && Array.isArray(val)) {
+    const completedRows = val.filter((row) => row && typeof row === 'object' && Object.values(row).some((cell) => cell !== '' && cell !== null && cell !== undefined))
+    return `${completedRows.length} completed row${completedRows.length === 1 ? '' : 's'}`
+  }
+  if (field.field_type === 'prescribing' && val && typeof val === 'object') {
+    const prescriptions = Array.isArray(val) ? val : [val]
+    return prescriptions.map((prescription: any) => {
+      const medicine = prescription.clinical_order?.drug_name || 'Medicine not selected'
+      const pack = prescription.supplied_pack?.pack_name
+      return pack ? `${medicine} · supplied as ${pack}` : medicine
+    }).join('; ')
+  }
   if (Array.isArray(val)) return val.map((v) => optionLabel(String(v))).join(', ')
   return String(val)
 }

@@ -134,6 +134,8 @@ import { CareHomeResidentPage } from './pages/care-homes/CareHomeResidentPage'
 import { CareHomeMarChartPage } from './pages/care-homes/CareHomeMarChartPage'
 import { CareHomeSupplyBatchPage } from './pages/care-homes/CareHomeSupplyBatchPage'
 import { CareHomePrescriptionRequestPage } from './pages/care-homes/CareHomePrescriptionRequestPage'
+// Pharmacy outreach CRM
+import { PharmacyOutreachPage } from './pages/outreach/PharmacyOutreachPage'
 
 export function App() {
   const { initialize, orgLoading, userLoading, isOrgLoggedIn, isUserLoggedIn } = useAuthStore()
@@ -264,6 +266,7 @@ export function App() {
         <Route path="/registers/rp" element={<RPLogPage />} />
         <Route path="/registers/returns" element={<ReturnsPage />} />
         <Route path="/settings" element={<SettingsPage />} />
+        <Route path="/outreach" element={<PharmacyOutreachPage />} />
 
         {/* Payments */}
         <Route path="/payments" element={<PaymentsPage />} />

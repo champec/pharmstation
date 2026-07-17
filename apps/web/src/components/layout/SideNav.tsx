@@ -22,6 +22,12 @@ const menuSections: NavSection[] = [
     items: [{ to: '/', icon: '📊', label: 'Dashboard' }],
   },
   {
+    title: 'Outreach',
+    icon: '◎',
+    expandable: false,
+    items: [{ to: '/outreach', icon: '◎', label: 'Pharmacy Outreach' }],
+  },
+  {
     title: 'Registers',
     icon: '📑',
     to: '/registers',

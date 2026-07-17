@@ -68,6 +68,8 @@ interface SelectedPharmacy extends BoundsPharmacy {
 interface Props {
   isOpen: boolean
   onClose: () => void
+  onAddToOutreach?: (pharmacy: BoundsPharmacy) => void
+  trackedPharmacyIds?: number[]
 }
 
 // Recipient shape passed via navigation state to NetworkComposePage
@@ -244,12 +246,16 @@ function PharmacyDetailPanel({
   isSelected,
   onToggleSelect,
   onMessage,
+  onAddToOutreach,
+  isTracked,
   onClose,
 }: {
   pharmacy: SelectedPharmacy
   isSelected: boolean
   onToggleSelect: () => void
   onMessage: () => void
+  onAddToOutreach?: () => void
+  isTracked: boolean
   onClose: () => void
 }) {
   const nhs = pharmacy.nhsData
@@ -373,6 +379,11 @@ function PharmacyDetailPanel({
 
         {/* Actions */}
         <div className="map-detail-actions">
+          {onAddToOutreach && (
+            <button className="ps-btn ps-btn-primary" onClick={onAddToOutreach}>
+              {isTracked ? 'Open outreach profile' : 'Add to outreach'}
+            </button>
+          )}
           {/* Get directions — works on mobile (native maps app) and desktop (Google Maps) */}
           {pharmacy.latitude != null && pharmacy.longitude != null && (
             <a
@@ -411,7 +422,7 @@ function PharmacyDetailPanel({
 
 // ── Main Modal ───────────────────────────────────────────────
 
-export function PharmacyMapModal({ isOpen, onClose }: Props) {
+export function PharmacyMapModal({ isOpen, onClose, onAddToOutreach, trackedPharmacyIds = [] }: Props) {
   const navigate = useNavigate()
   const { organisation } = useAuthStore()
   const { myLink, fetchMyLink } = useNetworkStore()
@@ -870,6 +881,8 @@ export function PharmacyMapModal({ isOpen, onClose }: Props) {
                 if (selectedPharmacy.linked_org_id) togglePick(selectedPharmacy.linked_org_id)
               }}
               onMessage={() => handleMessage(selectedPharmacy)}
+              onAddToOutreach={onAddToOutreach ? () => onAddToOutreach(selectedPharmacy) : undefined}
+              isTracked={trackedPharmacyIds.includes(selectedPharmacy.pharmacy_id)}
               onClose={() => setSelectedPharmacy(null)}
             />
           )}

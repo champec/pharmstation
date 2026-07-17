@@ -14,6 +14,10 @@ const FIELD_TYPES: { type: FieldType; label: string; icon: string }[] = [
   { type: 'date', label: 'Date', icon: '📅' },
   { type: 'textarea', label: 'Text Area', icon: '📄' },
   { type: 'signature', label: 'Signature', icon: '✍️' },
+  { type: 'heading', label: 'Section Heading', icon: '▤' },
+  { type: 'info', label: 'Guidance Text', icon: 'ℹ️' },
+  { type: 'table', label: 'Repeatable Table', icon: '▦' },
+  { type: 'prescribing', label: 'Prescribing', icon: '℞' },
 ]
 
 function toFieldKey(label: string): string {
@@ -98,7 +102,13 @@ export function FormBuilderPage() {
       label,
       field_key: toFieldKey(label),
       field_type: type,
-      options: type === 'select' || type === 'multiselect' ? { values: ['Option 1', 'Option 2'] } : null,
+      options: type === 'select' || type === 'multiselect'
+        ? { values: ['Option 1', 'Option 2'] }
+        : type === 'table'
+          ? { columns: [{ key: 'item', label: 'Item', type: 'text' }], minRows: 1 }
+          : type === 'prescribing'
+            ? { mode: 'custom', allowIpOverride: false, requirePack: false, pgdOptions: [] }
+          : null,
       is_required: false,
       display_order: fields.length,
     }
@@ -312,6 +322,8 @@ function FieldCard({
   onMove: (dir: -1 | 1) => void
 }) {
   const isOptionsType = field.field_type === 'select' || field.field_type === 'multiselect'
+  const isTable = field.field_type === 'table'
+  const isPrescribing = field.field_type === 'prescribing'
   const optionValues: string[] = isOptionsType
     ? ((field.options as any)?.values || [])
     : []
@@ -433,6 +445,76 @@ function FieldCard({
             </button>
           </div>
         )}
+        {isTable && (
+          <div style={{ marginTop: 'var(--ps-space-sm)' }}>
+            <label style={{ fontSize: 'var(--ps-font-xs)', color: 'var(--ps-slate)', display: 'block', marginBottom: 4 }}>
+              Columns (one per line: key | label | text/number/date/select)
+            </label>
+            <textarea
+              className="ps-input"
+              rows={4}
+              value={((field.options as any)?.columns || []).map((column: any) => `${column.key} | ${column.label} | ${column.type || 'text'}`).join('\n')}
+              onChange={(event) => {
+                const columns = event.target.value.split('\n').map((line) => {
+                  const [key, label, type] = line.split('|').map((part) => part.trim())
+                  return { key, label: label || key, type: type || 'text' }
+                }).filter((column) => column.key)
+                onUpdate({ options: { ...(field.options as any), columns } })
+              }}
+            />
+          </div>
+        )}
+        {isPrescribing && (
+          <div style={{ marginTop: 'var(--ps-space-sm)', display: 'grid', gap: 'var(--ps-space-sm)' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) auto auto', gap: 'var(--ps-space-sm)', alignItems: 'end' }}>
+              <label style={{ fontSize: 'var(--ps-font-xs)', color: 'var(--ps-slate)' }}>
+                Prescribing mode
+                <select
+                  className="ps-input"
+                  value={(field.options as any)?.mode || 'custom'}
+                  onChange={(event) => onUpdate({ options: { ...(field.options as any), mode: event.target.value } })}
+                >
+                  <option value="pgd">PGD options only</option>
+                  <option value="hybrid">PGD with IP override</option>
+                  <option value="custom">Open/custom prescribing</option>
+                </select>
+              </label>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 5, paddingBottom: 10, fontSize: 'var(--ps-font-xs)' }}>
+                <input
+                  type="checkbox"
+                  checked={(field.options as any)?.allowIpOverride === true}
+                  onChange={(event) => onUpdate({ options: { ...(field.options as any), allowIpOverride: event.target.checked } })}
+                />
+                Allow IP override
+              </label>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 5, paddingBottom: 10, fontSize: 'var(--ps-font-xs)' }}>
+                <input
+                  type="checkbox"
+                  checked={(field.options as any)?.requirePack === true}
+                  onChange={(event) => onUpdate({ options: { ...(field.options as any), requirePack: event.target.checked } })}
+                />
+                Exact pack required
+              </label>
+            </div>
+            {((field.options as any)?.mode === 'pgd' || (field.options as any)?.mode === 'hybrid') && (
+              <label style={{ fontSize: 'var(--ps-font-xs)', color: 'var(--ps-slate)' }}>
+                PGD regimens (one per line: id | label | medicine | dose | frequency | duration | quantity | unit | pack search)
+                <textarea
+                  className="ps-input"
+                  rows={6}
+                  value={((field.options as any)?.pgdOptions || []).map((option: any) => [option.id, option.label, option.drug_name, option.dose, option.frequency, option.duration, option.quantity ?? '', option.unit, option.pack_query || ''].join(' | ')).join('\n')}
+                  onChange={(event) => {
+                    const pgdOptions = event.target.value.split('\n').map((line) => {
+                      const [id, label, drug_name, dose, frequency, duration, quantity, unit, pack_query] = line.split('|').map((part) => part.trim())
+                      return { id, label: label || drug_name, drug_name, dose, frequency, duration, quantity: quantity ? Number(quantity) : null, unit: unit || 'units', pack_query }
+                    }).filter((option) => option.id && option.drug_name)
+                    onUpdate({ options: { ...(field.options as any), pgdOptions } })
+                  }}
+                />
+              </label>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Delete button */}
@@ -537,6 +619,16 @@ function renderPreviewInput(field: LocalField) {
           Signature capture area
         </div>
       )
+    case 'heading':
+      return <h3 style={{ margin: 0, color: 'var(--ps-midnight)' }}>{field.label}</h3>
+    case 'info':
+      return <div style={{ padding: 'var(--ps-space-sm)', background: 'var(--ps-off-white)', color: 'var(--ps-slate)' }}>{field.label}</div>
+    case 'table': {
+      const columns = ((field.options as any)?.columns || []) as Array<{ key: string; label: string }>
+      return <div style={{ overflowX: 'auto' }}><table style={{ width: '100%', borderCollapse: 'collapse' }}><thead><tr>{columns.map((column) => <th key={column.key} style={{ padding: 8, border: '1px solid var(--ps-cloud-blue)', textAlign: 'left' }}>{column.label}</th>)}</tr></thead><tbody><tr>{columns.map((column) => <td key={column.key} style={{ padding: 8, border: '1px solid var(--ps-cloud-blue)' }}>—</td>)}</tr></tbody></table></div>
+    }
+    case 'prescribing':
+      return <div style={{ padding: 'var(--ps-space-md)', border: '1px solid var(--ps-cloud-blue)', borderRadius: 'var(--ps-radius-md)', color: 'var(--ps-slate)' }}>Medicine, regimen and exact supplied-pack selection</div>
     default:
       return <input className="ps-input" disabled />
   }

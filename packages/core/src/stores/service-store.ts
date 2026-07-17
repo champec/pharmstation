@@ -72,23 +72,22 @@ export const useServiceStore = create<ServiceState>((set, get) => ({
   },
 
   fetchServiceDetail: async (serviceId) => {
-    set({ loading: true, error: null })
+    set({ loading: true, error: null, activeService: null, activeForms: [], activeFields: [] })
     try {
       const client = getUserClient()
       const serviceRes = await client.from('ps_services').select('*').eq('id', serviceId).single()
       if (serviceRes.error) throw serviceRes.error
       const service = serviceRes.data as Service
 
-      // Forms live on ps_service_library (via FK), so we query both the org-level
-      // service id and the library_service_id to pick up library form templates.
-      const formServiceIds = [serviceId]
-      if (service.library_service_id) {
-        formServiceIds.push(service.library_service_id)
-      }
+      // Custom forms belong to the org service; canonical forms belong to the
+      // subscribed library template. Keep those ownership paths explicit.
+      const ownerFilter = service.library_service_id
+        ? `org_service_id.eq.${serviceId},service_id.eq.${service.library_service_id}`
+        : `org_service_id.eq.${serviceId}`
       const formsRes = await client
         .from('ps_service_forms')
         .select('*')
-        .in('service_id', formServiceIds)
+        .or(ownerFilter)
         .order('created_at')
       if (formsRes.error) throw formsRes.error
 
@@ -170,15 +169,24 @@ export const useServiceStore = create<ServiceState>((set, get) => ({
   },
 
   createForm: async (serviceId, name) => {
-    const { data, error } = await getUserClient()
-      .from('ps_service_forms')
-      .insert({ service_id: serviceId, name })
-      .select()
-      .single()
-    if (error) throw error
-    const created = data as ServiceForm
-    set((s) => ({ activeForms: [...s.activeForms, created] }))
-    return created
+    try {
+      const activeService = get().activeService
+      if (activeService?.id === serviceId && activeService.is_nhs_service) {
+        throw new Error('Standard NHS service forms cannot be edited. Create a custom service to build your own form.')
+      }
+      const { data, error } = await getUserClient()
+        .from('ps_service_forms')
+        .insert({ org_service_id: serviceId, service_id: null, name })
+        .select()
+        .single()
+      if (error) throw error
+      const created = data as ServiceForm
+      set((s) => ({ activeForms: [...s.activeForms, created], error: null }))
+      return created
+    } catch (e: any) {
+      set({ error: e.message })
+      throw e
+    }
   },
 
   saveFields: async (formId, fields) => {

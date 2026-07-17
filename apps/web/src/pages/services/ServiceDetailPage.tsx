@@ -27,6 +27,7 @@ export function ServiceDetailPage() {
 
   const [newFormModalOpen, setNewFormModalOpen] = useState(false)
   const [newFormName, setNewFormName] = useState('')
+  const [newFormError, setNewFormError] = useState<string | null>(null)
 
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
   const [deleteFormId, setDeleteFormId] = useState<string | null>(null)
@@ -111,12 +112,15 @@ export function ServiceDetailPage() {
   const handleCreateForm = async () => {
     if (!serviceId || !newFormName.trim()) return
     setSaving(true)
+    setNewFormError(null)
     try {
       const created = await createForm(serviceId, newFormName.trim())
       setNewFormModalOpen(false)
       setNewFormName('')
       navigate(`/services/${serviceId}/form/${created.id}`)
-    } catch { /* error handled by store */ }
+    } catch (createError) {
+      setNewFormError(createError instanceof Error ? createError.message : 'The form could not be created.')
+    }
     setSaving(false)
   }
 
@@ -285,12 +289,14 @@ export function ServiceDetailPage() {
         <h2 style={{ fontSize: 'var(--ps-font-lg)', fontWeight: 600, color: 'var(--ps-midnight)', margin: 0 }}>
           📝 Service Forms
         </h2>
-        <button
-          className="ps-btn ps-btn-primary ps-btn-sm"
-          onClick={() => { setNewFormName(''); setNewFormModalOpen(true) }}
-        >
-          + Add Form
-        </button>
+        {!activeService.is_nhs_service && (
+          <button
+            className="ps-btn ps-btn-primary ps-btn-sm"
+            onClick={() => { setNewFormName(''); setNewFormError(null); setNewFormModalOpen(true) }}
+          >
+            + Add Form
+          </button>
+        )}
       </div>
 
       {activeForms.length === 0 ? (
@@ -298,12 +304,14 @@ export function ServiceDetailPage() {
           <p style={{ color: 'var(--ps-slate)', marginBottom: 'var(--ps-space-md)' }}>
             No forms yet. Add a form to collect patient information during this service.
           </p>
-          <button
-            className="ps-btn ps-btn-primary"
-            onClick={() => { setNewFormName(''); setNewFormModalOpen(true) }}
-          >
-            + Create First Form
-          </button>
+          {!activeService.is_nhs_service && (
+            <button
+              className="ps-btn ps-btn-primary"
+              onClick={() => { setNewFormName(''); setNewFormError(null); setNewFormModalOpen(true) }}
+            >
+              + Create First Form
+            </button>
+          )}
         </div>
       ) : (
         <div className="dashboard-grid">
@@ -402,6 +410,7 @@ export function ServiceDetailPage() {
               autoFocus
             />
           </div>
+          {newFormError && <div className="auth-error" role="alert">{newFormError}</div>}
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 'var(--ps-space-sm)', marginTop: 'var(--ps-space-lg)' }}>
             <button className="ps-btn ps-btn-secondary" onClick={() => setNewFormModalOpen(false)} disabled={saving}>Cancel</button>
             <button className="ps-btn ps-btn-primary" onClick={handleCreateForm} disabled={saving || !newFormName.trim()}>
