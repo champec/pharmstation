@@ -113,6 +113,7 @@ const menuSections: NavSection[] = [
     items: [
       { to: '/notes', icon: '📌', label: 'Notes' },
       { to: '/sops', icon: '📋', label: 'SOPs' },
+      { to: '/resources', icon: '▤', label: 'Resources' },
     ],
   },
   {

@@ -7,6 +7,7 @@ export function AuthLayout() {
         <div className="auth-layout-quick-links">
           <span className="auth-layout-quick-links-title">Quick links:</span>
           <Link to="/rp">Print RP Certificate</Link>
+          <Link to="/resources">Additional resources</Link>
           <Link to="/about">About PharmStation</Link>
         </div>
         <Outlet />

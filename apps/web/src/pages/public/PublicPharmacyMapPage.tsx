@@ -31,6 +31,7 @@ export function PublicPharmacyMapPage() {
         <nav style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
           <a href="/book" style={{ color: '#475569', fontSize: 14, textDecoration: 'none', fontWeight: 500 }}>Book a Service</a>
           <a href="/rp" style={{ color: '#475569', fontSize: 14, textDecoration: 'none', fontWeight: 500 }}>RP Certificate</a>
+          <a href="/resources" style={{ color: '#475569', fontSize: 14, textDecoration: 'none', fontWeight: 500 }}>Resources</a>
           <a href="/about" style={{ color: '#475569', fontSize: 14, textDecoration: 'none', fontWeight: 500 }}>About</a>
         </nav>
       </header>

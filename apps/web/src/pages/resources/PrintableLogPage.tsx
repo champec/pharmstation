@@ -1,0 +1,12 @@
+import { Link, Navigate, useParams } from 'react-router-dom'
+import { ResourceHeader } from './ResourceHeader'
+import { logDefinitions } from './logDefinitions'
+
+export function PrintableLogPage() {
+  const { logSlug } = useParams<{ logSlug: string }>()
+  const log = logDefinitions.find((item) => item.slug === logSlug)
+  if (!log) return <Navigate to="/resources/logs" replace />
+  const gridTemplateColumns = log.columns.map((column) => column.width).join(' ')
+
+  return <div className="resource-shell resource-print-page"><div className="resource-screen-only"><ResourceHeader /><div className="resource-print-toolbar"><Link to="/resources/logs">Back to printable logs</Link><button className="resource-primary-action" type="button" onClick={() => window.print()}>Print A4 log</button></div></div><main className="print-document"><article className="print-sheet print-log-sheet"><header className="print-sheet-header"><div><strong>Pharm<span>Station</span></strong><small>Pharmacy continuity resources</small></div><div><b>{log.category}</b><small>Printable operational record</small></div></header><div className="print-sheet-title"><h1>{log.title}</h1><span>PHARMACY RECORD</span></div><section className="print-log-details">{log.headerFields.map((field) => <div key={field}><span>{field}</span><i /></div>)}</section><p className="print-log-instructions">{log.instructions}</p><section className="print-log-table" style={{ gridTemplateColumns }}><div className="print-log-row is-heading">{log.columns.map((column) => <b key={column.label}>{column.label}</b>)}</div>{Array.from({ length: log.rows }, (_, rowIndex) => <div className="print-log-row" key={rowIndex}>{log.columns.map((column) => <span key={column.label}>{log.slug === 'fridge-temperature-log' && column.label === 'Day' ? rowIndex + 1 : ''}</span>)}</div>)}</section><section className="print-log-review"><div><span>Review findings / trends</span><i /></div><div><span>Actions agreed</span><i /></div><div><span>Reviewer signature</span><i /></div><div><span>Date</span><i /></div></section><footer><span>pharmstation.co.uk/resources</span><span>Retain and review in line with your pharmacy procedures.</span></footer></article></main></div>
+}

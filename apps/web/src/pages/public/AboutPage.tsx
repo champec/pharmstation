@@ -29,6 +29,7 @@ export function AboutPage() {
 
         <div style={{ marginTop: 'var(--ps-space-xl)', display: 'flex', flexWrap: 'wrap', gap: 'var(--ps-space-sm)' }}>
           <Link className="ps-btn ps-btn-primary" to="/rp">RP Certificate Tool</Link>
+          <Link className="ps-btn ps-btn-ghost" to="/resources">Free Resources</Link>
           <Link className="ps-btn ps-btn-ghost" to="/book">Book a Service</Link>
           <Link className="ps-btn ps-btn-ghost" to="/patient/login">Patient Login</Link>
           <Link className="ps-btn ps-btn-ghost" to="/privacy">Privacy Notice</Link>

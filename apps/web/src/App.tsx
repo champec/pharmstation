@@ -94,6 +94,16 @@ import { PaymentsPage } from './pages/payments/PaymentsPage'
 import { AboutPage } from './pages/public/AboutPage'
 import { PublicPharmacyMapPage } from './pages/public/PublicPharmacyMapPage'
 import { PrivacyNoticePage } from './pages/public/PrivacyNoticePage'
+import { ResourcesPage } from './pages/resources/ResourcesPage'
+import { ServiceFormsPage } from './pages/resources/ServiceFormsPage'
+import { PrintableFormPage } from './pages/resources/PrintableFormPage'
+import { PilFinderPage } from './pages/resources/PilFinderPage'
+import { PrintableLogsPage } from './pages/resources/PrintableLogsPage'
+import { PrintableLogPage } from './pages/resources/PrintableLogPage'
+import { OperationalToolsPage } from './pages/resources/OperationalToolsPage'
+import { UsefulContactsPage } from './pages/resources/UsefulContactsPage'
+import { ClosureNoticePage } from './pages/resources/ClosureNoticePage'
+import { SildenafilCardsPage } from './pages/resources/SildenafilCardsPage'
 // Locum Portal (external — no org context required)
 import { LocumLoginPage } from './pages/locum/LocumLoginPage'
 import { LocumRegisterPage } from './pages/locum/LocumRegisterPage'
@@ -151,6 +161,16 @@ export function App() {
       <Route path="/book/:orgSlug/payment-result" element={<PaymentResultPage />} />
       <Route path="/about" element={<AboutPage />} />
       <Route path="/privacy" element={<PrivacyNoticePage />} />
+      <Route path="/resources" element={<ResourcesPage />} />
+      <Route path="/resources/forms" element={<ServiceFormsPage />} />
+      <Route path="/resources/forms/:formSlug" element={<PrintableFormPage />} />
+      <Route path="/resources/pils" element={<PilFinderPage />} />
+      <Route path="/resources/logs" element={<PrintableLogsPage />} />
+      <Route path="/resources/logs/:logSlug" element={<PrintableLogPage />} />
+      <Route path="/resources/tools" element={<OperationalToolsPage />} />
+      <Route path="/resources/tools/contacts" element={<UsefulContactsPage />} />
+      <Route path="/resources/tools/closure-notice" element={<ClosureNoticePage />} />
+      <Route path="/resources/tools/sildenafil-cards" element={<SildenafilCardsPage />} />
 
       {/* Patient portal auth routes */}
       <Route path="/patient/login" element={<PatientLoginPage />} />
