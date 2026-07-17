@@ -110,7 +110,7 @@
 .outreach-stage-follow_up { border-color: #f0bc72; background: #fff6e6; color: #9a5800; }
 .outreach-stage-not_interested { border-color: #e3aaa7; background: #fff0ef; color: #a62f29; }
 
-.outreach-detail { min-width: 0; }
+.outreach-detail { min-width: 0; overflow-y: auto; max-height: calc(100vh - 300px); }
 .outreach-detail-header,
 .outreach-section-heading {
   display: flex;
@@ -120,59 +120,194 @@
 }
 
 .outreach-detail-header { padding: var(--ps-space-lg); border-bottom: 1px solid var(--outreach-line); }
-.outreach-detail-header h2,
-.outreach-section-heading h3 { margin: 0; letter-spacing: 0; }
-.outreach-detail-header p,
-.outreach-section-heading p { margin: 5px 0 0; color: var(--ps-slate); font-size: var(--ps-font-sm); }
+.outreach-detail-header h2 { margin: 0; letter-spacing: 0; font-size: var(--ps-font-xl); }
+.outreach-detail-header p { margin: 5px 0 0; color: var(--ps-slate); font-size: var(--ps-font-sm); }
+.outreach-saving { color: var(--ps-slate); font-size: var(--ps-font-xs); align-self: center; }
 
-.outreach-contact-strip {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: var(--ps-space-md);
-  padding: 12px var(--ps-space-lg);
+/* NHS info block */
+.outreach-nhs-info {
   border-bottom: 1px solid var(--outreach-line);
   background: var(--outreach-wash);
-  font-size: var(--ps-font-sm);
 }
 
-.outreach-contact-strip span { display: grid; gap: 2px; overflow-wrap: anywhere; }
-.outreach-contact-strip small { color: var(--ps-slate); font-size: 11px; font-weight: 700; text-transform: uppercase; }
-.outreach-contact-strip a { color: var(--ps-deep-blue); }
+.outreach-nhs-info-header {
+  padding: 8px var(--ps-space-lg);
+  font-size: 11px;
+  font-weight: 800;
+  color: var(--ps-slate);
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  border-bottom: 1px solid var(--outreach-line);
+}
 
+.outreach-nhs-contacts { display: grid; gap: 0; }
+
+.outreach-nhs-row {
+  display: grid;
+  grid-template-columns: 90px 1fr;
+  gap: var(--ps-space-sm);
+  align-items: baseline;
+  padding: 8px var(--ps-space-lg);
+  border-bottom: 1px solid var(--outreach-line);
+  font-size: var(--ps-font-sm);
+}
+.outreach-nhs-row:last-child { border-bottom: 0; }
+.outreach-nhs-label { color: var(--ps-slate); font-size: 11px; font-weight: 700; }
+.outreach-nhs-row em { color: var(--ps-slate); font-style: normal; }
+.outreach-nhs-row a { color: var(--ps-deep-blue); overflow-wrap: anywhere; }
+.outreach-nhs-hours { align-items: start; }
+
+/* Opening hours inside NHS block */
+.outreach-hours-grid { display: grid; gap: 2px; }
+.outreach-hours-row { display: grid; grid-template-columns: 34px 1fr; gap: 8px; font-size: 12px; }
+.outreach-hours-day { font-weight: 600; color: var(--outreach-ink); }
+.outreach-hours-time { display: flex; flex-direction: column; gap: 1px; }
+.outreach-hours-closed { color: var(--ps-slate); }
+.outreach-hours-none { color: var(--ps-slate); font-size: 12px; }
+
+/* Pipeline settings row */
 .outreach-profile-form {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: var(--ps-space-md);
   padding: var(--ps-space-lg);
   border-bottom: 1px solid var(--outreach-line);
+  align-items: end;
 }
 
 .outreach-profile-form label { display: grid; gap: 6px; color: var(--ps-slate); font-size: 12px; font-weight: 700; }
 .outreach-profile-form .ps-input { min-width: 0; }
 
-.outreach-timeline-section { padding: var(--ps-space-lg); }
+.outreach-last-contact-row {
+  display: grid;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--ps-slate);
+}
+.outreach-last-contact-row span:last-child { color: var(--outreach-ink); font-size: var(--ps-font-sm); }
+
+/* Sections */
+.outreach-section {
+  padding: var(--ps-space-lg);
+  border-bottom: 1px solid var(--outreach-line);
+}
+.outreach-section:last-child { border-bottom: 0; }
+.outreach-section-heading { margin-bottom: var(--ps-space-md); }
+.outreach-section-heading h3 { margin: 0; letter-spacing: 0; font-size: var(--ps-font-md); }
+.outreach-section-heading p { margin: 4px 0 0; color: var(--ps-slate); font-size: var(--ps-font-sm); }
+
+/* Contact person repeater */
+.outreach-contacts-repeater { display: grid; gap: var(--ps-space-md); }
+
+.outreach-contact-card {
+  border: 1px solid var(--outreach-line);
+  border-radius: var(--ps-radius-md);
+  overflow: hidden;
+}
+
+.outreach-contact-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  background: var(--outreach-wash);
+  border-bottom: 1px solid var(--outreach-line);
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--ps-slate);
+}
+
+.outreach-contact-card-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--ps-space-md);
+  padding: var(--ps-space-md);
+}
+
+.outreach-contact-card-fields label {
+  display: grid;
+  gap: 5px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--ps-slate);
+}
+
+.outreach-add-contact-btn { justify-self: start; }
+
+/* Activity form */
 .outreach-activity-form {
   display: grid;
-  grid-template-columns: 190px 1fr auto;
   gap: var(--ps-space-sm);
-  align-items: start;
-  margin-top: var(--ps-space-md);
   padding: 12px;
   border: 1px solid var(--outreach-line);
   border-left: 4px solid var(--outreach-green);
   background: var(--outreach-wash);
+  margin-bottom: var(--ps-space-lg);
 }
 
-.outreach-activity-form textarea { grid-column: 1 / 3; resize: vertical; }
-.outreach-activity-form button { grid-column: 3; grid-row: 1 / 3; align-self: stretch; }
+.outreach-activity-row {
+  display: grid;
+  grid-template-columns: 200px 1fr;
+  gap: var(--ps-space-sm);
+}
 
-.outreach-timeline { margin-top: var(--ps-space-lg); }
-.outreach-timeline article { display: grid; grid-template-columns: 18px 1fr; gap: 10px; padding-bottom: var(--ps-space-lg); }
+.outreach-activity-form textarea { resize: vertical; }
+
+/* Timeline */
+.outreach-timeline { display: grid; gap: 0; }
+.outreach-timeline article {
+  display: grid;
+  grid-template-columns: 28px 1fr;
+  gap: 10px;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--outreach-line);
+}
+.outreach-timeline article:last-child { border-bottom: 0; }
 .outreach-timeline article > div { display: grid; gap: 4px; }
 .outreach-timeline article small { color: var(--ps-slate); font-size: 11px; }
-.outreach-timeline article strong { font-size: var(--ps-font-sm); }
+.outreach-timeline article strong { font-size: var(--ps-font-sm); line-height: 1.4; }
 .outreach-timeline article p { margin: 0; color: #405452; font-size: var(--ps-font-sm); line-height: 1.5; white-space: pre-wrap; }
-.outreach-timeline-mark { width: 10px; height: 10px; margin-top: 4px; border: 2px solid #fff; border-radius: 50%; background: var(--outreach-green); box-shadow: 0 0 0 1px var(--outreach-green); }
+
+.outreach-timeline-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ps-space-sm);
+}
+
+.outreach-timeline-actions {
+  display: flex;
+  gap: 4px;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.outreach-timeline article:hover .outreach-timeline-actions { opacity: 1; }
+
+.outreach-timeline-editing {
+  display: grid;
+  grid-template-columns: 28px 1fr;
+  gap: 10px;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--outreach-line);
+}
+
+.outreach-timeline-edit-form { display: grid; gap: var(--ps-space-sm); }
+.outreach-timeline-edit-actions { display: flex; gap: var(--ps-space-sm); }
+
+.outreach-timeline-mark {
+  width: 26px;
+  height: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: var(--outreach-wash);
+  border: 1px solid var(--outreach-line);
+  font-size: 13px;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
 
 .outreach-empty { display: grid; gap: 5px; padding: var(--ps-space-xl); color: var(--ps-slate); text-align: center; }
 .outreach-empty strong { color: var(--outreach-ink); }
@@ -180,6 +315,7 @@
 
 @media (max-width: 1050px) {
   .outreach-profile-form { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .outreach-contact-card-fields { grid-template-columns: 1fr; }
 }
 
 @media (max-width: 760px) {
@@ -190,11 +326,9 @@
   .outreach-toolbar,
   .outreach-workspace { grid-template-columns: 1fr; }
   .outreach-list { max-height: 320px; border-right: 0; border-bottom: 1px solid var(--outreach-line); }
-  .outreach-contact-strip { grid-template-columns: 1fr; }
+  .outreach-detail { max-height: none; }
   .outreach-profile-form { grid-template-columns: 1fr; }
-  .outreach-activity-form { grid-template-columns: 1fr; }
-  .outreach-activity-form textarea,
-  .outreach-activity-form button { grid-column: 1; grid-row: auto; }
+  .outreach-activity-row { grid-template-columns: 1fr; }
 }
 
 /* Care home management */
