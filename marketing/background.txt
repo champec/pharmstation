@@ -1,0 +1,64 @@
+Pharmstation Marketing scripts
+
+new folder marketing
+sub folder slafes scripts
+main folder - marketing audiences
+
+my audience for pharmstation is primarily independent community pharmacies - in addition, we can also target private prescription writters, trusts, gp sureries, patients, drivers, students, locum pharmacists, vets and vet prescribers, independent hospitals and clinics, IP and SPs, as these are all potential usrs of pharmstation. 
+
+however primarily pharmstation is more useful the more community pharmacy adopt the platform.  Ultimately we want as many pharmacies on pharmstation beucase it a convient one stop solution for pharmacy digital operations - digital operation include things like, service delivery, filling in forms, registers logs and many more. 
+
+Why should a pharmacy join pharmstation 
+
+1. To be able to delivery remote services using our quick video links - allowing them not to need to see all patients, especially if patients a very ill. 
+2. To be able to digitise common operation like cd registers, rp logs, sops, 
+3. to be able to communicate more efficiently with other pharmacies thorugh a secure network, for things like, asking questions, checking if mediciation are in stock, seeing who is open, broadcasting messages for the masses, selectively for pharmacies using maps and promiximity - this brings pharmacies together unitying them while simultaneously improving outcomes for patients. while pharmstation offers a chat like interface, it also offers text alerts and desktop computer notifications, app notificaitons for alerts. 
+4. Pharmstation also provide free resources for anyone to use like rp certificates, service forms, Viagra print out checklists, 
+6. Pharmstation can also help with pharmacy deliveries, with a complete drug delivery system and driver set up system
+7. Pharmstation can help with carehome management 
+8. pharmstation can help with managing appointments - since it has a customer facing side, customers can conviently book their own appointment and you can manage availablility, this is useful, if offering private service
+9. priate sevce we offer the most flexible digitable and custimasble to manage your own service forms, create your won service form or use one of our tempaltes, or start with one of our templates and then cusotmise it as you please into your own service, one completed we handle the print outs, prescription creation and even prescribption delivery via our pripriatory private electronic prescriptions portal. 
+10. payments, we can also take payments on your behalf with stripe, you inegrate with us, and you can charge customers with our paryment portal managmed by stripe. 
+11. you can also managem locumn shifts. 
+
+In other words pharmstation offers lots of value, so you can focus on delivery, while we handle the technicalities. 
+
+My sales speeches focus on in person, calls and email which are my primary ways of dealing with cold pharmacy approaches. TRy and get a meeting with key decision makers in many independent pahrmacies, meet with pharmacy ownsers and pitch to them. 
+
+Many of them will either be using another similar service, no service at all 
+
+Those on similar service will only cover a portion, for example, rxdelivery, for drug delivery, cd smart for cd register, pharmoutcomes for mys form submission and delivery. So why pharmstation
+
+- single stop for many of those service, we operate a module opt in service, so you can literall join for free and benefit from our free modules but the main benefit is being able to receive communications, find local pharmacies and communicate with, our PEPS (private prescription delivery now you can review pricate scripts form verified prescribers reliably and safly via electronic system mirroring the NHS spine). this is all free. if you like your cd register company you can keep, pharmacstation is like joinng the pharmacy social network, to stay in the loop and communicate in a way never seen before with other pahrmacies. 
+- However I recommend switching to our servers and services, they are more integrated, not disjointed, they are well maintained and more affordable across the board, generous free trial for premium modules, we are at an advanced stage on NHS approval for MYS submission - so that will be coming. 
+- we have the latest AI technologies integrated into our system, scanning and reconciliation,
+ - commincate at every layer with natural language if you please. 
+- we intend on integrating with providers on drugs too so we are forward thinking and have plans to mainting and improve for a long time to come. drug comparison soon to be competitor. 
+- we provide alternatives so you are not vendor locked. 
+- we democratise the process, we promise to always offer basic services free for life and only charge for premium services to cover our costs. 
+
+What can I do with pharmstation if sign up today 
+
+- Begin SOP managments
+- Begin staff management 
+- Move away form paper logs to digital logs
+- Digitis your registers 
+- Begin deliverying remote service with video today
+- Begin managing your appointments
+- Begin booking locum shifts via our service (as we grow it will be more useful.)
+- You can now receive electronic prescription private 
+- communivate with anyone on the network
+- get all the pharmacy details of pharmacies nearby - opening times, see on map even if not on network, pubic data convineint
+- use of free resources (printouts, logs, certificates) 
+
+
+I want to write a few different types of pitches - my pitches are going to be funny down to earth, reflect me and my culture 
+
+a pharmacist, frustrated with lack of interconnectivity between pharmacies even at the expense of patient care, finding it hard to sign post to places where they can get medication, doctors phoning pharmacies to ask simple question do you have x in stock, taking their time, this could be solve with a simple text message! broadcast to all open pharmacies, pharmacies data is already public we can see on a map local pharamcies, we can kno which are open even on a sunday, but pharmacies are busy and don't always answer the phone they don alwys know whose on the other side, knowing you have a message from a local pharmacy means you know its important wont take too much time and you will be helping patient outcomes - using our app, desktop app and web app, a pharmacy can receive these things. As a locum pharmacist I found that this was hard, even in multi chain store, including boots itself, while boots has a stock check it not real time and requires manual check a lot of the time, this is the answer. To interconnected pharmacies, but its not enough utilitiy for a pharmacy to join a simple coms network - we want to make sure tha tyou are using it all the time, giving you all the more reason to keep it, that why we have pakced it with plenty of fetures, 
+
+-- I for one hate having to learning many different system to get my job down, I have having to remember many different logins, pharmstation streamline a lot fo the headache, form RP notices, to cd registers, to pharmacy logs, ( all of them) - sops, deliveries, carefhomes, and much more, locums, service calendards, form, patient bookings, all in one place, not run by a corporate but by someone who works in the field everyday and just happens to also be several years experience in app and web dev. I have combined the two my real work real life with my passion of building, I have built several system, that are often just improvement of what is there, I built simplescirbe the best whiteboard animation app beucase video scribe was not working and they didn't want to fix it, I built pharmacyskills, the most advanced most resoruces training app for prereg students, been going for 5years - I built several websites including pharmacy website I managend medsathome distance selling sebwite for them, I built the pharmacy game pockepharma for a client. 
+
+I know what I am doing in the buold space, we are so confident we have put in a bid to get NHS API approvals and certified, we have an ODS number we have ISO number, we at an advanced stage before we can go live with APIS, we have a passe d the NHS PDS toolkit - 
+
+
+

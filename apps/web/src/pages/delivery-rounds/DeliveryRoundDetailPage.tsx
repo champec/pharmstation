@@ -188,6 +188,13 @@ export function DeliveryRoundDetailPage() {
         </div>
       )}
 
+      {round.care_home_batch_id && (
+        <div className="care-home-delivery-link">
+          <div><strong>Care-home medicine delivery</strong><span>This route was generated from a packed care-home supply batch. Packing contents and receipt reconciliation are managed in Care Homes.</span></div>
+          <button className="ps-btn ps-btn-secondary" type="button" onClick={() => navigate(`/care-homes/supplies/${round.care_home_batch_id}`)}>Open supply batch</button>
+        </div>
+      )}
+
       {/* Summary Cards */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 'var(--ps-space-md)', marginBottom: 'var(--ps-space-lg)' }}>
         <div className="ps-card" style={{ padding: 'var(--ps-space-md)', textAlign: 'center' }}>
@@ -276,7 +283,7 @@ export function DeliveryRoundDetailPage() {
                 <div style={{ marginTop: 'var(--ps-space-sm)', display: 'flex', flexWrap: 'wrap', gap: 4 }}>
                   {rp.medications.map((dm) => (
                     <span key={dm.id} style={{ background: 'var(--ps-off-white)', padding: '2px 8px', borderRadius: 'var(--ps-radius-sm)', fontSize: 'var(--ps-font-xs)' }}>
-                      {(dm.patient_medication as any)?.drug_name ?? 'Unknown'} ×{dm.quantity ?? '—'}
+                      {(dm.patient_medication as any)?.drug_name ?? 'Unknown'} ×{dm.quantity ?? '—'}{dm.notes ? ` · ${dm.notes}` : ''}
                     </span>
                   ))}
                 </div>

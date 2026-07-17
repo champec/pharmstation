@@ -128,6 +128,12 @@ import { ShiftDetailPage } from './pages/shifts/ShiftDetailPage'
 import { ShiftLocumDirectoryPage } from './pages/shifts/ShiftLocumDirectoryPage'
 import { ShiftSOPsPage } from './pages/shifts/ShiftSOPsPage'
 import { ShiftPaymentsPage } from './pages/shifts/ShiftPaymentsPage'
+// Care home management
+import { CareHomeDashboardPage } from './pages/care-homes/CareHomeDashboardPage'
+import { CareHomeResidentPage } from './pages/care-homes/CareHomeResidentPage'
+import { CareHomeMarChartPage } from './pages/care-homes/CareHomeMarChartPage'
+import { CareHomeSupplyBatchPage } from './pages/care-homes/CareHomeSupplyBatchPage'
+import { CareHomePrescriptionRequestPage } from './pages/care-homes/CareHomePrescriptionRequestPage'
 
 export function App() {
   const { initialize, orgLoading, userLoading, isOrgLoggedIn, isUserLoggedIn } = useAuthStore()
@@ -350,6 +356,14 @@ export function App() {
         <Route path="/shifts/sops" element={<ShiftSOPsPage />} />
         <Route path="/shifts/payments" element={<ShiftPaymentsPage />} />
         <Route path="/shifts/:id" element={<ShiftDetailPage />} />
+
+        {/* Care home management */}
+        <Route path="/care-homes" element={<CareHomeDashboardPage />} />
+        <Route path="/care-homes/:linkId/residents/:residentId" element={<CareHomeResidentPage />} />
+        <Route path="/care-homes/:linkId/mar/:cycleId" element={<CareHomeMarChartPage />} />
+        <Route path="/care-homes/:linkId/supplies/:batchId" element={<CareHomeSupplyBatchPage />} />
+        <Route path="/care-homes/supplies/:batchId" element={<CareHomeSupplyBatchPage />} />
+        <Route path="/care-homes/:linkId/prescriptions/:requestId" element={<CareHomePrescriptionRequestPage />} />
       </Route>
 
       {/* Catch all */}

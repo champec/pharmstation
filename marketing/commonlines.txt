@@ -1,0 +1,134 @@
+PHARMSTATION COMMON LINES
+
+Use these as ingredients, not a script. Pick the lines that sound natural in the room.
+
+
+GENERAL OPENERS
+
+If you had one system that managed almost everything except your bad credit, would you use it?
+
+Pharmacy has an app for everything. Unfortunately, it is usually a different app, a different password and a different invoice.
+
+Pharmstation is what happens when a pharmacist gets tired of complaining about pharmacy software and accidentally learns how to build it.
+
+I am not here to sell you another login. I am here to help you retire a few.
+
+Pharmstation will not make the wholesaler deliver your owing, but it can make nearly everything after that less painful.
+
+You already run a pharmacy, a clinic, a delivery service, a call centre and, on some days, a small crisis unit. Your software should at least try to keep up.
+
+I built Pharmstation because "there must be a better way" was becoming my most repeated sentence at work.
+
+I know every software company says it saves time. I would rather show you before the wholesaler's hold music starts again.
+
+The aim is simple: less time doing pharmacy admin and more time doing actual pharmacy.
+
+
+COMMUNICATION AND STOCK
+
+They say good communication is the bridge to salvation. I am still wondering why pharmacies have been left on separate islands.
+
+A patient needs one box, six pharmacies may have it, and somehow our national search technology is still "start at the top of Google and ring everybody."
+
+We can track a takeaway to the driver's front door, but finding a box of medicine nearby still requires detective work and twenty phone calls.
+
+The most expensive piece of pharmacy equipment is sometimes the phone, especially when six people use it to ask the same stock question.
+
+Doctors should not have to spend their afternoon speed-dating local pharmacies: "Hello, do you have this? No? Lovely, next."
+
+One secure broadcast can ask every nearby open pharmacy. It is the difference between making one announcement and going on a telephone tour of the high street.
+
+Pharmacies are very good at helping each other. The problem is that our current network is usually one locum's contacts list.
+
+We already know where every pharmacy is and when it should be open. Pharmstation adds the useful part: letting them speak to each other.
+
+When a local pharmacy messages you, you know it is probably important. When an unknown number rings, it could be stock availability or somebody asking whether you sell stamps.
+
+The NHS talks a lot about interoperability. Pharmstation starts with a radical first step: allowing two pharmacies to talk without playing phone tennis.
+
+Even large chains struggle to see live stock across branches. Apparently the technology exists for satellites, but not for amoxicillin suspension.
+
+A medicine sitting on one pharmacy's shelf should not be invisible to a patient standing two streets away.
+
+
+ONE SYSTEM, FEWER LOGINS
+
+I do not mind learning new things. I just object to learning twelve systems before I can complete one working day.
+
+My password manager now has more pharmacy systems than I have friends. That felt like a sign.
+
+RP notices here, CD register there, deliveries somewhere else and the SOP in a folder nobody has opened since 2019. Pharmstation brings the family back together.
+
+Most pharmacy software solves one headache and gives you a fresh login as a side effect.
+
+The dream is not more technology. The dream is technology you do not have to think about every five minutes.
+
+Pharmstation is modular. Keep the systems you love, replace the ones you merely tolerate and pretend not to know the ones you hate.
+
+Joining Pharmstation does not mean breaking up with every supplier on day one. Think of it as keeping your options open, professionally.
+
+You can start free, use what is useful and add modules when they earn their place. No dramatic software wedding ceremony required.
+
+Vendor lock-in is like being trapped in a bad relationship, except the breakup fee comes as a PDF invoice.
+
+
+
+
+
+
+
+
+FREE ENTRY AND SWITCHING OBJECTIONS
+
+
+
+If you love your current CD register, keep it. I am selling pharmacy connectivity, not staging a software kidnapping. // funnier if you said not staging a coupe // 
+
+
+// almost funny but just not punchy and poor wording // The free modules are free for life. The premium modules pay for the servers, development and my increasingly concerning relationship with coffee. 
+
+
+
+// not funny // Pharmstation is less "rip everything out" and more "finally make everything work together."
+
+
+FOUNDER STORY AND CREDIBILITY
+
+// deleted a lot of lines talking about me, that were not funny just conceited way and self praising manner// 
+
+Most developers have never tried to find an owing while answering a prescriber, checking a CD balance and being asked where the cotton wool is. I have. That is the product research.
+
+Pharmstation is not a corporate guess at how pharmacies work. It is the system I kept wishing existed while I was working in them.
+
+
+
+
+DEMO TRANSITIONS AND CLOSERS
+
+// i was funnier with my variation of this line// I can describe it for another ten minutes, but we both know a two-minute demo is kinder.
+
+// delete// Give me one annoying task from your working week and let me show you how Pharmstation handles it.
+
+// funny but wording can be improved packaged better // What is the system in your pharmacy that everybody uses but nobody has a kind word for?
+
+//great line and funny// Which causes more trouble here: finding information, finding stock or finding the password?
+
+// cool statement can keep// I am not asking whether your current setup works. Pharmacy teams can make anything work. I am asking how much effort it takes.
+
+// not funny a cool stat can keep // If Pharmstation saves each team member only ten minutes a day, that is more than a working week returned to the pharmacy every year.
+
+//not funny delete // The best outcome is not that you notice Pharmstation all day. It is that you notice fewer things going wrong.
+
+// delete not funny//Let me show you the free starting point. The worst-case scenario is that you leave with one less phone call to make.
+
+
+
+-- my idea of funny and generic sales stuff
+
+Why dont you get the HBO special pricing - you get to help a brother out special
+
+or the the get rid of me special - the second tier right and il be gone quicker than the ben afleck movie
+
+I can get you up and running quicker than usain bolt 
+
+WHy dont you help get off work, i just need to sign up one more pharmcy and i will be off for the day 

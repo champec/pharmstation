@@ -59,7 +59,7 @@ export function DeliveryRouteMap({ patients, roundId, driverId, height = 400, sh
 
       // Batch geocode using postcodes.io bulk API
       const postcodes = patients
-        .map((p) => ({ id: p.id, postcode: (p.patient as any)?.postcode }))
+        .map((p) => ({ id: p.id, postcode: p.delivery_postcode || (p.patient as any)?.postcode }))
         .filter((p) => p.postcode)
 
       if (postcodes.length > 0) {

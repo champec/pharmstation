@@ -20,6 +20,7 @@ export interface Organisation {
   messaging_provider?: 'smsworks' | 'nhs_notify'
   /** True only for NHS-affiliated orgs (NHS-funded, hospital, military, prison) — unlocks NHS Notify email/letter channels. */
   nhs_channels_enabled?: boolean
+  organisation_type?: 'pharmacy' | 'carehome'
 }
 
 export interface OrganisationAddress {
@@ -33,7 +34,7 @@ export interface OrganisationAddress {
 
 // --- User ---
 
-export type UserRole = 'owner' | 'manager' | 'pharmacist' | 'technician' | 'dispenser' | 'locum'
+export type UserRole = 'owner' | 'manager' | 'pharmacist' | 'technician' | 'dispenser' | 'locum' | 'carehome_user'
 
 export interface UserProfile {
   id: string
@@ -88,6 +89,12 @@ export interface Permissions {
   billing?: boolean
   delivery_manage?: boolean
   delivery_drive?: boolean
+  care_home_view?: boolean
+  care_home_manage?: boolean
+  care_home_medications?: boolean
+  care_home_requests?: boolean
+  care_home_mar_prepare?: boolean
+  care_home_mar_administer?: boolean
   [key: string]: boolean | undefined
 }
 
@@ -373,6 +380,12 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, Permissions> = {
     billing: true,
     delivery_manage: true,
     delivery_drive: true,
+    care_home_view: true,
+    care_home_manage: true,
+    care_home_medications: true,
+    care_home_requests: true,
+    care_home_mar_prepare: true,
+    care_home_mar_administer: true,
   },
   manager: {
     cd_register_read: true,
@@ -391,6 +404,12 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, Permissions> = {
     billing: false,
     delivery_manage: true,
     delivery_drive: true,
+    care_home_view: true,
+    care_home_manage: true,
+    care_home_medications: true,
+    care_home_requests: true,
+    care_home_mar_prepare: true,
+    care_home_mar_administer: true,
   },
   pharmacist: {
     cd_register_read: true,
@@ -409,6 +428,12 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, Permissions> = {
     billing: false,
     delivery_manage: true,
     delivery_drive: false,
+    care_home_view: true,
+    care_home_manage: true,
+    care_home_medications: true,
+    care_home_requests: true,
+    care_home_mar_prepare: true,
+    care_home_mar_administer: true,
   },
   technician: {
     cd_register_read: true,
@@ -427,6 +452,12 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, Permissions> = {
     billing: false,
     delivery_manage: false,
     delivery_drive: true,
+    care_home_view: true,
+    care_home_manage: false,
+    care_home_medications: true,
+    care_home_requests: true,
+    care_home_mar_prepare: true,
+    care_home_mar_administer: false,
   },
   dispenser: {
     cd_register_read: false,
@@ -445,6 +476,12 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, Permissions> = {
     billing: false,
     delivery_manage: false,
     delivery_drive: true,
+    care_home_view: true,
+    care_home_manage: false,
+    care_home_medications: false,
+    care_home_requests: true,
+    care_home_mar_prepare: false,
+    care_home_mar_administer: false,
   },
   locum: {
     cd_register_read: true,
@@ -463,6 +500,36 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, Permissions> = {
     billing: false,
     delivery_manage: false,
     delivery_drive: false,
+    care_home_view: true,
+    care_home_manage: false,
+    care_home_medications: true,
+    care_home_requests: true,
+    care_home_mar_prepare: true,
+    care_home_mar_administer: false,
+  },
+  carehome_user: {
+    cd_register_read: false,
+    cd_register_write: false,
+    cd_register_correct: false,
+    rp_log_sign: false,
+    rp_log_view: false,
+    patient_returns_write: false,
+    sop_upload: false,
+    handover_all: false,
+    manage_users: false,
+    approve_locums: false,
+    view_audit: false,
+    ai_scan_use: false,
+    org_settings: false,
+    billing: false,
+    delivery_manage: false,
+    delivery_drive: false,
+    care_home_view: true,
+    care_home_manage: false,
+    care_home_medications: false,
+    care_home_requests: true,
+    care_home_mar_prepare: false,
+    care_home_mar_administer: true,
   },
 }
 
@@ -1421,6 +1488,305 @@ export interface PatientMedication {
   updated_at: string
 }
 
+// Care home management
+
+export type CareHomeLinkStatus = 'invited' | 'active' | 'suspended' | 'ended'
+export type CareHomeResidentStatus = 'active' | 'hospital' | 'leave' | 'discharged' | 'deceased'
+export type CareHomeMedicationRequestType = 'regular' | 'repeat' | 'acute' | 'query' | 'change'
+export type CareHomeMedicationRequestStatus =
+  | 'draft'
+  | 'submitted'
+  | 'acknowledged'
+  | 'approved'
+  | 'sent_to_gp'
+  | 'outstanding'
+  | 'received'
+  | 'part_received'
+  | 'refused'
+  | 'ordered'
+  | 'ready'
+  | 'completed'
+  | 'declined'
+  | 'cancelled'
+export type CareHomeMarCycleStatus = 'draft' | 'prepared' | 'published' | 'archived'
+
+export interface CareHomeLink {
+  id: string
+  pharmacy_organisation_id: string
+  care_home_organisation_id: string
+  status: CareHomeLinkStatus
+  service_name: string | null
+  cycle_day: number | null
+  default_cycle_length_days: number
+  contact_name: string | null
+  contact_email: string | null
+  contact_phone: string | null
+  notes: string | null
+  created_by: string | null
+  created_at: string
+  updated_at: string
+  pharmacy_organisation?: Pick<Organisation, 'id' | 'name' | 'address' | 'organisation_type'>
+  care_home_organisation?: Pick<Organisation, 'id' | 'name' | 'address' | 'organisation_type'>
+}
+
+export interface CareHomeResident {
+  id: string
+  care_home_link_id: string
+  patient_id: string
+  unit_id: string | null
+  room_number: string | null
+  status: CareHomeResidentStatus
+  admitted_on: string | null
+  discharged_on: string | null
+  gp_name: string | null
+  gp_practice: string | null
+  allergies: string | null
+  special_instructions: string | null
+  created_by: string | null
+  created_at: string
+  updated_at: string
+  patient?: Patient
+  unit?: CareHomeUnit
+}
+
+export interface CareHomeUnit {
+  id: string
+  care_home_link_id: string
+  name: string
+  floor_name: string | null
+  sort_order: number
+  notes: string | null
+  is_active: boolean
+  created_at: string
+  updated_at: string
+}
+
+export interface CareHomeMedicationRequest {
+  id: string
+  care_home_link_id: string
+  care_home_resident_id: string
+  patient_medication_id: string | null
+  request_type: CareHomeMedicationRequestType
+  medicine_name: string
+  quantity: number | null
+  needed_by: string | null
+  status: CareHomeMedicationRequestStatus
+  request_notes: string | null
+  pharmacy_response: string | null
+  requested_by: string
+  requested_at: string
+  reviewed_by: string | null
+  reviewed_at: string | null
+  completed_at: string | null
+  updated_at: string
+  gp_request_id: string | null
+  request_source: 'care_home' | 'pharmacy_auto' | 'pharmacy_manual'
+  prescription_outcome: 'pending' | 'received' | 'part_received' | 'refused' | 'not_required'
+  quantity_received: number | null
+  outcome_reason: string | null
+  outcome_by: string | null
+  outcome_at: string | null
+  resident?: CareHomeResident
+}
+
+export type CareHomeGpRequestStatus = 'draft' | 'ready_to_send' | 'sent_to_gp' | 'partially_received' | 'received' | 'closed' | 'cancelled'
+
+export interface CareHomeGpRequest {
+  id: string
+  care_home_link_id: string
+  request_number: number
+  title: string
+  cycle_start: string | null
+  cycle_end: string | null
+  status: CareHomeGpRequestStatus
+  surgery_name: string | null
+  surgery_address: string | null
+  surgery_contact: string | null
+  notes: string | null
+  prepared_by: string
+  prepared_at: string
+  sent_by: string | null
+  sent_at: string | null
+  closed_by: string | null
+  closed_at: string | null
+  created_at: string
+  updated_at: string
+  lines?: CareHomeMedicationRequest[]
+}
+
+export type CareHomeResidentNoteType = 'general' | 'clinical' | 'hospital' | 'incident' | 'medication' | 'communication'
+
+export interface CareHomeResidentNote {
+  id: string
+  care_home_resident_id: string
+  note_type: CareHomeResidentNoteType
+  note_date: string
+  note_text: string
+  created_by: string
+  created_at: string
+}
+
+export interface CareHomeMedicationEvent {
+  id: string
+  care_home_resident_id: string
+  medication_schedule_id: string | null
+  patient_medication_id: string | null
+  event_type: 'started' | 'changed' | 'stopped' | 'completed' | 'restarted' | 'incident' | 'note'
+  event_date: string
+  summary: string
+  reason: string | null
+  details: Record<string, unknown>
+  created_by: string | null
+  created_at: string
+}
+
+export interface CareHomeMarCycle {
+  id: string
+  care_home_resident_id: string
+  period_start: string
+  period_end: string
+  status: CareHomeMarCycleStatus
+  notes: string | null
+  prepared_by: string | null
+  prepared_at: string | null
+  published_by: string | null
+  published_at: string | null
+  created_at: string
+  updated_at: string
+  resident?: CareHomeResident
+}
+
+export type CareHomeMedicationScheduleType = 'regular' | 'repeat' | 'acute' | 'prn'
+export type CareHomeMarEntryStatus = 'planned' | 'administered' | 'refused' | 'omitted' | 'not_available' | 'away' | 'self_administered'
+
+export interface CareHomeMedicationSchedule {
+  id: string
+  care_home_resident_id: string
+  patient_medication_id: string
+  schedule_type: CareHomeMedicationScheduleType
+  dose: string
+  route: string | null
+  instructions: string | null
+  round_time: string | null
+  administration_days: number[]
+  start_date: string
+  end_date: string | null
+  is_active: boolean
+  lifecycle_status: 'active' | 'stopped' | 'completed'
+  stopped_at: string | null
+  stopped_by: string | null
+  stop_reason: string | null
+  created_by: string | null
+  created_at: string
+  updated_at: string
+  patient_medication?: PatientMedication
+}
+
+export interface CareHomeMarEntry {
+  id: string
+  mar_cycle_id: string
+  medication_schedule_id: string
+  administration_date: string
+  round_time: string | null
+  status: CareHomeMarEntryStatus
+  dose: string
+  reason_code: string | null
+  notes: string | null
+  administered_by: string | null
+  administered_at: string | null
+  witness_by: string | null
+  created_at: string
+  updated_at: string
+  medication_schedule?: CareHomeMedicationSchedule
+}
+
+export interface CareHomeAuditEvent {
+  id: string
+  care_home_link_id: string
+  resident_id: string | null
+  entity_type: string
+  entity_id: string | null
+  event_type: string
+  summary: string
+  details: Record<string, unknown>
+  created_by: string | null
+  created_at: string
+}
+
+export type CareHomeSupplyScope = 'all' | 'regular' | 'acute'
+export type CareHomeSupplyBatchStatus = 'draft' | 'packing' | 'ready_for_dispatch' | 'dispatched' | 'delivered' | 'reconciled' | 'cancelled'
+export type CareHomeSupplyPackageStatus = 'open' | 'packed' | 'sealed' | 'sent' | 'received' | 'discrepancy'
+export type CareHomeSupplyLineStatus = 'expected' | 'packed' | 'omitted' | 'sent' | 'received' | 'short' | 'over' | 'damaged' | 'returned'
+
+export interface CareHomeSupplyBatch {
+  id: string
+  care_home_link_id: string
+  batch_number: number
+  title: string
+  period_start: string
+  period_end: string
+  delivery_date: string | null
+  supply_scope: CareHomeSupplyScope
+  status: CareHomeSupplyBatchStatus
+  delivery_round_id: string | null
+  notes: string | null
+  created_by: string
+  created_at: string
+  updated_at: string
+  dispatched_at: string | null
+  delivered_at: string | null
+  reconciled_at: string | null
+  packages?: CareHomeSupplyPackage[]
+}
+
+export interface CareHomeSupplyPackage {
+  id: string
+  batch_id: string
+  care_home_resident_id: string
+  unit_id: string | null
+  package_label: string
+  package_status: CareHomeSupplyPackageStatus
+  packed_by: string | null
+  packed_at: string | null
+  sealed_by: string | null
+  sealed_at: string | null
+  received_by: string | null
+  received_at: string | null
+  receipt_notes: string | null
+  created_at: string
+  updated_at: string
+  resident?: CareHomeResident
+  unit?: CareHomeUnit
+  lines?: CareHomeSupplyLine[]
+  batch?: CareHomeSupplyBatch
+}
+
+export interface CareHomeSupplyLine {
+  id: string
+  package_id: string
+  medication_schedule_id: string | null
+  patient_medication_id: string
+  delivery_patient_medication_id: string | null
+  supply_type: CareHomeMedicationScheduleType
+  medicine_name: string
+  form: string | null
+  strength: string | null
+  dose: string | null
+  quantity_expected: number
+  quantity_packed: number
+  quantity_sent: number
+  quantity_received: number | null
+  line_status: CareHomeSupplyLineStatus
+  omission_reason: string | null
+  discrepancy_notes: string | null
+  packed_by: string | null
+  packed_at: string | null
+  received_by: string | null
+  received_at: string | null
+  created_at: string
+  updated_at: string
+}
+
 // Delivery Round Statuses
 
 export type DeliveryRoundStatus = 'draft' | 'scheduled' | 'in_progress' | 'completed' | 'cancelled'
@@ -1449,6 +1815,7 @@ export interface DeliveryRound {
   scheduled_time_end: string | null
   driver_id: string | null
   template_id: string | null
+  care_home_batch_id?: string | null
   notes: string | null
   time_window: string | null
   created_by: string

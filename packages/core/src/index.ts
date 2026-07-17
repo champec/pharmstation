@@ -15,6 +15,7 @@ export { useStickyNoteStore, type StickyNoteState } from './stores/sticky-note-s
 export { useSOPStore, type SOPState, buildNodeTree, flattenNodeTree } from './stores/sop-store'
 export { useNetworkStore, type NetworkState } from './stores/network-store'
 export { usePatientMedicationStore, type PatientMedicationState } from './stores/patient-medication-store'
+export { useCareHomeStore, type CareHomeState } from './stores/care-home-store'
 export { useDeliveryRoundStore, type DeliveryRoundState } from './stores/delivery-round-store'
 export { useDriverStore, type DriverState } from './stores/driver-store'
 export { useNHSStore, type NHSState, type NHSSettings, type GPSearchResult } from './stores/nhs-store'

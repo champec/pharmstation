@@ -128,6 +128,19 @@ const menuSections: NavSection[] = [
     ],
   },
   {
+    title: 'Care Homes',
+    icon: '▦',
+    expandable: true,
+    items: [
+      { to: '/care-homes', icon: '▦', label: 'Workspace' },
+      { to: '/care-homes?view=residents', icon: '●', label: 'Residents' },
+      { to: '/care-homes?view=units', icon: '≡', label: 'Units & Floors' },
+      { to: '/care-homes?view=supplies', icon: '□', label: 'Medicine Supplies' },
+      { to: '/care-homes?view=requests', icon: '↗', label: 'Prescription Journey' },
+      { to: '/care-homes?view=mar', icon: 'M', label: 'MAR Charts' },
+    ],
+  },
+  {
     title: 'Driver',
     icon: '🏎️',
     expandable: false,
