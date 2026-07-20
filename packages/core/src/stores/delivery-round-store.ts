@@ -63,6 +63,10 @@ export interface DeliveryRoundState {
   removePatientFromRound: (roundPatientId: string) => Promise<void>
   updatePatientOrder: (roundPatientId: string, newOrder: number) => Promise<void>
 
+  // Per-patient medicines within a round
+  addMedicationToRoundPatient: (roundId: string, roundPatientId: string, patientMedicationId: string, quantity?: number, notes?: string) => Promise<void>
+  removeMedicationFromRoundPatient: (roundId: string, deliveryMedicationId: string) => Promise<void>
+
   // Driver
   assignDriver: (roundId: string, driverId: string | null) => Promise<void>
   fetchAvailableDrivers: (orgId: string) => Promise<void>
@@ -264,6 +268,30 @@ export const useDeliveryRoundStore = create<DeliveryRoundState>((set, get) => ({
       .update({ delivery_order: newOrder })
       .eq('id', roundPatientId)
     if (error) throw error
+  },
+
+  // ── Per-patient medicines within a round ──
+
+  addMedicationToRoundPatient: async (roundId, roundPatientId, patientMedicationId, quantity, notes) => {
+    const { error } = await getUserClient()
+      .from('ps_delivery_patient_medications')
+      .insert({
+        delivery_round_patient_id: roundPatientId,
+        patient_medication_id: patientMedicationId,
+        quantity: quantity ?? null,
+        notes: notes ?? null,
+      })
+    if (error) throw error
+    await get().fetchRound(roundId)
+  },
+
+  removeMedicationFromRoundPatient: async (roundId, deliveryMedicationId) => {
+    const { error } = await getUserClient()
+      .from('ps_delivery_patient_medications')
+      .delete()
+      .eq('id', deliveryMedicationId)
+    if (error) throw error
+    await get().fetchRound(roundId)
   },
 
   // ── Driver ──

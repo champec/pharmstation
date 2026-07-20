@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import { Routes, Route, Navigate } from 'react-router-dom'
+import { Routes, Route, Navigate, useParams } from 'react-router-dom'
 import { useAuthStore, useLocumAuthStore } from '@pharmstation/core'
 import { AuthLayout } from './layouts/AuthLayout'
 import { DashboardLayout } from './layouts/DashboardLayout'
@@ -25,8 +25,10 @@ import { FormBuilderPage } from './pages/services/FormBuilderPage'
 import { ServiceDeliveryPage } from './pages/services/ServiceDeliveryPage'
 import { ServiceDeliveriesPage } from './pages/services/ServiceDeliveriesPage'
 // Expansion — Appointments
+import { AppointmentsListPage } from './pages/appointments/AppointmentsListPage'
 import { AppointmentsCalendarPage } from './pages/appointments/AppointmentsCalendarPage'
 import { AppointmentSlotsPage } from './pages/appointments/AppointmentSlotsPage'
+import { AppointmentServiceSlotsPage } from './pages/appointments/AppointmentServiceSlotsPage'
 import { NewAppointmentPage } from './pages/appointments/NewAppointmentPage'
 import { AppointmentDetailPage } from './pages/appointments/AppointmentDetailPage'
 // Expansion — Patients
@@ -130,12 +132,22 @@ import { ShiftSOPsPage } from './pages/shifts/ShiftSOPsPage'
 import { ShiftPaymentsPage } from './pages/shifts/ShiftPaymentsPage'
 // Care home management
 import { CareHomeDashboardPage } from './pages/care-homes/CareHomeDashboardPage'
+import { CareHomeManagePage } from './pages/care-homes/CareHomeManagePage'
+import { CareHomeGroupPage } from './pages/care-homes/CareHomeGroupPage'
+import { CareHomeBagPage } from './pages/care-homes/CareHomeBagPage'
+import { CareHomeRequestsManagerPage } from './pages/care-homes/CareHomeRequestsManagerPage'
 import { CareHomeResidentPage } from './pages/care-homes/CareHomeResidentPage'
 import { CareHomeMarChartPage } from './pages/care-homes/CareHomeMarChartPage'
 import { CareHomeSupplyBatchPage } from './pages/care-homes/CareHomeSupplyBatchPage'
 import { CareHomePrescriptionRequestPage } from './pages/care-homes/CareHomePrescriptionRequestPage'
 // Pharmacy outreach CRM
 import { PharmacyOutreachPage } from './pages/outreach/PharmacyOutreachPage'
+
+// Redirect legacy /delivery-rounds/:id links to the new /deliveries/:id route
+function LegacyDeliveryRedirect() {
+  const { id } = useParams<{ id: string }>()
+  return <Navigate to={`/deliveries/${id ?? ''}`} replace />
+}
 
 export function App() {
   const { initialize, orgLoading, userLoading, isOrgLoggedIn, isUserLoggedIn } = useAuthStore()
@@ -288,8 +300,10 @@ export function App() {
         <Route path="/services/111-referrals/:referralId" element={<ReferralDetailPage />} />
 
         {/* Appointments */}
-        <Route path="/appointments" element={<AppointmentsCalendarPage />} />
+        <Route path="/appointments" element={<AppointmentsListPage />} />
+        <Route path="/appointments/calendar" element={<AppointmentsCalendarPage />} />
         <Route path="/appointments/slots" element={<AppointmentSlotsPage />} />
+        <Route path="/appointments/slots/:serviceId" element={<AppointmentServiceSlotsPage />} />
         <Route path="/appointments/new" element={<NewAppointmentPage />} />
         <Route path="/appointments/:id" element={<AppointmentDetailPage />} />
 
@@ -331,14 +345,20 @@ export function App() {
         <Route path="/sops/:docId/assign" element={<SOPAssignPage />} />
         <Route path="/sops/:docId/progress" element={<SOPProgressPage />} />
 
-        {/* Delivery Rounds */}
-        <Route path="/delivery-rounds" element={<DeliveryRoundDashboardPage />} />
-        <Route path="/delivery-rounds/new" element={<NewDeliveryRoundPage />} />
-        <Route path="/delivery-rounds/redelivery" element={<RedeliveryQueuePage />} />
-        <Route path="/delivery-rounds/templates" element={<RoundTemplatesPage />} />
-        <Route path="/delivery-rounds/templates/:id" element={<RoundTemplateDetailPage />} />
-        <Route path="/delivery-rounds/:id" element={<DeliveryRoundDetailPage />} />
-        <Route path="/delivery-rounds/:id/edit" element={<EditDeliveryRoundPage />} />
+        {/* Deliveries */}
+        <Route path="/deliveries" element={<DeliveryRoundDashboardPage />} />
+        <Route path="/deliveries/new" element={<NewDeliveryRoundPage />} />
+        <Route path="/deliveries/redelivery" element={<RedeliveryQueuePage />} />
+        <Route path="/deliveries/templates" element={<RoundTemplatesPage />} />
+        <Route path="/deliveries/templates/:id" element={<RoundTemplateDetailPage />} />
+        <Route path="/deliveries/:id" element={<DeliveryRoundDetailPage />} />
+        <Route path="/deliveries/:id/edit" element={<EditDeliveryRoundPage />} />
+        {/* Legacy redirects from the old "delivery-rounds" paths */}
+        <Route path="/delivery-rounds" element={<Navigate to="/deliveries" replace />} />
+        <Route path="/delivery-rounds/new" element={<Navigate to="/deliveries/new" replace />} />
+        <Route path="/delivery-rounds/redelivery" element={<Navigate to="/deliveries/redelivery" replace />} />
+        <Route path="/delivery-rounds/templates" element={<Navigate to="/deliveries/templates" replace />} />
+        <Route path="/delivery-rounds/:id" element={<LegacyDeliveryRedirect />} />
 
         {/* Driver */}
         <Route path="/driver" element={<DriverDashboardPage />} />
@@ -362,6 +382,11 @@ export function App() {
 
         {/* Care home management */}
         <Route path="/care-homes" element={<CareHomeDashboardPage />} />
+        <Route path="/care-homes/manage" element={<CareHomeManagePage />} />
+        <Route path="/care-homes/manage/:linkId" element={<CareHomeManagePage />} />
+        <Route path="/care-homes/:linkId/groups/:groupId" element={<CareHomeGroupPage />} />
+        <Route path="/care-homes/:linkId/groups/:groupId/bags/:bagId" element={<CareHomeBagPage />} />
+        <Route path="/care-homes/:linkId/requests" element={<CareHomeRequestsManagerPage />} />
         <Route path="/care-homes/:linkId/residents/:residentId" element={<CareHomeResidentPage />} />
         <Route path="/care-homes/:linkId/mar/:cycleId" element={<CareHomeMarChartPage />} />
         <Route path="/care-homes/:linkId/supplies/:batchId" element={<CareHomeSupplyBatchPage />} />

@@ -177,46 +177,99 @@ interface DrugMatch {
 
 // Normalize common UK pharmacy form abbreviations
 function normalizeForm(form: string): string {
-  const s = form.toLowerCase().trim()
-  const abbrevs: Record<string, string> = {
-    'tabs': 'tablets', 'tab': 'tablets',
-    'caps': 'capsules', 'cap': 'capsules',
-    'soln': 'solution', 'inj': 'injection',
-    'liq': 'liquid', 'supp': 'suppositories',
-    'mr tabs': 'modified-release tablets',
-    'mr tablets': 'modified-release tablets',
-    'sr tablets': 'modified-release tablets',
-    'pr tablets': 'prolonged-release tablets',
-  }
-  return abbrevs[s] ?? s
+  let s = form.toLowerCase().trim().replace(/\s+/g, ' ')
+  // Expand leading/word abbreviations
+  s = s
+    .replace(/\btabs?\b/g, 'tablets')
+    .replace(/\bcaps?\b/g, 'capsules')
+    .replace(/\bsoln\b/g, 'solution')
+    .replace(/\binj\b/g, 'injection')
+    .replace(/\bliq\b/g, 'liquid')
+    .replace(/\bsupps?\b/g, 'suppositories')
+  // Unify release qualifiers: MR / SR / PR / XL / XR / prolonged-release / sustained-release /
+  // extended-release are all the same clinical family — "modified-release".
+  s = s
+    .replace(/\b(m\/?r|mr|sr|pr|xl|xr)\b/g, 'modified-release')
+    .replace(/\b(prolonged|sustained|extended|slow)[\s-]?release\b/g, 'modified-release')
+    .replace(/\bmodified[\s-]?release\b/g, 'modified-release')
+  return s.replace(/\s+/g, ' ').trim()
+}
+
+// Form family — the clinically meaningful grouping used for the safety gate.
+// "tablets" (IR) ≠ "modified-release tablets", but "prolonged-release tablets"
+// = "modified-release tablets". Base dosage form is kept distinct (tablets vs capsules).
+function formFamily(form: string): string {
+  const s = normalizeForm(form)
+  const mr = /\bmodified-release\b/.test(s)
+  let base = ''
+  if (/\btablets?\b/.test(s)) base = 'tablets'
+  else if (/\bcapsules?\b/.test(s)) base = 'capsules'
+  else if (/\bpatch(es)?\b/.test(s)) base = 'patches'
+  else if (/\b(oral solution|oral suspension|liquid|elixir|syrup)\b/.test(s)) base = 'oral-liquid'
+  else if (/\binjection|infusion|ampoules?|syringes?|vials?\b/.test(s)) base = 'injection'
+  else if (/\bsuppositor/.test(s)) base = 'suppositories'
+  else if (/\bnasal spray\b/.test(s)) base = 'nasal-spray'
+  else if (/\blozenge|buccal|sublingual|orodispersible\b/.test(s)) base = 'oromucosal'
+  else base = s
+  return mr && base !== 'injection' ? `mr-${base}` : base
+}
+
+// Normalize strengths: "18 mg" → "18mg", "25 mcg/hr" → "25micrograms/hour", unify mcg/µg.
+function normalizeStrength(strength: string): string {
+  return strength
+    .toLowerCase()
+    .replace(/\b(mcg|µg|ug)\b/g, 'micrograms')
+    .replace(/\bmicrogram\b/g, 'micrograms')
+    .replace(/\/hr\b/g, '/hour')
+    .replace(/\s+/g, '')
+    .trim()
+}
+
+// Normalize class names: strip salt suffixes so "Methylphenidate Hydrochloride"
+// matches catalogue class "Methylphenidate".
+const SALT_WORDS = /\b(hydrochloride|hydrobromide|sulfate|sulphate|tartrate|phosphate|citrate|maleate|mesilate|napsylate|sodium|besilate)\b/g
+function normalizeClass(cls: string): string {
+  return cls.toLowerCase().replace(SALT_WORDS, ' ').replace(/\s+/g, ' ').trim()
+}
+
+// Brand equivalence: exact, or one is the other plus a trailing release qualifier
+// (e.g. prescription says "Concerta", catalogue brand is "Concerta XL").
+const BRAND_QUALIFIER = /\s+(xl|xr|sr|pr|mr|continus|retard|dtrans|matrix|reservoir)$/i
+function normalizeBrand(brand: string): string {
+  return brand.toLowerCase().replace(/\s+/g, ' ').trim()
+}
+function brandsEquivalent(a: string, b: string): boolean {
+  const na = normalizeBrand(a)
+  const nb = normalizeBrand(b)
+  if (na === nb) return true
+  return na.replace(BRAND_QUALIFIER, '') === nb.replace(BRAND_QUALIFIER, '')
 }
 
 // Score how well a DB drug matches the AI extraction
 function scoreDrugMatch(d: DrugMatch, drugName: string, drugClass: string, drugForm: string, drugStrength: string): number {
   let score = 0
-  const dForm = normalizeForm(d.drug_form)
-  const dStrength = d.drug_strength.toLowerCase()
-  const dClass = d.drug_class.toLowerCase()
-  const dBrand = d.drug_brand.toLowerCase()
-  const qForm = normalizeForm(drugForm)
-  const qStrength = drugStrength.toLowerCase()
-  const qClass = drugClass.toLowerCase()
-  const qBrand = drugName.toLowerCase()
+  const dStrength = normalizeStrength(d.drug_strength ?? '')
+  const dClass = normalizeClass(d.drug_class)
+  const dBrand = normalizeBrand(d.drug_brand)
+  const qStrength = normalizeStrength(drugStrength)
+  const qClass = normalizeClass(drugClass)
+  const qBrand = normalizeBrand(drugName)
 
   // Strength match — most important
-  if (dStrength === qStrength) score += 10
-  else if (dStrength.includes(qStrength) || qStrength.includes(dStrength)) score += 5
+  if (dStrength && dStrength === qStrength) score += 10
+  else if (dStrength && qStrength && (dStrength.includes(qStrength) || qStrength.includes(dStrength))) score += 5
 
-  // Form match — EXACT ONLY after normalization.
-  // "tablets" (IR) ≠ "modified-release tablets" (MR) — clinically different drugs.
-  // No partial match bonus — patient safety first.
-  if (dForm === qForm) score += 8
+  // Form match — same clinical family only.
+  // "tablets" (IR) ≠ "modified-release tablets" — clinically different drugs.
+  // But "prolonged-release tablets" = "modified-release tablets" = "SR tablets".
+  if (formFamily(d.drug_form) === formFamily(drugForm)) score += 8
 
-  // Brand match
+  // Brand match (qualifier-tolerant: "Concerta" ≈ "Concerta XL")
   if (dBrand === qBrand) score += 6
+  else if (brandsEquivalent(dBrand, qBrand)) score += 5
   else if (dBrand.includes(qBrand) || qBrand.includes(dBrand)) score += 2
 
-  // Class match
+  // Class match (salt-tolerant: "Methylphenidate Hydrochloride" ≈ "Methylphenidate")
   if (dClass === qClass) score += 4
   else if (dClass.includes(qClass) || qClass.includes(dClass)) score += 2
 
@@ -232,88 +285,111 @@ async function reconcileDrug(
 ): Promise<DrugMatch | null> {
   // NOTE: We alias "id" as "drug_id" so the returned objects match the DrugMatch interface directly.
   const selectCols = 'drug_id:id, drug_brand, drug_form, drug_strength, drug_class'
-  const qFormNorm = normalizeForm(drugForm)
+  const qFamily = drugForm ? formFamily(drugForm) : ''
+  const qStrengthNorm = normalizeStrength(drugStrength ?? '')
 
-  // Helper: validate form match before returning — clinical safety gate.
-  // "tablets" (immediate-release) ≠ "modified-release tablets" — these are different drugs.
-  // If form doesn't match exactly (after normalization), reject the auto-match.
-  function validateFormMatch(best: DrugMatch): DrugMatch | null {
-    if (!qFormNorm) return best // No form from AI — can't validate, accept
-    const bestFormNorm = normalizeForm(best.drug_form)
-    if (bestFormNorm === qFormNorm) return best
-    // Form mismatch — don't auto-match. Let the human choose.
-    return null
+  // Validate a scored candidate list — clinical safety gates:
+  // 1. Form family must match ("tablets" IR ≠ "modified-release tablets";
+  //    but "prolonged-release" = "modified-release" = "SR").
+  // 2. If a strength was extracted, the match's strength must agree.
+  // 3. The winner must be unambiguous — if two different catalogue rows tie
+  //    on top score, don't auto-match; let the human choose.
+  function pickSafeMatch(scored: (DrugMatch & { score: number })[]): DrugMatch | null {
+    if (scored.length === 0) return null
+    const best = scored[0]
+    if (qFamily && formFamily(best.drug_form) !== qFamily) return null
+    if (qStrengthNorm && normalizeStrength(best.drug_strength ?? '') !== qStrengthNorm) return null
+    if (scored.length > 1 && scored[1].score === best.score && scored[1].drug_id !== best.drug_id) {
+      // Ambiguous tie between different rows — check they aren't clinically identical
+      const same = formFamily(scored[1].drug_form) === formFamily(best.drug_form)
+        && normalizeStrength(scored[1].drug_strength ?? '') === normalizeStrength(best.drug_strength ?? '')
+        && brandsEquivalent(scored[1].drug_brand, best.drug_brand)
+      if (!same) return null
+    }
+    return best
   }
 
-  // Strategy 1: exact brand match + strength + form scoring
-  {
+  function scoreAndPick(rows: DrugMatch[] | null): DrugMatch | null {
+    if (!rows || rows.length === 0) return null
+    const scored = rows.map((d: DrugMatch) => ({ ...d, score: scoreDrugMatch(d, drugName, drugClass, drugForm, drugStrength) }))
+    scored.sort((a, b) => b.score - a.score)
+    return pickSafeMatch(scored)
+  }
+
+  // Strip salt words for class searching ("Methylphenidate Hydrochloride" → "Methylphenidate")
+  const classSearch = drugClass ? drugClass.replace(SALT_WORDS, ' ').replace(/\s+/g, ' ').trim() : ''
+  // Strip trailing release qualifier for brand searching ("Concerta XL" ↔ "Concerta")
+  const brandBase = drugName ? drugName.replace(BRAND_QUALIFIER, '').trim() : ''
+
+  // Strategy 1: brand match (exact, then base-brand prefix to catch "Concerta" → "Concerta XL")
+  if (drugName) {
     const { data: exactBrand } = await supabaseAdmin
       .from('cdr_drugs_unique')
       .select(selectCols)
       .ilike('drug_brand', drugName)
       .limit(20)
 
-    if (exactBrand && exactBrand.length > 0) {
-      const scored = exactBrand.map((d: DrugMatch) => ({ ...d, score: scoreDrugMatch(d, drugName, drugClass, drugForm, drugStrength) }))
-      scored.sort((a: { score: number }, b: { score: number }) => b.score - a.score)
-      const result = validateFormMatch(scored[0] as DrugMatch)
-      if (result) return result
-      // Form mismatch on exact brand — fall through to try other strategies
+    let candidates: DrugMatch[] = (exactBrand as DrugMatch[] | null) ?? []
+    if (brandBase && brandBase.toLowerCase() !== drugName.toLowerCase().trim()) {
+      const { data: baseBrand } = await supabaseAdmin
+        .from('cdr_drugs_unique')
+        .select(selectCols)
+        .ilike('drug_brand', `${brandBase}%`)
+        .limit(20)
+      if (baseBrand) candidates = candidates.concat(baseBrand as DrugMatch[])
+    } else if (candidates.length === 0 && brandBase) {
+      // Prescription may say "Concerta" while catalogue says "Concerta XL"
+      const { data: prefixBrand } = await supabaseAdmin
+        .from('cdr_drugs_unique')
+        .select(selectCols)
+        .ilike('drug_brand', `${brandBase} %`)
+        .limit(20)
+      if (prefixBrand) candidates = prefixBrand as DrugMatch[]
     }
+
+    const result = scoreAndPick(candidates)
+    if (result) return result
+    // No safe brand match — fall through to class strategies
   }
 
   // Strategy 2: class + strength — covers generic/brandless prescriptions
-  if (drugClass) {
+  if (classSearch) {
     const classQuery = supabaseAdmin
       .from('cdr_drugs_unique')
       .select(selectCols)
-      .ilike('drug_class', drugClass)
+      .ilike('drug_class', `%${classSearch}%`)
 
-    // Add strength filter if provided
     if (drugStrength) {
       classQuery.ilike('drug_strength', drugStrength)
     }
 
-    const { data: classMatches } = await classQuery.limit(30)
-
-    if (classMatches && classMatches.length > 0) {
-      const scored = classMatches.map((d: DrugMatch) => ({ ...d, score: scoreDrugMatch(d, drugName, drugClass, drugForm, drugStrength) }))
-      scored.sort((a: { score: number }, b: { score: number }) => b.score - a.score)
-      const result = validateFormMatch(scored[0] as DrugMatch)
-      if (result) return result
-    }
+    const { data: classMatches } = await classQuery.limit(50)
+    const result = scoreAndPick(classMatches as DrugMatch[] | null)
+    if (result) return result
   }
 
   // Strategy 3: fuzzy brand match
-  {
+  if (drugName) {
     const { data: fuzzyBrand } = await supabaseAdmin
       .from('cdr_drugs_unique')
       .select(selectCols)
-      .ilike('drug_brand', `%${drugName}%`)
+      .ilike('drug_brand', `%${brandBase || drugName}%`)
       .limit(20)
 
-    if (fuzzyBrand && fuzzyBrand.length > 0) {
-      const scored = fuzzyBrand.map((d: DrugMatch) => ({ ...d, score: scoreDrugMatch(d, drugName, drugClass, drugForm, drugStrength) }))
-      scored.sort((a: { score: number }, b: { score: number }) => b.score - a.score)
-      const result = validateFormMatch(scored[0] as DrugMatch)
-      if (result) return result
-    }
+    const result = scoreAndPick(fuzzyBrand as DrugMatch[] | null)
+    if (result) return result
   }
 
-  // Strategy 4: class only (last resort) — still validate form
-  if (drugClass) {
+  // Strategy 4: class only (last resort) — safety gates still apply
+  if (classSearch) {
     const { data: classOnly } = await supabaseAdmin
       .from('cdr_drugs_unique')
       .select(selectCols)
-      .ilike('drug_class', `%${drugClass}%`)
-      .limit(5)
+      .ilike('drug_class', `%${classSearch}%`)
+      .limit(50)
 
-    if (classOnly && classOnly.length > 0) {
-      const scored = classOnly.map((d: DrugMatch) => ({ ...d, score: scoreDrugMatch(d, drugName, drugClass, drugForm, drugStrength) }))
-      scored.sort((a: { score: number }, b: { score: number }) => b.score - a.score)
-      const result = validateFormMatch(scored[0] as DrugMatch)
-      if (result) return result
-    }
+    const result = scoreAndPick(classOnly as DrugMatch[] | null)
+    if (result) return result
   }
 
   return null
@@ -576,17 +652,24 @@ Deno.serve(async (req) => {
 
     // ============================================
     // Phase 2: PROCESS — receives image directly from client,
-    // runs storage upload + LLM processing IN PARALLEL
+    // runs storage upload + LLM processing IN PARALLEL.
+    //
+    // RETRY MODE: if image_base64 is omitted, the image is downloaded from
+    // storage (scan must already have an image_path from a previous run) and
+    // the existing extraction is replaced. Blocked once any item is approved.
     // ============================================
     if (action === 'process') {
-      const { scan_id, organisation_id, image_base64, mime_type } = body
+      const { scan_id, organisation_id } = body
+      let { image_base64, mime_type } = body
 
-      if (!scan_id || !organisation_id || !image_base64 || !mime_type) {
-        return new Response(JSON.stringify({ error: 'Missing scan_id, organisation_id, image_base64, or mime_type' }), {
+      if (!scan_id || !organisation_id) {
+        return new Response(JSON.stringify({ error: 'Missing scan_id or organisation_id' }), {
           status: 400,
           headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
         })
       }
+
+      const isRetry = !image_base64
 
       const { data: processMembership } = await supabaseAdmin
         .from('ps_organisation_members')
@@ -599,20 +682,6 @@ Deno.serve(async (req) => {
       if (!processMembership || processMembership.permissions?.ai_scan_use === false) {
         return new Response(JSON.stringify({ error: 'AI scan permission not granted' }), {
           status: 403,
-          headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
-        })
-      }
-
-      try {
-        validateImage(image_base64, mime_type)
-      } catch (err) {
-        await supabaseAdmin.from('ps_ai_scan_queue').update({
-          status: 'error',
-          error_message: (err as Error).message,
-          processed_at: new Date().toISOString(),
-        }).eq('id', scan_id).eq('organisation_id', organisation_id)
-        return new Response(JSON.stringify({ error: (err as Error).message }), {
-          status: 400,
           headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
         })
       }
@@ -632,26 +701,101 @@ Deno.serve(async (req) => {
         })
       }
 
-      // Start storage upload in background (runs in parallel with AI)
+      if (isRetry) {
+        // Retry safety: never re-extract once a register entry has been created
+        const { count: approvedCount } = await supabaseAdmin
+          .from('ps_ai_scan_items')
+          .select('id', { count: 'exact', head: true })
+          .eq('scan_id', scan_id)
+          .eq('status', 'approved')
+
+        if ((approvedCount ?? 0) > 0) {
+          return new Response(JSON.stringify({ error: 'This scan has approved items with register entries. Retry is not allowed — delete the scan and re-photograph instead.' }), {
+            status: 409,
+            headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+          })
+        }
+
+        if (!scanRecord.image_path) {
+          return new Response(JSON.stringify({ error: 'No stored image is available for this scan, so it cannot be re-processed.' }), {
+            status: 400,
+            headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+          })
+        }
+
+        // Download the original image from storage
+        const { data: imageBlob, error: downloadError } = await supabaseAdmin.storage
+          .from('scan-images')
+          .download(scanRecord.image_path)
+
+        if (downloadError || !imageBlob) {
+          return new Response(JSON.stringify({ error: `Could not load the stored image: ${downloadError?.message ?? 'not found'}` }), {
+            status: 500,
+            headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+          })
+        }
+
+        const bytes = new Uint8Array(await imageBlob.arrayBuffer())
+        let binary = ''
+        const CHUNK = 0x8000
+        for (let i = 0; i < bytes.length; i += CHUNK) {
+          binary += String.fromCharCode(...bytes.subarray(i, i + CHUNK))
+        }
+        image_base64 = btoa(binary)
+        const pathExt = scanRecord.image_path.split('.').pop()?.toLowerCase() ?? 'jpg'
+        mime_type = pathExt === 'png' ? 'image/png' : pathExt === 'webp' ? 'image/webp' : 'image/jpeg'
+
+        // Mark as processing again and clear previous results
+        await supabaseAdmin.from('ps_ai_scan_queue').update({
+          status: 'processing',
+          error_message: null,
+        }).eq('id', scan_id)
+      }
+
+      if (!image_base64 || !mime_type) {
+        return new Response(JSON.stringify({ error: 'Missing image_base64 or mime_type' }), {
+          status: 400,
+          headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+        })
+      }
+
+      try {
+        validateImage(image_base64, mime_type)
+      } catch (err) {
+        await supabaseAdmin.from('ps_ai_scan_queue').update({
+          status: 'error',
+          error_message: (err as Error).message,
+          processed_at: new Date().toISOString(),
+        }).eq('id', scan_id).eq('organisation_id', organisation_id)
+        return new Response(JSON.stringify({ error: (err as Error).message }), {
+          status: 400,
+          headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+        })
+      }
+
+      // Start storage upload in background (runs in parallel with AI).
+      // On retry the image is already in storage — keep the existing path.
       const ext = mime_type.split('/')[1]?.replace('jpeg', 'jpg') || 'jpg'
       const storagePath = `${organisation_id}/${crypto.randomUUID()}.${ext}`
-      const imageBuffer = Uint8Array.from(atob(image_base64), (c) => c.charCodeAt(0))
 
-      const storagePromise = (async () => {
-        try {
-          const { error: storageError } = await supabaseAdmin.storage
-            .from('scan-images')
-            .upload(storagePath, imageBuffer, { contentType: mime_type, upsert: false })
-          if (storageError) {
-            console.error('Storage upload failed (non-blocking):', storageError.message)
-            return null
-          }
-          return { path: storagePath }
-        } catch (err) {
-          console.error('Storage upload error (non-blocking):', err)
-          return null
-        }
-      })()
+      const storagePromise = isRetry
+        ? Promise.resolve({ path: scanRecord.image_path as string })
+        : (async () => {
+            try {
+              const imageBuffer = Uint8Array.from(atob(image_base64), (c) => c.charCodeAt(0))
+              const { error: storageError } = await supabaseAdmin.storage
+                .from('scan-images')
+                .upload(storagePath, imageBuffer, { contentType: mime_type, upsert: false })
+              if (storageError) {
+                console.error('Storage upload failed (non-blocking):', storageError.message)
+                return null
+              }
+              return { path: storagePath }
+            } catch (err) {
+              console.error('Storage upload error (non-blocking):', err)
+              return null
+            }
+          })()
 
       // Get augmentation notes
       const { data: augmentationNotes } = await supabaseAdmin
@@ -759,6 +903,15 @@ Deno.serve(async (req) => {
         handwritten_notes: aiResult.handwritten_notes as string ?? null,
         processed_at: new Date().toISOString(),
       }).eq('id', scan_id)
+
+      // On retry, replace the previous extraction (no approved items exist —
+      // that was verified before processing started)
+      if (isRetry) {
+        await supabaseAdmin
+          .from('ps_ai_scan_items')
+          .delete()
+          .eq('scan_id', scan_id)
+      }
 
       // Reconcile drugs and create scan items
       const scanItems = []

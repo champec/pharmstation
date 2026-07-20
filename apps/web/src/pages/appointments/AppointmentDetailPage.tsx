@@ -75,7 +75,7 @@ export function AppointmentDetailPage() {
     return (
       <div className="ps-card" style={{ padding: 'var(--ps-space-2xl)', textAlign: 'center' }}>
         <h2>Appointment not found</h2>
-        <button className="ps-btn ps-btn-secondary" onClick={() => navigate('/appointments')}>Back to Calendar</button>
+        <button className="ps-btn ps-btn-secondary" onClick={() => navigate('/appointments')}>Back to Appointments</button>
       </div>
     )
   }

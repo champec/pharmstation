@@ -1600,7 +1600,11 @@ export interface CareHomeResident {
   updated_at: string
   patient?: Patient
   unit?: CareHomeUnit
+  group_memberships?: CareHomeGroupMember[]
 }
+
+export type CareHomeGroupType = 'monthly' | 'acute'
+export type CareHomeGroupState = 'idle' | 'preparing' | 'ready' | 'in_transit' | 'delivered'
 
 export interface CareHomeUnit {
   id: string
@@ -1612,6 +1616,25 @@ export interface CareHomeUnit {
   is_active: boolean
   created_at: string
   updated_at: string
+  // Group lifecycle
+  group_type: CareHomeGroupType
+  group_state: CareHomeGroupState
+  cycle_day: number | null
+  active_batch_id: string | null
+  delivery_round_id: string | null
+  state_changed_at: string | null
+  // Joined helpers
+  members?: CareHomeGroupMember[]
+  active_batch?: CareHomeSupplyBatch | null
+}
+
+export interface CareHomeGroupMember {
+  id: string
+  group_id: string
+  care_home_resident_id: string
+  created_by: string | null
+  created_at: string
+  resident?: CareHomeResident
 }
 
 export interface CareHomeMedicationRequest {
@@ -1789,6 +1812,8 @@ export interface CareHomeSupplyBatch {
   dispatched_at: string | null
   delivered_at: string | null
   reconciled_at: string | null
+  group_id: string | null
+  group?: CareHomeUnit | null
   packages?: CareHomeSupplyPackage[]
 }
 
@@ -1808,6 +1833,7 @@ export interface CareHomeSupplyPackage {
   receipt_notes: string | null
   created_at: string
   updated_at: string
+  delivery_round_patient_id: string | null
   resident?: CareHomeResident
   unit?: CareHomeUnit
   lines?: CareHomeSupplyLine[]

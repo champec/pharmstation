@@ -3,12 +3,37 @@ import { useNavigate } from 'react-router-dom'
 import { useAuthStore, useDeliveryRoundStore } from '@pharmstation/core'
 import type { DeliveryRound, DeliveryRoundStatus } from '@pharmstation/types'
 
+// Kanban columns mapped onto the delivery-round lifecycle, mirroring the
+// care-home groups board so the two modules feel like one system.
+const columns: Array<{
+  key: 'draft' | 'scheduled' | 'in_progress' | 'completed'
+  statuses: DeliveryRoundStatus[]
+  label: string
+  hint: string
+  accent: string
+}> = [
+  { key: 'draft', statuses: ['draft'], label: 'Draft', hint: 'Being built — add patients and medicines', accent: 'idle' },
+  { key: 'scheduled', statuses: ['scheduled'], label: 'Scheduled', hint: 'Ready to go, awaiting the driver', accent: 'ready' },
+  { key: 'in_progress', statuses: ['in_progress'], label: 'Out for delivery', hint: 'Driver is on the road', accent: 'in_transit' },
+  { key: 'completed', statuses: ['completed'], label: 'Completed', hint: 'Delivered and closed off', accent: 'delivered' },
+]
+
 const STATUS_BADGE: Record<DeliveryRoundStatus, { cls: string; label: string }> = {
-  draft: { cls: 'ps-badge-slate', label: 'Draft' },
-  scheduled: { cls: 'ps-badge-blue', label: 'Scheduled' },
-  in_progress: { cls: 'ps-badge-amber', label: 'In Progress' },
-  completed: { cls: 'ps-badge-green', label: 'Completed' },
-  cancelled: { cls: 'ps-badge-red', label: 'Cancelled' },
+  draft: { cls: 'ps-badge-muted', label: 'Draft' },
+  scheduled: { cls: 'ps-badge-primary', label: 'Scheduled' },
+  in_progress: { cls: 'ps-badge-blue', label: 'In transit' },
+  completed: { cls: 'ps-badge-success', label: 'Completed' },
+  cancelled: { cls: 'ps-badge-danger', label: 'Cancelled' },
+}
+
+function formatDate(value: string | null) {
+  return value
+    ? new Date(value).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+    : 'No date set'
+}
+
+function formatTime(value: string | null) {
+  return value ? value.slice(0, 5) : ''
 }
 
 export function DeliveryRoundDashboardPage() {
@@ -16,8 +41,8 @@ export function DeliveryRoundDashboardPage() {
   const { organisation } = useAuthStore()
   const { rounds, redeliveryQueue, loading, error, fetchRounds, fetchRedeliveryQueue, clearError } = useDeliveryRoundStore()
 
-  const [tab, setTab] = useState<'active' | 'completed' | 'cancelled'>('active')
   const [search, setSearch] = useState('')
+  const [showCompleted, setShowCompleted] = useState(false)
 
   const load = useCallback(() => {
     if (!organisation?.id) return
@@ -27,147 +52,142 @@ export function DeliveryRoundDashboardPage() {
 
   useEffect(() => { load() }, [load])
 
-  const filteredRounds = useMemo(() => {
-    let list = rounds
-    if (tab === 'active') list = list.filter((r) => ['draft', 'scheduled', 'in_progress'].includes(r.status))
-    else if (tab === 'completed') list = list.filter((r) => r.status === 'completed')
-    else list = list.filter((r) => r.status === 'cancelled')
-
+  const visibleRounds = useMemo(() => {
+    let list = rounds.filter((round) => round.status !== 'cancelled')
     if (search.trim()) {
       const q = search.toLowerCase()
-      list = list.filter((r) =>
-        (r.title && r.title.toLowerCase().includes(q)) ||
-        r.id.includes(q)
+      list = list.filter((round) =>
+        (round.title && round.title.toLowerCase().includes(q)) || round.id.includes(q),
       )
     }
     return list
-  }, [rounds, tab, search])
+  }, [rounds, search])
 
-  const formatDate = (d: string | null) =>
-    d ? new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'
-
-  const formatTime = (t: string | null) => t ? t.slice(0, 5) : ''
+  const renderCard = (round: DeliveryRound) => {
+    const patientCount = round.patients?.length ?? 0
+    const driverName = (round.driver as { user_profile?: { full_name?: string } } | null)?.user_profile?.full_name
+    return (
+      <button
+        key={round.id}
+        type="button"
+        className="care-home-group-card"
+        onClick={() => navigate(`/deliveries/${round.id}`)}
+      >
+        <div className="care-home-group-card-top">
+          <strong>{round.title || `Delivery ${round.id.slice(0, 8)}`}</strong>
+          <span className={`ps-badge ${STATUS_BADGE[round.status]?.cls ?? 'ps-badge-muted'}`}>
+            {STATUS_BADGE[round.status]?.label ?? round.status}
+          </span>
+        </div>
+        <div className="care-home-group-card-meta">
+          <span>{patientCount} patient{patientCount === 1 ? '' : 's'}</span>
+          {round.care_home_batch_id && <span>Care home</span>}
+        </div>
+        <small className="care-home-group-card-batch">
+          {formatDate(round.scheduled_date)}
+          {round.scheduled_time_start && ` · ${formatTime(round.scheduled_time_start)}`}
+          {round.scheduled_time_end && `–${formatTime(round.scheduled_time_end)}`}
+        </small>
+        {driverName && <small className="care-home-group-card-time">🚗 {driverName}</small>}
+      </button>
+    )
+  }
 
   return (
-    <div>
-      <div className="page-header">
+    <div className="care-home-page">
+      <div className="page-header care-home-page-header">
         <div className="breadcrumbs">
           <a href="/" onClick={(e) => { e.preventDefault(); navigate('/') }}>Dashboard</a>
           <span className="separator">/</span>
-          <span>Delivery Rounds</span>
+          <span>Deliveries</span>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <h1>🚚 Delivery Rounds</h1>
-          <div style={{ display: 'flex', gap: 'var(--ps-space-sm)' }}>
+        <div className="care-home-title-row">
+          <div>
+            <p className="care-home-eyebrow">Delivery workflow</p>
+            <h1>Deliveries</h1>
+            <p className="care-home-subtitle">
+              Plan, pack and track medicine deliveries to patients at home.
+            </p>
+          </div>
+          <div className="care-home-header-actions care-home-no-print">
             {redeliveryQueue.length > 0 && (
-              <button className="ps-btn ps-btn-secondary" onClick={() => navigate('/delivery-rounds/redelivery')}>
-                ⚠️ Redelivery Queue ({redeliveryQueue.length})
+              <button className="ps-btn ps-btn-secondary" type="button" onClick={() => navigate('/deliveries/redelivery')}>
+                ⚠️ Redelivery queue ({redeliveryQueue.length})
               </button>
             )}
-            <button className="ps-btn ps-btn-secondary" onClick={() => navigate('/delivery-rounds/templates')}>
+            <button className="ps-btn ps-btn-secondary" type="button" onClick={() => navigate('/deliveries/templates')}>
               Templates
             </button>
-            <button className="ps-btn ps-btn-primary" onClick={() => navigate('/delivery-rounds/new')}>
-              + New Round
+            <button className="ps-btn ps-btn-primary" type="button" onClick={() => navigate('/deliveries/new')}>
+              + New delivery
             </button>
           </div>
         </div>
       </div>
 
       {error && (
-        <div className="auth-error" style={{ marginBottom: 'var(--ps-space-md)' }}>
-          {error}
-          <button className="ps-btn ps-btn-ghost ps-btn-sm" onClick={clearError} style={{ marginLeft: 'var(--ps-space-sm)' }}>Dismiss</button>
+        <div className="auth-error care-home-alert" role="alert">
+          <span>{error}</span>
+          <button className="ps-btn ps-btn-ghost ps-btn-sm" type="button" onClick={clearError}>Dismiss</button>
         </div>
       )}
 
-      {/* Tabs */}
-      <div style={{ display: 'flex', gap: 'var(--ps-space-md)', marginBottom: 'var(--ps-space-md)', borderBottom: '2px solid var(--ps-off-white)', paddingBottom: 'var(--ps-space-sm)' }}>
-        {(['active', 'completed', 'cancelled'] as const).map((t) => (
-          <button
-            key={t}
-            className={`ps-btn ps-btn-ghost ${tab === t ? 'ps-btn-active' : ''}`}
-            onClick={() => setTab(t)}
-            style={{ textTransform: 'capitalize', fontWeight: tab === t ? 600 : 400, borderBottom: tab === t ? '2px solid var(--ps-primary)' : 'none' }}
-          >
-            {t === 'active' ? 'Active' : t === 'completed' ? 'Completed' : 'Cancelled'}
-          </button>
-        ))}
-      </div>
-
-      {/* Search */}
-      <div style={{ marginBottom: 'var(--ps-space-md)' }}>
+      <div className="care-home-context-bar care-home-no-print">
         <input
           className="ps-input"
-          placeholder="Search rounds by title..."
+          placeholder="Search deliveries by title..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          style={{ maxWidth: 400 }}
+          style={{ maxWidth: 320 }}
         />
+        <label className="care-home-check-label">
+          <input type="checkbox" checked={showCompleted} onChange={(e) => setShowCompleted(e.target.checked)} />
+          Show completed
+        </label>
+        <span className="care-home-filter-count">{visibleRounds.length} active</span>
       </div>
 
-      {/* Loading */}
-      {loading && rounds.length === 0 && (
-        <div style={{ textAlign: 'center', padding: 'var(--ps-space-2xl)', color: 'var(--ps-slate)' }}>Loading delivery rounds…</div>
-      )}
-
-      {/* Empty */}
-      {!loading && rounds.length === 0 && (
-        <div className="ps-card" style={{ padding: 'var(--ps-space-2xl)', textAlign: 'center' }}>
-          <div style={{ fontSize: '48px', marginBottom: 'var(--ps-space-md)' }}>🚚</div>
-          <h2 style={{ color: 'var(--ps-midnight)', marginBottom: 'var(--ps-space-sm)' }}>No delivery rounds yet</h2>
-          <p style={{ color: 'var(--ps-slate)', marginBottom: 'var(--ps-space-lg)' }}>
-            Create your first delivery round to get started.
-          </p>
-          <button className="ps-btn ps-btn-primary" onClick={() => navigate('/delivery-rounds/new')}>+ New Round</button>
-        </div>
-      )}
-
-      {/* Rounds List */}
-      {filteredRounds.length > 0 && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--ps-space-sm)' }}>
-          {filteredRounds.map((round) => (
-            <div
-              key={round.id}
-              className="ps-card"
-              style={{ padding: 'var(--ps-space-md)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}
-              onClick={() => navigate(`/delivery-rounds/${round.id}`)}
-              onMouseEnter={(e) => { (e.currentTarget as HTMLDivElement).style.borderColor = 'var(--ps-primary)' }}
-              onMouseLeave={(e) => { (e.currentTarget as HTMLDivElement).style.borderColor = '' }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--ps-space-md)' }}>
-                <div>
-                  <div style={{ fontWeight: 600, color: 'var(--ps-midnight)' }}>
-                    {round.title || `Round ${round.id.slice(0, 8)}`}
+      {loading && rounds.length === 0 ? (
+        <div className="care-home-loading">Loading deliveries...</div>
+      ) : rounds.length === 0 ? (
+        <section className="care-home-empty">
+          <p className="care-home-empty-mark" aria-hidden="true">🚚</p>
+          <h2>No deliveries yet</h2>
+          <p>Create your first delivery to plan a route and pack medicines for your patients.</p>
+          <button className="ps-btn ps-btn-primary" type="button" onClick={() => navigate('/deliveries/new')}>+ New delivery</button>
+        </section>
+      ) : (
+        <div className="care-home-kanban">
+          {columns
+            .filter((column) => showCompleted || column.key !== 'completed')
+            .map((column) => {
+              const columnRounds = visibleRounds.filter((round) => column.statuses.includes(round.status))
+              return (
+                <section key={column.key} className={`care-home-kanban-column care-home-kanban-${column.accent}`}>
+                  <header>
+                    <h3>{column.label}</h3>
+                    <span className="care-home-kanban-count">{columnRounds.length}</span>
+                  </header>
+                  <p className="care-home-kanban-hint">{column.hint}</p>
+                  <div className="care-home-kanban-cards">
+                    {columnRounds.length === 0 ? (
+                      column.key === 'draft' ? (
+                        <button type="button" className="care-home-kanban-add care-home-no-print" onClick={() => navigate('/deliveries/new')}>
+                          + New delivery
+                        </button>
+                      ) : (
+                        <div className="care-home-kanban-empty">Nothing here</div>
+                      )
+                    ) : columnRounds.map(renderCard)}
                   </div>
-                  <div style={{ fontSize: 'var(--ps-font-sm)', color: 'var(--ps-slate)', marginTop: 2 }}>
-                    {formatDate(round.scheduled_date)}
-                    {round.scheduled_time_start && ` · ${formatTime(round.scheduled_time_start)}`}
-                    {round.scheduled_time_end && `–${formatTime(round.scheduled_time_end)}`}
-                    {' · '}
-                    {round.patients?.length ?? 0} patient{(round.patients?.length ?? 0) !== 1 ? 's' : ''}
-                  </div>
-                </div>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--ps-space-md)' }}>
-                {round.driver && (
-                  <span style={{ fontSize: 'var(--ps-font-sm)', color: 'var(--ps-slate)' }}>
-                    🚗 {(round.driver as any).user_profile?.full_name}
-                  </span>
-                )}
-                <span className={`ps-badge ${STATUS_BADGE[round.status]?.cls ?? 'ps-badge-slate'}`}>
-                  {STATUS_BADGE[round.status]?.label ?? round.status}
-                </span>
-              </div>
-            </div>
-          ))}
+                </section>
+              )
+            })}
         </div>
       )}
 
-      {search && filteredRounds.length === 0 && rounds.length > 0 && (
-        <div style={{ textAlign: 'center', padding: 'var(--ps-space-lg)', color: 'var(--ps-slate)' }}>
-          No rounds match "{search}"
-        </div>
+      {search && visibleRounds.length === 0 && rounds.length > 0 && (
+        <div className="care-home-inline-empty">No deliveries match "{search}"</div>
       )}
     </div>
   )

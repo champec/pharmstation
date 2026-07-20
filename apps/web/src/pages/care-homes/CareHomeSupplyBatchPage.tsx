@@ -32,9 +32,10 @@ export function CareHomeSupplyBatchPage() {
   const navigate = useNavigate()
   const { linkId, batchId } = useParams<{ linkId: string; batchId: string }>()
   const { organisation, permissions } = useAuthStore()
-  const { activeSupplyBatch: batch, loading, saving, error, fetchSupplyBatch, packSupplyLine, receiveSupplyLine, generateDeliveryRound, clearError } = useCareHomeStore()
+  const { activeSupplyBatch: batch, loading, saving, error, fetchSupplyBatch, packSupplyLine, receiveSupplyLine, generateDeliveryRound, markGroupReady, clearError, groups } = useCareHomeStore()
   const isCareHome = organisation?.organisation_type === 'carehome'
   const canPack = !isCareHome && permissions?.care_home_medications === true
+  const group = batch?.group_id ? groups.find((item) => item.id === batch.group_id) ?? null : null
   const packages = batch?.packages ?? []
   const lines = useMemo(() => packages.flatMap((item) => item.lines ?? []), [packages])
   const unresolved = lines.filter((line) => line.line_status === 'expected').length
@@ -48,8 +49,13 @@ export function CareHomeSupplyBatchPage() {
 
   const handleGenerateRoute = async () => {
     if (!batchId) return
+    if (batch.group_id) {
+      await markGroupReady(batch.group_id)
+      navigate(`/care-homes/${linkId}/groups/${batch.group_id}`)
+      return
+    }
     const roundId = await generateDeliveryRound(batchId)
-    navigate(`/delivery-rounds/${roundId}`)
+    navigate(`/deliveries/${roundId}`)
   }
 
   if (loading && !batch) return <div className="care-home-loading">Loading medicine supply batch...</div>
@@ -58,8 +64,8 @@ export function CareHomeSupplyBatchPage() {
   return (
     <div className="care-home-page care-home-supply-page">
       <div className="page-header care-home-page-header">
-        <div className="breadcrumbs"><a href="/care-homes?view=supplies" onClick={(event) => { event.preventDefault(); navigate('/care-homes?view=supplies') }}>Care homes</a><span className="separator">/</span><span>Supply batch #{batch.batch_number}</span></div>
-        <div className="care-home-title-row"><div><p className="care-home-eyebrow">Medicine supply and reconciliation</p><h1>{batch.title}</h1><p className="care-home-subtitle">{batch.supply_scope === 'all' ? 'Regular and acute medicines' : `${batch.supply_scope[0].toUpperCase()}${batch.supply_scope.slice(1)} medicines`} · {batch.period_start} to {batch.period_end}</p></div><div className="care-home-heading-actions"><span className={`ps-badge ${batch.status === 'reconciled' ? 'ps-badge-success' : discrepancies > 0 ? 'ps-badge-danger' : 'ps-badge-warning'}`}>{batch.status.replaceAll('_', ' ')}</span>{batch.delivery_round_id ? <button className="ps-btn ps-btn-secondary" type="button" onClick={() => navigate(`/delivery-rounds/${batch.delivery_round_id}`)}>Open delivery round</button> : canPack && <button className="ps-btn ps-btn-primary" type="button" disabled={saving || unresolved > 0} onClick={() => void handleGenerateRoute()}>Generate delivery round</button>}</div></div>
+        <div className="breadcrumbs"><a href="/care-homes" onClick={(event) => { event.preventDefault(); navigate('/care-homes') }}>Care homes</a>{group && <><span className="separator">/</span><a href={`/care-homes/${linkId}/groups/${group.id}`} onClick={(event) => { event.preventDefault(); navigate(`/care-homes/${linkId}/groups/${group.id}`) }}>{group.name}</a></>}<span className="separator">/</span><span>Round #{batch.batch_number}</span></div>
+        <div className="care-home-title-row"><div><p className="care-home-eyebrow">Round review{group ? ` · ${group.name}` : ''}</p><h1>{batch.title}</h1><p className="care-home-subtitle">{batch.supply_scope === 'all' ? 'Regular and acute medicines' : `${batch.supply_scope[0].toUpperCase()}${batch.supply_scope.slice(1)} medicines`} · {batch.period_start} to {batch.period_end}</p></div><div className="care-home-heading-actions">{group && <button className="ps-btn ps-btn-ghost" type="button" onClick={() => navigate(`/care-homes/${linkId}/groups/${group.id}`)}>← Back to round</button>}<span className={`ps-badge ${batch.status === 'reconciled' ? 'ps-badge-success' : discrepancies > 0 ? 'ps-badge-danger' : 'ps-badge-warning'}`}>{batch.status.replaceAll('_', ' ')}</span>{batch.delivery_round_id ? <button className="ps-btn ps-btn-secondary" type="button" onClick={() => navigate(`/deliveries/${batch.delivery_round_id}`)}>Open delivery</button> : canPack && <button className="ps-btn ps-btn-primary" type="button" disabled={saving || unresolved > 0} onClick={() => void handleGenerateRoute()}>{group ? 'Mark ready & generate run' : 'Generate delivery round'}</button>}</div></div>
       </div>
 
       {error && <div className="auth-error care-home-alert" role="alert"><span>{error}</span><button className="ps-btn ps-btn-ghost ps-btn-sm" type="button" onClick={clearError}>Dismiss</button></div>}

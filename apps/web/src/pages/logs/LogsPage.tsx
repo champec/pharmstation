@@ -83,10 +83,13 @@ export function LogsPage() {
           <span>Logs</span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--ps-space-md)' }}>
-          <h1>📒 My Logs</h1>
-          <div style={{ display: 'flex', gap: 'var(--ps-space-sm)' }}>
+          <div>
+            <h1 style={{ marginBottom: 'var(--ps-space-xs)' }}>📒 Logs</h1>
+            <p style={{ margin: 0, color: 'var(--ps-slate)' }}>Open your active logs, jump into the library, or create a custom log from here.</p>
+          </div>
+          <div style={{ display: 'flex', gap: 'var(--ps-space-sm)', flexWrap: 'wrap' }}>
             <button className="ps-btn ps-btn-secondary" onClick={() => navigate('/logs/library')}>
-              📚 Browse Library
+              📚 Log Library
             </button>
             <button className="ps-btn ps-btn-primary" onClick={() => navigate('/logs/new')}>
               + Create Custom Log

@@ -292,7 +292,7 @@ export function NewDeliveryRoundPage() {
       }
 
       if (driverId) await assignDriver(round.id, driverId)
-      navigate(`/delivery-rounds/${round.id}`)
+      navigate(`/deliveries/${round.id}`)
     } catch (e: any) {
       setError(e.message)
     }
@@ -308,11 +308,11 @@ export function NewDeliveryRoundPage() {
         <div className="breadcrumbs">
           <a href="/" onClick={(e) => { e.preventDefault(); navigate('/') }}>Dashboard</a>
           <span className="separator">/</span>
-          <a href="/delivery-rounds" onClick={(e) => { e.preventDefault(); navigate('/delivery-rounds') }}>Delivery Rounds</a>
+          <a href="/deliveries" onClick={(e) => { e.preventDefault(); navigate('/deliveries') }}>Deliveries</a>
           <span className="separator">/</span>
-          <span>New Round</span>
+          <span>New Delivery</span>
         </div>
-        <h1>📦 New Delivery Round</h1>
+        <h1>📦 New Delivery</h1>
       </div>
 
       {error && <div className="auth-error" style={{ marginBottom: 'var(--ps-space-md)' }}>{error}</div>}
@@ -524,7 +524,7 @@ export function NewDeliveryRoundPage() {
           <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 'var(--ps-space-lg)' }}>
             <button className="ps-btn ps-btn-secondary" onClick={() => setStep(2)}>← Back</button>
             <button className="ps-btn ps-btn-primary" onClick={handleCreate} disabled={saving}>
-              {saving ? 'Creating…' : 'Create Delivery Round'}
+              {saving ? 'Creating…' : 'Create Delivery'}
             </button>
           </div>
         </div>

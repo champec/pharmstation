@@ -109,7 +109,7 @@ export function EditDeliveryRoundPage() {
       if (driverId !== (round?.driver_id || '')) {
         await assignDriver(id, driverId || null)
       }
-      navigate(`/delivery-rounds/${id}`)
+      navigate(`/deliveries/${id}`)
     } catch (e: any) {
       setError(e.message)
     }
@@ -129,9 +129,9 @@ export function EditDeliveryRoundPage() {
         <div className="breadcrumbs">
           <a href="/" onClick={(e) => { e.preventDefault(); navigate('/') }}>Dashboard</a>
           <span className="separator">/</span>
-          <a href="/delivery-rounds" onClick={(e) => { e.preventDefault(); navigate('/delivery-rounds') }}>Delivery Rounds</a>
+          <a href="/deliveries" onClick={(e) => { e.preventDefault(); navigate('/deliveries') }}>Deliveries</a>
           <span className="separator">/</span>
-          <a href={`/delivery-rounds/${id}`} onClick={(e) => { e.preventDefault(); navigate(`/delivery-rounds/${id}`) }}>{round.title || round.id.slice(0, 8)}</a>
+          <a href={`/deliveries/${id}`} onClick={(e) => { e.preventDefault(); navigate(`/deliveries/${id}`) }}>{round.title || round.id.slice(0, 8)}</a>
           <span className="separator">/</span>
           <span>Edit</span>
         </div>
@@ -233,7 +233,7 @@ export function EditDeliveryRoundPage() {
       </div>
 
       <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-        <button className="ps-btn ps-btn-secondary" onClick={() => navigate(`/delivery-rounds/${id}`)}>Cancel</button>
+        <button className="ps-btn ps-btn-secondary" onClick={() => navigate(`/deliveries/${id}`)}>Cancel</button>
         <button className="ps-btn ps-btn-primary" onClick={handleSave} disabled={saving}>
           {saving ? 'Saving…' : 'Save Changes'}
         </button>

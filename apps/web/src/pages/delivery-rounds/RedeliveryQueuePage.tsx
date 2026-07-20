@@ -62,7 +62,7 @@ export function RedeliveryQueuePage() {
     try {
       const round = await createRedeliveryRound(organisation.id, membership.user_id, selectedIds)
       setSelectedIds([])
-      navigate(`/delivery-rounds/${round.id}`)
+      navigate(`/deliveries/${round.id}`)
     } catch (e: any) {
       alert(e.message)
     }
@@ -92,7 +92,7 @@ export function RedeliveryQueuePage() {
         <div className="breadcrumbs">
           <a href="/" onClick={(e) => { e.preventDefault(); navigate('/') }}>Dashboard</a>
           <span className="separator">/</span>
-          <a href="/delivery-rounds" onClick={(e) => { e.preventDefault(); navigate('/delivery-rounds') }}>Delivery Rounds</a>
+          <a href="/deliveries" onClick={(e) => { e.preventDefault(); navigate('/deliveries') }}>Deliveries</a>
           <span className="separator">/</span>
           <span>Redelivery Queue</span>
         </div>

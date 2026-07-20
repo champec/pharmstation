@@ -1,43 +1,24 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useCallback, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuthStore, useAppointmentStore, useServiceStore } from '@pharmstation/core'
 import type { Service } from '@pharmstation/types'
-import { Modal } from '../../components/Modal'
-import { expandRecurrenceDates, toLocalDateString, RECURRENCE_HORIZON_DAYS } from '../../lib/recurrence'
+
+function formatDateTime(iso: string) {
+  const date = new Date(iso)
+  return date.toLocaleString('en-GB', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+}
 
 export function AppointmentSlotsPage() {
   const navigate = useNavigate()
   const { organisation } = useAuthStore()
-  const {
-    slots,
-    loading,
-    error,
-    fetchSlots,
-    createSlot,
-    createSlotsBulk,
-    updateSlot,
-    deleteSlot,
-    clearError,
-  } = useAppointmentStore()
+  const { slots, loading, error, fetchSlots, clearError } = useAppointmentStore()
   const { services, fetchServices } = useServiceStore()
-
-  const [showModal, setShowModal] = useState(false)
-  const [editingSlotId, setEditingSlotId] = useState<string | null>(null)
-
-  // Form state
-  const [formServiceId, setFormServiceId] = useState('')
-  const [formDate, setFormDate] = useState('')
-  const [formStartTime, setFormStartTime] = useState('09:00')
-  const [formEndTime, setFormEndTime] = useState('09:30')
-  const [formMaxBookings, setFormMaxBookings] = useState(1)
-  const [formIsRecurring, setFormIsRecurring] = useState(false)
-  const [formRecurrenceRule, setFormRecurrenceRule] = useState('')
-  const [saving, setSaving] = useState(false)
-  const [formError, setFormError] = useState<string | null>(null)
-
-  // Filters
-  const [filterService, setFilterService] = useState('')
-  const [showInactive, setShowInactive] = useState(false)
 
   const load = useCallback(() => {
     if (organisation?.id) {
@@ -48,121 +29,14 @@ export function AppointmentSlotsPage() {
 
   useEffect(() => { load() }, [load])
 
-  const resetForm = () => {
-    setFormServiceId('')
-    setFormDate('')
-    setFormStartTime('09:00')
-    setFormEndTime('09:30')
-    setFormMaxBookings(1)
-    setFormIsRecurring(false)
-    setFormRecurrenceRule('')
-    setFormError(null)
-    setEditingSlotId(null)
-  }
+  const visibleServices = useMemo(() => {
+    return services.filter((service) => {
+      if (service.is_active) return true
+      return slots.some((slot) => slot.service_id === service.id)
+    })
+  }, [services, slots])
 
-  const handleSave = async () => {
-    if (!organisation?.id || !formServiceId || !formDate) return
-    setSaving(true)
-    setFormError(null)
-    try {
-      const startTime = new Date(`${formDate}T${formStartTime}`).toISOString()
-      const endTime = new Date(`${formDate}T${formEndTime}`).toISOString()
-
-      if (editingSlotId) {
-        await updateSlot(editingSlotId, {
-          service_id: formServiceId,
-          start_time: startTime,
-          end_time: endTime,
-          max_bookings: formMaxBookings,
-          is_recurring: formIsRecurring,
-          recurrence_rule: formIsRecurring ? formRecurrenceRule : null,
-        })
-      } else if (formIsRecurring && formRecurrenceRule) {
-        // Expand the recurrence rule into concrete bookable slots (next 8 weeks),
-        // skipping any occurrence that would start in the past.
-        const now = new Date()
-        const occurrences = expandRecurrenceDates(new Date(`${formDate}T00:00:00`), formRecurrenceRule)
-        const rows = occurrences
-          .map((day) => {
-            const dateStr = toLocalDateString(day)
-            return {
-              org_id: organisation.id,
-              service_id: formServiceId,
-              start_time: new Date(`${dateStr}T${formStartTime}`),
-              end_time: new Date(`${dateStr}T${formEndTime}`),
-            }
-          })
-          .filter((r) => r.start_time > now)
-          .map((r) => ({
-            org_id: r.org_id,
-            service_id: r.service_id,
-            start_time: r.start_time.toISOString(),
-            end_time: r.end_time.toISOString(),
-            max_bookings: formMaxBookings,
-            is_recurring: true,
-            recurrence_rule: formRecurrenceRule,
-          }))
-        if (rows.length === 0) {
-          throw new Error('All occurrences would be in the past — check the date and start time.')
-        }
-        await createSlotsBulk(rows)
-      } else {
-        if (new Date(startTime) <= new Date()) {
-          throw new Error('Start time is in the past — patients can only book future slots.')
-        }
-        await createSlot({
-          org_id: organisation.id,
-          service_id: formServiceId,
-          start_time: startTime,
-          end_time: endTime,
-          max_bookings: formMaxBookings,
-          is_recurring: false,
-          recurrence_rule: null,
-        })
-      }
-      setShowModal(false)
-      resetForm()
-      fetchSlots(organisation.id)
-    } catch (e: any) {
-      setFormError(e.message)
-    }
-    setSaving(false)
-  }
-
-  const handleDeactivate = async (slotId: string) => {
-    if (!confirm('Deactivate this slot? It will no longer accept bookings.')) return
-    try {
-      await deleteSlot(slotId)
-    } catch (e: any) {
-      alert(e.message)
-    }
-  }
-
-  const openEdit = (slot: any) => {
-    const start = new Date(slot.start_time)
-    const end = new Date(slot.end_time)
-    setEditingSlotId(slot.id)
-    setFormServiceId(slot.service_id)
-    setFormDate(start.toISOString().split('T')[0])
-    setFormStartTime(start.toTimeString().slice(0, 5))
-    setFormEndTime(end.toTimeString().slice(0, 5))
-    setFormMaxBookings(slot.max_bookings)
-    setFormIsRecurring(slot.is_recurring)
-    setFormRecurrenceRule(slot.recurrence_rule || '')
-    setFormError(null)
-    setShowModal(true)
-  }
-
-  const filteredSlots = slots.filter((s) => {
-    if (filterService && s.service_id !== filterService) return false
-    return true
-  })
-
-  const formatDateTime = (iso: string) => {
-    const d = new Date(iso)
-    return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) +
-      ' ' + d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
-  }
+  const now = useMemo(() => new Date(), [])
 
   return (
     <div>
@@ -174,10 +48,15 @@ export function AppointmentSlotsPage() {
           <span className="separator">/</span>
           <span>Slots</span>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <h1>⏰ Appointment Slots</h1>
-          <button className="ps-btn ps-btn-primary" onClick={() => { resetForm(); setShowModal(true) }}>
-            + Create Slot
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--ps-space-md)', flexWrap: 'wrap' }}>
+          <div>
+            <h1 style={{ marginBottom: 'var(--ps-space-xs)' }}>⏰ Appointment Slots</h1>
+            <p style={{ margin: 0, color: 'var(--ps-slate)' }}>
+              Pick a service first, then manage its slots on a focused page with date and recurrence controls.
+            </p>
+          </div>
+          <button className="ps-btn ps-btn-secondary" onClick={() => navigate('/appointments')}>
+            Back to Appointments
           </button>
         </div>
       </div>
@@ -189,217 +68,71 @@ export function AppointmentSlotsPage() {
         </div>
       )}
 
-      {/* Filters */}
-      <div style={{ display: 'flex', gap: 'var(--ps-space-sm)', marginBottom: 'var(--ps-space-md)', alignItems: 'center' }}>
-        <select
-          className="ps-input"
-          style={{ width: 'auto', minWidth: 180 }}
-          value={filterService}
-          onChange={(e) => setFilterService(e.target.value)}
-        >
-          <option value="">All Services</option>
-          {services.map((s: Service) => (
-            <option key={s.id} value={s.id}>{s.name}</option>
+      {loading && visibleServices.length === 0 && (
+        <div className="dashboard-grid">
+          {[1, 2, 3].map((item) => (
+            <div key={item} className="ps-card" style={{ padding: 'var(--ps-space-lg)', opacity: 0.55 }}>
+              <div style={{ height: 22, width: '60%', borderRadius: 'var(--ps-radius-md)', background: 'var(--ps-off-white)', marginBottom: 'var(--ps-space-sm)' }} />
+              <div style={{ height: 14, width: '85%', borderRadius: 'var(--ps-radius-md)', background: 'var(--ps-off-white)', marginBottom: 'var(--ps-space-sm)' }} />
+              <div style={{ height: 14, width: '50%', borderRadius: 'var(--ps-radius-md)', background: 'var(--ps-off-white)' }} />
+            </div>
           ))}
-        </select>
-      </div>
-
-      {/* Loading */}
-      {loading && slots.length === 0 && (
-        <div style={{ textAlign: 'center', padding: 'var(--ps-space-2xl)', color: 'var(--ps-slate)' }}>Loading slots…</div>
+        </div>
       )}
 
-      {/* Empty state */}
-      {!loading && filteredSlots.length === 0 && (
+      {!loading && visibleServices.length === 0 && (
         <div className="ps-card" style={{ padding: 'var(--ps-space-2xl)', textAlign: 'center' }}>
           <div style={{ fontSize: '48px', marginBottom: 'var(--ps-space-md)' }}>⏰</div>
-          <h2 style={{ color: 'var(--ps-midnight)', marginBottom: 'var(--ps-space-sm)' }}>No slots defined</h2>
-          <p style={{ color: 'var(--ps-slate)', marginBottom: 'var(--ps-space-lg)', maxWidth: 400, margin: '0 auto var(--ps-space-lg)' }}>
-            Create availability slots so patients can book appointments for your services.
+          <h2 style={{ color: 'var(--ps-midnight)', marginBottom: 'var(--ps-space-sm)' }}>No services ready for slots</h2>
+          <p style={{ color: 'var(--ps-slate)', margin: '0 auto var(--ps-space-lg)', maxWidth: 440 }}>
+            Create or activate a service first, then open it here to manage bookable slots without one long recurring list.
           </p>
-          <button className="ps-btn ps-btn-primary" onClick={() => { resetForm(); setShowModal(true) }}>
-            + Create Slot
+          <button className="ps-btn ps-btn-primary" onClick={() => navigate('/services')}>
+            Go to Services
           </button>
         </div>
       )}
 
-      {/* Slots table */}
-      {filteredSlots.length > 0 && (
-        <div className="ps-card" style={{ overflow: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 'var(--ps-font-sm)' }}>
-            <thead>
-              <tr style={{ borderBottom: '2px solid var(--ps-off-white)' }}>
-                <th style={{ padding: 'var(--ps-space-sm) var(--ps-space-md)', textAlign: 'left', color: 'var(--ps-slate)' }}>Service</th>
-                <th style={{ padding: 'var(--ps-space-sm) var(--ps-space-md)', textAlign: 'left', color: 'var(--ps-slate)' }}>Start</th>
-                <th style={{ padding: 'var(--ps-space-sm) var(--ps-space-md)', textAlign: 'left', color: 'var(--ps-slate)' }}>End</th>
-                <th style={{ padding: 'var(--ps-space-sm) var(--ps-space-md)', textAlign: 'center', color: 'var(--ps-slate)' }}>Max</th>
-                <th style={{ padding: 'var(--ps-space-sm) var(--ps-space-md)', textAlign: 'center', color: 'var(--ps-slate)' }}>Booked</th>
-                <th style={{ padding: 'var(--ps-space-sm) var(--ps-space-md)', textAlign: 'center', color: 'var(--ps-slate)' }}>Recurring</th>
-                <th style={{ padding: 'var(--ps-space-sm) var(--ps-space-md)', textAlign: 'right', color: 'var(--ps-slate)' }}>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredSlots.map((slot) => {
-                const serviceName = (slot as any).service?.name || services.find((s) => s.id === slot.service_id)?.name || '—'
-                return (
-                  <tr key={slot.id} style={{ borderBottom: '1px solid var(--ps-off-white)' }}>
-                    <td style={{ padding: 'var(--ps-space-sm) var(--ps-space-md)', fontWeight: 500 }}>{serviceName}</td>
-                    <td style={{ padding: 'var(--ps-space-sm) var(--ps-space-md)' }}>{formatDateTime(slot.start_time)}</td>
-                    <td style={{ padding: 'var(--ps-space-sm) var(--ps-space-md)' }}>{formatDateTime(slot.end_time)}</td>
-                    <td style={{ padding: 'var(--ps-space-sm) var(--ps-space-md)', textAlign: 'center' }}>{slot.max_bookings}</td>
-                    <td style={{ padding: 'var(--ps-space-sm) var(--ps-space-md)', textAlign: 'center' }}>
-                      <span className={`ps-badge ${slot.booked_count >= slot.max_bookings ? 'ps-badge-red' : 'ps-badge-green'}`}>
-                        {slot.booked_count}/{slot.max_bookings}
-                      </span>
-                    </td>
-                    <td style={{ padding: 'var(--ps-space-sm) var(--ps-space-md)', textAlign: 'center' }}>
-                      {slot.is_recurring ? '✓' : '—'}
-                    </td>
-                    <td style={{ padding: 'var(--ps-space-sm) var(--ps-space-md)', textAlign: 'right' }}>
-                      <div style={{ display: 'flex', gap: 'var(--ps-space-xs)', justifyContent: 'flex-end' }}>
-                        <button className="ps-btn ps-btn-secondary ps-btn-sm" onClick={() => openEdit(slot)}>
-                          ✏️ Edit
-                        </button>
-                        <button className="ps-btn ps-btn-ghost ps-btn-sm" onClick={() => handleDeactivate(slot.id)} style={{ color: 'var(--ps-error)' }}>
-                          ✕
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
+      {visibleServices.length > 0 && (
+        <div className="dashboard-grid">
+          {visibleServices.map((service: Service) => {
+            const serviceSlots = slots.filter((slot) => slot.service_id === service.id)
+            const futureSlots = serviceSlots.filter((slot) => new Date(slot.start_time) >= now)
+            const recurringCount = serviceSlots.filter((slot) => slot.is_recurring).length
+            const nextSlot = futureSlots
+              .slice()
+              .sort((left, right) => new Date(left.start_time).getTime() - new Date(right.start_time).getTime())[0]
+
+            return (
+              <div key={service.id} className="ps-card" style={{ padding: 'var(--ps-space-lg)' }}>
+                <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 'var(--ps-space-sm)', marginBottom: 'var(--ps-space-sm)' }}>
+                  <div>
+                    <h3 style={{ margin: '0 0 4px', color: 'var(--ps-midnight)' }}>{service.name}</h3>
+                    <p style={{ margin: 0, color: 'var(--ps-slate)', fontSize: 'var(--ps-font-sm)' }}>
+                      {service.duration_minutes} min appointments
+                    </p>
+                  </div>
+                  {!service.is_active && <span className="ps-badge ps-badge-amber">Inactive</span>}
+                </div>
+
+                <div style={{ display: 'flex', gap: 'var(--ps-space-sm)', flexWrap: 'wrap', marginBottom: 'var(--ps-space-md)' }}>
+                  <span className="ps-badge ps-badge-blue">{futureSlots.length} upcoming</span>
+                  <span className="ps-badge">{recurringCount} recurring</span>
+                  <span className="ps-badge">{serviceSlots.length} total slots</span>
+                </div>
+
+                <p style={{ minHeight: 40, color: 'var(--ps-slate)', fontSize: 'var(--ps-font-sm)', margin: '0 0 var(--ps-space-md)' }}>
+                  {nextSlot ? `Next slot: ${formatDateTime(nextSlot.start_time)}` : 'No upcoming slots yet for this service.'}
+                </p>
+
+                <button className="ps-btn ps-btn-primary ps-btn-sm" onClick={() => navigate(`/appointments/slots/${service.id}`)}>
+                  Manage Slots
+                </button>
+              </div>
+            )
+          })}
         </div>
       )}
-
-      {/* Create / Edit Slot Modal */}
-      <Modal
-        isOpen={showModal}
-        onClose={() => { setShowModal(false); resetForm() }}
-        title={editingSlotId ? 'Edit Slot' : 'Create Availability Slot'}
-      >
-        <div>
-          {formError && (
-            <div className="auth-error" style={{ marginBottom: 'var(--ps-space-md)' }}>{formError}</div>
-          )}
-
-          <div className="form-group">
-            <label>Service *</label>
-            <select
-              className="ps-input"
-              value={formServiceId}
-              onChange={(e) => setFormServiceId(e.target.value)}
-            >
-              <option value="">Select a service…</option>
-              {services.filter((s) => s.is_active).map((s: Service) => (
-                <option key={s.id} value={s.id}>{s.name} ({s.duration_minutes} min)</option>
-              ))}
-            </select>
-          </div>
-
-          <div className="form-group">
-            <label>Date *</label>
-            <input
-              className="ps-input"
-              type="date"
-              value={formDate}
-              onChange={(e) => setFormDate(e.target.value)}
-            />
-          </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--ps-space-md)' }}>
-            <div className="form-group">
-              <label>Start Time *</label>
-              <input
-                className="ps-input"
-                type="time"
-                value={formStartTime}
-                onChange={(e) => setFormStartTime(e.target.value)}
-              />
-            </div>
-            <div className="form-group">
-              <label>End Time *</label>
-              <input
-                className="ps-input"
-                type="time"
-                value={formEndTime}
-                onChange={(e) => setFormEndTime(e.target.value)}
-              />
-            </div>
-          </div>
-
-          <div className="form-group">
-            <label>Max Bookings</label>
-            <input
-              className="ps-input"
-              type="number"
-              min={1}
-              max={100}
-              value={formMaxBookings}
-              onChange={(e) => setFormMaxBookings(Number(e.target.value))}
-            />
-          </div>
-
-          <div className="form-group">
-            <label style={{ display: 'flex', alignItems: 'center', gap: 'var(--ps-space-sm)', cursor: 'pointer' }}>
-              <input
-                type="checkbox"
-                checked={formIsRecurring}
-                onChange={(e) => setFormIsRecurring(e.target.checked)}
-                disabled={!!editingSlotId}
-              />
-              Recurring slot
-            </label>
-            {editingSlotId && (
-              <p style={{ color: 'var(--ps-slate)', fontSize: 'var(--ps-font-xs)', margin: '4px 0 0' }}>
-                Editing only changes this occurrence.
-              </p>
-            )}
-          </div>
-
-          {formIsRecurring && !editingSlotId && (
-            <div className="form-group">
-              <label>Recurrence Rule (RRULE)</label>
-              <select
-                className="ps-input"
-                value={formRecurrenceRule}
-                onChange={(e) => setFormRecurrenceRule(e.target.value)}
-              >
-                <option value="">Select pattern…</option>
-                <option value="FREQ=DAILY">Daily</option>
-                <option value="FREQ=WEEKLY">Weekly</option>
-                <option value="FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR">Weekdays (Mon–Fri)</option>
-                <option value="FREQ=MONTHLY">Monthly</option>
-              </select>
-              <input
-                className="ps-input"
-                style={{ marginTop: 'var(--ps-space-xs)' }}
-                value={formRecurrenceRule}
-                onChange={(e) => setFormRecurrenceRule(e.target.value)}
-                placeholder="Or enter custom RRULE…"
-              />
-              <p style={{ color: 'var(--ps-slate)', fontSize: 'var(--ps-font-xs)', margin: '4px 0 0' }}>
-                📅 Individual bookable slots will be created for the next {RECURRENCE_HORIZON_DAYS / 7} weeks
-                (past occurrences are skipped).
-              </p>
-            </div>
-          )}
-
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 'var(--ps-space-sm)', marginTop: 'var(--ps-space-lg)' }}>
-            <button className="ps-btn ps-btn-secondary" onClick={() => { setShowModal(false); resetForm() }} disabled={saving}>
-              Cancel
-            </button>
-            <button
-              className="ps-btn ps-btn-primary"
-              onClick={handleSave}
-              disabled={saving || !formServiceId || !formDate}
-            >
-              {saving ? 'Saving…' : editingSlotId ? 'Update Slot' : 'Create Slot'}
-            </button>
-          </div>
-        </div>
-      </Modal>
     </div>
   )
 }

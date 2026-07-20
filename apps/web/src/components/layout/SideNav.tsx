@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
 import { useUIStore, useChatStore } from '@pharmstation/core'
 
@@ -6,12 +6,13 @@ interface NavItem {
   to: string
   icon: string
   label: string
+  /** Extra pathname patterns that should highlight this item (e.g. detail routes). */
+  match?: RegExp
 }
 
 interface NavSection {
   title: string
   icon?: string
-  to?: string
   items: NavItem[]
   expandable?: boolean
 }
@@ -23,26 +24,23 @@ const menuSections: NavSection[] = [
   },
   {
     title: 'Outreach',
-    icon: '◎',
     expandable: false,
-    items: [{ to: '/outreach', icon: '◎', label: 'Pharmacy Outreach' }],
+    items: [{ to: '/outreach', icon: '📣', label: 'Pharmacy Outreach' }],
   },
   {
     title: 'Registers',
     icon: '📑',
-    to: '/registers',
     expandable: true,
     items: [
       { to: '/registers/cd', icon: '💊', label: 'CD Register' },
       { to: '/registers/scan', icon: '📸', label: 'AI Scan' },
       { to: '/registers/rp', icon: '👤', label: 'RP Log' },
-      { to: '/registers/returns', icon: '↩', label: 'Returns' },
+      { to: '/registers/returns', icon: '↩️', label: 'Returns' },
     ],
   },
   {
     title: 'PEPS',
     icon: '℞',
-    to: '/peps',
     expandable: true,
     items: [
       { to: '/peps', icon: '📥', label: 'PEPS Queue' },
@@ -68,23 +66,21 @@ const menuSections: NavSection[] = [
     icon: '📅',
     expandable: true,
     items: [
-      { to: '/appointments', icon: '📅', label: 'Calendar' },
+      { to: '/appointments', icon: '📋', label: 'List' },
+      { to: '/appointments/calendar', icon: '📅', label: 'Calendar' },
       { to: '/appointments/slots', icon: '⏰', label: 'Slots' },
       { to: '/patients', icon: '👥', label: 'Patients' },
     ],
   },
   {
     title: 'Logs',
-    icon: '📓',
-    expandable: true,
+    expandable: false,
     items: [
-      { to: '/logs', icon: '📓', label: 'My Logs' },
-      { to: '/logs/library', icon: '📚', label: 'Log Library' },
+      { to: '/logs', icon: '📓', label: 'Logs' },
     ],
   },
   {
     title: 'Video',
-    icon: '📹',
     expandable: false,
     items: [
       { to: '/video', icon: '📹', label: 'Video Consults' },
@@ -114,41 +110,38 @@ const menuSections: NavSection[] = [
   },
   {
     title: 'Utilities',
-    icon: '🛠',
+    icon: '🛠️',
     expandable: true,
     items: [
       { to: '/notes', icon: '📌', label: 'Notes' },
       { to: '/sops', icon: '📋', label: 'SOPs' },
-      { to: '/resources', icon: '▤', label: 'Resources' },
+      { to: '/resources', icon: '📂', label: 'Resources' },
     ],
   },
   {
-    title: 'Delivery Rounds',
-    icon: '🚗',
+    title: 'Deliveries',
+    icon: '🚚',
     expandable: true,
     items: [
-      { to: '/delivery-rounds', icon: '📦', label: 'Rounds' },
-      { to: '/delivery-rounds/new', icon: '➕', label: 'New Round' },
-      { to: '/delivery-rounds/redelivery', icon: '🔄', label: 'Redelivery Queue' },
-      { to: '/delivery-rounds/templates', icon: '📋', label: 'Templates' },
+      { to: '/deliveries', icon: '📦', label: 'Deliveries Board', match: /^\/deliveries(\/[^/]+)?$/ },
+      { to: '/deliveries/new', icon: '➕', label: 'New Delivery' },
+      { to: '/deliveries/redelivery', icon: '🔄', label: 'Redelivery Queue' },
+      { to: '/deliveries/templates', icon: '📋', label: 'Templates' },
     ],
   },
   {
     title: 'Care Homes',
-    icon: '▦',
+    icon: '🏠',
     expandable: true,
     items: [
-      { to: '/care-homes', icon: '▦', label: 'Workspace' },
-      { to: '/care-homes?view=residents', icon: '●', label: 'Residents' },
-      { to: '/care-homes?view=units', icon: '≡', label: 'Units & Floors' },
-      { to: '/care-homes?view=supplies', icon: '□', label: 'Medicine Supplies' },
-      { to: '/care-homes?view=requests', icon: '↗', label: 'Prescription Journey' },
-      { to: '/care-homes?view=mar', icon: 'M', label: 'MAR Charts' },
+      { to: '/care-homes', icon: '🗂️', label: 'Groups Board', match: /^\/care-homes\/(?!manage)[^/]+\/groups/ },
+      { to: '/care-homes/manage', icon: '🏠', label: 'Manage Care Homes', match: /^\/care-homes\/manage/ },
+      { to: '/care-homes?view=residents', icon: '👥', label: 'Residents', match: /^\/care-homes\/[^/]+\/residents/ },
+      { to: '/care-homes?view=requests', icon: '📨', label: 'Requests Manager', match: /^\/care-homes\/[^/]+\/(requests|prescriptions)/ },
     ],
   },
   {
     title: 'Driver',
-    icon: '🏎️',
     expandable: false,
     items: [
       { to: '/driver', icon: '🚗', label: 'My Deliveries' },
@@ -169,25 +162,90 @@ const menuSections: NavSection[] = [
   },
 ]
 
+/**
+ * Scores how well an item matches the current location.
+ * Returns -1 when it does not match at all. Higher is more specific,
+ * so exactly one item (the best match) is highlighted.
+ */
+function matchScore(item: NavItem, pathname: string, search: string): number {
+  if (item.match?.test(pathname)) return 10_000
+
+  const [path, itemSearch] = item.to.split('?')
+  let score: number
+  if (pathname === path) {
+    score = path.length * 2
+  } else if (path !== '/' && pathname.startsWith(`${path}/`)) {
+    score = path.length
+  } else {
+    return -1
+  }
+
+  if (itemSearch) {
+    const wanted = new URLSearchParams(itemSearch)
+    const current = new URLSearchParams(search)
+    for (const [key, value] of wanted) {
+      if (current.get(key) !== value) return -1
+      score += 1_000
+    }
+  } else if (path !== '/' && new URLSearchParams(search).get('view')) {
+    // A ?view= sibling should win over the plain item on the same path.
+    score -= 1
+  }
+  return score
+}
+
 export function SideNav() {
   const { sideNavMode } = useUIStore()
+  const chatOpen = useChatStore((state) => state.isOpen)
   const location = useLocation()
-  const [expandedSections, setExpandedSections] = useState<Set<string>>(() => {
-    const expanded = new Set<string>()
+
+  /** The single best-matching item across the whole menu. */
+  const activeTo = useMemo(() => {
+    let best: string | null = null
+    let bestScore = -1
     for (const section of menuSections) {
-      if (section.expandable && section.items.some((item) => location.pathname.startsWith(item.to))) {
-        expanded.add(section.title)
+      for (const item of section.items) {
+        const score = matchScore(item, location.pathname, location.search)
+        if (score > bestScore) {
+          bestScore = score
+          best = item.to
+        }
       }
     }
-    return expanded
+    return best
+  }, [location.pathname, location.search])
+
+  const [expandedSection, setExpandedSection] = useState<string | null>(() => {
+    const owner = menuSections.find(
+      (section) => section.expandable && section.items.some((item) => item.to === activeTo),
+    )
+    return owner?.title ?? null
   })
 
+  // Auto-expand the section that owns the active route when navigating.
+  useEffect(() => {
+    const owner = menuSections.find(
+      (section) => section.expandable && section.items.some((item) => item.to === activeTo),
+    )
+    if (owner) setExpandedSection(owner.title)
+  }, [activeTo])
+
+  const sectionRefs = useRef<Map<string, HTMLDivElement>>(new Map())
+  const justExpandedRef = useRef<string | null>(null)
+
+  // After opening a section, scroll the newly revealed items into view.
+  useEffect(() => {
+    if (!justExpandedRef.current) return
+    const el = sectionRefs.current.get(justExpandedRef.current)
+    justExpandedRef.current = null
+    el?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+  }, [expandedSection])
+
   const toggleSection = (title: string) => {
-    setExpandedSections((prev) => {
-      const next = new Set(prev)
-      if (next.has(title)) next.delete(title)
-      else next.add(title)
-      return next
+    setExpandedSection((prev) => {
+      if (prev === title) return null
+      justExpandedRef.current = title
+      return title
     })
   }
 
@@ -201,41 +259,44 @@ export function SideNav() {
 
       <nav className="side-nav-menu">
         {menuSections.map((section, i) => {
-          const sectionOpen = expandedSections.has(section.title)
-          const sectionActive = section.items.some((item) => location.pathname.startsWith(item.to))
+          const sectionOpen = expandedSection === section.title
+          const sectionActive = section.items.some((item) => item.to === activeTo)
+          const showItems = !section.expandable || !isExpanded || sectionOpen
 
           return (
-            <div key={i} className="side-nav-section">
-              {section.title && isExpanded && (
-                section.expandable ? (
-                  <button
-                    className={`side-nav-section-toggle ${sectionActive ? 'active' : ''}`}
-                    onClick={() => toggleSection(section.title)}
-                  >
-                    {section.icon && <span className="side-nav-section-icon">{section.icon}</span>}
-                    <span className="side-nav-section-label">{section.title}</span>
-                    <span className={`side-nav-chevron ${sectionOpen ? 'open' : ''}`}>▸</span>
-                  </button>
-                ) : (
-                  <div className="side-nav-section-title">{section.title}</div>
-                )
+            <div
+              key={i}
+              className="side-nav-section"
+              ref={(el) => {
+                if (el) sectionRefs.current.set(section.title, el)
+                else sectionRefs.current.delete(section.title)
+              }}
+            >
+              {section.expandable && isExpanded && (
+                <button
+                  type="button"
+                  className={`side-nav-section-toggle ${sectionActive ? 'active' : ''}`}
+                  aria-expanded={sectionOpen}
+                  onClick={() => toggleSection(section.title)}
+                >
+                  <span className="side-nav-item-icon">{section.icon}</span>
+                  <span className="side-nav-section-label">{section.title}</span>
+                  <span className={`side-nav-chevron ${sectionOpen ? 'open' : ''}`} aria-hidden="true">▸</span>
+                </button>
               )}
 
-              {(!section.expandable || !isExpanded || sectionOpen) && (
+              {showItems && (
                 <div className={`side-nav-section-items ${isExpanded && section.expandable ? 'indented' : ''}`}>
                   {section.items.map((item) => (
                     <NavLink
                       key={item.to}
                       to={item.to}
-                      end={item.to === '/'}
-                      className={({ isActive }) =>
-                        `side-nav-item ${isActive ? 'active' : ''}`
-                      }
+                      className={() => `side-nav-item ${item.to === activeTo ? 'active' : ''}`}
                     >
-                      <span className="side-nav-item-icon">{item.icon}</span>
-                      {isExpanded && (
-                        <span className="side-nav-item-label">{item.label}</span>
+                      {(!isExpanded || !section.expandable) && (
+                        <span className="side-nav-item-icon">{item.icon}</span>
                       )}
+                      {isExpanded && <span className="side-nav-item-label">{item.label}</span>}
                     </NavLink>
                   ))}
                 </div>
@@ -247,20 +308,17 @@ export function SideNav() {
 
       <div className="side-nav-footer">
         <button
-          className={`side-nav-item genie-nav-btn ${useChatStore.getState().isOpen ? 'active' : ''}`}
+          type="button"
+          className={`side-nav-item genie-nav-btn ${chatOpen ? 'active' : ''}`}
           onClick={() => useChatStore.getState().toggleOpen()}
           title="Genie AI Assistant"
         >
           <span className="side-nav-item-icon">✨</span>
-          {isExpanded && (
-            <span className="side-nav-item-label">Genie</span>
-          )}
+          {isExpanded && <span className="side-nav-item-label">Genie</span>}
         </button>
-        <NavLink to="/settings" className="side-nav-item">
-          <span className="side-nav-item-icon">⚙</span>
-          {isExpanded && (
-            <span className="side-nav-item-label">Settings</span>
-          )}
+        <NavLink to="/settings" className={({ isActive }) => `side-nav-item ${isActive ? 'active' : ''}`}>
+          <span className="side-nav-item-icon">⚙️</span>
+          {isExpanded && <span className="side-nav-item-label">Settings</span>}
         </NavLink>
       </div>
     </aside>

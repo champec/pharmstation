@@ -221,7 +221,7 @@ export function NewAppointmentPage() {
               </button>
             )}
             <button className="ps-btn ps-btn-secondary" onClick={() => navigate('/appointments')}>
-              Back to Calendar
+              Back to Appointments
             </button>
           </div>
         </div>
@@ -243,7 +243,7 @@ export function NewAppointmentPage() {
         </div>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <h1>📅 New Appointment</h1>
-          <button className="ps-btn ps-btn-secondary" onClick={() => navigate('/appointments')}>← Cancel</button>
+          <button className="ps-btn ps-btn-secondary" onClick={() => navigate('/appointments')}>← Back to Appointments</button>
         </div>
       </div>
 

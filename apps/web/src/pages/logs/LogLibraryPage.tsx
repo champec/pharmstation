@@ -12,8 +12,6 @@ const CATEGORY_CONFIG: Record<LogCategory, { label: string; emoji: string; color
   custom: { label: 'Custom', emoji: '📋', color: 'var(--ps-slate)' },
 }
 
-const CATEGORY_ORDER: LogCategory[] = ['fridge', 'cleaning', 'cd', 'visitor', 'date_check', 'custom']
-
 export function LogLibraryPage() {
   const navigate = useNavigate()
   const { organisation } = useAuthStore()
@@ -29,6 +27,7 @@ export function LogLibraryPage() {
   } = useLogStore()
 
   const [search, setSearch] = useState('')
+  const [category, setCategory] = useState<'all' | LogCategory>('all')
   const [subscribing, setSubscribing] = useState<string | null>(null)
   const [subscribeError, setSubscribeError] = useState<string | null>(null)
   const [successMsg, setSuccessMsg] = useState<string | null>(null)
@@ -43,26 +42,19 @@ export function LogLibraryPage() {
     return new Set(subscriptions.map((s) => s.template_id))
   }, [subscriptions])
 
-  // Group by category and filter
-  const grouped = useMemo(() => {
+  const filteredTemplates = useMemo(() => {
     const searchLower = search.toLowerCase().trim()
-    const filtered = searchLower
+    return (searchLower
       ? templates.filter(
           (t) =>
             t.title.toLowerCase().includes(searchLower) ||
             t.description.toLowerCase().includes(searchLower) ||
             t.category.toLowerCase().includes(searchLower)
         )
-      : templates
-
-    const groups: Record<string, LogTemplate[]> = {}
-    for (const t of filtered) {
-      const cat = t.category || 'custom'
-      if (!groups[cat]) groups[cat] = []
-      groups[cat].push(t)
-    }
-    return groups
-  }, [templates, search])
+      : templates)
+      .filter((template) => category === 'all' || template.category === category)
+      .sort((left, right) => left.title.localeCompare(right.title))
+  }, [category, templates, search])
 
   const handleSubscribe = async (template: LogTemplate) => {
     if (!organisation?.id) return
@@ -91,25 +83,45 @@ export function LogLibraryPage() {
           <span>Library</span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <h1>📚 Log Library</h1>
-          <button className="ps-btn ps-btn-secondary" onClick={() => navigate('/logs')}>
-            ← Back to Logs
-          </button>
+          <div>
+            <h1 style={{ marginBottom: 'var(--ps-space-xs)' }}>📚 Log Library</h1>
+            <p style={{ color: 'var(--ps-slate)', margin: 0 }}>
+              Browse platform log templates as cards, subscribe to what you need, then head back to the log menu.
+            </p>
+          </div>
+          <div style={{ display: 'flex', gap: 'var(--ps-space-sm)', flexWrap: 'wrap' }}>
+            <button className="ps-btn ps-btn-secondary" onClick={() => navigate('/logs')}>
+              ← Back to Logs
+            </button>
+            <button className="ps-btn ps-btn-primary" onClick={() => navigate('/logs/new')}>
+              + Create Custom Log
+            </button>
+          </div>
         </div>
-        <p style={{ color: 'var(--ps-slate)', marginTop: '4px' }}>
-          Browse platform log templates. Subscribe to add them to your workspace.
-        </p>
       </div>
 
-      {/* Search */}
-      <div style={{ marginBottom: 'var(--ps-space-lg)' }}>
-        <input
-          className="ps-input"
-          placeholder="Search logs…"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          style={{ maxWidth: 400 }}
-        />
+      <div className="ps-card" style={{ padding: 'var(--ps-space-md)', marginBottom: 'var(--ps-space-lg)' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(220px, 2fr) minmax(180px, 1fr)', gap: 'var(--ps-space-sm)' }}>
+          <input
+            className="ps-input"
+            placeholder="Search logs..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+          <select
+            className="ps-input"
+            value={category}
+            onChange={(e) => setCategory(e.target.value as 'all' | LogCategory)}
+          >
+            <option value="all">All categories</option>
+            <option value="fridge">Fridge</option>
+            <option value="cleaning">Cleaning</option>
+            <option value="cd">CD</option>
+            <option value="visitor">Visitor</option>
+            <option value="date_check">Date Check</option>
+            <option value="custom">Custom</option>
+          </select>
+        </div>
       </div>
 
       {/* Errors / Success */}
@@ -139,66 +151,74 @@ export function LogLibraryPage() {
         </div>
       )}
 
-      {/* Grouped templates */}
-      {CATEGORY_ORDER.filter((cat) => grouped[cat]?.length).map((cat) => {
-        const config = CATEGORY_CONFIG[cat]
-        const items = grouped[cat]
-        return (
-          <div key={cat} style={{ marginBottom: 'var(--ps-space-xl)' }}>
-            <h2 style={{ fontSize: 'var(--ps-font-lg)', color: 'var(--ps-midnight)', marginBottom: 'var(--ps-space-md)' }}>
-              {config.emoji} {config.label}
-            </h2>
-            <div className="dashboard-grid">
-              {items.map((t) => {
-                const isSubscribed = subscribedTemplateIds.has(t.id)
-                return (
-                  <div
-                    key={t.id}
-                    className="ps-card"
-                    style={{ padding: 'var(--ps-space-lg)' }}
+      {filteredTemplates.length > 0 && (
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))',
+            gap: 'var(--ps-space-md)',
+          }}
+        >
+          {filteredTemplates.map((template) => {
+            const config = CATEGORY_CONFIG[template.category]
+            const isSubscribed = subscribedTemplateIds.has(template.id)
+            return (
+              <div
+                key={template.id}
+                className="ps-card"
+                style={{
+                  padding: 'var(--ps-space-lg)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  minHeight: 220,
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 'var(--ps-space-sm)', marginBottom: 'var(--ps-space-sm)' }}>
+                  <h3 style={{ fontSize: 'var(--ps-font-md)', fontWeight: 600, color: 'var(--ps-midnight)', margin: 0 }}>
+                    {template.title}
+                  </h3>
+                  <span
+                    className="ps-badge"
+                    style={{ background: config.color, color: '#fff', fontSize: 'var(--ps-font-xs)', whiteSpace: 'nowrap' }}
                   >
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 'var(--ps-space-sm)' }}>
-                      <h3 style={{ fontSize: 'var(--ps-font-md)', fontWeight: 600, color: 'var(--ps-midnight)', margin: 0 }}>
-                        {t.title}
-                      </h3>
-                      <span
-                        className="ps-badge"
-                        style={{ background: config.color, color: '#fff', fontSize: 'var(--ps-font-xs)' }}
-                      >
-                        {config.emoji} {config.label}
-                      </span>
-                    </div>
-                    <p style={{ fontSize: 'var(--ps-font-sm)', color: 'var(--ps-slate)', margin: '0 0 var(--ps-space-sm)' }}>
-                      {t.description}
-                    </p>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--ps-space-sm)', marginBottom: 'var(--ps-space-md)' }}>
-                      <span className="ps-badge ps-badge-blue" style={{ fontSize: 'var(--ps-font-xs)' }}>
-                        🗓 {t.schedule_type === 'sporadic' ? 'Sporadic' : t.schedule_type === 'daily' ? 'Daily' : 'Custom Days'}
-                      </span>
-                    </div>
-                    {isSubscribed ? (
-                      <span className="ps-badge ps-badge-green" style={{ fontSize: 'var(--ps-font-xs)' }}>
-                        ✅ Already subscribed
-                      </span>
-                    ) : (
-                      <button
-                        className="ps-btn ps-btn-primary ps-btn-sm"
-                        onClick={() => handleSubscribe(t)}
-                        disabled={subscribing === t.id}
-                      >
-                        {subscribing === t.id ? 'Subscribing…' : '+ Subscribe'}
-                      </button>
-                    )}
+                    {config.emoji} {config.label}
+                  </span>
+                </div>
+                <p style={{ fontSize: 'var(--ps-font-sm)', color: 'var(--ps-slate)', margin: '0 0 var(--ps-space-md)', flex: 1 }}>
+                  {template.description}
+                </p>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--ps-space-sm)', flexWrap: 'wrap', marginBottom: 'var(--ps-space-md)' }}>
+                  <span className="ps-badge ps-badge-blue" style={{ fontSize: 'var(--ps-font-xs)' }}>
+                    🗓 {template.schedule_type === 'sporadic' ? 'Sporadic' : template.schedule_type === 'daily' ? 'Daily' : 'Custom Days'}
+                  </span>
+                </div>
+                {isSubscribed ? (
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--ps-space-sm)', marginTop: 'auto' }}>
+                    <span className="ps-badge ps-badge-green" style={{ fontSize: 'var(--ps-font-xs)' }}>
+                      ✅ Already subscribed
+                    </span>
+                    <button className="ps-btn ps-btn-secondary ps-btn-sm" onClick={() => navigate('/logs')}>
+                      Back to Logs
+                    </button>
                   </div>
-                )
-              })}
-            </div>
-          </div>
-        )
-      })}
+                ) : (
+                  <button
+                    className="ps-btn ps-btn-primary ps-btn-sm"
+                    onClick={() => handleSubscribe(template)}
+                    disabled={subscribing === template.id}
+                    style={{ marginTop: 'auto', alignSelf: 'flex-start' }}
+                  >
+                    {subscribing === template.id ? 'Subscribing…' : '+ Subscribe'}
+                  </button>
+                )}
+              </div>
+            )
+          })}
+        </div>
+      )}
 
       {/* No results */}
-      {!loading && Object.keys(grouped).length === 0 && (
+      {!loading && filteredTemplates.length === 0 && (
         <div className="ps-card" style={{ padding: 'var(--ps-space-2xl)', textAlign: 'center' }}>
           <p style={{ color: 'var(--ps-slate)' }}>No log templates found{search ? ` matching "${search}"` : ''}.</p>
         </div>

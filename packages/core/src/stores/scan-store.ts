@@ -58,6 +58,12 @@ export interface ScanState {
   }) => Promise<boolean>
   rejectScanItem: (itemId: string) => Promise<boolean>
   editScanItem: (itemId: string, drugId: string, quantity: number) => Promise<boolean>
+  retryScan: (params: {
+    scanId: string
+    organisationId: string
+    supabaseUrl: string
+    accessToken: string
+  }) => Promise<{ ok: boolean; error?: string }>
   deleteScan: (scanId: string) => Promise<boolean>
   refreshImageUrl: (scanId: string) => Promise<string | null>
   clearUploadError: () => void
@@ -524,6 +530,41 @@ export const useScanStore = create<ScanState>((set, get) => ({
     } catch (err) {
       console.error('Failed to edit scan item:', err)
       return false
+    }
+  },
+
+  // ============================================
+  // Retry a scan — re-runs AI on the stored image.
+  // Calls the same 'process' action without an image payload; the edge
+  // function downloads the original from storage and replaces the extraction.
+  // ============================================
+  retryScan: async ({ scanId, organisationId, supabaseUrl, accessToken }) => {
+    try {
+      const response = await fetch(`${supabaseUrl}/functions/v1/ai-scan`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({
+          action: 'process',
+          scan_id: scanId,
+          organisation_id: organisationId,
+        }),
+      })
+
+      const data = await response.json().catch(() => ({}))
+      if (!response.ok) {
+        return { ok: false, error: data.error || 'The scan could not be re-processed.' }
+      }
+
+      // Refresh the active scan and queue with the new extraction
+      await get().loadScan(scanId)
+      await get().loadQueue(organisationId)
+      return { ok: true }
+    } catch (err) {
+      console.error('Failed to retry scan:', err)
+      return { ok: false, error: 'The connection was interrupted while re-processing the scan.' }
     }
   },
 

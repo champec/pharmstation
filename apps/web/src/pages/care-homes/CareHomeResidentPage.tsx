@@ -38,6 +38,8 @@ export function CareHomeResidentPage() {
     updateResidentStatus,
     updateResidentDetails,
     units,
+    groups,
+    requests,
     addResidentNote,
     stopMedicationSchedule,
     clearError,
@@ -153,9 +155,27 @@ export function CareHomeResidentPage() {
       <div className="page-header care-home-page-header">
         <div className="breadcrumbs"><a href="/care-homes?view=residents" onClick={(event) => { event.preventDefault(); navigate('/care-homes?view=residents') }}>Care homes</a><span className="separator">/</span><span>{fullName(resident.patient?.first_name, resident.patient?.last_name)}</span></div>
         <div className="care-home-title-row">
-          <div><p className="care-home-eyebrow">Resident medication record</p><h1>{fullName(resident.patient?.first_name, resident.patient?.last_name)}</h1><p className="care-home-subtitle">{resident.unit?.name ? `${resident.unit.name} · ` : ''}Room {resident.room_number ?? 'not set'} · NHS {resident.patient?.nhs_number ?? 'not recorded'} · {resident.status}</p></div>
+          <div><p className="care-home-eyebrow">Resident medication record</p><h1>{fullName(resident.patient?.first_name, resident.patient?.last_name)}</h1><p className="care-home-subtitle">Room {resident.room_number ?? 'not set'} · NHS {resident.patient?.nhs_number ?? 'not recorded'} · {resident.status}</p></div>
           <div className="care-home-heading-actions"><button className="ps-btn ps-btn-secondary" type="button" onClick={() => navigate('/care-homes?view=residents')}>Back to residents</button><button className="ps-btn ps-btn-primary" type="button" onClick={openProfileForm}>Edit profile</button></div>
         </div>
+        {(() => {
+          const memberships = (resident.group_memberships ?? [])
+            .map((membership) => groups.find((group) => group.id === membership.group_id))
+            .filter((group): group is NonNullable<typeof group> => Boolean(group))
+          const legacyUnit = resident.unit_id ? groups.find((group) => group.id === resident.unit_id) : null
+          const allGroups = legacyUnit && !memberships.some((group) => group.id === legacyUnit.id) ? [legacyUnit, ...memberships] : memberships
+          if (allGroups.length === 0) return null
+          return (
+            <div className="care-home-resident-groups">
+              <span>Groups:</span>
+              {allGroups.map((group) => (
+                <button key={group.id} type="button" className="ps-badge ps-badge-blue care-home-group-chip" onClick={() => navigate(`/care-homes/${linkId}/groups/${group.id}`)}>
+                  {group.name} · {group.group_state.replaceAll('_', ' ')}
+                </button>
+              ))}
+            </div>
+          )
+        })()}
       </div>
 
       {error && <div className="auth-error care-home-alert" role="alert"><span>{error}</span><button className="ps-btn ps-btn-ghost ps-btn-sm" type="button" onClick={clearError}>Dismiss</button></div>}
@@ -164,6 +184,33 @@ export function CareHomeResidentPage() {
         <dl><div><dt>Resident status</dt><dd><select className="ps-input" value={resident.status} disabled={saving} onChange={(event) => void updateResidentStatus(resident.id, event.target.value as typeof resident.status)}><option value="active">Active</option><option value="hospital">In hospital</option><option value="leave">On leave</option><option value="discharged">Discharged</option><option value="deceased">Deceased</option></select><small>Only active residents are included in automatic repeat requests.</small></dd></div><div><dt>Allergies</dt><dd>{resident.allergies || 'None recorded'}</dd></div><div><dt>GP</dt><dd>{resident.gp_name || 'Not set'}{resident.gp_practice ? `, ${resident.gp_practice}` : ''}</dd></div><div><dt>Special instructions</dt><dd>{resident.special_instructions || 'None recorded'}</dd></div></dl>
       </div>
       {showProfileForm && <form className="care-home-request-form" onSubmit={(event) => void handleUpdateProfile(event)}><label>Unit<select className="ps-input" value={profileForm.unitId} onChange={(event) => setProfileForm({ ...profileForm, unitId: event.target.value })}><option value="">Unassigned</option>{units.map((unit) => <option key={unit.id} value={unit.id}>{unit.name}{unit.floor_name ? ` · ${unit.floor_name}` : ''}</option>)}</select></label><label>Room<input className="ps-input" value={profileForm.roomNumber} onChange={(event) => setProfileForm({ ...profileForm, roomNumber: event.target.value })} /></label><label>GP name<input className="ps-input" value={profileForm.gpName} onChange={(event) => setProfileForm({ ...profileForm, gpName: event.target.value })} /></label><label>GP practice<input className="ps-input" required value={profileForm.gpPractice} onChange={(event) => setProfileForm({ ...profileForm, gpPractice: event.target.value })} /></label><label>Allergies<textarea className="ps-input" rows={2} value={profileForm.allergies} onChange={(event) => setProfileForm({ ...profileForm, allergies: event.target.value })} /></label><label>Special instructions<textarea className="ps-input" rows={2} value={profileForm.specialInstructions} onChange={(event) => setProfileForm({ ...profileForm, specialInstructions: event.target.value })} /></label><div className="care-home-form-actions care-home-form-span-2"><button className="ps-btn ps-btn-secondary" type="button" onClick={() => setShowProfileForm(false)}>Cancel</button><button className="ps-btn ps-btn-primary" type="submit" disabled={saving}>Save profile</button></div></form>}
+
+      <section className="care-home-clinical-section">
+        <div className="care-home-section-heading"><div><p>Medication requests</p><h2>Current and recent requests</h2></div><button className="ps-btn ps-btn-secondary care-home-no-print" type="button" onClick={() => navigate(`/care-homes/${linkId}/requests`)}>Open requests manager</button></div>
+        {(() => {
+          const patientRequests = requests.filter((request) => request.care_home_resident_id === resident.id)
+          if (patientRequests.length === 0) return <div className="care-home-inline-empty">No medication requests recorded for this resident.</div>
+          return (
+            <div className="care-home-table-wrap">
+              <table className="care-home-table">
+                <thead><tr><th>Medicine</th><th>Type</th><th>Requested</th><th>Needed by</th><th>Status</th><th>Outcome</th></tr></thead>
+                <tbody>
+                  {patientRequests.slice(0, 15).map((request) => (
+                    <tr key={request.id}>
+                      <td><strong>{request.medicine_name}</strong>{request.quantity ? <small> · qty {request.quantity}</small> : null}</td>
+                      <td><span className="ps-badge ps-badge-muted">{request.request_type}</span></td>
+                      <td>{new Date(request.requested_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}</td>
+                      <td>{request.needed_by ? new Date(`${request.needed_by}T00:00:00`).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) : '—'}</td>
+                      <td><span className={`ps-badge ${['completed'].includes(request.status) ? 'ps-badge-success' : ['declined', 'cancelled'].includes(request.status) ? 'ps-badge-muted' : 'ps-badge-warning'}`}>{request.status.replaceAll('_', ' ')}</span></td>
+                      <td>{request.gp_request_id ? request.prescription_outcome.replaceAll('_', ' ') : '—'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )
+        })()}
+      </section>
 
       <section className="care-home-clinical-section">
         <div className="care-home-section-heading"><div><p>Resident record</p><h2>Dated notes and incidents</h2></div><button className="ps-btn ps-btn-primary" type="button" onClick={() => setShowNoteForm((visible) => !visible)}>{showNoteForm ? 'Close' : 'Add note'}</button></div>
@@ -189,8 +236,8 @@ export function CareHomeResidentPage() {
       </section>
 
       <section className="care-home-clinical-section">
-        <div className="care-home-section-heading"><div><p>Supply history</p><h2>Packed, delivered and received medicines</h2></div></div>
-        {residentSupplyPackages.length === 0 ? <div className="care-home-inline-empty">No medicine packages have been created for this resident.</div> : <div className="care-home-resident-supply-history">{residentSupplyPackages.map((carePackage) => <article key={carePackage.id}><header><div><strong>Batch #{carePackage.batch?.batch_number} · {carePackage.batch?.title}</strong><span>{carePackage.batch?.period_start} to {carePackage.batch?.period_end}</span></div><span className={`ps-badge ${carePackage.package_status === 'received' ? 'ps-badge-success' : carePackage.package_status === 'discrepancy' ? 'ps-badge-danger' : 'ps-badge-blue'}`}>{carePackage.package_status}</span></header><div className="care-home-table-wrap"><table className="care-home-table"><thead><tr><th>Medicine</th><th>Type</th><th>Expected</th><th>Packed</th><th>Sent</th><th>Received</th><th>Outcome</th></tr></thead><tbody>{(carePackage.lines ?? []).map((line) => <tr key={line.id}><td><strong>{line.medicine_name}</strong><small>{[line.strength, line.form].filter(Boolean).join(' · ')}</small></td><td><span className={`ps-badge ${line.supply_type === 'acute' ? 'ps-badge-danger' : 'ps-badge-blue'}`}>{line.supply_type}</span></td><td>{line.quantity_expected}</td><td>{line.quantity_packed}</td><td>{line.quantity_sent}</td><td>{line.quantity_received ?? '-'}</td><td>{line.omission_reason || line.discrepancy_notes || line.line_status}</td></tr>)}</tbody></table></div></article>)}</div>}
+        <div className="care-home-section-heading"><div><p>Round history</p><h2>Previous and current deliveries for this patient</h2></div></div>
+        {residentSupplyPackages.length === 0 ? <div className="care-home-inline-empty">No medicine packages have been created for this resident.</div> : <div className="care-home-resident-supply-history">{residentSupplyPackages.map((carePackage) => <article key={carePackage.id}><header><div><strong>{carePackage.batch?.title}</strong><span>{carePackage.batch?.period_start} to {carePackage.batch?.period_end}</span></div><div className="care-home-row-actions"><span className={`ps-badge ${carePackage.package_status === 'received' ? 'ps-badge-success' : carePackage.package_status === 'discrepancy' ? 'ps-badge-danger' : 'ps-badge-blue'}`}>{carePackage.package_status}</span>{carePackage.batch?.group_id && <button className="ps-btn ps-btn-secondary ps-btn-sm care-home-no-print" type="button" onClick={() => navigate(`/care-homes/${linkId}/groups/${carePackage.batch!.group_id}/bags/${carePackage.id}`)}>Open bag</button>}</div></header><div className="care-home-table-wrap"><table className="care-home-table"><thead><tr><th>Medicine</th><th>Type</th><th>Expected</th><th>Packed</th><th>Sent</th><th>Received</th><th>Outcome</th></tr></thead><tbody>{(carePackage.lines ?? []).map((line) => <tr key={line.id}><td><strong>{line.medicine_name}</strong><small>{[line.strength, line.form].filter(Boolean).join(' · ')}</small></td><td><span className={`ps-badge ${line.supply_type === 'acute' ? 'ps-badge-danger' : 'ps-badge-blue'}`}>{line.supply_type}</span></td><td>{line.quantity_expected}</td><td>{line.quantity_packed}</td><td>{line.quantity_sent}</td><td>{line.quantity_received ?? '-'}</td><td>{line.omission_reason || line.discrepancy_notes || line.line_status}</td></tr>)}</tbody></table></div></article>)}</div>}
       </section>
     </div>
   )

@@ -57,7 +57,7 @@ export function RoundTemplatesPage() {
     setSaving(true)
     try {
       const round = await createRoundFromTemplate(templateId, organisation.id, membership.user_id)
-      navigate(`/delivery-rounds/${round.id}`)
+      navigate(`/deliveries/${round.id}`)
     } catch (e: any) {
       alert(e.message)
     }
@@ -70,7 +70,7 @@ export function RoundTemplatesPage() {
         <div className="breadcrumbs">
           <a href="/" onClick={(e) => { e.preventDefault(); navigate('/') }}>Dashboard</a>
           <span className="separator">/</span>
-          <a href="/delivery-rounds" onClick={(e) => { e.preventDefault(); navigate('/delivery-rounds') }}>Delivery Rounds</a>
+          <a href="/deliveries" onClick={(e) => { e.preventDefault(); navigate('/deliveries') }}>Deliveries</a>
           <span className="separator">/</span>
           <span>Templates</span>
         </div>
@@ -129,7 +129,7 @@ export function RoundTemplatesPage() {
                 </button>
                 <button
                   className="ps-btn ps-btn-secondary ps-btn-sm"
-                  onClick={() => navigate(`/delivery-rounds/templates/${tpl.id}`)}
+                  onClick={() => navigate(`/deliveries/templates/${tpl.id}`)}
                 >
                   Edit
                 </button>

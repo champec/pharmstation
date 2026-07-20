@@ -2,6 +2,9 @@ import { create } from 'zustand'
 import { getUserClient } from '@pharmstation/supabase-client'
 import type {
   CareHomeAuditEvent,
+  CareHomeGroupMember,
+  CareHomeGroupState,
+  CareHomeGroupType,
   CareHomeLink,
   CareHomeGpRequest,
   CareHomeMarCycle,
@@ -80,6 +83,15 @@ interface CreateSupplyBatchInput {
   periodEnd: string
   deliveryDate?: string
   supplyScope: CareHomeSupplyScope
+  groupId?: string
+}
+
+interface CreateGroupInput {
+  linkId: string
+  name: string
+  groupType?: CareHomeGroupType
+  cycleDay?: number
+  notes?: string
 }
 
 export interface CareHomeState {
@@ -128,6 +140,29 @@ export interface CareHomeState {
   reconcilePrescriptionLine: (lineId: string, outcome: 'received' | 'part_received' | 'refused' | 'not_required', quantityReceived?: number, reason?: string) => Promise<void>
   createUnit: (linkId: string, name: string, floorName?: string) => Promise<void>
   assignResidentUnit: (residentId: string, unitId: string | null) => Promise<void>
+  // Group lifecycle
+  groups: CareHomeUnit[]
+  selectedGroupId: string | null
+  activeGroup: CareHomeUnit | null
+  createGroup: (input: CreateGroupInput) => Promise<string>
+  setGroupState: (groupId: string, state: CareHomeGroupState) => Promise<void>
+  startGroupPreparation: (groupId: string, input: Omit<CreateSupplyBatchInput, 'linkId' | 'groupId'>) => Promise<string>
+  markGroupReady: (groupId: string) => Promise<string>
+  returnGroupToIdle: (groupId: string) => Promise<void>
+  addResidentToGroup: (groupId: string, residentId: string, createdBy: string) => Promise<void>
+  removeResidentFromGroup: (groupId: string, residentId: string) => Promise<void>
+  fetchGroup: (groupId: string) => Promise<void>
+  selectGroup: (groupId: string | null) => void
+  updateGroup: (groupId: string, updates: { name?: string; floor_name?: string | null; group_type?: CareHomeGroupType; cycle_day?: number | null; notes?: string | null; is_active?: boolean }) => Promise<void>
+  updateCareHomeLink: (linkId: string, updates: { service_name?: string | null; contact_name?: string | null; contact_email?: string | null; contact_phone?: string | null; cycle_day?: number | null; default_cycle_length_days?: number; notes?: string | null }) => Promise<void>
+  // Bags (per-patient packages inside a group round)
+  activeBag: CareHomeSupplyPackage | null
+  fetchBag: (bagId: string) => Promise<void>
+  packBagLine: (lineId: string, quantity: number, omissionReason?: string) => Promise<void>
+  receiveBagLine: (lineId: string, quantity: number, notes?: string) => Promise<void>
+  addBagLine: (packageId: string, input: { patientMedicationId: string; medicationScheduleId?: string | null; supplyType: CareHomeMedicationScheduleType; medicineName: string; form?: string | null; strength?: string | null; dose?: string | null; quantityExpected: number }) => Promise<void>
+  updateBagLine: (lineId: string, updates: { quantity_expected?: number; dose?: string | null }) => Promise<void>
+  removeBagLine: (lineId: string) => Promise<void>
   fetchSupplyBatches: (linkId: string) => Promise<void>
   fetchSupplyBatch: (batchId: string) => Promise<void>
   createSupplyBatch: (input: CreateSupplyBatchInput) => Promise<string>
@@ -162,6 +197,10 @@ export const useCareHomeStore = create<CareHomeState>((set, get) => ({
   residentNotes: [],
   medicationEvents: [],
   selectedLinkId: null,
+  groups: [],
+  selectedGroupId: null,
+  activeGroup: null,
+  activeBag: null,
   loading: false,
   saving: false,
   error: null,
@@ -198,7 +237,7 @@ export const useCareHomeStore = create<CareHomeState>((set, get) => ({
     try {
       const client = getUserClient()
       const [residentsResult, requestsResult, gpRequestsResult, cyclesResult, historyResult, unitsResult, batchesResult] = await Promise.all([
-        client.from('ps_care_home_residents').select('*, patient:ps_patients(*), unit:ps_care_home_units(*)').eq('care_home_link_id', linkId).order('room_number'),
+        client.from('ps_care_home_residents').select('*, patient:ps_patients(*), unit:ps_care_home_units(*), group_memberships:ps_care_home_group_members(*)').eq('care_home_link_id', linkId).order('room_number'),
         client.from('ps_care_home_medication_requests').select('*, resident:ps_care_home_residents(*, patient:ps_patients(*))').eq('care_home_link_id', linkId).order('requested_at', { ascending: false }),
         client.from('ps_care_home_gp_requests').select('*, lines:ps_care_home_medication_requests(*, resident:ps_care_home_residents(*, patient:ps_patients(*)))').eq('care_home_link_id', linkId).order('created_at', { ascending: false }),
         client.from('ps_care_home_mar_cycles').select('*, resident:ps_care_home_residents!inner(*, patient:ps_patients(*))').eq('resident.care_home_link_id', linkId).order('period_start', { ascending: false }),
@@ -209,13 +248,15 @@ export const useCareHomeStore = create<CareHomeState>((set, get) => ({
 
       const firstError = residentsResult.error || requestsResult.error || gpRequestsResult.error || cyclesResult.error || historyResult.error || unitsResult.error || batchesResult.error
       if (firstError) throw firstError
+      const units = (unitsResult.data ?? []) as CareHomeUnit[]
       set({
         residents: (residentsResult.data ?? []) as unknown as CareHomeResident[],
         requests: (requestsResult.data ?? []) as unknown as CareHomeMedicationRequest[],
         gpRequests: (gpRequestsResult.data ?? []) as unknown as CareHomeGpRequest[],
         marCycles: (cyclesResult.data ?? []) as unknown as CareHomeMarCycle[],
         history: (historyResult.data ?? []) as CareHomeAuditEvent[],
-        units: (unitsResult.data ?? []) as CareHomeUnit[],
+        units,
+        groups: units,
         supplyBatches: (batchesResult.data ?? []) as CareHomeSupplyBatch[],
         loading: false,
       })
@@ -583,6 +624,273 @@ export const useCareHomeStore = create<CareHomeState>((set, get) => ({
     set((state) => ({ residents: state.residents.map((resident) => resident.id === residentId ? { ...resident, unit_id: unitId, unit } : resident), saving: false }))
   },
 
+  // ── Group lifecycle ──────────────────────────────────────────────
+
+  createGroup: async (input) => {
+    set({ saving: true, error: null })
+    try {
+      const { data, error } = await getUserClient()
+        .from('ps_care_home_units')
+        .insert({
+          care_home_link_id: input.linkId,
+          name: input.name.trim(),
+          group_type: input.groupType ?? 'monthly',
+          cycle_day: input.cycleDay ?? null,
+          notes: input.notes?.trim() || null,
+        })
+        .select()
+        .single()
+      if (error) throw error
+      const group = data as CareHomeUnit
+      set((state) => ({ units: [...state.units, group], groups: [...state.groups, group], saving: false }))
+      return group.id
+    } catch (error) {
+      set({ error: error instanceof Error ? error.message : 'Unable to create the group.', saving: false })
+      throw error
+    }
+  },
+
+  setGroupState: async (groupId, state) => {
+    set({ saving: true, error: null })
+    const now = new Date().toISOString()
+    const { error } = await getUserClient()
+      .from('ps_care_home_units')
+      .update({ group_state: state, state_changed_at: now, updated_at: now })
+      .eq('id', groupId)
+    if (error) {
+      set({ error: error.message, saving: false })
+      return
+    }
+    set((s) => ({
+      units: s.units.map((u) => u.id === groupId ? { ...u, group_state: state, state_changed_at: now } : u),
+      groups: s.groups.map((u) => u.id === groupId ? { ...u, group_state: state, state_changed_at: now } : u),
+      activeGroup: s.activeGroup?.id === groupId ? { ...s.activeGroup, group_state: state, state_changed_at: now } : s.activeGroup,
+      saving: false,
+    }))
+  },
+
+  startGroupPreparation: async (groupId, input) => {
+    set({ saving: true, error: null })
+    try {
+      const group = get().groups.find((g) => g.id === groupId)
+      if (!group) throw new Error('Group not found')
+      const batchId = await get().createSupplyBatch({ ...input, linkId: group.care_home_link_id, groupId })
+      const now = new Date().toISOString()
+      const { error } = await getUserClient()
+        .from('ps_care_home_units')
+        .update({ group_state: 'preparing', active_batch_id: batchId, state_changed_at: now, updated_at: now })
+        .eq('id', groupId)
+      if (error) throw error
+      set((s) => ({
+        units: s.units.map((u) => u.id === groupId ? { ...u, group_state: 'preparing' as CareHomeGroupState, active_batch_id: batchId, state_changed_at: now } : u),
+        groups: s.groups.map((u) => u.id === groupId ? { ...u, group_state: 'preparing' as CareHomeGroupState, active_batch_id: batchId, state_changed_at: now } : u),
+        saving: false,
+      }))
+      return batchId
+    } catch (error) {
+      set({ error: error instanceof Error ? error.message : 'Unable to start preparation.', saving: false })
+      throw error
+    }
+  },
+
+  markGroupReady: async (groupId) => {
+    set({ saving: true, error: null })
+    try {
+      const { data, error } = await getUserClient().rpc('ps_generate_delivery_round_from_care_home_group', { target_group_id: groupId })
+      if (error) throw error
+      const roundId = data as string
+      const linkId = get().selectedLinkId
+      if (linkId) await get().selectLink(linkId)
+      set({ saving: false })
+      return roundId
+    } catch (error) {
+      set({ error: error instanceof Error ? error.message : 'Unable to mark group ready.', saving: false })
+      throw error
+    }
+  },
+
+  returnGroupToIdle: async (groupId) => {
+    set({ saving: true, error: null })
+    const { error } = await getUserClient().rpc('ps_set_care_home_group_idle', { target_group_id: groupId })
+    if (error) {
+      set({ error: error.message, saving: false })
+      return
+    }
+    const linkId = get().selectedLinkId
+    if (linkId) await get().selectLink(linkId)
+    set({ saving: false })
+  },
+
+  addResidentToGroup: async (groupId, residentId, createdBy) => {
+    set({ saving: true, error: null })
+    const { error } = await getUserClient()
+      .from('ps_care_home_group_members')
+      .upsert({ group_id: groupId, care_home_resident_id: residentId, created_by: createdBy }, { onConflict: 'group_id,care_home_resident_id' })
+    if (error) {
+      set({ error: error.message, saving: false })
+      return
+    }
+    await get().fetchGroup(groupId)
+    set({ saving: false })
+  },
+
+  removeResidentFromGroup: async (groupId, residentId) => {
+    set({ saving: true, error: null })
+    const { error } = await getUserClient()
+      .from('ps_care_home_group_members')
+      .delete()
+      .eq('group_id', groupId)
+      .eq('care_home_resident_id', residentId)
+    if (error) {
+      set({ error: error.message, saving: false })
+      return
+    }
+    await get().fetchGroup(groupId)
+    set({ saving: false })
+  },
+
+  fetchGroup: async (groupId) => {
+    set({ loading: true, error: null })
+    const { data, error } = await getUserClient()
+      .from('ps_care_home_units')
+      .select('*, members:ps_care_home_group_members(*, resident:ps_care_home_residents(*, patient:ps_patients(*))), active_batch:ps_care_home_supply_batches!ps_care_home_units_active_batch_id_fkey(*, packages:ps_care_home_supply_packages(*, resident:ps_care_home_residents(*, patient:ps_patients(*)), lines:ps_care_home_supply_lines(*)))')
+      .eq('id', groupId)
+      .single()
+    if (error) {
+      set({ error: error.message, loading: false })
+      return
+    }
+    const group = data as unknown as CareHomeUnit
+    set((s) => ({
+      activeGroup: group,
+      groups: s.groups.map((g) => g.id === groupId ? group : g),
+      units: s.units.map((g) => g.id === groupId ? group : g),
+      loading: false,
+    }))
+  },
+
+  selectGroup: (groupId) => set({ selectedGroupId: groupId, activeGroup: null }),
+
+  fetchBag: async (bagId) => {
+    set({ loading: true, error: null })
+    const { data, error } = await getUserClient()
+      .from('ps_care_home_supply_packages')
+      .select('*, resident:ps_care_home_residents(*, patient:ps_patients(*)), lines:ps_care_home_supply_lines(*), batch:ps_care_home_supply_batches!ps_care_home_supply_packages_batch_id_fkey(*), unit:ps_care_home_units!ps_care_home_supply_packages_unit_id_fkey(*)')
+      .eq('id', bagId)
+      .single()
+    if (error) {
+      set({ error: error.message, loading: false })
+      return
+    }
+    set({ activeBag: data as unknown as CareHomeSupplyPackage, loading: false })
+  },
+
+  packBagLine: async (lineId, quantity, omissionReason) => {
+    set({ saving: true, error: null })
+    const { error } = await getUserClient().rpc('ps_pack_care_home_supply_line', {
+      target_line_id: lineId,
+      packed_quantity: quantity,
+      target_omission_reason: omissionReason?.trim() || null,
+    })
+    if (error) {
+      set({ error: error.message, saving: false })
+      return
+    }
+    const bagId = get().activeBag?.id
+    if (bagId) await get().fetchBag(bagId)
+    set({ saving: false })
+  },
+
+  receiveBagLine: async (lineId, quantity, notes) => {
+    set({ saving: true, error: null })
+    const { error } = await getUserClient().rpc('ps_receive_care_home_supply_line', {
+      target_line_id: lineId,
+      received_quantity: quantity,
+      target_notes: notes?.trim() || null,
+    })
+    if (error) {
+      set({ error: error.message, saving: false })
+      return
+    }
+    const bagId = get().activeBag?.id
+    if (bagId) await get().fetchBag(bagId)
+    set({ saving: false })
+  },
+
+  addBagLine: async (packageId, input) => {
+    set({ saving: true, error: null })
+    const { error } = await getUserClient().from('ps_care_home_supply_lines').insert({
+      package_id: packageId,
+      patient_medication_id: input.patientMedicationId,
+      medication_schedule_id: input.medicationScheduleId ?? null,
+      supply_type: input.supplyType,
+      medicine_name: input.medicineName,
+      form: input.form ?? null,
+      strength: input.strength ?? null,
+      dose: input.dose ?? null,
+      quantity_expected: input.quantityExpected,
+    })
+    if (error) {
+      set({ error: error.message, saving: false })
+      return
+    }
+    const bagId = get().activeBag?.id
+    if (bagId) await get().fetchBag(bagId)
+    set({ saving: false })
+  },
+
+  updateBagLine: async (lineId, updates) => {
+    set({ saving: true, error: null })
+    const { error } = await getUserClient().from('ps_care_home_supply_lines').update(updates).eq('id', lineId)
+    if (error) {
+      set({ error: error.message, saving: false })
+      return
+    }
+    const bagId = get().activeBag?.id
+    if (bagId) await get().fetchBag(bagId)
+    set({ saving: false })
+  },
+
+  removeBagLine: async (lineId) => {
+    set({ saving: true, error: null })
+    const { error } = await getUserClient().from('ps_care_home_supply_lines').delete().eq('id', lineId)
+    if (error) {
+      set({ error: error.message, saving: false })
+      return
+    }
+    const bagId = get().activeBag?.id
+    if (bagId) await get().fetchBag(bagId)
+    set({ saving: false })
+  },
+
+  updateGroup: async (groupId, updates) => {
+    set({ saving: true, error: null })
+    const { error } = await getUserClient().from('ps_care_home_units').update(updates).eq('id', groupId)
+    if (error) {
+      set({ error: error.message, saving: false })
+      return
+    }
+    set((state) => ({
+      saving: false,
+      groups: state.groups.map((g) => (g.id === groupId ? { ...g, ...updates } : g)),
+      units: state.units.map((g) => (g.id === groupId ? { ...g, ...updates } : g)),
+      activeGroup: state.activeGroup?.id === groupId ? { ...state.activeGroup, ...updates } : state.activeGroup,
+    }))
+  },
+
+  updateCareHomeLink: async (linkId, updates) => {
+    set({ saving: true, error: null })
+    const { error } = await getUserClient().from('ps_care_home_links').update(updates).eq('id', linkId)
+    if (error) {
+      set({ error: error.message, saving: false })
+      return
+    }
+    set((state) => ({
+      saving: false,
+      links: state.links.map((l) => (l.id === linkId ? { ...l, ...updates } : l)),
+    }))
+  },
+
   fetchSupplyBatches: async (linkId) => {
     set({ loading: true, error: null })
     const { data, error } = await getUserClient().from('ps_care_home_supply_batches').select('*').eq('care_home_link_id', linkId).order('created_at', { ascending: false })
@@ -627,6 +935,9 @@ export const useCareHomeStore = create<CareHomeState>((set, get) => ({
         target_supply_scope: input.supplyScope,
       })
       if (error) throw error
+      if (input.groupId) {
+        await getUserClient().from('ps_care_home_supply_batches').update({ group_id: input.groupId }).eq('id', data as string)
+      }
       await get().fetchSupplyBatches(input.linkId)
       set({ saving: false })
       return data as string

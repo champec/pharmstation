@@ -23,15 +23,57 @@ const CONFIDENCE_LABELS: Record<number, { label: string; icon: string; className
   3: { label: 'High', icon: '🟢', className: 'confidence-3' },
 }
 
+// ============================================
+// Matching helpers — mirror the ai-scan edge function conventions
+// ============================================
+
+// Trailing release qualifiers that may differ between prescription and catalogue
+// (e.g. prescription "Concerta", catalogue "Concerta XL")
+const BRAND_QUALIFIER = /\s+(xl|xr|sr|pr|mr|continus|retard|dtrans|matrix|reservoir)$/i
+
+function normalizeStrength(strength: string): string {
+  return strength
+    .toLowerCase()
+    .replace(/\b(mcg|µg|ug)\b/g, 'micrograms')
+    .replace(/\bmicrogram\b/g, 'micrograms')
+    .replace(/\/hr\b/g, '/hour')
+    .replace(/\s+/g, '')
+    .trim()
+}
+
+// Clinical form family: "prolonged-release tablets" = "modified-release tablets" = "SR tablets",
+// but plain "tablets" (immediate release) stays distinct.
+function formFamily(form: string): string {
+  let s = form.toLowerCase().trim().replace(/\s+/g, ' ')
+  s = s
+    .replace(/\btabs?\b/g, 'tablets')
+    .replace(/\bcaps?\b/g, 'capsules')
+    .replace(/\b(m\/?r|mr|sr|pr|xl|xr)\b/g, 'modified-release')
+    .replace(/\b(prolonged|sustained|extended|slow)[\s-]?release\b/g, 'modified-release')
+  const mr = /\bmodified-release\b/.test(s)
+  let base = ''
+  if (/\btablets?\b/.test(s)) base = 'tablets'
+  else if (/\bcapsules?\b/.test(s)) base = 'capsules'
+  else if (/\bpatch(es)?\b/.test(s)) base = 'patches'
+  else if (/\b(oral solution|oral suspension|liquid|elixir|syrup)\b/.test(s)) base = 'oral-liquid'
+  else if (/\binjection|infusion|ampoules?|syringes?|vials?\b/.test(s)) base = 'injection'
+  else base = s
+  return mr && base !== 'injection' ? `mr-${base}` : base
+}
+
 export function ScanReviewModal({ isOpen, scanId, onClose }: ScanReviewModalProps) {
-  const { activeUser } = useAuthStore()
+  const { activeUser, userSession, organisation } = useAuthStore()
   const {
     activeScan, activeScanItems, activeScanLoading,
-    loadScan, approveScanItem, rejectScanItem, editScanItem, refreshImageUrl,
+    loadScan, approveScanItem, rejectScanItem, editScanItem, refreshImageUrl, retryScan,
   } = useScanStore()
 
   const [imageUrl, setImageUrl] = useState<string | null>(null)
   const [imageLoading, setImageLoading] = useState(true)
+
+  // Retry (re-run AI on the stored image)
+  const [retrying, setRetrying] = useState(false)
+  const [retryError, setRetryError] = useState<string | null>(null)
 
   // Editable document details
   const [editingDetails, setEditingDetails] = useState(false)
@@ -154,6 +196,26 @@ export function ScanReviewModal({ isOpen, scanId, onClose }: ScanReviewModalProp
   const allItemsDone = activeScanItems.length > 0 &&
     activeScanItems.every((i) => i.status === 'approved' || i.status === 'rejected')
 
+  // Retry is blocked once any item is approved (register entry already exists)
+  const hasApprovedItems = activeScanItems.some((i) => i.status === 'approved')
+  const canRetry = !!activeScan && !!activeScan.image_path && !hasApprovedItems
+    && activeScan.status !== 'processing' && activeScan.status !== 'uploading'
+
+  const handleRetry = async () => {
+    if (!activeScan || !organisation?.id || !userSession?.access_token || retrying) return
+    if (!window.confirm('Re-run the AI on this scan? The current extracted drugs will be replaced with a fresh reading.')) return
+    setRetrying(true)
+    setRetryError(null)
+    const result = await retryScan({
+      scanId: activeScan.id,
+      organisationId: organisation.id,
+      supabaseUrl: import.meta.env.VITE_SUPABASE_URL,
+      accessToken: userSession.access_token,
+    })
+    if (!result.ok) setRetryError(result.error ?? 'Retry failed.')
+    setRetrying(false)
+  }
+
   return (
     <div className="scan-review-overlay" onClick={onClose}>
       <div className="scan-review-modal" onClick={(e) => e.stopPropagation()}>
@@ -178,8 +240,25 @@ export function ScanReviewModal({ isOpen, scanId, onClose }: ScanReviewModalProp
               </>
             )}
           </div>
+          {canRetry && (
+            <button
+              className="ps-btn ps-btn-ghost ps-btn-sm"
+              onClick={handleRetry}
+              disabled={retrying}
+              title={retrying ? 'Re-processing…' : 'Re-run the AI on the stored image — replaces the current extraction'}
+            >
+              {retrying ? '⏳ Re-scanning…' : '🔄 Retry scan'}
+            </button>
+          )}
           <button className="scan-review-close" onClick={onClose}>✕</button>
         </div>
+
+        {retryError && (
+          <div className="scan-error-block" style={{ margin: '8px 16px 0' }}>
+            <strong>Retry failed:</strong>
+            <p>{retryError}</p>
+          </div>
+        )}
 
         {activeScanLoading ? (
           <div className="scan-review-loading">
@@ -461,19 +540,34 @@ function ScanItemCard({ item, scan, userId, onApprove, onReject, onEdit }: ScanI
     let cancelled = false
     ;(async () => {
       try {
+        // Search on the base brand (qualifier stripped) so "Concerta" finds "Concerta XL"
+        // and vice versa. Strength is compared client-side after normalization
+        // so "18 mg" still matches "18mg".
+        const brandBase = item.drug_name_raw!.replace(BRAND_QUALIFIER, '').trim()
         const { data } = await getUserClient()
           .from('cdr_drugs_unique')
           .select('*')
-          .ilike('drug_brand', item.drug_name_raw!)
-          .ilike('drug_strength', item.drug_strength_raw!)
-          .limit(10)
+          .ilike('drug_brand', `${brandBase}%`)
+          .limit(30)
 
         if (cancelled) return
-        const candidates = (data ?? []) as CDDrug[]
-        const exactForm = candidates.find((drug) =>
-          drug.drug_form.toLowerCase() === (item.drug_form_raw ?? '').toLowerCase(),
+        const qStrength = normalizeStrength(item.drug_strength_raw!)
+        const candidates = ((data ?? []) as CDDrug[]).filter((drug) =>
+          normalizeStrength(drug.drug_strength ?? '') === qStrength,
         )
-        setCatalogueCandidate(exactForm ?? (candidates.length === 1 ? candidates[0] : null))
+        const qFamily = item.drug_form_raw ? formFamily(item.drug_form_raw) : ''
+        const familyMatches = qFamily
+          ? candidates.filter((drug) => formFamily(drug.drug_form) === qFamily)
+          : candidates
+        // Prefer an unambiguous form-family match; otherwise fall back to a single
+        // strength-matched candidate the human can confirm.
+        setCatalogueCandidate(
+          familyMatches.length === 1 ? familyMatches[0]
+          : familyMatches.length > 1 ? familyMatches.find((drug) =>
+              drug.drug_form.toLowerCase() === (item.drug_form_raw ?? '').toLowerCase()) ?? familyMatches[0]
+          : candidates.length === 1 ? candidates[0]
+          : null,
+        )
       } catch {
         if (!cancelled) setCatalogueCandidate(null)
       }
@@ -486,9 +580,11 @@ function ScanItemCard({ item, scan, userId, onApprove, onReject, onEdit }: ScanI
   const isAutoSelectedBrand = !!(effectiveDrugId && item.drug_name_raw && item.drug_class_raw
     && item.drug_name_raw.toLowerCase().trim() === item.drug_class_raw.toLowerCase().trim())
 
-  // Detect form mismatch between AI reading and matched drug
+  // Detect form mismatch between AI reading and matched drug (compare clinical
+  // form families so "prolonged-release tablets" vs "modified-release tablets"
+  // doesn't raise a false warning)
   const hasFormMismatch = !isDone && item.status !== 'edited' && item.matched_drug_form && item.drug_form_raw
-    && item.matched_drug_form.toLowerCase() !== item.drug_form_raw.toLowerCase()
+    && formFamily(item.matched_drug_form) !== formFamily(item.drug_form_raw)
 
   // Check if register exists for the matched drug
   useEffect(() => {

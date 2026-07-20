@@ -343,7 +343,13 @@ export function LogViewPage() {
               {activeTemplate?.schedule_type || ''}
             </span>
           </div>
-          <div style={{ display: 'flex', gap: 'var(--ps-space-sm)' }}>
+          <div style={{ display: 'flex', gap: 'var(--ps-space-sm)', flexWrap: 'wrap' }}>
+            <button
+              className="ps-btn ps-btn-secondary"
+              onClick={() => navigate('/logs')}
+            >
+              ← Back to Logs
+            </button>
             {isSporadic && (
               <button className="ps-btn ps-btn-primary" onClick={() => { setFormData({}); setShowAddDrawer(true) }}>
                 + Add Entry

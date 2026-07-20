@@ -86,7 +86,7 @@ export function RoundTemplateDetailPage() {
     setSaving(true)
     try {
       await updateTemplate(id, { name: name.trim(), notes: notes.trim() || null } as any)
-      navigate('/delivery-rounds/templates')
+      navigate('/deliveries/templates')
     } catch (e: any) {
       alert(e.message)
     }
@@ -106,9 +106,9 @@ export function RoundTemplateDetailPage() {
         <div className="breadcrumbs">
           <a href="/" onClick={(e) => { e.preventDefault(); navigate('/') }}>Dashboard</a>
           <span className="separator">/</span>
-          <a href="/delivery-rounds" onClick={(e) => { e.preventDefault(); navigate('/delivery-rounds') }}>Delivery Rounds</a>
+          <a href="/deliveries" onClick={(e) => { e.preventDefault(); navigate('/deliveries') }}>Deliveries</a>
           <span className="separator">/</span>
-          <a href="/delivery-rounds/templates" onClick={(e) => { e.preventDefault(); navigate('/delivery-rounds/templates') }}>Templates</a>
+          <a href="/deliveries/templates" onClick={(e) => { e.preventDefault(); navigate('/deliveries/templates') }}>Templates</a>
           <span className="separator">/</span>
           <span>{template.name}</span>
         </div>
@@ -182,7 +182,7 @@ export function RoundTemplateDetailPage() {
       </div>
 
       <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-        <button className="ps-btn ps-btn-secondary" onClick={() => navigate('/delivery-rounds/templates')}>Cancel</button>
+        <button className="ps-btn ps-btn-secondary" onClick={() => navigate('/deliveries/templates')}>Cancel</button>
         <button className="ps-btn ps-btn-primary" onClick={handleSave} disabled={saving || !name.trim()}>
           {saving ? 'Saving…' : 'Save Template'}
         </button>
