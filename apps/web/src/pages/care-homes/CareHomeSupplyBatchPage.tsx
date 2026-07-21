@@ -48,7 +48,7 @@ export function CareHomeSupplyBatchPage() {
   }, [batchId, fetchSupplyBatch])
 
   const handleGenerateRoute = async () => {
-    if (!batchId) return
+    if (!batchId || !batch) return
     if (batch.group_id) {
       await markGroupReady(batch.group_id)
       navigate(`/care-homes/${linkId}/groups/${batch.group_id}`)

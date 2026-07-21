@@ -101,7 +101,7 @@ export function CareHomeGroupPage() {
   )
 
   const activeBatch = useMemo(
-    () => (activeGroup?.id === groupId ? activeGroup.active_batch : null) ?? supplyBatches.find((b) => b.id === group?.active_batch_id) ?? null,
+    () => (activeGroup && activeGroup.id === groupId ? activeGroup.active_batch : null) ?? supplyBatches.find((b) => b.id === group?.active_batch_id) ?? null,
     [activeGroup, groupId, supplyBatches, group],
   )
 
