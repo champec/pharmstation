@@ -3,14 +3,15 @@ import { useSearchParams } from 'react-router-dom'
 import { useAuthStore, useChatStore, useNHSStore } from '@pharmstation/core'
 import { getUserClient } from '@pharmstation/supabase-client'
 import { MessagingSettingsTab } from './settings/MessagingSettingsTab'
+import { AlertSettingsTab } from './settings/AlertSettingsTab'
 
-type Tab = 'general' | 'ai' | 'messaging' | 'nhs' | 'payments'
+type Tab = 'general' | 'ai' | 'messaging' | 'alerts' | 'nhs' | 'payments'
 
 export function SettingsPage() {
   const [searchParams] = useSearchParams()
   const [tab, setTab] = useState<Tab>(() => {
     const t = searchParams.get('tab')
-    if (t === 'ai' || t === 'nhs' || t === 'messaging' || t === 'payments') return t
+    if (t === 'ai' || t === 'nhs' || t === 'messaging' || t === 'alerts' || t === 'payments') return t
     return 'general'
   })
 
@@ -26,6 +27,7 @@ export function SettingsPage() {
           { key: 'general' as Tab, label: 'General' },
           { key: 'ai' as Tab, label: '✨ AI' },
           { key: 'messaging' as Tab, label: '📨 Messaging' },
+          { key: 'alerts' as Tab, label: '🔔 Alerts' },
           { key: 'nhs' as Tab, label: '🏥 NHS' },
           { key: 'payments' as Tab, label: '💳 Payments' },
         ]).map((t) => (
@@ -48,6 +50,7 @@ export function SettingsPage() {
       )}
 
       {tab === 'messaging' && <MessagingSettingsTab />}
+      {tab === 'alerts' && <AlertSettingsTab />}
       {tab === 'ai' && <AISettingsTab />}
       {tab === 'nhs' && <NHSSettingsTab />}
       {tab === 'payments' && <PaymentsSettingsTab />}

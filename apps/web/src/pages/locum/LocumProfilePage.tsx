@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
-import { getLocumClient } from '@pharmstation/supabase-client'
-import { useLocumAuthStore } from '@pharmstation/core'
+import { getUserClient } from '@pharmstation/supabase-client'
+import { useAuthStore } from '@pharmstation/core'
 
 type Tab = 'profile' | 'services' | 'documents' | 'payments'
 
@@ -41,7 +41,7 @@ const CATEGORY_LABELS: Record<string, string> = {
 }
 
 export function LocumProfilePage() {
-  const { locumProfile, userProfile, refreshProfile } = useLocumAuthStore()
+  const { locumProfile, activeUser: userProfile, refreshLocumProfile: refreshProfile } = useAuthStore()
   const [tab, setTab] = useState<Tab>('profile')
 
   /* Profile tab */
@@ -109,7 +109,7 @@ export function LocumProfilePage() {
   const loadServices = useCallback(async () => {
     if (!locumProfile?.id) return
     setLoadingServices(true)
-    const client = getLocumClient()
+    const client = getUserClient()
     const [libRes, selRes] = await Promise.all([
       client.from('ps_service_library').select('id, name, category').order('category').order('name'),
       client.from('ps_locum_services').select('service_library_id').eq('locum_id', locumProfile.id),
@@ -128,7 +128,7 @@ export function LocumProfilePage() {
   const loadDocuments = useCallback(async () => {
     if (!locumProfile?.id) return
     setLoadingDocs(true)
-    const { data } = await getLocumClient()
+    const { data } = await getUserClient()
       .from('ps_locum_documents')
       .select('*')
       .eq('locum_id', locumProfile.id)
@@ -147,7 +147,7 @@ export function LocumProfilePage() {
     setLoadingStripe(true)
     setPayMsg(null)
     try {
-      const { data, error } = await getLocumClient().functions.invoke('stripe-connect', {
+      const { data, error } = await getUserClient().functions.invoke('stripe-connect', {
         body: { action: 'get_status', entity: 'locum' },
       })
       if (error) throw error
@@ -178,7 +178,7 @@ export function LocumProfilePage() {
     setPayMsg(null)
     try {
       const origin = window.location.origin
-      const { data, error } = await getLocumClient().functions.invoke('stripe-connect', {
+      const { data, error } = await getUserClient().functions.invoke('stripe-connect', {
         body: {
           action: 'start_onboarding',
           entity: 'locum',
@@ -205,20 +205,20 @@ export function LocumProfilePage() {
     try {
       const ext = file.name.split('.').pop() ?? 'pdf'
       const storagePath = `${userProfile.id}/${docType}/${Date.now()}.${ext}`
-      const { error: upErr } = await getLocumClient()
+      const { error: upErr } = await getUserClient()
         .storage.from('locum-documents')
         .upload(storagePath, file, { upsert: true })
       if (upErr) throw upErr
 
       // Mark any existing doc of this type as not current
-      await getLocumClient()
+      await getUserClient()
         .from('ps_locum_documents')
         .update({ is_current: false })
         .eq('locum_id', locumProfile.id)
         .eq('doc_type', docType)
 
       // Insert new record
-      const { error: dbErr } = await getLocumClient()
+      const { error: dbErr } = await getUserClient()
         .from('ps_locum_documents')
         .insert({
           locum_id: locumProfile.id,
@@ -241,7 +241,7 @@ export function LocumProfilePage() {
   async function handleViewDoc(doc: DocRecord) {
     setLoadingDocUrl(doc.id)
     try {
-      const { data, error } = await getLocumClient()
+      const { data, error } = await getUserClient()
         .storage.from('locum-documents')
         .createSignedUrl(doc.file_url, 3600)
       if (error) throw error
@@ -255,8 +255,8 @@ export function LocumProfilePage() {
 
   async function handleDeleteDoc(doc: DocRecord) {
     if (!window.confirm('Remove this document?')) return
-    await getLocumClient().storage.from('locum-documents').remove([doc.file_url])
-    await getLocumClient().from('ps_locum_documents').update({ is_current: false }).eq('id', doc.id)
+    await getUserClient().storage.from('locum-documents').remove([doc.file_url])
+    await getUserClient().from('ps_locum_documents').update({ is_current: false }).eq('id', doc.id)
     setDocuments((prev) => prev.filter((d) => d.id !== doc.id))
   }
 
@@ -268,7 +268,7 @@ export function LocumProfilePage() {
     try {
       const fullName = `${firstName.trim()} ${lastName.trim()}`.trim()
       const [{ error }, { error: nameErr }] = await Promise.all([
-        getLocumClient()
+        getUserClient()
           .from('ps_locum_profiles')
           .update({
             gphc_number: gphcNumber.trim(),
@@ -287,7 +287,7 @@ export function LocumProfilePage() {
             updated_at: new Date().toISOString(),
           })
           .eq('id', locumProfile.id),
-        getLocumClient()
+        getUserClient()
           .from('ps_user_profiles')
           .update({
             first_name: firstName.trim() || null,
@@ -312,7 +312,7 @@ export function LocumProfilePage() {
     setSavingServices(true)
     setServicesMsg(null)
     try {
-      const client = getLocumClient()
+      const client = getUserClient()
       await client.from('ps_locum_services').delete().eq('locum_id', locumProfile.id)
       if (selectedServiceIds.length > 0) {
         const { error } = await client.from('ps_locum_services').insert(

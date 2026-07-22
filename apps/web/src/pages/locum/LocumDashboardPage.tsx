@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { getLocumClient } from '@pharmstation/supabase-client'
-import { useLocumAuthStore } from '@pharmstation/core'
+import { getUserClient } from '@pharmstation/supabase-client'
+import { useAuthStore } from '@pharmstation/core'
 
 interface UpcomingBooking {
   id: string
@@ -45,7 +45,7 @@ const INV_BADGE: Record<string, string> = {
 
 export function LocumDashboardPage() {
   const navigate = useNavigate()
-  const { userProfile, locumProfile } = useLocumAuthStore()
+  const { activeUser: userProfile, locumProfile } = useAuthStore()
 
   const [upcoming, setUpcoming] = useState<UpcomingBooking[]>([])
   const [pendingCount, setPendingCount] = useState(0)
@@ -56,7 +56,7 @@ export function LocumDashboardPage() {
 
   const load = useCallback(async () => {
     if (!locumProfile) return
-    const client = getLocumClient()
+    const client = getUserClient()
     const today = new Date().toISOString().split('T')[0]
     setLoading(true)
     setError(null)

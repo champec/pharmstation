@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { getLocumClient } from '@pharmstation/supabase-client'
-import { useLocumAuthStore } from '@pharmstation/core'
+import { getUserClient } from '@pharmstation/supabase-client'
+import { useAuthStore } from '@pharmstation/core'
 
 interface BookingRow {
   id: string
@@ -48,7 +48,7 @@ const BOOKING_BADGE: Record<string, string> = {
 }
 
 export function LocumBookingsPage() {
-  const { locumProfile } = useLocumAuthStore()
+  const { locumProfile } = useAuthStore()
 
   const [bookings, setBookings] = useState<BookingRow[]>([])
   const [loading, setLoading] = useState(true)
@@ -60,7 +60,7 @@ export function LocumBookingsPage() {
 
   const load = useCallback(async () => {
     if (!locumProfile) return
-    const client = getLocumClient()
+    const client = getUserClient()
     setLoading(true)
     setError(null)
 
@@ -101,7 +101,7 @@ export function LocumBookingsPage() {
     if (!locumProfile || !booking.shift) return
     setActionId(booking.id)
     try {
-      const { error } = await getLocumClient().from('ps_locum_sign_ins').insert({
+      const { error } = await getUserClient().from('ps_locum_sign_ins').insert({
         booking_id: booking.id,
         locum_id: locumProfile.id,
         org_id: booking.shift.org_id,
@@ -123,7 +123,7 @@ export function LocumBookingsPage() {
       const signedOutAt = new Date()
       const signedInAt = new Date(booking.sign_in.signed_in_at)
       const duration_minutes = Math.round((signedOutAt.getTime() - signedInAt.getTime()) / 60000)
-      const { error } = await getLocumClient()
+      const { error } = await getUserClient()
         .from('ps_locum_sign_ins')
         .update({ signed_out_at: signedOutAt.toISOString(), duration_minutes })
         .eq('id', booking.sign_in.id)
@@ -140,7 +140,7 @@ export function LocumBookingsPage() {
     if (!window.confirm('Withdraw this application?')) return
     setActionId(bookingId)
     try {
-      const { error } = await getLocumClient()
+      const { error } = await getUserClient()
         .from('ps_locum_bookings')
         .update({ status: 'cancelled' })
         .eq('id', bookingId)

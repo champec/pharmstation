@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { getUserClient } from '@pharmstation/supabase-client'
-import { useAuthStore, useLocumAuthStore } from '@pharmstation/core'
+import { useAuthStore, useAlertStore } from '@pharmstation/core'
 
 interface LocumSummary {
   id: string
@@ -16,8 +16,8 @@ interface LocumSummary {
  * organisation session. Nothing here is org-specific.
  */
 export function PersonalProfilePage() {
-  const { activeUser, userSession, organisation, membership, isOrgLoggedIn, userLogout } = useAuthStore()
-  const { refreshProfile: refreshLocumProfile } = useLocumAuthStore()
+  const { activeUser, userSession, organisation, membership, isOrgLoggedIn, userLogout, refreshLocumProfile } = useAuthStore()
+  const { myPreferences, fetchMyPreferences, saveMyPreferences } = useAlertStore()
   const navigate = useNavigate()
 
   /* Personal details */
@@ -27,6 +27,14 @@ export function PersonalProfilePage() {
   const [gphcNumber, setGphcNumber] = useState('')
   const [saving, setSaving] = useState(false)
   const [msg, setMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
+
+  /* Notification preferences */
+  const [smsAlertsEnabled, setSmsAlertsEnabled] = useState(false)
+  const [smsAlertsPhone, setSmsAlertsPhone] = useState('')
+  const [webPushEnabled, setWebPushEnabled] = useState(false)
+  const [notifSaving, setNotifSaving] = useState(false)
+  const [notifMsg, setNotifMsg] = useState<string | null>(null)
+  const browserSupportsPush = typeof window !== 'undefined' && 'Notification' in window
 
   /* Locum status */
   const [locum, setLocum] = useState<LocumSummary | null>(null)
@@ -52,6 +60,40 @@ export function PersonalProfilePage() {
   }, [userSession?.user?.id])
 
   useEffect(() => { loadLocum() }, [loadLocum])
+
+  useEffect(() => {
+    if (activeUser?.id) fetchMyPreferences(activeUser.id)
+  }, [activeUser?.id, fetchMyPreferences])
+
+  useEffect(() => {
+    setSmsAlertsEnabled(myPreferences?.sms_enabled ?? false)
+    setSmsAlertsPhone(myPreferences?.sms_phone ?? activeUser?.phone ?? '')
+    setWebPushEnabled(myPreferences?.web_push_enabled ?? false)
+  }, [myPreferences, activeUser?.phone])
+
+  async function handleSaveNotifications() {
+    if (!activeUser?.id) return
+    setNotifSaving(true)
+    setNotifMsg(null)
+    try {
+      await saveMyPreferences(activeUser.id, {
+        sms_enabled: smsAlertsEnabled,
+        sms_phone: smsAlertsEnabled ? (smsAlertsPhone.trim() || null) : smsAlertsPhone.trim() || null,
+        web_push_enabled: webPushEnabled,
+      })
+      setNotifMsg('Notification preferences saved.')
+    } catch (err) {
+      setNotifMsg(err instanceof Error ? err.message : 'Save failed.')
+    } finally {
+      setNotifSaving(false)
+    }
+  }
+
+  async function handleEnableWebPush() {
+    if (!browserSupportsPush) return
+    const permission = await Notification.requestPermission()
+    setWebPushEnabled(permission === 'granted')
+  }
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault()
@@ -175,6 +217,83 @@ export function PersonalProfilePage() {
         </div>
       </div>
 
+      {/* Notifications */}
+      <div className="ps-card" style={{ marginBottom: '1.25rem' }}>
+        <div className="ps-card-header"><h2 className="ps-card-title">🔔 Notification Preferences</h2></div>
+        <div className="ps-card-body">
+          <p className="text-muted" style={{ marginBottom: '0.75rem', fontSize: '0.875rem' }}>
+            These are personal — they apply everywhere you sign in. Your pharmacy's manager separately controls
+            which kinds of alerts (new appointments, prescriptions, network messages, etc.) are switched on at all;
+            what you choose here is whether <em>you</em> want to be included on the channels they've enabled.
+          </p>
+
+          {notifMsg && (
+            <div className={`ps-alert ${notifMsg.includes('failed') || notifMsg.includes('Save failed') ? 'ps-alert-error' : 'ps-alert-success'}`} style={{ marginBottom: '0.75rem' }}>
+              {notifMsg}
+            </div>
+          )}
+
+          <label style={{ display: 'flex', alignItems: 'flex-start', gap: '0.5rem', cursor: 'pointer', marginBottom: '0.75rem' }}>
+            <input
+              type="checkbox"
+              checked={smsAlertsEnabled}
+              onChange={(e) => setSmsAlertsEnabled(e.target.checked)}
+              style={{ marginTop: 3 }}
+            />
+            <div>
+              <div style={{ fontWeight: 600 }}>📱 Text me alerts</div>
+              <div className="text-muted" style={{ fontSize: '0.8rem' }}>
+                Get a text message for alert types your pharmacy has switched SMS on for (comes out of the
+                pharmacy's SMS allowance).
+              </div>
+            </div>
+          </label>
+          {smsAlertsEnabled && (
+            <div className="form-group" style={{ marginLeft: '1.5rem', maxWidth: 280 }}>
+              <label className="form-label">Phone number for alerts</label>
+              <input
+                className="form-input"
+                type="tel"
+                placeholder="+44 7700 900123"
+                value={smsAlertsPhone}
+                onChange={(e) => setSmsAlertsPhone(e.target.value)}
+              />
+            </div>
+          )}
+
+          <label style={{ display: 'flex', alignItems: 'flex-start', gap: '0.5rem', cursor: 'pointer', margin: '0.75rem 0' }}>
+            <input type="checkbox" checked={false} disabled style={{ marginTop: 3 }} />
+            <div>
+              <div style={{ fontWeight: 600 }}>📲 Mobile app push notifications</div>
+              <div className="text-muted" style={{ fontSize: '0.8rem' }}>Coming soon — will switch on automatically once the mobile app ships.</div>
+            </div>
+          </label>
+
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.5rem', margin: '0.75rem 0' }}>
+            <input type="checkbox" checked={webPushEnabled} readOnly style={{ marginTop: 3 }} />
+            <div style={{ flex: 1 }}>
+              <div style={{ fontWeight: 600 }}>🖥️ Browser pop-up notifications</div>
+              <div className="text-muted" style={{ fontSize: '0.8rem', marginBottom: '0.4rem' }}>
+                {!browserSupportsPush
+                  ? 'Not supported in this browser.'
+                  : webPushEnabled
+                    ? 'Enabled — you\'ll get a pop-up when a new alert comes in, even in another tab.'
+                    : 'Your browser can pop up a notification when a new alert arrives. You need to allow it.'}
+              </div>
+              {browserSupportsPush && !webPushEnabled && (
+                <button type="button" className="ps-btn ps-btn-secondary ps-btn-sm" onClick={handleEnableWebPush}>
+                  Enable browser notifications
+                </button>
+              )}
+            </div>
+          </div>
+
+          <button type="button" className="ps-btn ps-btn-primary" onClick={handleSaveNotifications} disabled={notifSaving}>
+            {notifSaving ? 'Saving…' : 'Save Notification Preferences'}
+          </button>
+        </div>
+      </div>
+
       {/* Locum */}
       <div className="ps-card" style={{ marginBottom: '1.25rem' }}>
         <div className="ps-card-header"><h2 className="ps-card-title">💼 Locum Work</h2></div>
@@ -211,6 +330,19 @@ export function PersonalProfilePage() {
               </button>
             </>
           )}
+        </div>
+      </div>
+
+      {/* Prescriber */}
+      <div className="ps-card" style={{ marginBottom: '1.25rem' }}>
+        <div className="ps-card-header"><h2 className="ps-card-title">🪪 Prescriber</h2></div>
+        <div className="ps-card-body">
+          <p className="text-muted" style={{ marginBottom: '0.75rem', fontSize: '0.875rem' }}>
+            Prescriber setup belongs to your personal profile, not a pharmacy account. Register or update your prescriber details here.
+          </p>
+          <Link to="/me/prescriber" className="ps-btn ps-btn-primary ps-btn-sm">
+            Open prescriber setup
+          </Link>
         </div>
       </div>
 

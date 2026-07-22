@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { getLocumClient } from '@pharmstation/supabase-client'
-import { useLocumAuthStore } from '@pharmstation/core'
+import { getUserClient } from '@pharmstation/supabase-client'
+import { useAuthStore } from '@pharmstation/core'
 
 interface ShiftWithCriteria {
   id: string
@@ -48,7 +48,7 @@ const ELIGIBILITY_BADGE: Record<EligibilityStatus, string> = {
 }
 
 export function LocumShiftsBrowsePage() {
-  const { locumProfile } = useLocumAuthStore()
+  const { locumProfile } = useAuthStore()
 
   const [shifts, setShifts] = useState<ShiftWithCriteria[]>([])
   const [orgNames, setOrgNames] = useState<Record<string, string>>({})
@@ -69,7 +69,7 @@ export function LocumShiftsBrowsePage() {
 
   const load = useCallback(async () => {
     if (!locumProfile) return
-    const client = getLocumClient()
+    const client = getUserClient()
     setLoading(true)
     setError(null)
     const today = new Date().toISOString().split('T')[0]
@@ -193,7 +193,7 @@ export function LocumShiftsBrowsePage() {
     setApplying(shift.id)
     setApplyError(null)
     try {
-      const { error } = await getLocumClient().from('ps_locum_bookings').insert({
+      const { error } = await getUserClient().from('ps_locum_bookings').insert({
         shift_id: shift.id,
         locum_id: locumProfile.id,
         status: 'pending',

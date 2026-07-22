@@ -35,6 +35,21 @@ export function OrgLoginPage() {
         Pharm<span>Station</span>
       </div>
 
+      <div className="login-portal-switcher">
+        <span className="login-portal-tab active">
+          <span className="login-portal-tab-icon">🏥</span>
+          Pharmacy
+        </span>
+        <Link to="/patient/login" className="login-portal-tab">
+          <span className="login-portal-tab-icon">🧑‍⚕️</span>
+          Patient
+        </Link>
+        <Link to="/me/login" className="login-portal-tab">
+          <span className="login-portal-tab-icon">👤</span>
+          Staff
+        </Link>
+      </div>
+
       <h1>Pharmacy Login</h1>
       <p className="subtitle">Sign in to your pharmacy workstation</p>
 

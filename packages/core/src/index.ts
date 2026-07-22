@@ -1,5 +1,4 @@
 export { useAuthStore, type AuthState } from './stores/auth-store'
-export { useLocumAuthStore, type LocumAuthState } from './stores/locum-auth-store'
 export { useUIStore, type UIState, type SideNavMode } from './stores/ui-store'
 export { useRegisterStore, type RegisterState } from './stores/register-store'
 export { useChatStore, type ChatState } from './stores/chat-store'
@@ -22,3 +21,4 @@ export { useNHSStore, type NHSState, type NHSSettings, type GPSearchResult } fro
 export { useNHS111Store, type NHS111State } from './stores/nhs111-store'
 export { useOutcomeStore, type OutcomeState } from './stores/outcome-store'
 export { usePepsStore, type PepsState, type NewPrescriptionInput } from './stores/peps-store'
+export { useAlertStore, type AlertState, DEFAULT_ALERT_CHANNELS, ALERT_EVENT_TYPES } from './stores/alert-store'

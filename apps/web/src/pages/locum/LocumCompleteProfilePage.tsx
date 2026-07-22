@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { getLocumClient } from '@pharmstation/supabase-client'
-import { useLocumAuthStore } from '@pharmstation/core'
+import { getUserClient } from '@pharmstation/supabase-client'
+import { useAuthStore } from '@pharmstation/core'
 
 interface ServiceOption {
   id: string
@@ -19,7 +19,7 @@ type Step = 'compliance' | 'services'
 
 export function LocumCompleteProfilePage() {
   const navigate = useNavigate()
-  const { userProfile, locumProfile, refreshProfile, logout } = useLocumAuthStore()
+  const { activeUser: userProfile, locumProfile, refreshLocumProfile: refreshProfile, userLogout: logout } = useAuthStore()
   const [step, setStep] = useState<Step>('compliance')
 
   /* Redirect away if profile already exists */
@@ -76,7 +76,7 @@ export function LocumCompleteProfilePage() {
   useEffect(() => {
     if (step !== 'services' || serviceOptions.length > 0) return
     setLoadingServices(true)
-    getLocumClient()
+    getUserClient()
       .from('ps_service_library')
       .select('id, name, category')
       .order('category').order('name')
@@ -102,7 +102,7 @@ export function LocumCompleteProfilePage() {
     setError(null)
     setSubmitting(true)
     try {
-      const client = getLocumClient()
+      const client = getUserClient()
 
       const { error: lpErr } = await client.from('ps_locum_profiles').insert({
         user_id: userProfile.id,
@@ -418,7 +418,7 @@ export function LocumCompleteProfilePage() {
         <div className="auth-footer">
           <button
             className="ps-btn ps-btn-ghost ps-btn-sm"
-            onClick={async () => { await logout(); }}
+            onClick={async () => { await logout(); navigate('/me/login', { replace: true }) }}
             style={{ color: 'var(--ps-mist)' }}
           >
             Sign out

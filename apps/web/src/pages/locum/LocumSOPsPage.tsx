@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
-import { getLocumClient } from '@pharmstation/supabase-client'
-import { useLocumAuthStore } from '@pharmstation/core'
+import { getUserClient } from '@pharmstation/supabase-client'
+import { useAuthStore } from '@pharmstation/core'
 
 interface SopDoc {
   id: string
@@ -20,7 +20,7 @@ interface SignoffRecord {
 }
 
 export function LocumSOPsPage() {
-  const { locumProfile } = useLocumAuthStore()
+  const { locumProfile } = useAuthStore()
 
   const [sops, setSops] = useState<SopDoc[]>([])
   const [signoffs, setSignoffs] = useState<SignoffRecord[]>([])
@@ -37,7 +37,7 @@ export function LocumSOPsPage() {
     if (!locumProfile?.id) return
     setLoading(true)
     setError(null)
-    const client = getLocumClient()
+    const client = getUserClient()
 
     try {
       // 1. Confirmed upcoming bookings → unique org_ids
@@ -99,7 +99,7 @@ export function LocumSOPsPage() {
     setLoadingUrl(sop.id)
     try {
       // file_url stores the storage path relative to bucket root
-      const { data, error } = await getLocumClient()
+      const { data, error } = await getUserClient()
         .storage.from('sop-pdfs')
         .createSignedUrl(sop.file_url, 3600)
       if (error) throw error
@@ -116,7 +116,7 @@ export function LocumSOPsPage() {
     if (!locumProfile?.id) return
     setSigning(sop.id)
     try {
-      const { error } = await getLocumClient()
+      const { error } = await getUserClient()
         .from('ps_locum_sop_signoffs')
         .insert({
           sop_id: sop.id,

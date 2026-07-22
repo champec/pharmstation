@@ -1,6 +1,6 @@
 import { useEffect } from 'react'
 import { Routes, Route, Navigate, useParams } from 'react-router-dom'
-import { useAuthStore, useLocumAuthStore } from '@pharmstation/core'
+import { useAuthStore } from '@pharmstation/core'
 import { AuthLayout } from './layouts/AuthLayout'
 import { DashboardLayout } from './layouts/DashboardLayout'
 import { LocumLayout } from './layouts/LocumLayout'
@@ -107,8 +107,6 @@ import { UsefulContactsPage } from './pages/resources/UsefulContactsPage'
 import { ClosureNoticePage } from './pages/resources/ClosureNoticePage'
 import { SildenafilCardsPage } from './pages/resources/SildenafilCardsPage'
 // Locum Portal (external — no org context required)
-import { LocumLoginPage } from './pages/locum/LocumLoginPage'
-import { LocumRegisterPage } from './pages/locum/LocumRegisterPage'
 import { LocumCompleteProfilePage } from './pages/locum/LocumCompleteProfilePage'
 import { LocumDashboardPage } from './pages/locum/LocumDashboardPage'
 import { LocumShiftsBrowsePage } from './pages/locum/LocumShiftsBrowsePage'
@@ -122,6 +120,7 @@ import { PEPSWritePage } from './pages/peps/PEPSWritePage'
 import { PEPSMyPrescriptionsPage } from './pages/peps/PEPSMyPrescriptionsPage'
 import { PEPSPrescriberSetupPage } from './pages/peps/PEPSPrescriberSetupPage'
 import { PEPSPrescriptionDetailPage } from './pages/peps/PEPSPrescriptionDetailPage'
+import { PEPSPrintablePrescriptionPage } from './pages/peps/PEPSPrintablePrescriptionPage'
 // Shifts — Org mini-app (inside main dashboard)
 import { ShiftsDashboardPage } from './pages/shifts/ShiftsDashboardPage'
 import { ShiftsCalendarPage } from './pages/shifts/ShiftsCalendarPage'
@@ -150,16 +149,14 @@ function LegacyDeliveryRedirect() {
 }
 
 export function App() {
-  const { initialize, orgLoading, userLoading, isOrgLoggedIn, isUserLoggedIn } = useAuthStore()
-  const { initialize: initLocum, loading: locumLoading, isLoggedIn: isLocumLoggedIn, locumProfile } = useLocumAuthStore()
+  const { initialize, orgLoading, userLoading, isOrgLoggedIn, isUserLoggedIn, locumProfile } = useAuthStore()
 
   useEffect(() => {
     initialize()
-    initLocum()
-  }, [initialize, initLocum])
+  }, [initialize])
 
   // Show loading while restoring sessions
-  if (orgLoading || userLoading || locumLoading) {
+  if (orgLoading || userLoading) {
     return (
       <div className="loading-screen">
         <div className="loading-spinner" />
@@ -196,20 +193,18 @@ export function App() {
       <Route path="/patient/login" element={<PatientLoginPage />} />
       <Route path="/patient/register" element={<PatientRegisterPage />} />
 
-      {/* Locum portal — external, no org context */}
-      <Route path="/locum/login" element={isLocumLoggedIn ? <Navigate to="/locum/dashboard" replace /> : <LocumLoginPage />} />
-      <Route path="/locum/register" element={<LocumRegisterPage />} />
+      {/* Locum portal — a role on the personal account, no separate login */}
       <Route path="/locum" element={<Navigate to="/locum/dashboard" replace />} />
       <Route
         path="/locum/complete-profile"
-        element={!isLocumLoggedIn ? <Navigate to="/locum/login" replace /> : <LocumCompleteProfilePage />}
+        element={!isUserLoggedIn ? <Navigate to="/me/login" replace /> : <LocumCompleteProfilePage />}
       />
 
       {/* Locum portal protected routes — wrapped in LocumLayout */}
       <Route
         element={
-          !isLocumLoggedIn
-            ? <Navigate to="/locum/login" replace />
+          !isUserLoggedIn
+            ? <Navigate to="/me/login" replace />
             : !locumProfile
               ? <Navigate to="/locum/complete-profile" replace />
               : <LocumLayout />
@@ -256,6 +251,20 @@ export function App() {
       <Route
         path="/me"
         element={isUserLoggedIn ? <PersonalProfilePage /> : <Navigate to="/me/login" replace />}
+      />
+      <Route
+        path="/me/prescriber"
+        element={isUserLoggedIn ? <PEPSPrescriberSetupPage /> : <Navigate to="/me/login" replace />}
+      />
+      <Route
+        path="/peps/:id/print"
+        element={
+          !isOrgLoggedIn
+            ? <Navigate to="/login/org" replace />
+            : !isUserLoggedIn
+              ? <Navigate to="/login/user" replace />
+              : <PEPSPrintablePrescriptionPage />
+        }
       />
 
       {/* Protected routes (staff) */}
@@ -368,7 +377,7 @@ export function App() {
         <Route path="/peps" element={<PEPSQueuePage />} />
         <Route path="/peps/write" element={<PEPSWritePage />} />
         <Route path="/peps/mine" element={<PEPSMyPrescriptionsPage />} />
-        <Route path="/peps/prescriber" element={<PEPSPrescriberSetupPage />} />
+        <Route path="/peps/prescriber" element={<Navigate to="/me/prescriber" replace />} />
         <Route path="/peps/:id" element={<PEPSPrescriptionDetailPage />} />
 
         {/* Shifts — org shift management mini-app */}

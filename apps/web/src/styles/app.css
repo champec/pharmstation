@@ -4319,6 +4319,49 @@
   color: var(--ps-electric-cyan);
 }
 
+.login-portal-switcher {
+  display: flex;
+  gap: var(--ps-space-sm);
+  margin-bottom: var(--ps-space-xl);
+}
+
+.login-portal-tab {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 6px;
+  border: 1px solid var(--ps-off-white);
+  border-radius: var(--ps-radius-md);
+  background: none;
+  color: var(--ps-slate);
+  font-size: var(--ps-font-sm);
+  font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: all var(--ps-transition-fast);
+}
+
+.login-portal-tab:hover {
+  border-color: var(--ps-cloud-blue);
+  background: var(--ps-off-white);
+  color: var(--ps-deep-blue);
+}
+
+.login-portal-tab.active {
+  border-color: var(--ps-electric-cyan);
+  background: rgba(4, 176, 255, 0.08);
+  color: var(--ps-deep-blue);
+  cursor: default;
+}
+
+.login-portal-tab-icon {
+  font-size: 0.95rem;
+  line-height: 1;
+}
+
 .form-group {
   margin-bottom: var(--ps-space-md);
 }

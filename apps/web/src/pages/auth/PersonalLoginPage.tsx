@@ -92,9 +92,6 @@ export function PersonalLoginPage() {
         <Link to="/login/org" style={{ fontSize: 'var(--ps-font-sm)' }}>
           🏥 Pharmacy sign in instead
         </Link>
-        <Link to="/locum/login" style={{ fontSize: 'var(--ps-font-sm)' }}>
-          💼 Locum portal
-        </Link>
       </div>
     </div>
   )

@@ -1,13 +1,13 @@
 import { Outlet, NavLink, useNavigate, Link } from 'react-router-dom'
-import { useLocumAuthStore } from '@pharmstation/core'
+import { useAuthStore } from '@pharmstation/core'
 
 export function LocumLayout() {
-  const { userProfile, isLoggedIn, logout } = useLocumAuthStore()
+  const { activeUser: userProfile, isUserLoggedIn: isLoggedIn, userLogout: logout } = useAuthStore()
   const navigate = useNavigate()
 
   const handleLogout = async () => {
     await logout()
-    navigate('/locum/login')
+    navigate('/me/login')
   }
 
   return (

@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useAuthStore, usePepsStore, useAppointmentStore } from '@pharmstation/core'
+import { useAuthStore, usePepsStore, useAppointmentStore, useMessagingStore } from '@pharmstation/core'
 import type {
   Patient,
   PepsOrg,
@@ -8,6 +8,7 @@ import type {
   PepsPrescriptionItem,
   PepsPrescriptionType,
 } from '@pharmstation/types'
+import { getUserClient } from '@pharmstation/supabase-client'
 import { Autocomplete } from '../../components/forms/Autocomplete'
 import { Modal } from '../../components/Modal'
 
@@ -32,6 +33,7 @@ export function PEPSWritePage() {
     searchPepsOrgs, createPepsOrg, searchDmd, searchPatients,
     searchPharmacies, createPrescription,
   } = usePepsStore()
+  const { notify } = useMessagingStore()
   const { createPatient } = useAppointmentStore()
 
   // Patient
@@ -60,6 +62,9 @@ export function PEPSWritePage() {
   const [animalName, setAnimalName] = useState('')
   const [animalOwner, setAnimalOwner] = useState('')
   const [useCascade, setUseCascade] = useState(false)
+  const [controlledDrug, setControlledDrug] = useState(false)
+  const [controlledDrugAck, setControlledDrugAck] = useState(false)
+  const [controlledDrugEvidence, setControlledDrugEvidence] = useState<File | null>(null)
   const [repeats, setRepeats] = useState(0)
   const [items, setItems] = useState<DraftItem[]>([newItem()])
 
@@ -68,6 +73,8 @@ export function PEPSWritePage() {
   const [route, setRoute] = useState<'spine' | 'pharmacy'>('spine')
   const [pharmacyText, setPharmacyText] = useState('')
   const [targetPharmacy, setTargetPharmacy] = useState<{ id: string; name: string; ods_code: string | null } | null>(null)
+  const [sendPatientSms, setSendPatientSms] = useState(false)
+  const [patientSmsNumber, setPatientSmsNumber] = useState('')
   const [sending, setSending] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -142,6 +149,8 @@ export function PEPSWritePage() {
     const filled = items.filter((it) => it.drug_name.trim() && it.quantity.trim())
     if (filled.length === 0) return false
     if (type === 'vet' && !animalName.trim()) return false
+    if (type === 'private' && controlledDrug && (!controlledDrugAck || !controlledDrugEvidence)) return false
+    if (sendPatientSms && !patientSmsNumber.trim()) return false
     return true
   }
 
@@ -150,6 +159,18 @@ export function PEPSWritePage() {
     if (!myPrescriber) return
     if (route === 'pharmacy' && !targetPharmacy) {
       setError('Select a pharmacy to send to, or choose the spine.')
+      return
+    }
+    if (type === 'private' && controlledDrug && (!controlledDrugAck || !controlledDrugEvidence)) {
+      setError('For controlled drug declarations, acknowledge the legal warning and attach evidence of the physical prescription.')
+      return
+    }
+    if (controlledDrugEvidence && controlledDrugEvidence.size > 2 * 1024 * 1024) {
+      setError('Controlled-drug evidence file is too large. Please use a file smaller than 2MB.')
+      return
+    }
+    if (sendPatientSms && !patientSmsNumber.trim()) {
+      setError('Enter a phone number to send the patient confirmation SMS.')
       return
     }
     setSending(true)
@@ -197,6 +218,56 @@ export function PEPSWritePage() {
           })),
         assigned_org_id: route === 'pharmacy' ? targetPharmacy!.id : null,
       })
+
+      let controlledDrugEvidencePath: string | null = null
+      if (type === 'private' && controlledDrug && controlledDrugEvidence) {
+        const safeName = controlledDrugEvidence.name.replace(/[^a-zA-Z0-9._-]/g, '_')
+        const path = `peps/${rx.id}/controlled-drug/${Date.now()}-${safeName}`
+        const { error: uploadError } = await getUserClient()
+          .storage
+          .from('scan-images')
+          .upload(path, controlledDrugEvidence, { upsert: false })
+        if (uploadError) throw new Error(`Could not upload controlled-drug evidence: ${uploadError.message}`)
+        controlledDrugEvidencePath = path
+      }
+
+      // Track controlled-drug declaration and legal acknowledgement as audit metadata.
+      if (type === 'private') {
+        const { data: auth } = await getUserClient().auth.getUser()
+        const actorUserId = auth.user?.id ?? null
+        await getUserClient().from('ps_peps_events').insert({
+          prescription_id: rx.id,
+          event_type: 'created',
+          actor_user_id: actorUserId,
+          metadata: {
+            declaration_source: 'write_page',
+            controlled_drug_declared: controlledDrug,
+            controlled_drug_acknowledged: controlledDrug ? controlledDrugAck : false,
+            controlled_drug_evidence_name: controlledDrugEvidence?.name ?? null,
+            controlled_drug_evidence_type: controlledDrugEvidence?.type ?? null,
+            controlled_drug_evidence_size: controlledDrugEvidence?.size ?? null,
+            controlled_drug_evidence_bucket: controlledDrugEvidencePath ? 'scan-images' : null,
+            controlled_drug_evidence_path: controlledDrugEvidencePath,
+          },
+        })
+      }
+
+      if (sendPatientSms && patientSmsNumber.trim() && organisation?.id) {
+        try {
+          await notify({
+            org_id: organisation.id,
+            channel: 'sms',
+            patient_id: patient?.id,
+            to: patientSmsNumber.trim(),
+            feature: 'prescription',
+            subject: 'Prescription confirmation',
+            body: `Your prescription ${rx.prescription_ref} has been issued. Please contact your pharmacy if you have questions.`,
+          })
+        } catch (smsError) {
+          console.warn('PEPS SMS send failed', smsError)
+        }
+      }
+
       navigate(`/peps/${rx.id}`)
     } catch (e: any) {
       setError(e.message)
@@ -212,13 +283,13 @@ export function PEPSWritePage() {
         <div className="page-header">
           <h1>✍️ Write Prescription</h1>
         </div>
-        <div className="ps-card" style={{ maxWidth: 560 }}>
+        <div className="ps-card" style={{ maxWidth: 560, padding: 'var(--ps-space-lg)' }}>
           <p style={{ marginTop: 0 }}>
             {!myPrescriber
               ? 'You need to register as a prescriber before you can write private prescriptions.'
               : 'Your prescriber account is not active yet.'}
           </p>
-          <button className="ps-btn ps-btn-primary" onClick={() => navigate('/peps/prescriber')}>
+          <button className="ps-btn ps-btn-primary" onClick={() => navigate('/me/prescriber')}>
             Go to Prescriber Setup →
           </button>
         </div>
@@ -239,7 +310,7 @@ export function PEPSWritePage() {
 
       {error && <div className="ps-alert ps-alert-error" style={{ marginBottom: 'var(--ps-space-md)' }}>{error}</div>}
 
-      <div className="ps-card" style={{ maxWidth: 820 }}>
+      <div className="ps-card" style={{ maxWidth: 820, padding: 'var(--ps-space-lg)', display: 'grid', gap: 'var(--ps-space-lg)' }}>
         {/* Prescriber */}
         <div className="form-group">
           <label>Prescriber</label>
@@ -299,7 +370,7 @@ export function PEPSWritePage() {
         </div>
 
         {/* Type + repeats */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 'var(--ps-space-md)' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 'var(--ps-space-md)' }}>
           <div className="form-group">
             <label>Type</label>
             <select className="ps-input" value={type} onChange={(e) => setType(e.target.value as PepsPrescriptionType)}>
@@ -344,10 +415,10 @@ export function PEPSWritePage() {
         <div className="form-group">
           <label>Medication *</label>
           <p style={{ fontSize: 'var(--ps-font-xs)', color: 'var(--ps-slate)', margin: '0 0 8px' }}>
-            Drugs are searched from the dm+d dictionary. Controlled drugs are excluded — they require a specific form.
+            Drugs are searched from the dm+d dictionary. Controlled drugs require a physical legal script.
           </p>
           {items.map((it) => (
-            <div key={it.key} style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1.5fr auto', gap: 'var(--ps-space-sm)', marginBottom: 'var(--ps-space-sm)', alignItems: 'start' }}>
+            <div key={it.key} style={{ display: 'grid', gridTemplateColumns: 'minmax(0,2fr) minmax(90px,1fr) minmax(0,1.5fr) auto', gap: 'var(--ps-space-sm)', marginBottom: 'var(--ps-space-sm)', alignItems: 'start' }}>
               <Autocomplete<PepsDmdResult>
                 value={it.drug_name}
                 onChange={(t) => updateItem(it.key, { drug_name: t, dmd_code: null, dmd_type: 'free_text' })}
@@ -366,7 +437,39 @@ export function PEPSWritePage() {
           <button className="ps-btn ps-btn-secondary ps-btn-sm" onClick={() => setItems((p) => [...p, newItem()])}>＋ Add medication</button>
         </div>
 
-        <div style={{ display: 'flex', gap: 'var(--ps-space-sm)', marginTop: 'var(--ps-space-md)' }}>
+        {type === 'private' && (
+          <div style={{ padding: 'var(--ps-space-md)', background: 'var(--ps-off-white)', borderRadius: 'var(--ps-radius-md)', marginBottom: 'var(--ps-space-md)' }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+              <input type="checkbox" checked={controlledDrug} onChange={(e) => setControlledDrug(e.target.checked)} />
+              I am prescribing a Schedule 2 or 3 controlled drug
+            </label>
+            {controlledDrug && (
+              <>
+                <div className="ps-alert ps-alert-error" style={{ marginBottom: 8 }}>
+                  Legal warning: UK controlled drugs require physical compliant paper. You are responsible for ensuring the physical prescription reaches the dispensing pharmacy within 3 days.
+                </div>
+                <div className="form-group" style={{ marginBottom: 8 }}>
+                  <label>Attach scan/photo of the physical prescription *</label>
+                  <input
+                    className="ps-input"
+                    type="file"
+                    accept="image/*,.pdf"
+                    onChange={(e) => setControlledDrugEvidence(e.target.files?.[0] ?? null)}
+                  />
+                  <p style={{ fontSize: 'var(--ps-font-xs)', color: 'var(--ps-slate)', marginTop: 4 }}>
+                    This records evidence for emergency basis checks. Keep the physical original for legal handling.
+                  </p>
+                </div>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 'var(--ps-font-sm)' }}>
+                  <input type="checkbox" checked={controlledDrugAck} onChange={(e) => setControlledDrugAck(e.target.checked)} />
+                  I acknowledge legal responsibility for physical delivery and controlled-drug paper compliance.
+                </label>
+              </>
+            )}
+          </div>
+        )}
+
+        <div style={{ display: 'flex', gap: 'var(--ps-space-sm)', marginTop: 'var(--ps-space-xs)' }}>
           <button className="ps-btn ps-btn-primary" disabled={!validForPreview()} onClick={() => setShowPreview(true)}>
             Preview & sign →
           </button>
@@ -475,6 +578,28 @@ export function PEPSWritePage() {
             />
           )}
         </div>
+
+        <div className="form-group">
+          <label>Patient confirmation SMS (optional)</label>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8, fontSize: 'var(--ps-font-sm)' }}>
+            <input type="checkbox" checked={sendPatientSms} onChange={(e) => setSendPatientSms(e.target.checked)} />
+            Send a text confirmation after prescribing
+          </label>
+          {sendPatientSms && (
+            <input
+              className="ps-input"
+              placeholder="Patient phone number"
+              value={patientSmsNumber}
+              onChange={(e) => setPatientSmsNumber(e.target.value)}
+            />
+          )}
+        </div>
+
+        {type === 'private' && controlledDrug && (
+          <div className="ps-alert ps-alert-warning" style={{ marginBottom: 'var(--ps-space-md)' }}>
+            Controlled drug declared: if dispensed, the dispensing pharmacy must keep the original print and only copies can be reprinted by other pharmacies.
+          </div>
+        )}
 
         {error && <div className="ps-alert ps-alert-error" style={{ marginBottom: 'var(--ps-space-md)' }}>{error}</div>}
         <div style={{ display: 'flex', gap: 'var(--ps-space-sm)', justifyContent: 'flex-end' }}>

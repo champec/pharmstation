@@ -71,14 +71,6 @@ export function getPatientClient(): SupabaseClient {
   return getUserClient()
 }
 
-/**
- * @deprecated Locum is a role, not an account — alias of getUserClient().
- * Kept so existing locum-portal pages keep working unchanged.
- */
-export function getLocumClient(): SupabaseClient {
-  return getUserClient()
-}
-
 // ============================================
 // Auth helpers
 // ============================================
@@ -212,45 +204,14 @@ export async function fetchPatientProfile(authUserId: string) {
 }
 
 // ============================================
-// Locum auth helpers
-// Locum is a role on the user account — these are thin wrappers around
-// the user-layer auth, kept for backwards compatibility.
+// Locum role helper
+// Locum is a role on the user account — there is no separate locum
+// login/session. Fetches the ps_locum_profiles row (null if the role
+// hasn't been activated yet) using the normal user-layer session.
 // ============================================
 
-export async function locumSignUp(email: string, password: string) {
-  const { data, error } = await getUserClient().auth.signUp({ email, password })
-  if (error) throw error
-  return data
-}
-
-export async function locumSignIn(email: string, password: string) {
-  const { data, error } = await getUserClient().auth.signInWithPassword({ email, password })
-  if (error) throw error
-  return data
-}
-
-export async function locumSignOut() {
-  const { error } = await getUserClient().auth.signOut()
-  if (error) throw error
-}
-
-export async function getLocumSession() {
-  const { data } = await getLocumClient().auth.getSession()
-  return data.session
-}
-
-export async function fetchLocumUserProfile(userId: string) {
-  const { data, error } = await getLocumClient()
-    .from('ps_user_profiles')
-    .select('*')
-    .eq('id', userId)
-    .maybeSingle()
-  if (error) throw error
-  return data  // null if no row yet (profile creation pending)
-}
-
 export async function fetchLocumExtendedProfile(userId: string) {
-  const { data, error } = await getLocumClient()
+  const { data, error } = await getUserClient()
     .from('ps_locum_profiles')
     .select('*')
     .eq('user_id', userId)

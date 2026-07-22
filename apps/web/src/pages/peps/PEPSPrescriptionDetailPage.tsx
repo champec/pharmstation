@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useAuthStore, usePepsStore } from '@pharmstation/core'
 import type { PepsEvent } from '@pharmstation/types'
+import { getUserClient } from '@pharmstation/supabase-client'
 import { Autocomplete } from '../../components/forms/Autocomplete'
 import { Modal } from '../../components/Modal'
 
@@ -19,7 +20,7 @@ const EVENT_LABELS: Record<PepsEvent['event_type'], string> = {
 export function PEPSPrescriptionDetailPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
-  const { organisation } = useAuthStore()
+  const { organisation, activeUser } = useAuthStore()
   const {
     activePrescription: rx, activeItems, activeEvents, loading, error,
     fetchPrescription, dispense, release, transfer, downloadFromSpine, searchPharmacies,
@@ -29,6 +30,8 @@ export function PEPSPrescriptionDetailPage() {
   const [actionError, setActionError] = useState<string | null>(null)
   const [showDispense, setShowDispense] = useState(false)
   const [showTransfer, setShowTransfer] = useState(false)
+  const [controlledDispenseAck, setControlledDispenseAck] = useState(false)
+  const [controlledDispenseEvidence, setControlledDispenseEvidence] = useState<File | null>(null)
   const [pharmacyText, setPharmacyText] = useState('')
   const [target, setTarget] = useState<{ id: string; name: string } | null>(null)
 
@@ -48,7 +51,23 @@ export function PEPSPrescriptionDetailPage() {
   const orgId = organisation?.id
   const heldByMe = rx.status === 'held' && rx.assigned_org_id === orgId
   const downloadable = rx.status === 'available' && (rx.assigned_org_id === null || rx.assigned_org_id === orgId)
+  const canPrintDocument = !!orgId && rx.assigned_org_id === orgId && (rx.status === 'held' || rx.status === 'dispensed')
+  const controlledDrugDeclared = activeEvents.some(
+    (ev) => ev.event_type === 'created' && Boolean((ev.metadata as Record<string, unknown> | null)?.controlled_drug_declared),
+  )
   const totalIssues = rx.repeats + 1
+
+  const formatEventLabel = (ev: PepsEvent): string => {
+    const metadata = (ev.metadata as Record<string, unknown> | null) ?? {}
+    if (ev.event_type === 'downloaded' && metadata.document_print) {
+      const mode = String(metadata.print_mode ?? '').toUpperCase()
+      return mode === 'COPY' ? 'Document printed (COPY)' : 'Document printed (ORIGINAL)'
+    }
+    if (ev.event_type === 'downloaded' && metadata.controlled_drug_evidence) {
+      return 'Controlled drug evidence attached'
+    }
+    return EVENT_LABELS[ev.event_type] ?? ev.event_type
+  }
 
   const run = async (fn: () => Promise<unknown>) => {
     setActionError(null)
@@ -61,6 +80,71 @@ export function PEPSPrescriptionDetailPage() {
     } finally {
       setBusy(false)
     }
+  }
+
+  const openPrintPage = () => {
+    window.open(`/peps/${rx.id}/print`, '_blank', 'noopener,noreferrer')
+  }
+
+  const handleDownloadAndPrint = async () => {
+    if (!orgId) return
+    setActionError(null)
+    setBusy(true)
+    try {
+      await downloadFromSpine(orgId, [rx.id])
+      await fetchPrescription(rx.id)
+      openPrintPage()
+    } catch (e: any) {
+      setActionError(e.message)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const handleDispense = async () => {
+    if (!showDispense) return
+    if (controlledDrugDeclared && !controlledDispenseAck) {
+      setActionError('You must acknowledge the controlled-drug legal statement before dispensing.')
+      return
+    }
+
+    setShowDispense(false)
+    await run(async () => {
+      if (controlledDrugDeclared) {
+        if (!controlledDispenseEvidence) {
+          throw new Error('Attach a scan/photo of the physical controlled-drug prescription before dispensing.')
+        }
+          if (controlledDispenseEvidence.size > 2 * 1024 * 1024) {
+            throw new Error('Evidence file is too large. Please attach an image/PDF smaller than 2MB.')
+          }
+          const safeName = controlledDispenseEvidence.name.replace(/[^a-zA-Z0-9._-]/g, '_')
+          const evidencePath = `peps/${rx.id}/controlled-drug/${Date.now()}-${safeName}`
+          const { error: uploadError } = await getUserClient()
+            .storage
+            .from('scan-images')
+            .upload(evidencePath, controlledDispenseEvidence, { upsert: false })
+          if (uploadError) throw new Error(`Could not upload evidence: ${uploadError.message}`)
+        const { data: auth } = await getUserClient().auth.getUser()
+        await getUserClient().from('ps_peps_events').insert({
+          prescription_id: rx.id,
+          event_type: 'downloaded',
+          from_org_id: organisation?.id ?? null,
+          to_org_id: organisation?.id ?? null,
+          actor_user_id: auth.user?.id ?? activeUser?.id ?? null,
+          metadata: {
+            controlled_drug_evidence: true,
+            attachment_name: controlledDispenseEvidence.name,
+            attachment_type: controlledDispenseEvidence.type,
+            attachment_size: controlledDispenseEvidence.size,
+              attachment_storage_bucket: 'scan-images',
+              attachment_storage_path: evidencePath,
+            legal_acknowledged: true,
+            recorded_at: new Date().toISOString(),
+          },
+        })
+      }
+      await dispense(rx.id)
+    })
   }
 
   return (
@@ -81,7 +165,7 @@ export function PEPSPrescriptionDetailPage() {
 
       <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 'var(--ps-space-md)', alignItems: 'start' }}>
         {/* Prescription document */}
-        <div className="ps-card">
+        <div className="ps-card" style={{ padding: 'var(--ps-space-lg)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between' }}>
             <div>
               <div style={{ fontSize: 'var(--ps-font-xs)', color: 'var(--ps-slate)', textTransform: 'uppercase' }}>
@@ -128,12 +212,18 @@ export function PEPSPrescriptionDetailPage() {
 
         {/* Actions + history */}
         <div>
-          <div className="ps-card" style={{ marginBottom: 'var(--ps-space-md)' }}>
+          <div className="ps-card" style={{ marginBottom: 'var(--ps-space-md)', padding: 'var(--ps-space-lg)' }}>
             <h3 style={{ marginTop: 0 }}>Actions</h3>
+            {canPrintDocument && (
+              <button className="ps-btn ps-btn-primary" style={{ width: '100%', marginBottom: 8 }} disabled={busy}
+                onClick={openPrintPage}>
+                🖨 Open A4 print page
+              </button>
+            )}
             {downloadable && !heldByMe && (
               <button className="ps-btn ps-btn-primary" style={{ width: '100%', marginBottom: 8 }} disabled={busy}
-                onClick={() => orgId && run(() => downloadFromSpine(orgId, [rx.id]))}>
-                📥 Download to my pharmacy
+                onClick={handleDownloadAndPrint}>
+                📥 Download and print original
               </button>
             )}
             {heldByMe && (
@@ -161,14 +251,19 @@ export function PEPSPrescriptionDetailPage() {
                     : 'No actions available for your pharmacy.'}
               </p>
             )}
+            {canPrintDocument && (
+              <p style={{ color: 'var(--ps-slate)', fontSize: 'var(--ps-font-sm)', marginTop: 8, marginBottom: 0 }}>
+                Prints are audited in PEPS. If an original already exists or the script is dispensed, the print is marked COPY.
+              </p>
+            )}
           </div>
 
-          <div className="ps-card">
+          <div className="ps-card" style={{ padding: 'var(--ps-space-lg)' }}>
             <h3 style={{ marginTop: 0 }}>History</h3>
             <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
               {activeEvents.map((ev) => (
                 <li key={ev.id} style={{ padding: '6px 0', borderBottom: '1px solid var(--ps-off-white)', fontSize: 'var(--ps-font-sm)' }}>
-                  <strong>{EVENT_LABELS[ev.event_type] ?? ev.event_type}</strong>
+                  <strong>{formatEventLabel(ev)}</strong>
                   <div style={{ color: 'var(--ps-slate)', fontSize: 'var(--ps-font-xs)' }}>
                     {new Date(ev.created_at).toLocaleString()}
                   </div>
@@ -189,10 +284,30 @@ export function PEPSPrescriptionDetailPage() {
         <div className="ps-alert ps-alert-error" style={{ marginBottom: 'var(--ps-space-md)' }}>
           This decision cannot be reversed. A private prescription must be legally retained once dispensed.
         </div>
+        {controlledDrugDeclared && (
+          <>
+            <div className="ps-alert ps-alert-warning" style={{ marginBottom: 'var(--ps-space-md)' }}>
+              Controlled-drug declaration detected. Ensure the physical compliant paper is retained and sent legally. Receiving pharmacies can only print copies.
+            </div>
+            <div className="form-group" style={{ marginBottom: 'var(--ps-space-sm)' }}>
+              <label>Attach scan/photo of physical prescription *</label>
+              <input
+                className="ps-input"
+                type="file"
+                accept="image/*,.pdf"
+                onChange={(e) => setControlledDispenseEvidence(e.target.files?.[0] ?? null)}
+              />
+            </div>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 'var(--ps-space-md)', fontSize: 'var(--ps-font-sm)' }}>
+              <input type="checkbox" checked={controlledDispenseAck} onChange={(e) => setControlledDispenseAck(e.target.checked)} />
+              I confirm legal handling obligations for this controlled-drug paper prescription.
+            </label>
+          </>
+        )}
         <div style={{ display: 'flex', gap: 'var(--ps-space-sm)', justifyContent: 'flex-end' }}>
           <button className="ps-btn ps-btn-ghost" onClick={() => setShowDispense(false)}>Cancel</button>
           <button className="ps-btn ps-btn-primary" disabled={busy}
-            onClick={() => { setShowDispense(false); run(() => dispense(rx.id)) }}>
+            onClick={handleDispense}>
             Confirm dispense
           </button>
         </div>

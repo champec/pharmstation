@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
-import { getLocumClient } from '@pharmstation/supabase-client'
-import { useLocumAuthStore } from '@pharmstation/core'
+import { getUserClient } from '@pharmstation/supabase-client'
+import { useAuthStore } from '@pharmstation/core'
 
 interface InvoiceLine {
   id: string
@@ -43,7 +43,7 @@ function fmtDate(d: string) { return new Date(d).toLocaleDateString('en-GB', { d
 function fmtTime(t: string) { return t.slice(0, 5) }
 
 export function LocumInvoicesPage() {
-  const { locumProfile } = useLocumAuthStore()
+  const { locumProfile } = useAuthStore()
   const [invoices, setInvoices] = useState<Invoice[]>([])
   const [orgNames, setOrgNames] = useState<Record<string, string>>({})
   const [loading, setLoading] = useState(true)
@@ -55,7 +55,7 @@ export function LocumInvoicesPage() {
     if (!locumProfile?.id) return
     setLoading(true)
     setError(null)
-    const client = getLocumClient()
+    const client = getUserClient()
     try {
       const { data, error: qErr } = await client
         .from('ps_locum_invoices')
@@ -99,7 +99,7 @@ export function LocumInvoicesPage() {
     if (invoices.find((i) => i.id === id)?.lines) return
     setLoadingLines(id)
     try {
-      const { data } = await getLocumClient()
+      const { data } = await getUserClient()
         .from('ps_locum_invoice_lines')
         .select('*')
         .eq('invoice_id', id)

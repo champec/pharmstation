@@ -2352,3 +2352,76 @@ export interface LocumShiftEligibility {
   clash: boolean
 }
 
+// ============================================
+// Expansion Types — Staff Alert System
+//
+// Internal, staff-facing notifications (header bell / SMS / future
+// mobile+desktop push) — distinct from patient-facing messaging (ps_messages
+// / psNotify). New event types can be added without a schema change: they
+// just need a key in ps_org_alert_settings.settings and (eventually) a DB
+// trigger that calls ps_fanout_notification().
+// ============================================
+
+/** Extensible — new features add new string values here as they're wired up. */
+export type AlertEventType =
+  | 'appointment'
+  | 'peps'
+  | 'network_message'
+  | 'system'
+  | 'patient_message'
+  | (string & {})
+
+/** 'mobile' and 'desktop' are stored now so settings "fold in nicely" once those apps exist. */
+export interface AlertChannelConfig {
+  web: boolean
+  sms: boolean
+  mobile: boolean
+  desktop: boolean
+}
+
+/** Org-wide routing: which channels are on for each event type. Manager-controlled. */
+export interface OrgAlertSettings {
+  org_id: string
+  settings: Partial<Record<AlertEventType, AlertChannelConfig>>
+  updated_at: string
+}
+
+/** Personal (global, per-user) opt-in — set under the user's own profile settings. */
+export interface UserNotificationPreferences {
+  user_id: string
+  sms_enabled: boolean
+  sms_phone: string | null
+  mobile_enabled: boolean
+  web_push_enabled: boolean
+  updated_at: string
+}
+
+/** A single alert fed into the header bell (org-scoped). */
+export interface StaffNotification {
+  id: string
+  org_id: string
+  event_type: AlertEventType
+  title: string
+  body: string | null
+  link: string | null
+  metadata: Record<string, unknown>
+  created_at: string
+}
+
+export type NotificationSmsStatus = 'not_applicable' | 'pending' | 'sent' | 'failed'
+
+/** Per-recipient read + SMS dispatch state; joined to its parent notification. */
+export interface NotificationReceipt {
+  id: string
+  notification_id: string
+  user_id: string
+  is_read: boolean
+  read_at: string | null
+  sms_status: NotificationSmsStatus
+  sms_sent_at: string | null
+  sms_error: string | null
+  created_at: string
+  // Joined
+  notification?: StaffNotification
+}
+

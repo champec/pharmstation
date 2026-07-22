@@ -90,7 +90,7 @@ export function PEPSPrescriberSetupPage() {
     <div>
       <div className="page-header">
         <div className="breadcrumbs">
-          <a href="/peps" onClick={(e) => { e.preventDefault(); navigate('/peps') }}>PEPS</a>
+          <a href="/me" onClick={(e) => { e.preventDefault(); navigate('/me') }}>My Account</a>
           <span className="separator">/</span>
           <span>Prescriber Setup</span>
         </div>
@@ -173,6 +173,9 @@ export function PEPSPrescriberSetupPage() {
         <div style={{ display: 'flex', gap: 'var(--ps-space-sm)', marginTop: 'var(--ps-space-md)' }}>
           <button className="ps-btn ps-btn-primary" onClick={handleSave} disabled={saving}>
             {saving ? 'Saving…' : myPrescriber ? 'Update prescriber details' : 'Register as prescriber'}
+          </button>
+          <button className="ps-btn ps-btn-ghost" onClick={() => navigate('/me')}>
+            Back to My Account
           </button>
           {myPrescriber?.status === 'active' && (
             <button className="ps-btn ps-btn-secondary" onClick={() => navigate('/peps/write')}>

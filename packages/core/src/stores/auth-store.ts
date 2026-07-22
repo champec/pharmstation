@@ -5,7 +5,7 @@
 
 import { create } from 'zustand'
 import type { Session } from '@supabase/supabase-js'
-import type { Organisation, UserProfile, OrganisationMember, Permissions } from '@pharmstation/types'
+import type { Organisation, UserProfile, OrganisationMember, Permissions, LocumProfile } from '@pharmstation/types'
 import { resolvePermissions } from '@pharmstation/types'
 import {
   getOrgClient,
@@ -17,6 +17,7 @@ import {
   fetchOrganisation,
   fetchUserProfile,
   fetchOrgMembership,
+  fetchLocumExtendedProfile,
 } from '@pharmstation/supabase-client'
 
 export interface AuthState {
@@ -32,6 +33,10 @@ export interface AuthState {
   membership: OrganisationMember | null
   isUserLoggedIn: boolean
   userLoading: boolean
+
+  // Locum role — a role on the user account, not a separate account/session.
+  // null when the current user hasn't activated the locum role.
+  locumProfile: LocumProfile | null
 
   // Computed
   isFullyAuthenticated: boolean
@@ -51,6 +56,9 @@ export interface AuthState {
   /** Re-read the user-layer session + profile + membership from the client.
    *  Used by portal flows (locum/patient/personal) after they sign in. */
   refreshUserLayer: () => Promise<void>
+  /** Re-read the locum role profile for the current user. Called after
+   *  activating/updating the locum role — the /locum/* routes gate on this. */
+  refreshLocumProfile: () => Promise<void>
 }
 
 export const useAuthStore = create<AuthState>((set, get) => ({
@@ -65,6 +73,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   membership: null,
   isUserLoggedIn: false,
   userLoading: true,
+
+  locumProfile: null,
 
   isFullyAuthenticated: false,
   permissions: null,
@@ -113,6 +123,13 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           }
         }
 
+        let locumProfile: LocumProfile | null = null
+        try {
+          locumProfile = await fetchLocumExtendedProfile(userData.session.user.id)
+        } catch {
+          // Locum role not activated for this user
+        }
+
         set({
           userSession: userData.session,
           activeUser: profile,
@@ -120,6 +137,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           isUserLoggedIn: true,
           isFullyAuthenticated: !!org && !!membership,
           permissions,
+          locumProfile,
         })
       }
     } catch {
@@ -153,6 +171,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           isUserLoggedIn: false,
           isFullyAuthenticated: false,
           permissions: null,
+          locumProfile: null,
         })
       }
     })
@@ -212,6 +231,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       isUserLoggedIn: false,
       isFullyAuthenticated: false,
       permissions: null,
+      locumProfile: null,
     })
   },
 
@@ -276,6 +296,13 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         }
       }
 
+      let locumProfile: LocumProfile | null = null
+      try {
+        locumProfile = await fetchLocumExtendedProfile(data.user.id)
+      } catch {
+        // Locum role not activated for this user
+      }
+
       set({
         userSession: data.session,
         activeUser: profile,
@@ -283,6 +310,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         isUserLoggedIn: true,
         isFullyAuthenticated: !!org && !!membership,
         permissions,
+        locumProfile,
         userLoading: false,
       })
     } catch (err) {
@@ -303,6 +331,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       isUserLoggedIn: false,
       isFullyAuthenticated: false,
       permissions: null,
+      locumProfile: null,
     })
   },
 
@@ -318,6 +347,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       isUserLoggedIn: false,
       isFullyAuthenticated: false,
       permissions: null,
+      locumProfile: null,
     })
   },
 
@@ -339,6 +369,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           isUserLoggedIn: false,
           isFullyAuthenticated: false,
           permissions: null,
+          locumProfile: null,
         })
         return
       }
@@ -375,6 +406,25 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       })
     } catch {
       // Leave state as-is on unexpected failure
+    }
+  },
+
+  // ============================================
+  // Refresh locum role profile — call after activating/updating the
+  // locum role. The /locum/* route guards read `locumProfile` to decide
+  // between the activation form and the portal itself.
+  // ============================================
+  refreshLocumProfile: async () => {
+    const uid = get().userSession?.user?.id
+    if (!uid) {
+      set({ locumProfile: null })
+      return
+    }
+    try {
+      const locumProfile = await fetchLocumExtendedProfile(uid)
+      set({ locumProfile })
+    } catch {
+      set({ locumProfile: null })
     }
   },
 }))
