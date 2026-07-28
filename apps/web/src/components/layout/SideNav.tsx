@@ -60,6 +60,15 @@ const menuSections: NavSection[] = [
     ],
   },
   {
+    title: 'Shop',
+    icon: '🛍️',
+    expandable: true,
+    items: [
+      { to: '/shop-admin', icon: '📦', label: 'Products & Stock' },
+      { to: '/shop-admin/orders', icon: '🧾', label: 'Orders' },
+    ],
+  },
+  {
     title: 'Appointments',
     icon: '📅',
     expandable: true,
@@ -75,6 +84,13 @@ const menuSections: NavSection[] = [
     expandable: false,
     items: [
       { to: '/logs', icon: '📓', label: 'Logs' },
+    ],
+  },
+  {
+    title: 'Patient Safety',
+    expandable: false,
+    items: [
+      { to: '/patient-safety', icon: '✚', label: 'Patient Safety' },
     ],
   },
   {

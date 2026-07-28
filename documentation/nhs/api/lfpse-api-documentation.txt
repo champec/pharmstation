@@ -1,0 +1,1117 @@
+API Documentation 
+Project Name: Learn From Patient 
+Safety Events (LFPSE)   
+Date: 14/06/2022 
+NHSEI LFPSE API Documentation V1.8.   2 
+ 
+Contents 
+ 
+1. Introduction .................................................................................................................... 4 
+2. Adverse Event API ........................................................................................................... 4 
+2.1. Overview ..................................................................................................................... 4 
+2.2. Interoperability ........................................................................................................... 5 
+2.3. Security ........................................................................................................................ 6 
+3. Taxonomy API ................................................................................................................. 6 
+3.1. Overview ..................................................................................................................... 6 
+3.2. Interoperability ........................................................................................................... 6 
+3.3. Security ........................................................................................................................ 6 
+4. HL7 FHIR .......................................................................................................................... 7 
+4.1. Overview ..................................................................................................................... 7 
+4.2. Conformance Resources ............................................................................................. 7 
+4.2.1. Capability Statements .............................................................................................. 8 
+4.2.2. Profiles ..................................................................................................................... 8 
+4.2.3. Extensions ................................................................................................................ 8 
+4.2.4. Value Sets ................................................................................................................ 9 
+4.2.5. Code Systems ........................................................................................................... 9 
+4.3. Sequence Diagram .................................................................................................... 10 
+5. Azure Developer Portal ................................................................................................. 11 
+5.1. Requesting Access ..................................................................................................... 11 
+5.2. Subscription Keys ...................................................................................................... 12 
+5.3. Testing APIs ............................................................................................................... 12 
+5.4. Reporting Issues ........................................................................................................ 13 
+6. Environment Details ..................................................................................................... 14 
+7. LFPSE integration compliance assessment ................................................................... 15 
+8. Example FHIR Resources ............................................................................................... 17 
+8.1. Profile ........................................................................................................................ 17 
+8.2. Extension ................................................................................................................... 21 
+8.3. Value Set .................................................................................................................... 22 
+8.4. Code System .............................................................................................................. 23 
+8.5. Adverse Event ............................................................................................................ 23 
+ 
+ 
+NHSEI LFPSE API Documentation V1.8.   3 
+ 
+Document Controls 
+ 
+Document Owner  
+The following personnel have provided input into this document. 
+Name Role/Title E-mail 
+Lucie Mussett Patient Safety Lead – LFPSE (Learn From 
+Patient Safety Events) Product Manager 
+lucie.mussett@nhs.net 
+ 
+Prepared By 
+The following personnel have provided input into this document. 
+Name Role/Title E-mail 
+David Taylor Developer david.taylor@informed.com 
+Ryland Karlovich Developer Ryland.karlovich@informed.com 
+Elizabeth Stutchbury Service Designer elizabeth.stutchbury@informed.com 
+ 
+Reviewers 
+Name Role 
+/Title E-mail Action Date 
+Marcos Manhaes Head of NRLS – 
+LFPSE Service 
+Manager 
+m.manhaes@nhs.net Full document review 05/10/2018 
+ 
+Approvals  
+Name Role/Title E-mail 
+Marcos Manhaes Head of NRLS – LFPSE Service Manager m.manhaes@nhs.net 
+ 
+Version History  
+Version 
+No. Date Revised 
+by 
+Amended Section & 
+Description of Change 
+V0.1 14/08/2018 David Taylor Initial version of document 
+V0.2 03/10/2018 David Taylor Added information about security and 
+environments 
+V0.3 05/10/2018 David Taylor Updated sequence diagram in section 4.3 
+V1.0 05/10/2018 David Taylor Versioned up for release 
+V1.1 06/11/2018 David Taylor Added Private Beta compliance checklist 
+V1.2 13/03/2019 Ryland Karlovich Added example resources in Section 8 
+V1.3 26/06/2020 Ryland Karlovich Minor updates to account for further 
+taxonomy releases 
+V1.4 30/06/2020 Matt Rix Minor revisions 
+V1.5 29/06/2021 Alykhan Esmail Update DPSIMS/PSIMS references to 
+LFPSE 
+V1.6 06/08/2021 Ryland Karlovich Add LFPSE launch date 
+V1.7 01/02/2022 Mandy Williams Add LFPSE integration compliance 
+assessment and UAT and production URLs 
+V1.8 14/06/2022 Alykhan Esmail Update information and screenshots for new 
+developer portal – Remove hyperlinks from 
+API URLs in section 6. 
+1. Introduction 
+The LFPSE (Learn From Patient Safety Events) project offers an opportunity to use 
+modern technology to improve the health service for patients and carers, healthcare 
+staff, NHS organisations and decision-makers, so that time and energy can be 
+invested in the right things: working to reduce harm. 
+The LFPSE project is currently in the Beta phase, where the objective is to build a 
+working version of the service based on the prototypes developed in Alpha.  
+The LFPSE (Learn From Patient Safety Events) solution contains two RESTful APIs 
+that will be used by systems looking to integrate with LFPSE; the Adverse Event API 
+and the Taxonomy API. Sections 2 and 3 of this document outline the purpose of 
+each of these APIs, and provide supporting information for developers looking to 
+integrate with LFPSE. Section 4 of the document provides a brief overview of the 
+FHIR (Fast Healthcare Interoperability Resources) standard, and how it has been 
+utilised by LFPSE. Section 5 gives an overview of the Azure API Developer Portal, 
+which is used for requesting access to the APIs, viewing technical documentation, 
+testing the APIs, and reporting issues. The environment details for UAT, Private Beta 
+and Public Beta can be found in section 6. The Private Beta and Public Beta 
+integration compliance assessment is documented in section 7, and finally, example 
+FHIR resources are provided in section 8. 
+2. Adverse Event API 
+2.1. Overview 
+As per the HL7 FHIR specification, an Adverse Event is defined as an “actual or 
+potential/avoided event causing unintended physical injury resulting from or 
+contributed to by medical care, a research study or other healthcare setting factors 
+that requires additional monitoring, treatment, or hospitalisation, or that results in 
+death”.  
+The Adverse Event API surfaces create, read and update operations for Adverse 
+Events. When an Adverse Event is recorded in a local risk management system, it 
+can be sent to LFPSE automatically by sending a POST request to the Adverse 
+Event API. For detailed documentation of the available API operations, refer to the 
+Azure API Developer Portal (more information in section 5). 
+4 
+NHSEI LFPSE API Documentation V1.8.   
+When an Adverse Event is created through the API, it is assigned a unique ID and 
+version number. The response will contain the entire Adverse Event resource with 
+these additional properties (see example below). Integrating systems may choose to 
+store the ID internally so that they can perform read and update operations on this 
+Adverse Event in the future. 
+<AdverseEvent xmlns="http://hl7.org/fhir"> 
+<id value="6dc50e70-9f25-49fe-9216-99ec8d2ccf55" /> 
+<meta> 
+<versionId value="1.0.0" /> 
+<lastUpdated value="2018-10-03T11:58:40.961+00:00" /> 
+</meta> 
+<!—Rest of Adverse Event data--> 
+</AdverseEvent> 
+2.2. Interoperability 
+The Adverse Event API conforms to the HL7 FHIR standard. For more information 
+about FHIR, refer to section 4 of this document and the online documentation 
+available at https://www.hl7.org/fhir.   
+All Adverse Events sent to the API will be validated against the LFPSE profile 
+(available through the Taxonomy API) before being saved. The profile, along with the 
+various extension definitions, value sets and code systems, will provide all of the 
+information required to build a valid Adverse Event.  See Section 8 for annotated 
+examples of a selection of resources. 
+All Adverse Events submitted to the API must contain a Meta element with a 
+reference to the LFPSE profile that should be used for validation. For example: 
+<AdverseEvent xmlns="http://hl7.org/fhir"> 
+<meta> 
+<profile value="https://psims-uat.azure
+api.net/taxonomy/fhir/StructureDefinition/patient-safety-adverse
+event-5" /> 
+</meta> 
+<!—Rest of Adverse Event data--> 
+</AdverseEvent> 
+5 
+NHSEI LFPSE API Documentation V1.8.   
+2.3. Security 
+All requests sent to the Adverse Event API require a subscription key in the HTTP 
+headers for authentication purposes. If a valid subscription key is not provided, a 401 
+unauthorised error is returned. For more information about requesting access to the 
+API and generating subscription keys, refer to section 5 of this document. 
+Access to the Read and Update operations is protected, in that an organisation can 
+only read or update Adverse Events that they created.  
+3. Taxonomy API 
+3.1. Overview 
+The Taxonomy API surfaces read operations for resources that describe the 
+Adverse Event data required by LFPSE. This includes information about all data 
+fields that can be captured, which fields are required, and what lists should be used 
+for coded values. For detailed documentation of the API operations, refer to the 
+Azure Developer Portal (more information in section 5). 
+3.2. Interoperability 
+The Taxonomy API conforms to the HL7 FHIR standard. For more information about 
+FHIR, refer to section 4 of this document and the online documentation available at 
+https://www.hl7.org/fhir.   
+The Taxonomy API is responsible for providing all of the FHIR conformance and 
+terminology resources for LFPSE (Structure Definitions, Value Sets and Code 
+Systems). These resources will help clients build an understanding of how to build a 
+valid Adverse Event resource for the Adverse Event API. 
+3.3. Security 
+All requests sent to the Taxonomy API require a subscription key in the HTTP 
+headers for authentication purposes. If a valid subscription key is not provided, a 
+401 unauthorised error is returned. For more information about requesting access to 
+the API and generating subscription keys, refer to section 5 of this document. 
+Access to the Create and Update operations is restricted, meaning that only NHSI 
+administrators can create or update Taxonomy resources.  
+6 
+NHSEI LFPSE API Documentation V1.8.   
+4. HL7 FHIR 
+4.1. Overview 
+FHIR (Fast Healthcare Interoperability Resources) is a growing international 
+standards framework created by HL7. FHIR is designed to be fast and easy to 
+implement, interoperable out-of-the-box, with a strong foundation in open web 
+standards. To find out more about FHIR, refer to the official documentation: 
+https://www.hl7.org/fhir/index.html  
+LFPSE utilises the FHIR standard in order to maximise interoperability with other 
+systems in healthcare. Patient safety incidents, outcomes, risks and near misses are 
+mapped to the FHIR Adverse Event resource 
+(https://www.hl7.org/fhir/adverseevent.html). The Adverse Event API exposes 
+operations for creating, reading and updating Adverse Event resources. The 
+Taxonomy API exposes a number of FHIR conformance and terminology resources, 
+which collectively specify LFPSE requirements about the data to be captured. 
+The remainder of this section outlines how the FHIR conformance resources are 
+linked together, and how clients can build an understanding of the required request 
+body structure for the Adverse Event API. 
+4.2. Conformance Resources 
+This section describes the purpose of the various FHIR conformance resources 
+used by LFPSE.  Examples for each of these resource types are provided in Section 
+8.   
+The diagram below illustrates the relationships between each type of resource: 
+7 
+NHSEI LFPSE API Documentation V1.8.   
+4.2.1. Capability Statements 
+A capability statement documents the capabilities of a FHIR server. It will specify 
+information about the REST operations available on the server, including the type of 
+resources that it handles and which profiles are supported. 
+For example, the capability statement for the Adverse Event API will specify that it is 
+possible to perform a number of operations on Adverse Event resources, where the 
+resources must conform to the LFPSE profile. 
+For more information about capability statements, refer to the FHIR documentation: 
+https://www.hl7.org/fhir/capabilitystatement.html  
+4.2.2. Profiles 
+The base FHIR specification creates a common foundation on which various 
+different solutions are implemented. In order to document the specific requirements 
+for a given system, a profile is created which specifies: 
+• Rules about which resource elements are used or not used 
+• What elements may be included that aren’t part of the base resource 
+(extensions) 
+• Rules about which terminologies are used for particular elements 
+For example, the LFPSE Adverse Event profile will specify that an Adverse Event 
+may include a Never Event type (an extension), and values for this field must come 
+from a specific Value Set. 
+For more information about profiles, refer to the FHIR documentation: 
+https://www.hl7.org/fhir/profiling.html 
+4.2.3. Extensions 
+Extensions in FHIR allow you to create additional elements that do not exist in the 
+base resource definition. A profile specifies which extensions are used by a system 
+for a specific resource. If an extension relates to a terminology, it will usually specify 
+a Value Set to use. 
+For more information about extensions, refer to the FHIR documentation: 
+https://www.hl7.org/fhir/extensibility.html  
+8 
+NHSEI LFPSE API Documentation V1.8.   
+4.2.4. Value Sets 
+Value Sets select a set of codes from one or more code systems to specify which 
+codes can be used in a particular context. 
+For more information about Value Sets, refer to the FHIR documentation: 
+https://www.hl7.org/fhir/terminologies.html  
+4.2.5. Code Systems 
+A Code System is a master catalogue of a particular set of codes and their 
+meanings. 
+For more information about Code Systems, refer to the FHIR documentation: 
+https://www.hl7.org/fhir/terminologies.html  
+9 
+NHSEI LFPSE API Documentation V1.8.   
+4.3. Sequence Diagram 
+The diagram below illustrates the order in which requests must be made in order to 
+build a full picture of the LFPSE FHIR conformance resources. A client must be able 
+to access all of the conformance resources in order to build a compliant Adverse 
+Event resource. 
+When an Adverse Event is created, the response body will contain the unique 
+LFPSE ID for this Event. The ID can subsequently be used with a PUT request to 
+submit an updated version of the Adverse Event to LFPSE. 
+10 
+NHSEI LFPSE API Documentation V1.8.   
+5. Azure Developer Portal 
+Azure API Management is being used as a gateway for the LFPSE APIs. API 
+Management offers a self-service developer portal that gives access to an auto
+generated API catalogue, documentation and code samples. Developers can also 
+manage access keys and test using the APIs through the portal.  
+5.1. Requesting Access 
+In order to gain access to the Developer Portal, go to the relevant URL (see section 
+6 of this document) and register for a new account. Note that a new account should 
+be created for each organisation integrating with LFPSE, the email address used for 
+sign up should be the one you would like to be associated with the API keys. 
+After registering, you will receive an activation link via email that you must click 
+before proceeding. 
+After activating your account, log in to the developer portal and go to the ‘Products’ 
+page via the menu link: 
+Select ‘Unlimited’, Enter a useful name you would like to give the subscription for 
+reference, then click ‘Subscribe’ in order to request access. An administrator is 
+required to approve your request before you can access the APIs. You will receive 
+an email notification after your request has been reviewed. 
+11 
+NHSEI LFPSE API Documentation V1.8.   
+5.2. Subscription Keys 
+After your subscription has been approved, you can retrieve your subscription keys 
+by logging in to the developer portal, and clicking on ‘Profile’ in the top menu. 
+On this page you can view or regenerate your subscription keys. In order to use a 
+subscription key with an API request, set the HTTP header ‘Ocp-Apim
+Subscription-Key’ to contain either your primary or secondary key. 
+5.3. Testing APIs 
+When logged in to the Developer portal, API documentation can be accessed 
+through the ‘APIs’ link in the top menu. After selecting an API, a list of the available 
+operations is visible on the left: 
+12 
+NHSEI LFPSE API Documentation V1.8.   
+From here, you can select an operation and find details about the required request 
+parameters, headers and body. The documentation also describes the possible 
+responses, including what the body will contain for different HTTP response codes.  
+It is also possible to click the ‘Try it’ button to test the API without writing any code. 
+5.4. Reporting Issues 
+If you identify any issues during testing, they can be reported by sending an email to 
+england.patientsafetyhelpdesk@nhs.net.  
+In order to support with the investigations, please include details of the request 
+parameters, headers and body if possible.  
+13 
+NHSEI LFPSE API Documentation V1.8.   
+6. Environment Details 
+The table below gives details of the different API environments. In order to request 
+access to the APIs, go to the relevant developer portal URL and follow the steps 
+provided in section 5.1 of this document. 
+Please note that the Private Beta and Public Beta environments will be using the 
+same underlying infrastructure, meaning that users created during Private Beta can 
+continue to use the Public Beta APIs with the same subscription key. Any Adverse 
+Events submitted during Private Beta will also be retained in the system. 
+Developer Portal (For subscription key) 
+Environment 
+URL 
+UAT (Developer only) 
+https://psims-uat.developer.azure-api.net/signup
+Production (Provider only) https://psims-prd.developer.azure-api.net/signup
+API base URL 
+Environment 
+Base URL 
+UAT 
+Production 
+https://psims-api-net-uat.azurefd.net 
+https://developer.learn-from-patient-safety-events.nhs.uk 
+URL for all FHIR resources (For POST request body) 
+Environment 
+URL 
+UAT 
+Production 
+https://psims-uat.azure-api.net 
+https://beta-data.patientsafety.nhs.uk 
+Endpoints 
+Title 
+Endpoints 
+Create a FHIR resource 
+<API base URL>/adverse-event/fhir/AdverseEvent 
+Method 
+Update an existing FHIR 
+resource 
+POST 
+<API base URL>/adverse-event/fhir/AdverseEvent/{id} PUT 
+Read a FHIR resource 
+with a specified ID 
+<API base URL>/adverse-event/fhir/AdverseEvent/{id} GET 
+14 
+NHSEI LFPSE API Documentation V1.8.   
+7. LFPSE integration compliance assessment 
+Vendors or developers of bespoke LRMS must demonstrate full compatibility and 
+compliance with Adverse Event API and Taxonomy API through NHS I Public Beta 
+assessment. The LFPSE service team together with the vendor/developer will test 
+LRMS compliance against LFPSE APIs principles. The LFPSE integration 
+compliance assessment for LRMS comprises of three stages: 
+Stage 1 - LRMS self-assessment: vendor/developer will access LFPSE UAT 
+environment to perform tests and self-assessments on digital capabilities 1 – 12, 
+collating required evidence as per specified in the Assessment Table;  
+Stage 2 - LFPSE service team evaluation of LRMS self-assessment evidence: after 
+successfully completing Stage 1, LRMS vendor/developer will submit evidence to 
+service team and request Stage 2 to start. The service team will verify the provided 
+evidence against Assessment Table and will issue the outcome which could include 
+recommendations and the digital capabilities they would like to explore in Stage 3;  
+Stage 3 - LRMS and LFPSE service team workshop assessment: after the service 
+team issues Stage 2 compliance, the vendor/developer is required to run a demo of 
+its products and demonstrate to the service team how well the LRMS delivers the 
+digital capabilities 1 – 12 as per specified in the Assessment Table. The service 
+team will provide within 10 working days a report to vendor/developer with the 
+outcome and recommendations.  
+The assessments use a traffic light system which determines if the vendor/developer 
+has provided the required evidence, as follows: Fully compliant, Partial compliant, 
+Compliance Fail. 
+Please note: software is considered fully compliant once it can deliver sustainable 
+interoperability, i.e. updates to questions, lists, descriptions and help texts are 
+automatically reflected on all client versions, so that changes to national minimum 
+datasets are automatically realised on entry forms.  
+15 
+NHSEI LFPSE API Documentation V1.8.   
+NHSEI LFPSE API Documentation V1.8.   16 
+ 
+The assessment table below presents all digital capabilities to be weighed for LFPSE 
+compliance: 
+ID Digital Capability Evidence Comments Assessment 
+outcome 
+1 Ability to consume LFPSE 
+Taxonomy from LFPSE API 
+Test scenarios events 
+submitted 
+  
+2 Ability to consume LFPSE 
+Taxonomy from LFPSE API 
+Taxonomy form LFPSE API 
+(e.g. different versions – V5 
+& V6) 
+Screen shots before 
+and after and test 
+scenarios events 
+submitted in different 
+versions 
+Update one version 
+and then replace for 
+another one 
+ 
+3 Ability to present to local 
+users all LFPSE questions, 
+respective lists and 
+descriptions 
+Screen shots Please check the 
+taxonomy labels and 
+guidance text file 
+ 
+4 Ability to automate 
+submission of single and 
+multiple (batch) events via 
+LFPSE API 
+Test scenarios events 
+successfully 
+submitted 
+Must be able to 
+automate real-time 
+submissions 
+ 
+5 Ability to automate update of 
+previous events 
+Successfully update 
+few testing incidents 
+after uploading test 
+data 
+  
+6 Easy to present users 
+upload history to local users 
+Screen shots   
+7 Ability to present error and 
+warning messages to local 
+users 
+Screen shots Please check the 
+validation guide 
+ 
+8 Easy to manage local 
+LFPSE API security keys 
+Demonstrate how key 
+rotation are 
+managed; Screen 
+shots 
+  
+9 Easy to diagnose and report 
+APIs issues to users and 
+back to NHS England and 
+NHS Improvement 
+Test with API down; 
+screen shots 
+  
+10 Local feature to prevent 
+submission of duplicate 
+events 
+Test sending test 
+data twice; screen 
+shots 
+When incidents are 
+submitted, unique 
+event ids are 
+returned via the API. 
+Event ids should be 
+stored locally to flag 
+that an instance of 
+the event already 
+exists in LFPSE. A 
+record should only be 
+resubmitted when 
+updated 
+ 
+11 Easy searching of events: 
+successfully submitted, with 
+error messages, with 
+warning messages, not 
+submitted 
+12 Display successful events 
+submitted by date of 
+submission, date of event, 
+degree of physical and 
+psychological harm as a 
+minimum 
+Screen shots 
+Screen shots 
+This is to enable 
+local action on 
+returned messages 
+This is to enable 
+local reconciliation of 
+records between 
+LRMS and LFPSE 
+8. Example FHIR Resources 
+To assist with development activities, we have provided annotated examples of FHIR 
+resources that are applicable to the LFPSE APIs.  These are indicative of the way 
+FHIR resources are structured, but for active development it is necessary for 
+developers to request the current resources from the Taxonomy API. 
+8.1. Profile 
+As discussed in Section 4 the LFPSE APIs are based around the FHIR Adverse 
+Event.  LFPSE has a bespoke Adverse Event profile which extends the HL7 Adverse 
+Event.  The resource, as released at version 4 of the Taxonomy releases, appears 
+below.  Note that the “snapshot” element has been removed for brevity; the 
+“differential” provides all necessary information to understand how this profile differs 
+from the standard version published by HL7.  The submissions that are made to the 
+LFPSE APIs are validated against this profile but are structured differently.  See 
+Section 8.5 for an example Adverse Event submission which conforms to this profile. 
+ID (appended with version), URL to this profile 
+(environment specific) and name 
+<?xml version="1.0" encoding="UTF-8"?> 
+<StructureDefinition xmlns="http://hl7.org/fhir"> 
+<id value="patient-safety-adverse-event-4" /> 
+<url value="https://psims-uat.azure-api.net/taxonomy/fhir/StructureDefinition/patient-safety-adverse
+event-4" /> 
+<version value="4.0.0" /> 
+<name value="PatientSafetyAdverseEvent" /> 
+<title value="Patient Safety Event Profile for Adverse Event" /> 
+<status value="draft" /> 
+<experimental value="false" /> 
+<description value="A profile for patient safety events used by the NHS Improvement Patient Safety 
+Incident Management System" /> 
+<fhirVersion value="3.0.1" /> 
+17 
+NHSEI LFPSE API Documentation V1.8.   
+NHSEI LFPSE API Documentation V1.8.   18 
+ 
+  <kind value="resource" /> 
+  <abstract value="false" /> 
+  <type value="AdverseEvent" /> 
+  <baseDefinition value="http://hl7.org/fhir/StructureDefinition/AdverseEvent" /> 
+  <derivation value="constraint" /> 
+  <differential> 
+    <element id="AdverseEvent"> 
+      <path value="AdverseEvent" /> 
+      <definition value="Actual or potential/avoided event causing unintended physical injury resulting 
+from or contributed to by medical care, a research study or other healthcare setting factors that requires 
+additional monitoring, treatment, or hospitalization, or that results in death." /> 
+    </element> 
+    <element id="AdverseEvent.extension"> 
+      <path value="AdverseEvent.extension" /> 
+      <slicing> 
+        <discriminator> 
+          <type value="value" /> 
+          <path value="url" /> 
+        </discriminator> 
+        <ordered value="false" /> 
+        <rules value="closed" /> 
+      </slicing> 
+    </element> 
+    <element id="AdverseEvent.extension:AdverseEventEstimatedDate"> 
+      <path value="AdverseEvent.extension" /> 
+      <sliceName value="AdverseEventEstimatedDate" /> 
+      <min value="1" /> 
+      <max value="1" /> 
+      <type> 
+        <code value="Extension" /> 
+        <profile value="https://psims-uat.azure-api.net/taxonomy/fhir/StructureDefinition/adverse-event
+estimated-date-4" /> 
+      </type> 
+    </element> 
+    <element id="AdverseEvent.extension:AdverseEventProblem"> 
+      <path value="AdverseEvent.extension" /> 
+      <sliceName value="AdverseEventProblem" /> 
+      <min value="0" /> 
+      <max value="1" /> 
+      <type> 
+        <code value="Extension" /> 
+        <profile value="https://psims-uat.azure-api.net/taxonomy/fhir/StructureDefinition/adverse-event
+problem-4" /> 
+      </type> 
+    </element> 
+    <element id="AdverseEvent.extension:AdverseEventAgent"> 
+      <path value="AdverseEvent.extension" /> 
+      <sliceName value="AdverseEventAgent" /> 
+      <min value="0" /> 
+      <max value="1" /> 
+      <type> 
+        <code value="Extension" /> 
+        <profile value="https://psims-uat.azure-api.net/taxonomy/fhir/StructureDefinition/adverse-event
+agent-4" /> 
+      </type> 
+    </element> 
+    <element id="AdverseEvent.extension:AdverseEventOutcome"> 
+      <path value="AdverseEvent.extension" /> 
+      <sliceName value="AdverseEventOutcome" /> 
+      <min value="0" /> 
+      <max value="1" /> 
+      <type> 
+        <code value="Extension" /> 
+        <profile value="https://psims-uat.azure-api.net/taxonomy/fhir/StructureDefinition/adverse-event
+outcome-4" /> 
+      </type> 
+    </element> 
+    <element id="AdverseEvent.extension:AdverseEventInitialEventAssessment"> 
+      <path value="AdverseEvent.extension" /> 
+      <sliceName value="AdverseEventInitialEventAssessment" /> 
+The base HL7 profile that this  
+profile extends 
+Differential is where anything that differs from the base profile is documented 
+Reference to an extension which is allowed on a submission.  The min value of 1 indicates this extension is mandatory 
+NHSEI LFPSE API Documentation V1.8.   19 
+ 
+      <min value="0" /> 
+      <max value="1" /> 
+      <type> 
+        <code value="Extension" /> 
+        <profile value="https://psims-uat.azure-api.net/taxonomy/fhir/StructureDefinition/adverse-event
+initial-event-assessment-4" /> 
+      </type> 
+    </element> 
+    <element id="AdverseEvent.extension:AdverseEventProcess"> 
+      <path value="AdverseEvent.extension" /> 
+      <sliceName value="AdverseEventProcess" /> 
+      <min value="0" /> 
+      <max value="1" /> 
+      <type> 
+        <code value="Extension" /> 
+        <profile value="https://psims-uat.azure-api.net/taxonomy/fhir/StructureDefinition/adverse-event
+process-4" /> 
+      </type> 
+    </element> 
+    <element id="AdverseEvent.extension:AdverseEventRiskDetails"> 
+      <path value="AdverseEvent.extension" /> 
+      <sliceName value="AdverseEventRiskDetails" /> 
+      <min value="0" /> 
+      <max value="1" /> 
+      <type> 
+        <code value="Extension" /> 
+        <profile value="https://psims-uat.azure-api.net/taxonomy/fhir/StructureDefinition/adverse-event
+risk-details-4" /> 
+      </type> 
+    </element> 
+    <element id="AdverseEvent.extension:AdverseEventWentWell"> 
+      <path value="AdverseEvent.extension" /> 
+      <sliceName value="AdverseEventWentWell" /> 
+      <min value="0" /> 
+      <max value="1" /> 
+      <type> 
+        <code value="Extension" /> 
+        <profile value="https://psims-uat.azure-api.net/taxonomy/fhir/StructureDefinition/adverse-event
+went-well-4" /> 
+      </type> 
+    </element> 
+    <element id="AdverseEvent.extension:DetectionFactors"> 
+      <path value="AdverseEvent.extension" /> 
+      <sliceName value="DetectionFactors" /> 
+      <min value="0" /> 
+      <max value="1" /> 
+      <type> 
+        <code value="Extension" /> 
+        <profile value="https://psims-uat.azure-api.net/taxonomy/fhir/StructureDefinition/detection
+factors-4" /> 
+      </type> 
+    </element> 
+    <element id="AdverseEvent.extension:AdverseEventClassification"> 
+      <path value="AdverseEvent.extension" /> 
+      <sliceName value="AdverseEventClassification" /> 
+      <min value="0" /> 
+      <max value="1" /> 
+      <type> 
+        <code value="Extension" /> 
+        <profile value="https://psims-uat.azure-api.net/taxonomy/fhir/StructureDefinition/adverse-event
+classification-4" /> 
+      </type> 
+    </element> 
+    <element id="AdverseEvent.extension:AdverseEventReferenceMetadata"> 
+      <path value="AdverseEvent.extension" /> 
+      <sliceName value="AdverseEventReferenceMetadata" /> 
+      <min value="0" /> 
+      <max value="1" /> 
+      <type> 
+        <code value="Extension" /> 
+<profile value="https://psims-uat.azure-api.net/taxonomy/fhir/StructureDefinition/adverse-event
+reference-metadata-4" /> 
+</type> 
+</element> 
+<element id="AdverseEvent.extension:AdverseEventSafetyChallenges"> 
+<path value="AdverseEvent.extension" /> 
+<sliceName value="AdverseEventSafetyChallenges" /> 
+<min value="0" /> 
+<max value="1" /> 
+<type> 
+<code value="Extension" /> 
+<profile value="https://psims-uat.azure-api.net/taxonomy/fhir/StructureDefinition/adverse-event
+safety-challenges-4" /> 
+</type> 
+</element> 
+<element id="AdverseEvent.type"> 
+<path value="AdverseEvent.type" /> 
+<min value="1" /> 
+<max value="1" /> 
+<binding> 
+<strength value="required" /> 
+Modification to the 
+default type element to 
+make it mandatory and 
+bind it to a bespoke 
+value set 
+<valueSetReference> 
+<reference value="https://psims-uat.azure-api.net/taxonomy/fhir/ValueSet/event-type-4" /> 
+</valueSetReference> 
+</binding> 
+</element> 
+<element id="AdverseEvent.subject"> 
+<path value="AdverseEvent.subject" /> 
+<min value="0" /> 
+<type> 
+<code value="Reference" /> 
+<targetProfile value="https://psims-uat.azure-api.net/taxonomy/fhir/StructureDefinition/adverse
+event-patient-4" /> 
+<aggregation value="contained" /> 
+</type> 
+</element> 
+<element id="AdverseEvent.location"> 
+<path value="AdverseEvent.location" /> 
+<min value="1" /> 
+<type> 
+<code value="Reference" /> 
+Modification to the default subject element to make it accept a bespoke profile (similar 
+modifications below for location, recorder etc.) 
+<targetProfile value="https://psims-uat.azure-api.net/taxonomy/fhir/StructureDefinition/adverse
+event-location-4" /> 
+<aggregation value="contained" /> 
+</type> 
+</element> 
+<element id="AdverseEvent.recorder"> 
+<path value="AdverseEvent.recorder" /> 
+<min value="0" /> 
+<type> 
+<code value="Reference" /> 
+<targetProfile value="https://psims-uat.azure-api.net/taxonomy/fhir/StructureDefinition/adverse
+event-practitioner-4" /> 
+<aggregation value="contained" /> 
+</type> 
+</element> 
+<element id="AdverseEvent.suspectEntity.instance"> 
+<path value="AdverseEvent.suspectEntity.instance" /> 
+<min value="0" /> 
+<type> 
+<code value="Reference" /> 
+<targetProfile value="https://psims-uat.azure-api.net/taxonomy/fhir/StructureDefinition/adverse
+event-medication-4" /> 
+<aggregation value="contained" /> 
+</type> 
+<type> 
+<code value="Reference" /> 
+<targetProfile value="https://psims-uat.azure-api.net/taxonomy/fhir/StructureDefinition/adverse
+event-device-4" /> 
+<aggregation value="contained" /> 
+20 
+NHSEI LFPSE API Documentation V1.8.   
+NHSEI LFPSE API Documentation V1.8.   21 
+ 
+      </type> 
+    </element> 
+  </differential> 
+</StructureDefinition> 
+ 
+8.2. Extension 
+ 
+Extensions have the same structure as profiles but do not extend an existing HL7 
+resource. 
+ 
+<?xml version="1.0" encoding="UTF-8"?> 
+<StructureDefinition xmlns="http://hl7.org/fhir"> 
+  <id value="adverse-event-device-details-4" /> 
+  <url value="https://psims-uat.azure-api.net/taxonomy/fhir/StructureDefinition/adverse-event-device
+details-4" /> 
+  <version value="4.0.0" /> 
+  <name value="AdverseEventDeviceDetails" /> 
+  <status value="draft" /> 
+  <date value="2020-06-08" /> 
+  <publisher value="NHS Improvement" /> 
+  <description value="Further details about a device which is related to an adverse event" /> 
+  <fhirVersion value="3.0.1" /> 
+  <mapping> 
+    <identity value="rim" /> 
+    <uri value="http://hl7.org/v3" /> 
+    <name value="RIM Mapping" /> 
+  </mapping> 
+  <kind value="complex-type" /> 
+  <abstract value="false" /> 
+  <contextType value="resource" /> 
+  <context value="Device" /> 
+  <type value="Extension" /> 
+  <baseDefinition value="http://hl7.org/fhir/StructureDefinition/Extension" /> 
+  <derivation value="constraint" /> 
+  <differential> 
+    <element id="Extension"> 
+      <path value="Extension" /> 
+      <short value="Further details about a device which is related to an adverse event" /> 
+      <definition value="Further details about a device which is related to an adverse event" /> 
+      <max value="1" /> 
+    </element> 
+    <element id="Extension.extension:DeviceType"> 
+      <path value="Extension.extension" /> 
+      <sliceName value="DeviceType" /> 
+      <short value="The type of medical device that was involved in an incident" /> 
+      <definition value="The type of medical device that was involved in an incident" /> 
+      <min value="0" /> 
+      <max value="100" /> 
+      <type> 
+        <code value="Extension" /> 
+      </type> 
+    </element> 
+    <element id="Extension.extension:DeviceType.extension"> 
+      <path value="Extension.extension.extension" /> 
+      <max value="0" /> 
+    </element> 
+    <element id="Extension.extension:DeviceType.url"> 
+      <path value="Extension.extension.url" /> 
+      <type> 
+        <code value="uri" /> 
+      </type> 
+      <fixedUri value="DeviceType" /> 
+    </element> 
+    <element id="Extension.extension:DeviceType.valueCode"> 
+      <path value="Extension.extension.valueCode" /> 
+Versioned extension id, environment-specific URL and name 
+The data type accepted for this element – in this case a code 
+lookup 
+Cardinality indicating this element is not mandatory on this extension and can be provided as many as 
+100 times 
+Definition of a data property, which consists of four elements (box continues) 
+NHSEI LFPSE API Documentation V1.8.   22 
+ 
+      <type> 
+        <code value="code" /> 
+      </type> 
+      <binding> 
+        <strength value="required" /> 
+        <description value="The type of medical device that was involved in an incident" /> 
+        <valueSetReference> 
+          <reference value="https://psims-uat.azure-api.net/taxonomy/fhir/ValueSet/device-type-4" /> 
+        </valueSetReference> 
+      </binding> 
+    </element> 
+    <element id="Extension.extension:DeviceTypeOther"> 
+      <path value="Extension.extension" /> 
+      <sliceName value="DeviceTypeOther" /> 
+      <short value="Other device type" /> 
+      <definition value="Other device type" /> 
+      <min value="0" /> 
+      <max value="1" /> 
+      <type> 
+        <code value="Extension" /> 
+      </type> 
+    </element> 
+    <element id="Extension.extension:DeviceTypeOther.extension"> 
+      <path value="Extension.extension.extension" /> 
+      <max value="0" /> 
+    </element> 
+    <element id="Extension.extension:DeviceTypeOther.url"> 
+      <path value="Extension.extension.url" /> 
+      <type> 
+        <code value="uri" /> 
+      </type> 
+      <fixedUri value="DeviceTypeOther" /> 
+    </element> 
+    <element id="Extension.extension:DeviceTypeOther.valueString"> 
+      <path value="Extension.extension.valueString" /> 
+      <type> 
+        <code value="string" /> 
+      </type> 
+    </element> 
+    <element id="Extension.url"> 
+      <path value="Extension.url" /> 
+      <fixedUri value="https://psims-uat.azure-api.net/taxonomy/fhir/StructureDefinition/adverse-event
+device-details-4" /> 
+    </element> 
+  </differential> 
+</StructureDefinition> 
+ 
+ 
+ 
+8.3. Value Set 
+ 
+Value sets provide the link between code choices in a code system and the data 
+elements of an extension or profile.  In LFPSE value sets and their corresponding 
+code systems are always consistently named to match. 
+ 
+<?xml version="1.0" encoding="UTF-8"?> 
+<ValueSet xmlns="http://hl7.org/fhir"> 
+  <id value="level-of-psychological-harm-4" /> 
+  <url value="https://psims-uat.azure-api.net/taxonomy/fhir/ValueSet/level-of-psychological-harm-4" /> 
+  <version value="4.0.0" /> 
+  <name value="Level of Psychological Harm" /> 
+  <status value="draft" /> 
+  <contact> 
+    <telecom> 
+      <system value="email" /> 
+Versioned value set id, environment-specific URL and name 
+Specification of which value 
+set contains the accepted 
+code values 
+NHSEI LFPSE API Documentation V1.8.   23 
+ 
+    </telecom> 
+  </contact> 
+  <description value="Level of Psychological Harm" /> 
+  <compose> 
+    <include> 
+      <system value="https://psims-uat.azure-api.net/taxonomy/fhir/CodeSystem/level-of-psychological-harm
+4" /> 
+    </include> 
+  </compose> 
+</ValueSet> 
+ 
+8.4. Code System 
+ 
+Code systems contain the code/display pairs that are bound to a value set and a 
+given data element.  When making a submission the code – rather than display – 
+value should be provided. 
+ 
+<?xml version="1.0" encoding="UTF-8"?> 
+<CodeSystem xmlns="http://hl7.org/fhir"> 
+  <id value="level-of-psychological-harm-4" /> 
+  <url value="https://psims-uat.azure-api.net/taxonomy/fhir/CodeSystem/level-of-psychological-harm-4" /> 
+  <version value="4.0.0" /> 
+  <name value="Level of Psychological Harm" /> 
+  <status value="draft" /> 
+  <contact> 
+    <telecom> 
+      <system value="email" /> 
+    </telecom> 
+  </contact> 
+  <description value="Level of Psychological Harm" /> 
+  <caseSensitive value="true" /> 
+  <valueSet value="https://psims-uat.azure-api.net/taxonomy/fhir/ValueSet/level-of-psychological-harm-4" /> 
+  <compositional value="false" /> 
+  <versionNeeded value="true" /> 
+  <content value="complete" /> 
+  <count value="4" /> 
+  <concept> 
+    <code value="4" /> 
+    <display value="No psychological harm" /> 
+  </concept> 
+  <concept> 
+    <code value="3" /> 
+    <display value="Low psychological harm" /> 
+  </concept> 
+  <concept> 
+    <code value="2" /> 
+    <display value="Moderate psychological harm" /> 
+  </concept> 
+  <concept> 
+    <code value="1" /> 
+    <display value="Severe psychological harm" /> 
+  </concept> 
+</CodeSystem> 
+ 
+8.5. Adverse Event 
+ 
+The example below is a valid adverse event submission that conforms with the 
+PSIMS taxonomy (see the profile in Section 8.1).  It targets the root profile and 
+includes elements which are defined by that profile, its sub-profiles, extensions, and 
+individual code system / value set elements. 
+The linked code system from which the value set draws its code options 
+Versioned code system id, environment-specific URL and name 
+The associated value set 
+A code and display pair that is valid for elements using this code 
+system.  The display value is the one to be visually presented 
+whereas the code value should be the submitted response 
+NHSEI LFPSE API Documentation V1.8.   24 
+ 
+ 
+<AdverseEvent xmlns="http://hl7.org/fhir"> 
+    <meta> 
+        <profile value="https://psims-uat.azure-api.net/taxonomy/fhir/StructureDefinition/patient-safety
+adverse-event-4" /> 
+    </meta> 
+    <contained> 
+        <Location> 
+            <id value="location1" /> 
+            <extension url="https://psims-uat.azure-api.net/taxonomy/fhir/StructureDefinition/location
+details-4"> 
+                <extension url="LocationKnown"> 
+                    <valueCode value="y" /> 
+                </extension> 
+                <extension url="Organisation"> 
+                    <valueCode value="RVV" /> 
+                </extension> 
+                <extension url="LocationWithinService"> 
+                    <valueCode value="1" /> 
+                </extension> 
+                <extension url="ServiceArea"> 
+                    <valueCode value="5" /> 
+                </extension> 
+                <extension url="ResponsibleSpecialty"> 
+                    <valueCode value="86" /> 
+                </extension> 
+            </extension> 
+        </Location> 
+    </contained> 
+    <contained> 
+        <Patient> 
+            <id value="patient1" /> 
+            <extension url="https://psims-uat.azure-api.net/taxonomy/fhir/StructureDefinition/patient
+information-4"> 
+                <extension url="AgeYears"> 
+                    <valueCode value="8" /> 
+                </extension> 
+                <extension url="Gender"> 
+                    <valueCode value="2" /> 
+                </extension> 
+                <extension url="StrengthOfAssociation"> 
+                    <valueCode value="4" /> 
+                </extension> 
+                <extension url="PhysicalHarm"> 
+                    <valueCode value="1" /> 
+                </extension> 
+                <extension url="ClinicalOutcome"> 
+                    <valueString value="test" /> 
+                </extension> 
+                <extension url="PatientSequence"> 
+                    <valueInteger value="1" /> 
+                </extension> 
+            </extension> 
+        </Patient> 
+    </contained> 
+    <contained> 
+        <Practitioner> 
+            <id value="practitioner1" /> 
+            <extension url="https://psims-uat.azure-api.net/taxonomy/fhir/StructureDefinition/practitioner
+details-4"> 
+                <extension url="ReporterType"> 
+                    <valueCode value="3" /> 
+                </extension> 
+                <extension url="ReporterOrganisation"> 
+                    <valueCode value="RVV" /> 
+                </extension> 
+            </extension> 
+        </Practitioner> 
+    </contained> 
+    <extension url="https://psims-uat.azure-api.net/taxonomy/fhir/StructureDefinition/adverse-event
+estimated-date-4"> 
+        <extension url="IncidentOccurredToday"> 
+            <valueCode value="y" /> 
+        </extension> 
+        <extension url="TodaysDate"> 
+            <valueDate value="2020-06-26" /> 
+        </extension> 
+        <extension url="EstimatedTime"> 
+            <valueCode value="4" /> 
+        </extension> 
+    </extension> 
+    <extension url="https://psims-uat.azure-api.net/taxonomy/fhir/StructureDefinition/adverse-event-agent
+4"> 
+        <extension url="InvolvedAgents"> 
+            <valueCode value="9" /> 
+        </extension> 
+The submission targets an accepted PSIMS FHIR profile 
+A contained resource (sub-profile), in this case a Patient, which must conform to the bespoke Profile 
+profile referenced by the parent Adverse Event profile.  This patient includes a single extension with 
+six data elements. 
+The id for each contained resource must match the one given on its element 
+(see bottom of event) 
+An extension within the root adverse event 
+NHSEI LFPSE API Documentation V1.8.   25 
+ 
+    </extension> 
+    <extension url="https://psims-uat.azure-api.net/taxonomy/fhir/StructureDefinition/adverse-event
+classification-4"> 
+        <extension url="LevelOfConcern"> 
+            <valueCode value="3" /> 
+        </extension> 
+    </extension> 
+    <extension url="https://psims-uat.azure-api.net/taxonomy/fhir/StructureDefinition/adverse-event-safety
+challenges-4"> 
+        <extension url="SafetyChallenges"> 
+            <valueCode value="3" /> 
+        </extension> 
+    </extension> 
+    <extension url="https://psims-uat.azure-api.net/taxonomy/fhir/StructureDefinition/adverse-event
+problem-4"> 
+        <extension url="ITSystemsInvolvementFactors"> 
+            <valueCode value="1" /> 
+        </extension> 
+    </extension> 
+    <extension url="https://psims-uat.azure-api.net/taxonomy/fhir/StructureDefinition/adverse-event
+reference-metadata-4"> 
+        <extension url=" DataSharingOptOut "> 
+            <valueBoolean value="false" /> 
+        </extension> 
+    </extension> 
+    <category value="AE" /> 
+    <type> 
+        <coding> 
+            <code value="1" /> 
+        </coding> 
+    </type> 
+    <subject> 
+        <reference value="#patient1" /> 
+    </subject> 
+    <date value="2020-06-26" /> 
+    <location> 
+        <reference value="#location1" /> 
+    </location> 
+    <recorder> 
+        <reference value="#practitioner1" /> 
+    </recorder> 
+    <description value="Test description" /> 
+</AdverseEvent> 
+ 
+Each extension must be defined to target a specific PSIMS extension definition 
+A data element belonging to the extension, which accepts a boolean type 
+Supplying a response to a code data type 
+Category should always be “AE” 
+The type code must be chosen from the values in the bound code system as 
+specified by the profile 
+A default element from the HL7 base Adverse Event definition 
+The id for a reference instance must match the one given in the contained resource 

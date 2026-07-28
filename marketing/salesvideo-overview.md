@@ -1,0 +1,15 @@
+Welcome to PharmStation. PharmStation is one place for the whole digital side of pharmacy. Instead of having registers in one place, notes somewhere else, messages on phones, paperwork in folders and people chasing each other for updates, you can bring it all together in one system.
+
+The main idea is simple. Pharmacy staff, locums, drivers, care homes and patients all have different things they need to do, but they should not need a different system for every job. With PharmStation, your pharmacy can manage daily work, communicate properly, keep records, deliver services and stay connected with the people around it.
+
+You can go paperless with your CD register, RP log, patient returns and your own custom logs for things like fridges, cleaning, visitors, date checks or anything else your pharmacy needs. You can scan a prescription or invoice with your phone, let the system pull out the information and then review it before it is added. Handover notes can be shared with the team, tasks can be assigned, and SOPs can be given to the right people so everyone knows what is expected.
+
+Communication is a big part of PharmStation. You can message patients, send broadcasts about services, closures, holidays or important updates, and keep the history all in one place. The Pharmacy Network also lets connected pharmacies communicate with each other. A pharmacy can ask about stock, send a prescription query, send an alert to nearby pharmacies or quickly find out who can help. Instead of making call after call, the right message can go to the right people and they can respond from the system.
+
+PharmStation also helps with services. You can create services, build forms, manage appointments, let patients book online, take payments and keep track of service delivery. Patients can book with a pharmacy through a public booking page, and the pharmacy can manage the appointments, patients and follow-up from one place. There is also video consultation and a Private Electronic Prescription Service, giving prescribers and pharmacies a way to create, receive, track and manage private prescriptions digitally.
+
+Then there is the wider operation. You can plan deliveries, organise rounds, manage redeliveries and give drivers a mobile view of their route, delivery history and proof of delivery. For care homes, you can manage residents, medication requests, supply cycles, packs and deliveries. For staffing, pharmacies can post shifts, manage applications and work with locums through the same platform.
+
+Every person can have their own account and connect to the pharmacy they work with, with manager approval and permissions based on their role. So a pharmacist, technician, dispenser, driver, locum or care-home user only sees what they need to see and can do what they are allowed to do.
+
+PharmStation is not just one tool for one problem. It is a full platform for the day-to-day running of modern pharmacy, on the web and on mobile. This is the main overview, and we will go deeper into every part of the system in the next videos.

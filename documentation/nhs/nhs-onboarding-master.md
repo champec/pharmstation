@@ -968,7 +968,7 @@ Record ALL emails sent and received here in chronological order.
 14. ~~**🔴 DSPT — PUBLISH NOW**~~ ✅ PUBLISHED 9 May 2026 — Standards Met.
 15. **🔴 Complete Data Security shared section** — Go to portal, upload DSPT "Standards Met" confirmation. This is now fully unblocked.
 16. ~~**🔴 Begin PDS API assurance**~~ ✅ SUBMITTED 13 May 2026 — and NHS Notify too. All 3 APIs submitted.
-17. **🔴 Pen test** — Scheduled 08/07/2026. Find independent tester (friend/colleague). OWASP ZAP + manual auth test + Management Summary document needed.
+17. **🔴 Pen test — SLIPPED TWICE, REVISED.** Original 08/07/2026 date passed with no tester engaged; NHS DoS Data Security approver flagged this 22 Jul 2026. "Friend/colleague" plan abandoned — NHS requires CHECK/CREST accreditation. New commitment: engagement signed by 29/07/2026, test executed by 18/08/2026, Management Summary report uploaded by 25/08/2026.
 
 **WAITING ON REPLIES:**
 

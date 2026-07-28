@@ -96,6 +96,11 @@ import { PaymentsPage } from './pages/payments/PaymentsPage'
 import { AboutPage } from './pages/public/AboutPage'
 import { PublicPharmacyMapPage } from './pages/public/PublicPharmacyMapPage'
 import { PrivacyNoticePage } from './pages/public/PrivacyNoticePage'
+import { PublicShopHomePage } from './pages/public/PublicShopHomePage'
+import { PublicShopOrgPage } from './pages/public/PublicShopOrgPage'
+import { ShopProductsPage } from './pages/shop/ShopProductsPage'
+import { ShopOrdersPage } from './pages/shop/ShopOrdersPage'
+import { ShopQuestionnairesPage } from './pages/shop/ShopQuestionnairesPage'
 import { ResourcesPage } from './pages/resources/ResourcesPage'
 import { ServiceFormsPage } from './pages/resources/ServiceFormsPage'
 import { PrintableFormPage } from './pages/resources/PrintableFormPage'
@@ -106,6 +111,7 @@ import { OperationalToolsPage } from './pages/resources/OperationalToolsPage'
 import { UsefulContactsPage } from './pages/resources/UsefulContactsPage'
 import { ClosureNoticePage } from './pages/resources/ClosureNoticePage'
 import { SildenafilCardsPage } from './pages/resources/SildenafilCardsPage'
+import { PatientSafetyPage } from './pages/patient-safety/PatientSafetyPage'
 // Locum Portal (external — no org context required)
 import { LocumCompleteProfilePage } from './pages/locum/LocumCompleteProfilePage'
 import { LocumDashboardPage } from './pages/locum/LocumDashboardPage'
@@ -176,6 +182,8 @@ export function App() {
       <Route path="/book/:orgSlug/:serviceId" element={<PublicServicePage />} />
       <Route path="/book/:orgSlug/:serviceId/confirm" element={<PublicBookingConfirmPage />} />
       <Route path="/book/:orgSlug/payment-result" element={<PaymentResultPage />} />
+      <Route path="/shop" element={<PublicShopHomePage />} />
+      <Route path="/shop/:orgSlug" element={<PublicShopOrgPage />} />
       <Route path="/about" element={<AboutPage />} />
       <Route path="/privacy" element={<PrivacyNoticePage />} />
       <Route path="/resources" element={<ResourcesPage />} />
@@ -288,9 +296,15 @@ export function App() {
         <Route path="/registers/returns" element={<ReturnsPage />} />
         <Route path="/settings" element={<SettingsPage />} />
         <Route path="/outreach" element={<PharmacyOutreachPage />} />
+        <Route path="/patient-safety" element={<PatientSafetyPage />} />
 
         {/* Payments */}
         <Route path="/payments" element={<PaymentsPage />} />
+
+        {/* Shop (marketplace) admin */}
+        <Route path="/shop-admin" element={<ShopProductsPage />} />
+        <Route path="/shop-admin/orders" element={<ShopOrdersPage />} />
+        <Route path="/shop-admin/questionnaires" element={<ShopQuestionnairesPage />} />
 
         {/* Services */}
         <Route path="/services" element={<ServicesPage />} />

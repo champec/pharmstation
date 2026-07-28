@@ -2425,3 +2425,150 @@ export interface NotificationReceipt {
   notification?: StaffNotification
 }
 
+// ============================================================
+// Shop — Unified Pharmacy Marketplace (Phase 1)
+// ============================================================
+
+export interface ShopSettings {
+  org_id: string
+  shop_enabled: boolean
+  delivery_enabled: boolean
+  delivery_radius_km: number
+  delivery_fee_pence: number
+  free_delivery_threshold_pence: number | null
+  collection_enabled: boolean
+  created_at: string
+  updated_at: string
+}
+
+export interface ShopCategory {
+  id: string
+  name: string
+  slug: string
+  parent_id: string | null
+  sort_order: number
+  created_at: string
+}
+
+export interface ShopProduct {
+  id: string
+  org_id: string
+  category_id: string | null
+  name: string
+  description: string | null
+  image_url: string | null
+  price_pence: number
+  stock_quantity: number
+  sku: string | null
+  is_active: boolean
+  requires_availability_check: boolean
+  requires_consultation: boolean
+  questionnaire_id: string | null
+  created_at: string
+  updated_at: string
+  // Joined
+  category?: ShopCategory
+  questionnaire?: ShopQuestionnaire
+  organisation?: Pick<Organisation, 'id' | 'name' | 'address'> & {
+    slug?: string
+    public_logo_url?: string | null
+  }
+}
+
+export type ShopQuestionType = 'text' | 'yesno' | 'choice'
+
+export interface ShopQuestion {
+  id: string
+  label: string
+  type: ShopQuestionType
+  options?: string[]
+  required: boolean
+}
+
+/** org_id null = public template supplied by PharmStation. */
+export interface ShopQuestionnaire {
+  id: string
+  org_id: string | null
+  name: string
+  description: string | null
+  questions: ShopQuestion[]
+  is_active: boolean
+  created_at: string
+  updated_at: string
+}
+
+export interface ShopQuestionnaireAnswer {
+  question_id: string
+  label: string
+  answer: string
+}
+
+export interface ShopQuestionnaireResponse {
+  id: string
+  order_id: string
+  product_id: string | null
+  questionnaire_id: string | null
+  answers: ShopQuestionnaireAnswer[]
+  created_at: string
+}
+
+export type ShopOrderStatus =
+  | 'new'
+  | 'confirmed'
+  | 'ready'
+  | 'out_for_delivery'
+  | 'collected'
+  | 'completed'
+  | 'cancelled'
+
+export type ShopFulfilmentMethod = 'collection' | 'delivery'
+
+export interface ShopOrder {
+  id: string
+  org_id: string
+  order_number: string
+  patient_id: string | null
+  guest_name: string | null
+  guest_phone: string | null
+  status: ShopOrderStatus
+  fulfilment_method: ShopFulfilmentMethod
+  delivery_address: Record<string, string> | null
+  subtotal_pence: number
+  delivery_fee_pence: number
+  total_pence: number
+  customer_notes: string | null
+  org_notes: string | null
+  created_at: string
+  updated_at: string
+  // Joined
+  items?: ShopOrderItem[]
+  responses?: ShopQuestionnaireResponse[]
+  organisation?: Pick<Organisation, 'id' | 'name' | 'address'>
+}
+
+export interface ShopOrderItem {
+  id: string
+  order_id: string
+  product_id: string | null
+  product_name: string
+  unit_price_pence: number
+  quantity: number
+  line_total_pence: number
+  created_at: string
+}
+
+/** Client-side cart line (not persisted). */
+export interface ShopCartItem {
+  product: ShopProduct
+  quantity: number
+}
+
+/** Result returned by the ps_shop_place_order RPC. */
+export interface ShopPlaceOrderResult {
+  order_id: string
+  order_number: string
+  subtotal_pence: number
+  delivery_fee_pence: number
+  total_pence: number
+}
+

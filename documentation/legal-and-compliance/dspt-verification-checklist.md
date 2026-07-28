@@ -78,7 +78,7 @@
 
 - [ ] **Home router default password** — Verify home broadband router admin password has been changed from default and Wi-Fi uses WPA2/WPA3 with non-default password (referenced in 9.1.1).
 - [ ] **MFA on all accounts** — Cross-check: GitHub, Supabase, Vercel, Railway, GoDaddy, Microsoft 365 all have MFA enabled (referenced in 9.1.1).
-- [ ] **Formal penetration test** — Commission a CHECK/CREST-accredited third-party pen test before going live with production NHS data. **Due: before production launch** (referenced in 9.2.1).
+- [ ] **Formal penetration test** — Commission a CHECK/CREST-accredited third-party pen test before going live with production NHS data. **Due: before production launch** (referenced in 9.2.1). 🔴 STATUS 22 Jul 2026: slipped twice (30 Jun engagement commitment, 08/07 test date) — no tester engaged yet. NHS DoS approver has flagged the missed date. Revised commitment: engagement signed by 29/07/2026, test by 18/08/2026, report uploaded by 25/08/2026.
 - [ ] **Internal vulnerability scan record** — Document the 4 March 2026 internal security assessment findings as a standalone report for evidence (referenced in 9.2.1).
 - [ ] **Supabase RLS audit** — Conduct full audit of RLS policies on all Supabase tables and document coverage. **Due: 31 March 2026** (referenced in 9.2.3).
 - [ ] **pharmstation.co.uk DMARC/SPF/DKIM** — Configure email auth DNS records in GoDaddy. **Due: 14 March 2026** (referenced in 9.2.3, 6.2.8).

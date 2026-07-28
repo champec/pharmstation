@@ -1,0 +1,49 @@
+Hello and welcome to pharmstation -
+
+Pharmstation is you one stop solution to all your digital operation in pharmacy. It unifies everything from registers and logs, to service delivery and communicaitons, keeping you at the edge of technology and helping you go paperless.
+
+The primary purpose of pharmstation is to unite pharmacy into one central communicaiton channel allowing for streamlined and secure communicaiton panels between different and unrelated pharmacies, communicaiton between health care professional, and communicaiton to patients. 
+
+To achieve the communicaiton goal, we have implimented, very powerful notifcaitn and alerting systems with classificaiton, messaging tools, invovling, in app, sms and pushnotificaiton on various platforms.  
+
+Now to get into the nitty gritty pharmstation gives all pharmacy staff a single log in for life that they can carry with them to any pharmacy or store, it means all pharmacies using this sytem will make for easy integration, wether its dealing with locumsn, validaitong locumsn, preivate prescirption validaiton private prescirption, locum dispensers, dealing with certified visitors, superintendants, pharmacy regulatory bodies, all visitors, can log into the system, with manager approval and with strong access controll, only get access to what they need. 
+
+users with roles such as inspector, can be verified by the system too when they visit, allowing for a more secure sytem. Even patients can use a single account to operate with various pharmacy.
+
+Pharmstation can be used, for communiaitng between pharmacies, for things like temporary dispensing methadone for aptient you dont nromally provide for, making sure they have collected previous doses might be something that can be vrified through netork coms. 
+
+Checking for stock shorted, can use netowrk comms, to blast out a broadcast automatically choosing are local and open pharmacies. 
+
+checkign which pahrmacies are open on a sunday
+
+Outof hours doctor asking a quesiton about stock avaiability to a pharmacy can be done trhough a quick message blasted out to several places rather than wasting time on individual calls, in repsonse, pharmacys, can reply to aciton messages, which are mesage that reuire selcted a specific reponse.quick for quick repsonses, and then normal message requiring details respones. aciton messgaes can be used for stock checks and other quick reponses, are you open, do you have a pharmacist.
+
+Pharmstation can be sued to communicate closed days, 
+
+Marketing to patients, informating patients about services provided, by sms, christmas specials or special holidays, new management. 
+
+Communicating potential crime, fruadlent scripts, banned patients, going around abusing P medicines, a fraudulent prescription, blasted out to local pharmacies. 
+
+Our powerful alert sytem, allows for sms pings, to mobile phone who have signed in on the day withou givign out your mobile numbers, and not botherignyou outside working hours, acts as pagers, power desktop notifiaiton, action messages for quick reponses, and enabling and add all staff memebers to be abel to repsond, if phones are an issue they can use an adroid device to activate app. 
+
+But pharmstation as we said is a one stop solution, so we consolidated as much of your digital operation into the platform so you ahve more reason to be on the app rather than jsut amessaging.
+
+go paperless on all your logs, with athea ability to add any cusotm logs, fridge, vistors, RP and any other custom logs, near misses, totally cusotmisable
+
+CD register, paitent return registers with state of the art, scan to enter, instead of typing it maually, take a picture of an ivoice or a prscirption and its automaticlly entering in a pending state, with the image forever attached. 
+
+Hand over notes digitised, asign notes and task to team members or assing tasks to the locum - whome you may not know.
+
+Other service include, complete delivery system, with a driver and companion app, carehome managment for manage careom aptients, medicine and deliveries, digitis eyour SOPS and assign them to users in the pharmacy - LOCUM booking done on your station too, wher you post shifts that can be picked up by locums.
+
+Appointments - book appointments allow patient to book appointments, to deliver nhs services or even your custom services, allow for private prescription writting, 
+
+Private presription Eletronic presriptin can be furnished and sent anywhere, this is useful for prescirbers who write private scripts and send them to your pharmay, works like EPS, so its digital tracked adn avialble to your pharmacy or anypharmacy can be passed to another pharmacy is unavaible. 
+
+PAYMENT automation, you can use our ready to use state of teh art payment system to sell services with payment gateway on check out for service. you do not have to set up a payment gateway you can use ours.
+
+ONLINE orders, instead of selling products on your own platform again we can take the hassle away allow you list your own store on pharmstation.co.uk/shop 
+
+- which is a single market place with your products lsited for patient to find, the products listed are found by promiximity so people your area see your shop items first, they see all the service you advertise. item ordered can even be delivered by currier, put straight into a deliver que item fro your driver to take with to the house.
+
+BUt this has been an oveview we do a deep into each individual capability later on in dedicated tutorials

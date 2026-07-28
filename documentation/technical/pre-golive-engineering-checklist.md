@@ -134,7 +134,7 @@ These were committed to on the NHS Digital Onboarding portal (PDS technical conf
 
 | # | Item | Priority | Source |
 |---|---|---|---|
-| `[ ]` | **IS-008 — Penetration test** — scheduled 08/07/2026. Engage independent tester (OWASP ZAP + manual auth/RLS test). Obtain Management Summary PDF. Upload to NHS Digital Onboarding portal. | P1 | ISMS IS-008, portal Data Security section, PDS Q5 |
+| `[ ]` | **IS-008 — Penetration test** — 🔴 SLIPPED (twice). Original 08/07/2026 date passed with no tester engaged. NHS DoS Data Security approver flagged this 22 Jul 2026. Revised plan: engagement signed by 29/07/2026, test executed by 18/08/2026, Management Summary uploaded by 25/08/2026. Informal "friend/colleague" plan is NOT viable — NHS explicitly requires CHECK/CREST accreditation. | P1 | ISMS IS-008, portal Data Security section, DoS Q5, PDS Q5 |
 | `[ ]` | **Vercel security headers** — verify CSP, X-Frame-Options, X-Content-Type-Options configured on Vercel deployment | P2 | DSPT 9.3.1 |
 | `[ ]` | **HTTPS redirect** — verify HTTP → HTTPS redirect enforced on Vercel | P2 | DSPT 9.3.6 |
 | `[ ]` | **DMARC record** — add `_dmarc.pharmstation.co.uk` TXT record in GoDaddy DNS | P2 | DSPT 6 |
