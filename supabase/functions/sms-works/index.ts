@@ -190,6 +190,9 @@ type SmsSettings = {
   reply_forward_email: string | null
   signature: string | null
   is_active: boolean
+  inbound_filter_mode: 'open' | 'filtered' | 'approved_only'
+  inbound_rate_limit_count: number
+  inbound_rate_limit_minutes: number
 }
 
 async function getOrgSettings(admin: AdminClient, orgId: string): Promise<SmsSettings> {
@@ -202,8 +205,8 @@ async function getOrgSettings(admin: AdminClient, orgId: string): Promise<SmsSet
 }
 
 /** Resolve the sender string SMS Works should use for this org. */
-function resolveSender(settings: SmsSettings): string {
-  if (settings.sender_type === 'number') {
+function resolveSender(settings: SmsSettings, forceReplyNumber = false): string {
+  if (forceReplyNumber || settings.sender_type === 'number') {
     if (!settings.reply_number) throw new Error('Reply number sender selected but no number assigned')
     return settings.reply_number.replace(/[^\d]/g, '')
   }
@@ -289,6 +292,7 @@ type SendCommon = {
   broadcast_id?: string
   template_id?: string
   personalisation?: Record<string, unknown>
+  use_reply_number?: boolean
 }
 
 async function sendSms(
@@ -298,7 +302,7 @@ async function sendSms(
   userId: string,
 ) {
   const destination = normaliseDestination(args.phone_number)
-  const sender = resolveSender(settings)
+  const sender = resolveSender(settings, args.use_reply_number)
   const { content, templateId } = await buildContent(admin, settings, args)
   const reference = args.reference || `${args.feature || 'manual'}${args.patient_id ? `:${args.patient_id}` : ''}`
 
@@ -308,6 +312,7 @@ async function sendSms(
     org_id: args.org_id,
     patient_id: args.patient_id || null,
     recipient_phone: args.phone_number,
+    recipient_phone_normalized: destination,
     body: content,
     personalisation: args.personalisation ?? { body: content },
     sms_sender: sender,
@@ -528,9 +533,14 @@ async function handleTestConnection(body: Record<string, unknown>) {
 // ============================================
 
 async function handleSaveSettings(body: Record<string, unknown>) {
-  const { org_id, sender_type, sender_id, signature, reply_forward_email, is_active } = body as {
+  const {
+    org_id, sender_type, sender_id, signature, reply_forward_email, is_active,
+    inbound_filter_mode, inbound_rate_limit_count, inbound_rate_limit_minutes,
+  } = body as {
     org_id: string; sender_type?: 'alpha' | 'number'; sender_id?: string
     signature?: string; reply_forward_email?: string; is_active?: boolean
+    inbound_filter_mode?: 'open' | 'filtered' | 'approved_only'
+    inbound_rate_limit_count?: number; inbound_rate_limit_minutes?: number
   }
   if (!org_id) throw new Error('Missing org_id')
 
@@ -548,6 +558,15 @@ async function handleSaveSettings(body: Record<string, unknown>) {
     p_is_active: typeof is_active === 'boolean' ? is_active : null,
   })
   if (error) throw new Error(`Failed to save settings: ${error.message}`)
+
+  const inboundUpdates: Record<string, unknown> = {}
+  if (inbound_filter_mode) inboundUpdates.inbound_filter_mode = inbound_filter_mode
+  if (typeof inbound_rate_limit_count === 'number') inboundUpdates.inbound_rate_limit_count = inbound_rate_limit_count
+  if (typeof inbound_rate_limit_minutes === 'number') inboundUpdates.inbound_rate_limit_minutes = inbound_rate_limit_minutes
+  if (Object.keys(inboundUpdates).length > 0) {
+    const { error: inboundError } = await admin.from('ps_sms_settings').update(inboundUpdates).eq('org_id', org_id)
+    if (inboundError) throw new Error(`Failed to save inbound settings: ${inboundError.message}`)
+  }
 
   const { data } = await admin.from('ps_sms_settings').select('*').eq('org_id', org_id).single()
   return data
@@ -667,7 +686,7 @@ async function handleAssignReplyNumber(body: Record<string, unknown>) {
   }
 
   const { error } = await admin.rpc('ps_sms_assign_reply_number', {
-    p_org_id: org_id, p_phone_number: number, p_monthly_rental_pence: 500, p_provider_ref: null,
+    p_org_id: org_id, p_phone_number: number, p_monthly_rental_pence: 1350, p_provider_ref: null,
   })
   if (error) throw new Error(`Failed to assign reply number: ${error.message}`)
   return { assigned: true, phone_number: number }
@@ -720,6 +739,14 @@ Deno.serve(async (req: Request) => {
     )
     const { data: { user }, error: authError } = await supabase.auth.getUser()
     if (authError || !user) throw new Error('Unauthorized')
+
+    if (typeof body.org_id === 'string') {
+      const { data: membership } = await getAdminClient()
+        .from('ps_organisation_members').select('user_id')
+        .eq('organisation_id', body.org_id).eq('user_id', user.id)
+        .eq('status', 'active').maybeSingle()
+      if (!membership) throw new Error('You do not have access to this organisation')
+    }
 
     let result: unknown
     switch (action) {

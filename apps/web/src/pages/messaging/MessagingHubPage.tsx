@@ -161,6 +161,9 @@ export function MessagingHubPage() {
         marginBottom: 'var(--ps-space-lg)',
         flexWrap: 'wrap',
       }}>
+        <button className="ps-btn ps-btn-primary" onClick={() => navigate('/messaging/inbox')}>
+          📥 Patient Inbox
+        </button>
         <button className="ps-btn ps-btn-secondary" onClick={() => navigate('/messaging/compose?channel=sms')}>
           📱 Send SMS
         </button>

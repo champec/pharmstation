@@ -176,25 +176,83 @@ async function handleInbound(admin: AdminClient, payload: Record<string, unknown
     return json({ received: true, routed: false, note: 'no org match' })
   }
 
-  // Match the patient by phone within the org.
   const fromNorm = normalisePhone(from)
+  if (!fromNorm) return json({ received: true, routed: false, note: 'invalid sender' })
+
+  // Provider retries must not create duplicate inbox entries or staff alerts.
+  if (providerId) {
+    const { data: duplicate } = await admin
+      .from('ps_sms_inbound').select('id, disposition')
+      .eq('provider_message_id', providerId).maybeSingle()
+    if (duplicate) {
+      return json({ received: true, routed: true, duplicate: true, disposition: duplicate.disposition })
+    }
+  }
+
+  // Match only when exactly one patient owns this number. Shared family
+  // numbers remain unlinked for staff to resolve deliberately.
   let patientId: string | null = metaValue(meta, 'patient_id') || null
   if (!patientId) {
     const { data: patients } = await admin
-      .from('ps_patients').select('id, phone').eq('organisation_id', orgId)
-    patientId = (patients as Array<{ id: string; phone: string | null }> | null)
-      ?.find((p) => normalisePhone(p.phone ?? '') === fromNorm)?.id ?? null
+      .from('ps_patients').select('id')
+      .eq('organisation_id', orgId).eq('phone_normalized', fromNorm).limit(2)
+    patientId = patients?.length === 1 ? patients[0].id : null
+  }
+
+  const [{ data: settings }, { data: control }] = await Promise.all([
+    admin.from('ps_sms_settings')
+      .select('inbound_filter_mode, inbound_rate_limit_count, inbound_rate_limit_minutes')
+      .eq('org_id', orgId).maybeSingle(),
+    admin.from('ps_sms_sender_controls')
+      .select('status, muted_until').eq('org_id', orgId).eq('phone_number', fromNorm).maybeSingle(),
+  ])
+
+  let disposition: 'inbox' | 'quarantine' | 'blocked' = 'inbox'
+  let dispositionReason: string | null = null
+  const muted = control?.status === 'muted' && control.muted_until && new Date(control.muted_until) > new Date()
+
+  if (control?.status === 'blocked' || muted) {
+    disposition = 'blocked'
+    dispositionReason = control?.status === 'blocked' ? 'sender_blocked' : 'sender_muted'
+  } else {
+    const mode = settings?.inbound_filter_mode ?? 'open'
+    const approved = control?.status === 'approved'
+    if (mode === 'approved_only' && !approved) {
+      disposition = 'quarantine'
+      dispositionReason = 'approval_required'
+    } else if (mode === 'filtered' && !patientId && !approved) {
+      disposition = 'quarantine'
+      dispositionReason = 'unknown_sender'
+    }
+  }
+
+  // Flood protection is active in every mode but quarantines rather than
+  // discarding messages, preserving evidence and avoiding notification spam.
+  if (disposition === 'inbox') {
+    const limit = settings?.inbound_rate_limit_count ?? 10
+    const minutes = settings?.inbound_rate_limit_minutes ?? 10
+    const since = new Date(Date.now() - minutes * 60_000).toISOString()
+    const { count } = await admin.from('ps_sms_inbound')
+      .select('*', { count: 'exact', head: true })
+      .eq('org_id', orgId).eq('normalized_from_number', fromNorm).gte('received_at', since)
+    if ((count ?? 0) >= limit) {
+      disposition = 'quarantine'
+      dispositionReason = 'rate_limit'
+    }
   }
 
   const { error: insErr } = await admin.from('ps_sms_inbound').insert({
     org_id: orgId,
     reply_number: toNumber || null,
     from_number: from,
+    normalized_from_number: fromNorm,
     patient_id: patientId,
     content,
     provider_message_id: providerId,
     outbound_message_id: outboundMessageId,
     metadata: meta ?? null,
+    disposition,
+    disposition_reason: dispositionReason,
   })
   if (insErr) {
     console.error('inbound insert error', insErr)
@@ -207,7 +265,10 @@ async function handleInbound(admin: AdminClient, payload: Record<string, unknown
     p_outbound: 0, p_credits: 0, p_segments: 0, p_inbound: 1,
   })
 
-  return json({ received: true, routed: true, org_id: orgId, patient_id: patientId })
+  return json({
+    received: true, routed: true, org_id: orgId, patient_id: patientId,
+    disposition, disposition_reason: dispositionReason,
+  })
 }
 
 // ============================================

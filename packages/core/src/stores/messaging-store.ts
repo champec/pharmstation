@@ -7,9 +7,13 @@ import type {
   SmsSettings,
   SmsTemplate,
   SmsInbound,
+  SmsInboundDisposition,
+  SmsSenderControl,
+  SmsSenderControlStatus,
   SmsUsageSummary,
 } from '@pharmstation/types'
 import { getUserClient } from '@pharmstation/supabase-client'
+import type { RealtimeChannel } from '@supabase/supabase-js'
 
 // ============================================
 // Messaging Store — handles messages, broadcasts, settings, edge function calls
@@ -80,6 +84,15 @@ export interface OrgMessagingRouting {
   nhsChannelsEnabled: boolean
 }
 
+export interface SmsConversationMessage {
+  id: string
+  direction: 'inbound' | 'outbound'
+  body: string
+  timestamp: string
+  status?: string
+  isRead?: boolean
+}
+
 export interface MessagingState {
   // Data
   messages: NotifyMessage[]
@@ -93,9 +106,12 @@ export interface MessagingState {
   smsSettings: SmsSettings | null
   smsTemplates: SmsTemplate[]
   inbound: SmsInbound[]
+  smsThread: SmsConversationMessage[]
+  smsSenderControls: SmsSenderControl[]
   unreadInboundCount: number
   usage: SmsUsageSummary[]
   routing: OrgMessagingRouting | null
+  _inboundRealtimeChannel: RealtimeChannel | null
 
   // Actions
   fetchRouting: (orgId: string) => Promise<OrgMessagingRouting>
@@ -151,6 +167,9 @@ export interface MessagingState {
     signature?: string
     reply_forward_email?: string
     is_active?: boolean
+    inbound_filter_mode?: 'open' | 'filtered' | 'approved_only'
+    inbound_rate_limit_count?: number
+    inbound_rate_limit_minutes?: number
   }) => Promise<void>
   testSmsConnection: (orgId: string) => Promise<{ valid: boolean; balance?: number | null; error?: string }>
   fetchSmsTemplates: (orgId: string) => Promise<void>
@@ -166,8 +185,23 @@ export interface MessagingState {
   deleteSmsTemplate: (orgId: string, templateId: string) => Promise<void>
   assignReplyNumber: (orgId: string) => Promise<{ assigned: boolean; phone_number?: string; pending_provisioning?: boolean; message?: string }>
   releaseReplyNumber: (orgId: string) => Promise<void>
-  fetchInbound: (orgId: string, opts?: { unreadOnly?: boolean; limit?: number }) => Promise<void>
+  fetchInbound: (orgId: string, opts?: { unreadOnly?: boolean; limit?: number; disposition?: SmsInboundDisposition }) => Promise<void>
   markInboundRead: (orgId: string, inboundId: string) => Promise<void>
+  markSmsConversationRead: (orgId: string, phoneNumber: string) => Promise<void>
+  fetchSmsThread: (orgId: string, phoneNumber: string) => Promise<void>
+  sendSmsReply: (params: { orgId: string; phoneNumber: string; patientId?: string; body: string }) => Promise<void>
+  fetchSmsSenderControls: (orgId: string) => Promise<void>
+  setSmsSenderControl: (params: {
+    orgId: string
+    phoneNumber: string
+    status: SmsSenderControlStatus | null
+    mutedUntil?: string | null
+    reason?: string
+    userId?: string
+  }) => Promise<void>
+  linkSmsSenderToPatient: (orgId: string, phoneNumber: string, patientId: string) => Promise<void>
+  subscribeToInbound: (orgId: string) => void
+  unsubscribeFromInbound: () => void
   fetchSmsUsage: (orgId: string) => Promise<void>
   clearError: () => void
 }
@@ -250,9 +284,12 @@ export const useMessagingStore = create<MessagingState>((set, get) => ({
   smsSettings: null,
   smsTemplates: [],
   inbound: [],
+  smsThread: [],
+  smsSenderControls: [],
   unreadInboundCount: 0,
   usage: [],
   routing: null,
+  _inboundRealtimeChannel: null,
 
   fetchRouting: async (orgId) => {
     const routing = await resolveRouting(orgId)
@@ -561,16 +598,22 @@ export const useMessagingStore = create<MessagingState>((set, get) => ({
   },
 
   fetchInbound: async (orgId, opts = {}) => {
-    const { unreadOnly = false, limit = 100 } = opts
+    const { unreadOnly = false, limit = 100, disposition = 'inbox' } = opts
     let query = getUserClient()
       .from('ps_sms_inbound')
-      .select('*, patient:ps_patients(id, first_name, last_name)')
+      .select('*, patient:ps_patients(id, first_name, last_name, dob, nhs_number, phone, email, address_line_1, address_line_2, city, postcode)')
       .eq('org_id', orgId)
+      .eq('disposition', disposition)
       .order('received_at', { ascending: false })
       .limit(limit)
     if (unreadOnly) query = query.eq('is_read', false)
 
-    const { data, error } = await query
+    const [{ data, error }, { count }] = await Promise.all([
+      query,
+      getUserClient().from('ps_sms_inbound')
+        .select('*', { count: 'exact', head: true })
+        .eq('org_id', orgId).eq('disposition', 'inbox').eq('is_read', false),
+    ])
     if (error) {
       set({ error: error.message })
       return
@@ -578,7 +621,7 @@ export const useMessagingStore = create<MessagingState>((set, get) => ({
     const rows = (data ?? []) as SmsInbound[]
     set({
       inbound: rows,
-      unreadInboundCount: rows.filter((r) => !r.is_read).length,
+      unreadInboundCount: count ?? 0,
     })
   },
 
@@ -593,6 +636,134 @@ export const useMessagingStore = create<MessagingState>((set, get) => ({
       inbound: s.inbound.map((r) => (r.id === inboundId ? { ...r, is_read: true } : r)),
       unreadInboundCount: Math.max(0, s.unreadInboundCount - 1),
     }))
+  },
+
+  markSmsConversationRead: async (orgId, phoneNumber) => {
+    const { error } = await getUserClient().from('ps_sms_inbound')
+      .update({ is_read: true })
+      .eq('org_id', orgId).eq('normalized_from_number', phoneNumber)
+      .eq('disposition', 'inbox').eq('is_read', false)
+    if (error) throw new Error(error.message)
+    set((s) => ({
+      inbound: s.inbound.map((row) => row.normalized_from_number === phoneNumber ? { ...row, is_read: true } : row),
+      unreadInboundCount: Math.max(0, s.unreadInboundCount - s.inbound.filter((row) => row.normalized_from_number === phoneNumber && !row.is_read).length),
+    }))
+  },
+
+  fetchSmsThread: async (orgId, phoneNumber) => {
+    const client = getUserClient()
+    const [{ data: inbound, error: inboundError }, { data: outbound, error: outboundError }] = await Promise.all([
+      client.from('ps_sms_inbound').select('*')
+        .eq('org_id', orgId).eq('normalized_from_number', phoneNumber)
+        .order('received_at', { ascending: true }),
+      client.from('ps_messages').select('*')
+        .eq('org_id', orgId).eq('channel', 'sms').eq('recipient_phone_normalized', phoneNumber)
+        .order('created_at', { ascending: true }),
+    ])
+    if (inboundError || outboundError) throw new Error(inboundError?.message || outboundError?.message)
+    const thread: SmsConversationMessage[] = [
+      ...((inbound ?? []) as SmsInbound[]).map((row) => ({
+        id: row.id, direction: 'inbound' as const, body: row.content,
+        timestamp: row.received_at, isRead: row.is_read,
+      })),
+      ...((outbound ?? []) as NotifyMessage[]).map((row) => ({
+        id: row.id, direction: 'outbound' as const, body: row.body ?? '',
+        timestamp: row.created_at, status: row.status,
+      })),
+    ].sort((a, b) => a.timestamp.localeCompare(b.timestamp))
+    set({ smsThread: thread })
+  },
+
+  sendSmsReply: async ({ orgId, phoneNumber, patientId, body }) => {
+    const result = await callEdgeFunction('sms-works', 'send_sms', {
+      org_id: orgId,
+      phone_number: phoneNumber,
+      patient_id: patientId,
+      body,
+      feature: 'patient_message',
+      reference: `patient_message:${phoneNumber}`,
+      use_reply_number: true,
+    }) as NotifyMessage
+    set((s) => ({
+      messages: [result, ...s.messages],
+      smsThread: [...s.smsThread, {
+        id: result.id, direction: 'outbound', body: result.body ?? body,
+        timestamp: result.created_at, status: result.status,
+      }],
+    }))
+  },
+
+  fetchSmsSenderControls: async (orgId) => {
+    const { data, error } = await getUserClient().from('ps_sms_sender_controls')
+      .select('*').eq('org_id', orgId).order('updated_at', { ascending: false })
+    if (error) throw new Error(error.message)
+    set({ smsSenderControls: (data ?? []) as SmsSenderControl[] })
+  },
+
+  setSmsSenderControl: async ({ orgId, phoneNumber, status, mutedUntil, reason, userId }) => {
+    const client = getUserClient()
+    if (!status) {
+      const { error } = await client.from('ps_sms_sender_controls')
+        .delete().eq('org_id', orgId).eq('phone_number', phoneNumber)
+      if (error) throw new Error(error.message)
+      set((s) => ({ smsSenderControls: s.smsSenderControls.filter((row) => row.phone_number !== phoneNumber) }))
+      return
+    }
+    const { data, error } = await client.from('ps_sms_sender_controls').upsert({
+      org_id: orgId,
+      phone_number: phoneNumber,
+      status,
+      muted_until: status === 'muted' ? mutedUntil ?? null : null,
+      reason: reason || null,
+      created_by: userId || null,
+      updated_at: new Date().toISOString(),
+    }, { onConflict: 'org_id,phone_number' }).select().single()
+    if (error) throw new Error(error.message)
+
+    if (status === 'blocked') {
+      const { error: moveError } = await client.from('ps_sms_inbound')
+        .update({ disposition: 'blocked', disposition_reason: 'sender_blocked' })
+        .eq('org_id', orgId).eq('normalized_from_number', phoneNumber)
+      if (moveError) throw new Error(moveError.message)
+    } else if (status === 'approved') {
+      const { error: releaseError } = await client.from('ps_sms_inbound')
+        .update({ disposition: 'inbox', disposition_reason: null })
+        .eq('org_id', orgId).eq('normalized_from_number', phoneNumber)
+        .eq('disposition', 'quarantine')
+      if (releaseError) throw new Error(releaseError.message)
+    }
+    set((s) => ({
+      smsSenderControls: [data as SmsSenderControl, ...s.smsSenderControls.filter((row) => row.phone_number !== phoneNumber)],
+    }))
+  },
+
+  linkSmsSenderToPatient: async (orgId, phoneNumber, patientId) => {
+    const { error } = await getUserClient().from('ps_sms_inbound')
+      .update({ patient_id: patientId })
+      .eq('org_id', orgId).eq('normalized_from_number', phoneNumber)
+    if (error) throw new Error(error.message)
+    set((s) => ({
+      inbound: s.inbound.map((row) => row.normalized_from_number === phoneNumber ? { ...row, patient_id: patientId } : row),
+    }))
+  },
+
+  subscribeToInbound: (orgId) => {
+    const existing = get()._inboundRealtimeChannel
+    if (existing) getUserClient().removeChannel(existing)
+    const channel = getUserClient().channel(`sms-inbound:${orgId}`)
+      .on('postgres_changes', {
+        event: 'INSERT', schema: 'public', table: 'ps_sms_inbound', filter: `org_id=eq.${orgId}`,
+      }, () => {
+        get().fetchInbound(orgId)
+      })
+      .subscribe()
+    set({ _inboundRealtimeChannel: channel })
+  },
+
+  unsubscribeFromInbound: () => {
+    const channel = get()._inboundRealtimeChannel
+    if (channel) getUserClient().removeChannel(channel)
+    set({ _inboundRealtimeChannel: null })
   },
 
   fetchSmsUsage: async (orgId) => {

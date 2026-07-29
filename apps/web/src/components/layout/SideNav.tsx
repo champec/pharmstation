@@ -106,6 +106,7 @@ const menuSections: NavSection[] = [
     expandable: true,
     items: [
       { to: '/messaging', icon: '💬', label: 'Patient Comms' },
+      { to: '/messaging/inbox', icon: '📥', label: 'Patient Inbox' },
       { to: '/messaging/compose', icon: '✏️', label: 'Compose' },
       { to: '/messaging/broadcasts', icon: '📢', label: 'Broadcasts' },
       { to: '/messaging/history', icon: '🗂️', label: 'History' },

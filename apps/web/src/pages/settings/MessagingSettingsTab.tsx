@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useAuthStore, useMessagingStore } from '@pharmstation/core'
-import type { SmsTemplate } from '@pharmstation/types'
+import type { SmsInboundFilterMode, SmsTemplate } from '@pharmstation/types'
 
 // ============================================================
 // Messaging Settings — SMS Works first (platform SMS provider)
@@ -45,6 +45,9 @@ export function MessagingSettingsTab() {
   const [signature, setSignature] = useState('')
   const [replyForwardEmail, setReplyForwardEmail] = useState('')
   const [isActive, setIsActive] = useState(false)
+  const [inboundFilterMode, setInboundFilterMode] = useState<SmsInboundFilterMode>('open')
+  const [inboundRateLimitCount, setInboundRateLimitCount] = useState(10)
+  const [inboundRateLimitMinutes, setInboundRateLimitMinutes] = useState(10)
 
   const [saving, setSaving] = useState(false)
   const [saveSuccess, setSaveSuccess] = useState(false)
@@ -74,6 +77,9 @@ export function MessagingSettingsTab() {
       setSignature(smsSettings.signature || '')
       setReplyForwardEmail(smsSettings.reply_forward_email || '')
       setIsActive(smsSettings.is_active)
+      setInboundFilterMode(smsSettings.inbound_filter_mode || 'open')
+      setInboundRateLimitCount(smsSettings.inbound_rate_limit_count || 10)
+      setInboundRateLimitMinutes(smsSettings.inbound_rate_limit_minutes || 10)
     }
   }, [smsSettings])
 
@@ -91,6 +97,9 @@ export function MessagingSettingsTab() {
         signature: signature.trim() || undefined,
         reply_forward_email: replyForwardEmail.trim() || undefined,
         is_active: isActive,
+        inbound_filter_mode: inboundFilterMode,
+        inbound_rate_limit_count: inboundRateLimitCount,
+        inbound_rate_limit_minutes: inboundRateLimitMinutes,
       })
       setSaveSuccess(true)
       setTimeout(() => setSaveSuccess(false), 2500)
@@ -286,7 +295,7 @@ export function MessagingSettingsTab() {
         <h3 style={{ margin: '0 0 var(--ps-space-sm)' }}>Two-way Replies</h3>
         <p style={hintStyle}>
           Rent a dedicated virtual number so patients can reply to your messages. Replies appear in your
-          Messaging inbox. Adds a monthly rental to your bill{smsSettings?.reply_number ? '' : ' (typically £5/month)'}.
+          Messaging inbox. Adds a £13.50 + VAT monthly rental to your bill.
         </p>
 
         {smsSettings?.reply_enabled && smsSettings.reply_number ? (
@@ -320,6 +329,46 @@ export function MessagingSettingsTab() {
             style={{ maxWidth: 420 }}
           />
         </div>
+      </div>
+
+      {/* ── Inbound protection ── */}
+      <div className="ps-card" style={cardStyle}>
+        <h3 style={{ margin: '0 0 var(--ps-space-sm)' }}>Inbound Message Protection</h3>
+        <p style={hintStyle}>
+          The inbox starts open. Change the mode only if your pharmacy begins receiving unwanted messages;
+          blocked and rate-limited messages remain available for review.
+        </p>
+
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: 'var(--ps-space-sm)', marginBottom: 'var(--ps-space-lg)' }}>
+          {([
+            { key: 'open' as const, title: 'Open', description: 'Everyone reaches the inbox. Recommended at launch.' },
+            { key: 'filtered' as const, title: 'Filtered', description: 'Known patients and approved numbers reach the inbox.' },
+            { key: 'approved_only' as const, title: 'Approved only', description: 'Only manually approved numbers reach the inbox.' },
+          ]).map((mode) => (
+            <label key={mode.key} style={{
+              display: 'flex', alignItems: 'flex-start', gap: 'var(--ps-space-sm)', cursor: 'pointer',
+              padding: 'var(--ps-space-md)', border: inboundFilterMode === mode.key ? '2px solid var(--ps-deep-blue)' : '1px solid var(--ps-mist)',
+              background: inboundFilterMode === mode.key ? 'var(--ps-ice-blue)' : '#fff',
+            }}>
+              <input type="radio" name="inbound-filter" checked={inboundFilterMode === mode.key} onChange={() => setInboundFilterMode(mode.key)} />
+              <span><strong style={{ display: 'block' }}>{mode.title}</strong><span style={{ color: 'var(--ps-slate)', fontSize: '0.82rem' }}>{mode.description}</span></span>
+            </label>
+          ))}
+        </div>
+
+        <div style={{ display: 'flex', gap: 'var(--ps-space-md)', flexWrap: 'wrap' }}>
+          <label style={{ minWidth: 180 }}>
+            <span style={labelStyle}>Flood threshold</span>
+            <input className="ps-input" type="number" min={1} max={100} value={inboundRateLimitCount} onChange={(event) => setInboundRateLimitCount(Number(event.target.value))} />
+          </label>
+          <label style={{ minWidth: 180 }}>
+            <span style={labelStyle}>Window in minutes</span>
+            <input className="ps-input" type="number" min={1} max={1440} value={inboundRateLimitMinutes} onChange={(event) => setInboundRateLimitMinutes(Number(event.target.value))} />
+          </label>
+        </div>
+        <p style={{ ...hintStyle, marginTop: 'var(--ps-space-sm)', marginBottom: 0 }}>
+          After {inboundRateLimitCount} messages from one number in {inboundRateLimitMinutes} minutes, further messages go to Requests without alerting staff.
+        </p>
       </div>
 
       {/* ── Templates ── */}

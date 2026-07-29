@@ -49,6 +49,7 @@ import { ComposeMessagePage } from './pages/messaging/ComposeMessagePage'
 import { BroadcastsPage } from './pages/messaging/BroadcastsPage'
 import { NewBroadcastPage } from './pages/messaging/NewBroadcastPage'
 import { MessageHistoryPage } from './pages/messaging/MessageHistoryPage'
+import { SmsInboxPage } from './pages/messaging/SmsInboxPage'
 // Pharmacy Network (P2P)
 import { NetworkHubPage } from './pages/messaging/network/NetworkHubPage'
 import { NetworkComposePage } from './pages/messaging/network/NetworkComposePage'
@@ -347,6 +348,7 @@ export function App() {
 
         {/* Messaging — Patient */}
         <Route path="/messaging" element={<MessagingHubPage />} />
+        <Route path="/messaging/inbox" element={<SmsInboxPage />} />
         <Route path="/messaging/compose" element={<ComposeMessagePage />} />
         <Route path="/messaging/broadcasts" element={<BroadcastsPage />} />
         <Route path="/messaging/broadcasts/new" element={<NewBroadcastPage />} />

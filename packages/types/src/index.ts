@@ -1185,6 +1185,7 @@ export interface NotifyMessage {
   org_id: string
   patient_id: string | null
   recipient_phone: string | null
+  recipient_phone_normalized?: string | null
   recipient_email: string | null
   recipient_address: Record<string, string> | null
   channel: MessageChannel
@@ -1245,6 +1246,9 @@ export interface Broadcast {
 /** 'alpha' = one-way branded sender (3–11 chars); 'number' = two-way reply number. */
 export type SmsSenderType = 'alpha' | 'number'
 export type SmsReplyNumberStatus = 'available' | 'assigned' | 'suspended' | 'released'
+export type SmsInboundFilterMode = 'open' | 'filtered' | 'approved_only'
+export type SmsInboundDisposition = 'inbox' | 'quarantine' | 'blocked'
+export type SmsSenderControlStatus = 'approved' | 'blocked' | 'muted'
 
 /** Per-pharmacy SMS Works configuration (ps_sms_settings). */
 export interface SmsSettings {
@@ -1261,6 +1265,9 @@ export interface SmsSettings {
   /** Appended to every outbound SMS, e.g. "— Hollowtree Pharmacy". */
   signature: string | null
   is_active: boolean
+  inbound_filter_mode: SmsInboundFilterMode
+  inbound_rate_limit_count: number
+  inbound_rate_limit_minutes: number
   last_tested_at: string | null
   created_at: string
   updated_at: string
@@ -1301,6 +1308,7 @@ export interface SmsInbound {
   org_id: string
   reply_number: string | null
   from_number: string
+  normalized_from_number: string
   patient_id: string | null
   content: string
   provider_message_id: string | null
@@ -1308,9 +1316,24 @@ export interface SmsInbound {
   outbound_message_id: string | null
   metadata: Record<string, unknown> | null
   is_read: boolean
+  disposition: SmsInboundDisposition
+  disposition_reason: string | null
   received_at: string
   // Joined
   patient?: Patient
+}
+
+/** Per-pharmacy approval, block or temporary mute for an inbound sender. */
+export interface SmsSenderControl {
+  id: string
+  org_id: string
+  phone_number: string
+  status: SmsSenderControlStatus
+  muted_until: string | null
+  reason: string | null
+  created_by: string | null
+  created_at: string
+  updated_at: string
 }
 
 /** Monthly per-org usage rollup for chargeback (ps_sms_billing_summary view). */

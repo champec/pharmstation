@@ -1,3 +1,210 @@
+/* Patient SMS inbox */
+.sms-inbox-header,
+.sms-thread-header,
+.sms-reply-box > div,
+.sms-patient-strip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ps-space-md);
+}
+
+.sms-inbox-number {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  font-size: 0.8rem;
+  color: var(--ps-slate);
+}
+
+.sms-inbox-number strong {
+  color: var(--ps-deep-blue);
+  font-size: 1rem;
+}
+
+.sms-inbox-tabs {
+  display: flex;
+  gap: var(--ps-space-lg);
+  border-bottom: 1px solid var(--ps-mist);
+}
+
+.sms-inbox-tabs button {
+  border: 0;
+  border-bottom: 3px solid transparent;
+  background: transparent;
+  padding: var(--ps-space-sm) 0;
+  color: var(--ps-slate);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.sms-inbox-tabs button.active {
+  border-color: var(--ps-electric-cyan);
+  color: var(--ps-deep-blue);
+}
+
+.sms-inbox-workspace {
+  display: grid;
+  grid-template-columns: minmax(270px, 340px) minmax(0, 1fr);
+  height: min(720px, calc(100vh - 245px));
+  min-height: 520px;
+  border: 1px solid var(--ps-mist);
+  border-top: 0;
+  background: #fff;
+}
+
+.sms-conversation-list {
+  min-width: 0;
+  overflow-y: auto;
+  border-right: 1px solid var(--ps-mist);
+}
+
+.sms-conversation-search {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  padding: var(--ps-space-sm);
+  border-bottom: 1px solid var(--ps-mist);
+  background: #fff;
+}
+
+.sms-conversation-row {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 36px minmax(0, 1fr);
+  gap: var(--ps-space-sm);
+  border: 0;
+  border-bottom: 1px solid var(--ps-off-white);
+  background: #fff;
+  padding: var(--ps-space-md);
+  text-align: left;
+  cursor: pointer;
+}
+
+.sms-conversation-row:hover,
+.sms-conversation-row.selected {
+  background: var(--ps-ice-blue);
+}
+
+.sms-conversation-row.selected {
+  box-shadow: inset 3px 0 var(--ps-electric-cyan);
+}
+
+.sms-conversation-avatar {
+  width: 36px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--ps-deep-blue);
+  color: #fff;
+  font-weight: 700;
+}
+
+.sms-conversation-copy,
+.sms-conversation-name {
+  min-width: 0;
+  display: block;
+}
+
+.sms-conversation-name {
+  position: relative;
+  padding-right: 14px;
+  font-weight: 700;
+}
+
+.sms-unread-dot {
+  position: absolute;
+  top: 5px;
+  right: 0;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--ps-electric-cyan);
+}
+
+.sms-conversation-preview,
+.sms-conversation-meta {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--ps-slate);
+}
+
+.sms-conversation-preview { margin: 3px 0; font-size: 0.86rem; }
+.sms-conversation-meta { font-size: 0.74rem; }
+.sms-empty-list,
+.sms-thread-empty { padding: var(--ps-space-xl); color: var(--ps-slate); text-align: center; }
+
+.sms-thread-panel {
+  min-width: 0;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+}
+
+.sms-thread-header {
+  padding: var(--ps-space-md) var(--ps-space-lg);
+  border-bottom: 1px solid var(--ps-mist);
+}
+
+.sms-thread-header h2 { margin: 0; font-size: 1.15rem; }
+.sms-thread-header span { color: var(--ps-slate); font-size: 0.82rem; }
+.sms-thread-actions { display: flex; gap: var(--ps-space-xs); flex-wrap: wrap; justify-content: flex-end; }
+.sms-thread-body { overflow-y: auto; padding: var(--ps-space-md) var(--ps-space-lg); background: #f7f9fb; }
+
+.sms-patient-strip,
+.sms-patient-linker {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  margin: calc(var(--ps-space-md) * -1) calc(var(--ps-space-lg) * -1) var(--ps-space-md);
+  padding: var(--ps-space-sm) var(--ps-space-lg);
+  border-bottom: 1px solid var(--ps-mist);
+  background: #fff;
+  font-size: 0.82rem;
+}
+
+.sms-patient-strip { flex-wrap: wrap; justify-content: flex-start; }
+
+.sms-patient-strip button {
+  border: 0;
+  background: transparent;
+  color: var(--ps-deep-blue);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.sms-patient-linker { position: relative; }
+.sms-patient-results { position: absolute; top: calc(100% - var(--ps-space-sm)); left: var(--ps-space-lg); right: var(--ps-space-lg); z-index: 5; border: 1px solid var(--ps-mist); background: #fff; box-shadow: 0 8px 20px rgba(0, 48, 135, 0.12); }
+.sms-patient-results button { width: 100%; display: flex; justify-content: space-between; gap: var(--ps-space-md); border: 0; border-bottom: 1px solid var(--ps-off-white); background: #fff; padding: var(--ps-space-sm); text-align: left; cursor: pointer; }
+.sms-patient-results button:hover { background: var(--ps-ice-blue); }
+.sms-patient-results span { color: var(--ps-slate); font-size: 0.8rem; }
+
+.sms-message-stream { display: flex; flex-direction: column; gap: var(--ps-space-sm); }
+.sms-message { max-width: min(78%, 620px); padding: var(--ps-space-sm) var(--ps-space-md); border: 1px solid var(--ps-mist); background: #fff; line-height: 1.5; white-space: pre-wrap; }
+.sms-message.outbound { align-self: flex-end; border-color: #a8dce9; background: var(--ps-ice-blue); }
+.sms-message.inbound { align-self: flex-start; }
+.sms-message > span { display: block; margin-top: 4px; color: var(--ps-slate); font-size: 0.72rem; text-align: right; }
+
+.sms-reply-box { padding: var(--ps-space-md) var(--ps-space-lg); border-top: 1px solid var(--ps-mist); background: #fff; }
+.sms-reply-box textarea { resize: vertical; min-height: 72px; }
+.sms-reply-box > div:last-child { margin-top: var(--ps-space-xs); color: var(--ps-slate); font-size: 0.78rem; }
+.sms-reply-warning,
+.sms-reply-notice { margin-bottom: var(--ps-space-xs); color: var(--ps-warning); font-size: 0.82rem; }
+
+@media (max-width: 800px) {
+  .sms-inbox-workspace { grid-template-columns: 1fr; height: auto; min-height: 0; }
+  .sms-conversation-list { max-height: 320px; border-right: 0; border-bottom: 1px solid var(--ps-mist); }
+  .sms-thread-panel { min-height: 540px; }
+  .sms-inbox-header,
+  .sms-thread-header,
+  .sms-patient-strip { align-items: flex-start; flex-direction: column; }
+  .sms-inbox-number { align-items: flex-start; }
+  .sms-message { max-width: 90%; }
+}
 /* ============================================
    App-specific styles
    ============================================ */
