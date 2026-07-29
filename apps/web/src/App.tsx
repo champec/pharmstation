@@ -96,7 +96,7 @@ import { PaymentsPage } from './pages/payments/PaymentsPage'
 import { AboutPage } from './pages/public/AboutPage'
 import { PublicPharmacyMapPage } from './pages/public/PublicPharmacyMapPage'
 import { PrivacyNoticePage } from './pages/public/PrivacyNoticePage'
-import { PublicShopHomePage } from './pages/public/PublicShopHomePage'
+import { ModernShopHomePage } from './pages/public/ModernShopHomePage'
 import { PublicShopOrgPage } from './pages/public/PublicShopOrgPage'
 import { ShopProductsPage } from './pages/shop/ShopProductsPage'
 import { ShopOrdersPage } from './pages/shop/ShopOrdersPage'
@@ -182,7 +182,7 @@ export function App() {
       <Route path="/book/:orgSlug/:serviceId" element={<PublicServicePage />} />
       <Route path="/book/:orgSlug/:serviceId/confirm" element={<PublicBookingConfirmPage />} />
       <Route path="/book/:orgSlug/payment-result" element={<PaymentResultPage />} />
-      <Route path="/shop" element={<PublicShopHomePage />} />
+      <Route path="/shop" element={<ModernShopHomePage />} />
       <Route path="/shop/:orgSlug" element={<PublicShopOrgPage />} />
       <Route path="/about" element={<AboutPage />} />
       <Route path="/privacy" element={<PrivacyNoticePage />} />

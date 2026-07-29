@@ -344,8 +344,11 @@ export const useShopStore = create<ShopState>((set, get) => ({
   clearCart: () => set({ cart: [], cartOrgId: null }),
 
   placeOrder: async (params) => {
-    const { cart } = get()
+    const { cart, cartOrgId } = get()
     if (!cart.length) throw new Error('Cart is empty')
+    if (cartOrgId !== params.orgId || cart.some((item) => item.product.org_id !== params.orgId)) {
+      throw new Error('This basket contains items from a different pharmacy. Please review the basket before checkout.')
+    }
     const { data, error } = await getUserClient().rpc('ps_shop_place_order', {
       p_org_id: params.orgId,
       p_items: cart.map((c) => ({ product_id: c.product.id, quantity: c.quantity })),

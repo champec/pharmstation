@@ -7,7 +7,7 @@
 // ============================================================
 
 import { useEffect, useMemo, useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import { useShopStore, type ShopFrontOrg } from '@pharmstation/core'
 import type { ShopPlaceOrderResult, ShopQuestion } from '@pharmstation/types'
 
@@ -15,6 +15,7 @@ const formatPrice = (pence: number) => `£${(pence / 100).toFixed(2)}`
 
 export function PublicShopOrgPage() {
   const navigate = useNavigate()
+  const location = useLocation()
   const { orgSlug } = useParams<{ orgSlug: string }>()
   const {
     shopOrgs, publicProducts, categories, publicLoading,
@@ -25,7 +26,7 @@ export function PublicShopOrgPage() {
 
   const [search, setSearch] = useState('')
   const [categoryId, setCategoryId] = useState('')
-  const [cartOpen, setCartOpen] = useState(false)
+  const [cartOpen, setCartOpen] = useState(() => new URLSearchParams(location.search).get('basket') === 'open')
   const [checkoutOpen, setCheckoutOpen] = useState(false)
 
   // Checkout form
@@ -69,13 +70,25 @@ export function PublicShopOrgPage() {
   const usedCategoryIds = useMemo(() => new Set(publicProducts.filter((p) => !org || p.org_id === org.org_id).map((p) => p.category_id)), [publicProducts, org])
 
   const cartForThisOrg = org && cartOrgId === org.org_id ? cart : []
-  const cartCount = cartForThisOrg.reduce((n, c) => n + c.quantity, 0)
+  const cartOwner = cartOrgId ? shopOrgs.find((shopOrg) => shopOrg.org_id === cartOrgId) : undefined
+  const cartCount = cart.reduce((n, c) => n + c.quantity, 0)
   const cartSubtotal = cartForThisOrg.reduce((n, c) => n + c.product.price_pence * c.quantity, 0)
   const hasCheckItems = cartForThisOrg.some((c) => c.product.requires_availability_check)
   const consultationItems = cartForThisOrg.filter((c) => c.product.questionnaire && c.product.questionnaire.questions.length > 0)
 
   const setAnswer = (productId: string, questionId: string, value: string) => {
     setQAnswers((prev) => ({ ...prev, [productId]: { ...(prev[productId] || {}), [questionId]: value } }))
+  }
+
+  const addProductToCart = (product: typeof publicProducts[number]) => {
+    if (cart.length && cartOrgId && cartOrgId !== product.org_id) {
+      const shouldSwitch = window.confirm(
+        `Your basket contains items from ${cartOwner?.name || 'another pharmacy'}. `
+        + `Pharmacies are checked out separately, so starting an order with ${org?.name || 'this pharmacy'} will clear that basket. Continue?`,
+      )
+      if (!shouldSwitch) return
+    }
+    addToCart(product)
   }
 
   const missingRequiredAnswers = consultationItems.some((c) =>
@@ -127,164 +140,97 @@ export function PublicShopOrgPage() {
 
   if (!publicLoading && shopOrgs.length && !org) {
     return (
-      <div style={{ minHeight: '100vh', background: '#f0f4f8', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <div style={{ background: 'white', borderRadius: 14, padding: 40, textAlign: 'center' }}>
-          <p style={{ fontSize: 40, margin: '0 0 8px' }}>🏥</p>
-          <h2 style={{ margin: '0 0 8px', color: '#0f172a' }}>Shop not found</h2>
-          <p style={{ color: '#64748b', margin: '0 0 20px' }}>This pharmacy's shop is not available right now.</p>
-          <button onClick={() => navigate('/shop')} style={{ background: '#0077B6', color: 'white', border: 'none', borderRadius: 10, padding: '10px 22px', fontWeight: 700, cursor: 'pointer' }}>
-            ← Back to marketplace
-          </button>
+      <div className="modern-shop patient-shop-missing">
+        <div>
+          <span className="modern-shop-wordmark">Pharm<span>Station</span></span>
+          <h2>Shop not found</h2>
+          <p>This pharmacy's shop is not available right now.</p>
+          <button onClick={() => navigate('/shop')}>← Back to local shops</button>
         </div>
       </div>
     )
   }
 
   return (
-    <div style={{ minHeight: '100vh', background: '#f0f4f8', display: 'flex', flexDirection: 'column' }}>
-      {/* Nav bar */}
-      <header style={{
-        background: 'white', borderBottom: '1px solid #e2e8f0', padding: '0 24px', height: 56,
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        position: 'sticky', top: 0, zIndex: 10,
-      }}>
-        <span style={{ fontSize: 22, fontWeight: 800, color: '#0077B6', letterSpacing: '-0.5px', cursor: 'pointer' }} onClick={() => navigate('/shop')}>
-          Pharm<span style={{ color: '#00B4D8' }}>Station</span>
-          <span style={{ marginLeft: 8, fontSize: 13, fontWeight: 700, background: '#e0f2fe', color: '#0369a1', borderRadius: 999, padding: '3px 10px', verticalAlign: 'middle' }}>Shop</span>
-        </span>
-        <nav style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
-          <a href="/shop" onClick={(e) => { e.preventDefault(); navigate('/shop') }} style={{ color: '#475569', fontSize: 14, textDecoration: 'none', fontWeight: 500 }}>← All pharmacies</a>
-          <button
-            onClick={() => setCartOpen(true)}
-            style={{ background: cartCount ? '#0077B6' : '#f1f5f9', color: cartCount ? 'white' : '#475569', border: 'none', borderRadius: 999, padding: '8px 16px', fontSize: 14, fontWeight: 700, cursor: 'pointer' }}
-          >
-            🛒 Basket{cartCount ? ` (${cartCount})` : ''}
+    <div className="modern-shop modern-store">
+      <div className="modern-shop-offer">Order from your local pharmacy <span>•</span> Pay in store or on delivery</div>
+      <header className="modern-store-header">
+        <button className="modern-shop-logo" type="button" onClick={() => navigate('/shop')}>
+          <span className="modern-shop-wordmark">Pharm<span>Station</span></span><small>Shop</small>
+        </button>
+        <nav>
+          <a href="/shop" onClick={(event) => { event.preventDefault(); navigate('/shop') }}>Shop all</a>
+          <a href={`/book/${org?.slug || org?.org_id || ''}`} onClick={(event) => { event.preventDefault(); if (org) navigate(`/book/${org.slug || org.org_id}`) }}>Book a service</a>
+          <button className="modern-store-basket" type="button" onClick={() => setCartOpen(true)}>
+            <span>▢</span> Basket <b>{cartCount}</b>
           </button>
         </nav>
       </header>
 
-      {/* Pharmacy header */}
       {org && (
-        <section style={{ background: 'white', borderBottom: '1px solid #e2e8f0', padding: '28px 24px' }}>
-          <div style={{ maxWidth: 1080, margin: '0 auto', display: 'flex', gap: 16, alignItems: 'center', flexWrap: 'wrap' }}>
+        <section className="patient-shop-store-hero">
+          <div className="patient-shop-store-identity">
             {org.public_logo_url ? (
-              <img src={org.public_logo_url} alt={org.name} style={{ width: 64, height: 64, borderRadius: 14, objectFit: 'cover' }} />
+              <img src={org.public_logo_url} alt={org.name} />
             ) : (
-              <div style={{ width: 64, height: 64, borderRadius: 14, background: '#e0f2fe', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 30 }}>🏥</div>
+              <span className="patient-shop-store-logo" aria-hidden="true">{org.name.slice(0, 2).toUpperCase()}</span>
             )}
-            <div style={{ flex: 1, minWidth: 220 }}>
-              <h1 style={{ margin: 0, fontSize: 24, color: '#0f172a' }}>{org.name}</h1>
-              <p style={{ margin: '4px 0 0', color: '#64748b', fontSize: 14 }}>
-                {[org.address?.line_1, org.address?.city, org.address?.postcode].filter(Boolean).join(', ')}
-              </p>
-              <div style={{ display: 'flex', gap: 8, marginTop: 8, flexWrap: 'wrap' }}>
-                {org.delivery_enabled ? (
-                  <span style={{ background: '#d1fae5', color: '#065f46', borderRadius: 999, padding: '3px 10px', fontSize: 12, fontWeight: 600 }}>
-                    🚚 Delivery up to {org.delivery_radius_km} km · {org.delivery_fee_pence > 0 ? formatPrice(org.delivery_fee_pence) : 'Free'}
-                    {org.free_delivery_threshold_pence != null && org.delivery_fee_pence > 0 ? ` (free over ${formatPrice(org.free_delivery_threshold_pence)})` : ''}
-                  </span>
-                ) : (
-                  <span style={{ background: '#f1f5f9', color: '#475569', borderRadius: 999, padding: '3px 10px', fontSize: 12, fontWeight: 600 }}>🏪 Collection only</span>
-                )}
-                <a
-                  href={`/book/${org.slug || org.org_id}`}
-                  onClick={(e) => { e.preventDefault(); navigate(`/book/${org.slug || org.org_id}`) }}
-                  style={{ background: '#e0f2fe', color: '#0369a1', borderRadius: 999, padding: '3px 10px', fontSize: 12, fontWeight: 600, textDecoration: 'none' }}
-                >
-                  📅 Book a service →
-                </a>
-              </div>
+            <div>
+              <span className="patient-shop-eyebrow">Local independent pharmacy</span>
+              <h1>{org.name}</h1>
+              <p>{[org.address?.line_1, org.address?.city, org.address?.postcode].filter(Boolean).join(', ')}</p>
+              {org.public_description && <p className="patient-shop-store-description">{org.public_description}</p>}
             </div>
+          </div>
+          <div className="patient-shop-store-service">
+            <div><span>Fulfilment</span><strong>{org.delivery_enabled ? 'Collection & local delivery' : 'Collection from pharmacy'}</strong></div>
+            {org.delivery_enabled && <div><span>Delivery area</span><strong>Up to {org.delivery_radius_km} km · {org.delivery_fee_pence ? formatPrice(org.delivery_fee_pence) : 'Free'}</strong></div>}
+            {org.free_delivery_threshold_pence != null && org.delivery_fee_pence > 0 && <div><span>Free delivery</span><strong>Orders over {formatPrice(org.free_delivery_threshold_pence)}</strong></div>}
+            <a href={`/book/${org.slug || org.org_id}`} onClick={(event) => { event.preventDefault(); navigate(`/book/${org.slug || org.org_id}`) }}>Book a pharmacy service →</a>
           </div>
         </section>
       )}
 
-      {/* Controls */}
-      <div style={{ maxWidth: 1080, margin: '0 auto', width: '100%', padding: '20px 24px 0', boxSizing: 'border-box' }}>
-        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-          <input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search this shop…"
-            style={{ flex: 1, minWidth: 200, border: '1px solid #e2e8f0', borderRadius: 10, padding: '10px 14px', fontSize: 14 }}
-          />
-        </div>
-        <div style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
-          <button
-            onClick={() => setCategoryId('')}
-            style={{ border: '1px solid #e2e8f0', background: categoryId === '' ? '#0077B6' : 'white', color: categoryId === '' ? 'white' : '#475569', borderRadius: 999, padding: '6px 14px', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}
-          >
-            All
-          </button>
-          {categories.filter((c) => usedCategoryIds.has(c.id)).map((c) => (
-            <button
-              key={c.id}
-              onClick={() => setCategoryId(c.id)}
-              style={{ border: '1px solid #e2e8f0', background: categoryId === c.id ? '#0077B6' : 'white', color: categoryId === c.id ? 'white' : '#475569', borderRadius: 999, padding: '6px 14px', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}
-            >
-              {c.name}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Product grid */}
-      <main style={{ flex: 1, maxWidth: 1080, margin: '0 auto', width: '100%', padding: 24, boxSizing: 'border-box' }}>
-        {publicLoading && <p style={{ textAlign: 'center', color: '#64748b' }}>Loading…</p>}
-        {!publicLoading && products.length === 0 && (
-          <div style={{ background: 'white', borderRadius: 14, padding: 40, textAlign: 'center', color: '#64748b' }}>
-            No products{search || categoryId ? ' match your filters' : ' listed yet'}.
+      <main className="patient-shop-store-main">
+        <div className="patient-shop-store-heading"><div><span className="patient-shop-eyebrow">Shop the pharmacy</span><h2>Everyday health & wellbeing</h2></div><span>{products.length} products</span></div>
+        <div className="patient-shop-store-tools">
+          <label className="patient-shop-search"><span>⌕</span><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search this pharmacy" /></label>
+          <div className="patient-shop-categories">
+            <button type="button" className={!categoryId ? 'active' : ''} onClick={() => setCategoryId('')}>All products</button>
+            {categories.filter((category) => usedCategoryIds.has(category.id)).map((category) => <button type="button" key={category.id} className={categoryId === category.id ? 'active' : ''} onClick={() => setCategoryId(category.id)}>{category.name}</button>)}
           </div>
+        </div>
+
+        {publicLoading && <div className="patient-shop-loading"><i /><span>Loading the pharmacy shelves…</span></div>}
+        {!publicLoading && products.length === 0 && (
+          <div className="patient-shop-empty"><strong>No products{search || categoryId ? ' match your filters' : ' are listed yet'}.</strong><span>Try another search or category.</span></div>
         )}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 16 }}>
+        <div className="patient-shop-store-products">
           {products.map((p) => {
             const inCart = cartForThisOrg.find((c) => c.product.id === p.id)
             const out = p.stock_quantity === 0
             return (
-              <div key={p.id} style={{ background: 'white', borderRadius: 14, overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.06)', display: 'flex', flexDirection: 'column' }}>
-                {p.image_url ? (
-                  <img src={p.image_url} alt={p.name} style={{ width: '100%', height: 130, objectFit: 'cover' }} />
-                ) : (
-                  <div style={{ width: '100%', height: 130, background: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 36 }}>📦</div>
-                )}
-                <div style={{ padding: 14, display: 'flex', flexDirection: 'column', flex: 1 }}>
-                  <h4 style={{ margin: 0, fontSize: 14, color: '#0f172a' }}>{p.name}</h4>
-                  {p.description && <p style={{ margin: '4px 0 0', color: '#64748b', fontSize: 12, lineHeight: 1.45 }}>{p.description}</p>}
-                  {p.requires_availability_check && (
-                    <span style={{ marginTop: 6, alignSelf: 'flex-start', background: '#fef3c7', color: '#92400e', borderRadius: 999, padding: '2px 8px', fontSize: 11, fontWeight: 600 }}>
-                      Pharmacy confirms availability
-                    </span>
-                  )}
-                  {p.questionnaire && (
-                    <span style={{ marginTop: 6, alignSelf: 'flex-start', background: '#ede9fe', color: '#5b21b6', borderRadius: 999, padding: '2px 8px', fontSize: 11, fontWeight: 600 }}>
-                      📝 Short consultation at checkout
-                    </span>
-                  )}
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 'auto', paddingTop: 10 }}>
-                    <strong style={{ color: '#0077B6', fontSize: 15 }}>{formatPrice(p.price_pence)}</strong>
+              <article key={p.id} className="patient-shop-store-product">
+                <div className="patient-shop-store-product-media">{p.image_url ? <img src={p.image_url} alt={p.name} /> : <span className="modern-shop-product-placeholder">Product image</span>}{p.questionnaire && <b>Consultation</b>}</div>
+                <div className="patient-shop-store-product-copy">
+                  <small>{p.category?.name || 'Pharmacy product'}</small>
+                  <h3>{p.name}</h3>
+                  {p.description && <p>{p.description}</p>}
+                  {p.requires_availability_check && <em>Pharmacy confirms availability</em>}
+                  <div className="patient-shop-store-product-buy">
+                    <strong>{formatPrice(p.price_pence)}</strong>
                     {out ? (
-                      <span style={{ fontSize: 12, color: '#dc2626', fontWeight: 600 }}>Out of stock</span>
+                      <span className="patient-shop-out">Out of stock</span>
                     ) : inCart ? (
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                        <button onClick={() => updateCartQuantity(p.id, inCart.quantity - 1)} style={{ width: 28, height: 28, borderRadius: 8, border: '1px solid #e2e8f0', background: 'white', cursor: 'pointer', fontWeight: 700 }}>−</button>
-                        <span style={{ fontWeight: 700, minWidth: 18, textAlign: 'center' }}>{inCart.quantity}</span>
-                        <button
-                          onClick={() => addToCart(p)}
-                          disabled={inCart.quantity >= p.stock_quantity}
-                          style={{ width: 28, height: 28, borderRadius: 8, border: 'none', background: '#0077B6', color: 'white', cursor: 'pointer', fontWeight: 700, opacity: inCart.quantity >= p.stock_quantity ? 0.4 : 1 }}
-                        >+</button>
+                      <div className="patient-shop-quantity">
+                        <button type="button" onClick={() => updateCartQuantity(p.id, inCart.quantity - 1)}>−</button><span>{inCart.quantity}</span><button type="button" onClick={() => addProductToCart(p)} disabled={inCart.quantity >= p.stock_quantity}>+</button>
                       </div>
                     ) : (
-                      <button
-                        onClick={() => addToCart(p)}
-                        style={{ background: '#0077B6', color: 'white', border: 'none', borderRadius: 8, padding: '7px 14px', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}
-                      >
-                        Add
-                      </button>
+                      <button type="button" onClick={() => addProductToCart(p)}>Add to basket</button>
                     )}
                   </div>
                 </div>
-              </div>
+              </article>
             )
           })}
         </div>
@@ -292,14 +238,22 @@ export function PublicShopOrgPage() {
 
       {/* Cart drawer */}
       {cartOpen && (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 50, display: 'flex', justifyContent: 'flex-end', background: 'rgba(15,23,42,0.4)' }} onClick={() => setCartOpen(false)}>
-          <div style={{ background: 'white', width: 'min(420px, 100%)', height: '100%', padding: 24, boxSizing: 'border-box', overflowY: 'auto', display: 'flex', flexDirection: 'column' }} onClick={(e) => e.stopPropagation()}>
+        <div className="patient-shop-overlay patient-shop-cart-overlay" style={{ position: 'fixed', inset: 0, zIndex: 50, display: 'flex', justifyContent: 'flex-end', background: 'rgba(15,23,42,0.4)' }} onClick={() => setCartOpen(false)}>
+          <div className="patient-shop-cart-panel" style={{ background: 'white', width: 'min(420px, 100%)', height: '100%', padding: 24, boxSizing: 'border-box', overflowY: 'auto', display: 'flex', flexDirection: 'column' }} onClick={(e) => e.stopPropagation()}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
               <h2 style={{ margin: 0, fontSize: 20, color: '#0f172a' }}>🛒 Your basket</h2>
               <button onClick={() => setCartOpen(false)} style={{ border: 'none', background: 'none', fontSize: 22, cursor: 'pointer', color: '#64748b' }}>×</button>
             </div>
-            {cartForThisOrg.length === 0 ? (
+            {cart.length === 0 ? (
               <p style={{ color: '#64748b' }}>Your basket is empty.</p>
+            ) : cartOrgId !== org?.org_id ? (
+              <div className="modern-store-other-cart">
+                <span>Basket saved</span>
+                <strong>{cartCount} item{cartCount === 1 ? '' : 's'} from {cartOwner?.name || 'another pharmacy'}</strong>
+                <p>Each pharmacy is a separate order. Delivery charges and collection options are calculated by that pharmacy.</p>
+                <button type="button" onClick={() => { setCartOpen(false); navigate(`/shop/${cartOwner?.slug || cartOrgId}?basket=open`) }}>Go to this basket</button>
+                <button type="button" onClick={clearCart}>Empty basket</button>
+              </div>
             ) : (
               <>
                 <div style={{ flex: 1, display: 'grid', gap: 12, alignContent: 'start' }}>
@@ -341,8 +295,8 @@ export function PublicShopOrgPage() {
 
       {/* Checkout modal */}
       {checkoutOpen && org && (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 60, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(15,23,42,0.5)', padding: 16 }} onClick={() => setCheckoutOpen(false)}>
-          <div style={{ background: 'white', borderRadius: 16, padding: 28, width: 'min(480px, 100%)', maxHeight: '90vh', overflowY: 'auto', boxSizing: 'border-box' }} onClick={(e) => e.stopPropagation()}>
+        <div className="patient-shop-overlay patient-shop-checkout-overlay" style={{ position: 'fixed', inset: 0, zIndex: 60, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(15,23,42,0.5)', padding: 16 }} onClick={() => setCheckoutOpen(false)}>
+          <div className="patient-shop-checkout-panel" style={{ background: 'white', borderRadius: 16, padding: 28, width: 'min(480px, 100%)', maxHeight: '90vh', overflowY: 'auto', boxSizing: 'border-box' }} onClick={(e) => e.stopPropagation()}>
             <h2 style={{ margin: '0 0 4px', fontSize: 20, color: '#0f172a' }}>Checkout</h2>
             <p style={{ margin: '0 0 18px', color: '#64748b', fontSize: 13 }}>
               {org.name} · Pay in store{org.delivery_enabled ? ' or on delivery' : ''}. Online payment is coming soon.
@@ -353,8 +307,9 @@ export function PublicShopOrgPage() {
             )}
 
             {/* Fulfilment */}
-            <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+            <div className="modern-store-fulfilment" style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
               <button
+                className={fulfilment === 'collection' ? 'selected' : ''}
                 onClick={() => setFulfilment('collection')}
                 style={{ flex: 1, border: fulfilment === 'collection' ? '2px solid #0077B6' : '1px solid #e2e8f0', background: fulfilment === 'collection' ? '#e0f2fe' : 'white', borderRadius: 10, padding: '12px 8px', fontWeight: 700, cursor: 'pointer', color: '#0f172a' }}
               >
@@ -362,6 +317,7 @@ export function PublicShopOrgPage() {
               </button>
               {org.delivery_enabled && (
                 <button
+                  className={fulfilment === 'delivery' ? 'selected' : ''}
                   onClick={() => setFulfilment('delivery')}
                   style={{ flex: 1, border: fulfilment === 'delivery' ? '2px solid #0077B6' : '1px solid #e2e8f0', background: fulfilment === 'delivery' ? '#e0f2fe' : 'white', borderRadius: 10, padding: '12px 8px', fontWeight: 700, cursor: 'pointer', color: '#0f172a' }}
                 >
@@ -417,7 +373,7 @@ export function PublicShopOrgPage() {
 
             {/* Consultation questionnaires */}
             {consultationItems.map((c) => (
-              <div key={c.product.id} style={{ marginTop: 16, border: '1px solid #ede9fe', background: '#faf5ff', borderRadius: 12, padding: 16 }}>
+              <div className="modern-store-consultation" key={c.product.id} style={{ marginTop: 16, border: '1px solid #ede9fe', background: '#faf5ff', borderRadius: 12, padding: 16 }}>
                 <div style={{ fontWeight: 700, fontSize: 14, color: '#5b21b6', marginBottom: 4 }}>
                   📝 {c.product.questionnaire!.name}
                 </div>
@@ -499,8 +455,8 @@ export function PublicShopOrgPage() {
 
       {/* Order confirmation */}
       {confirmation && (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 70, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(15,23,42,0.5)', padding: 16 }}>
-          <div style={{ background: 'white', borderRadius: 16, padding: 32, width: 'min(440px, 100%)', textAlign: 'center', boxSizing: 'border-box' }}>
+        <div className="patient-shop-overlay patient-shop-confirm-overlay" style={{ position: 'fixed', inset: 0, zIndex: 70, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(15,23,42,0.5)', padding: 16 }}>
+          <div className="patient-shop-confirm-panel" style={{ background: 'white', borderRadius: 16, padding: 32, width: 'min(440px, 100%)', textAlign: 'center', boxSizing: 'border-box' }}>
             <div style={{ fontSize: 52, marginBottom: 8 }}>✅</div>
             <h2 style={{ margin: '0 0 6px', color: '#0f172a' }}>Order placed!</h2>
             <p style={{ margin: '0 0 14px', color: '#64748b', fontSize: 14 }}>
@@ -523,9 +479,7 @@ export function PublicShopOrgPage() {
         </div>
       )}
 
-      <footer style={{ textAlign: 'center', padding: '20px 24px', color: '#94a3b8', fontSize: 13 }}>
-        © {new Date().getFullYear()} PharmStation · Orders are fulfilled directly by {org?.name || 'the pharmacy'}
-      </footer>
+      <footer className="modern-store-footer"><span className="modern-shop-logo"><span className="modern-shop-wordmark">Pharm<span>Station</span></span><small>Shop</small></span><span>Orders are prepared and fulfilled directly by {org?.name || 'the pharmacy'}.</span><span>© {new Date().getFullYear()} PharmStation</span></footer>
     </div>
   )
 }
