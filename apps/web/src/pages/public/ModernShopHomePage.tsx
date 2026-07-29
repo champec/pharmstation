@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useShopStore } from '@pharmstation/core'
+import { PublicFooter } from '../../components/public/PublicFooter'
 
 const formatPrice = (pence: number) => `£${(pence / 100).toFixed(2)}`
 
@@ -177,6 +178,6 @@ export function ModernShopHomePage() {
       </section>
     </main>
 
-    <footer className="modern-shop-footer"><div><span className="modern-shop-logo"><span className="modern-shop-wordmark">Pharm<span>Station</span></span><small>Shop</small></span><p>Local pharmacy shopping with professional care built in.</p></div><div><strong>Explore</strong><a href="/shop">Shop</a><a href="/book">Book services</a><a href="/maps">Find a pharmacy</a></div><div><strong>Account</strong><a href="/patient/login">Sign in</a><a href="/privacy">Privacy</a></div><small>Orders are fulfilled directly by participating pharmacies.<br />© {new Date().getFullYear()} PharmStation</small></footer>
+    <PublicFooter />
   </div>
 }

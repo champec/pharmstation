@@ -2367,6 +2367,7 @@ export type AlertEventType =
   | 'appointment'
   | 'peps'
   | 'network_message'
+  | 'shop_order'
   | 'system'
   | 'patient_message'
   | (string & {})
@@ -2538,6 +2539,8 @@ export interface ShopOrder {
   total_pence: number
   customer_notes: string | null
   org_notes: string | null
+  delivery_round_id: string | null
+  delivery_round_patient_id: string | null
   created_at: string
   updated_at: string
   // Joined

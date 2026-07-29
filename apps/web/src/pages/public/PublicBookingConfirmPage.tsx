@@ -3,6 +3,7 @@ import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { getUserClient } from '@pharmstation/supabase-client'
 import type { Organisation, Service, AppointmentSlot, ServiceForm, ServiceFormField } from '@pharmstation/types'
 import { orgSlugOrIdFilter } from '../../lib/orgSlugFilter'
+import { PublicFooter } from '../../components/public/PublicFooter'
 
 export function PublicBookingConfirmPage() {
   const { orgSlug, serviceId } = useParams<{ orgSlug: string; serviceId: string }>()
@@ -132,52 +133,25 @@ export function PublicBookingConfirmPage() {
 
   if (submitted) {
     return (
-      <div style={{ maxWidth: '600px', margin: '80px auto', textAlign: 'center', padding: '0 var(--ps-space-lg)' }}>
-        <div className="ps-card" style={{ padding: 'var(--ps-space-2xl)' }}>
-          <div style={{ fontSize: '3rem', marginBottom: 'var(--ps-space-md)' }}>✅</div>
-          <h1 style={{ marginBottom: 'var(--ps-space-sm)' }}>Booking Confirmed!</h1>
-          <p style={{ color: 'var(--ps-slate)', marginBottom: 'var(--ps-space-md)' }}>
-            Your appointment for <strong>{service?.name}</strong> at <strong>{org?.name}</strong> has been booked.
-          </p>
-          {slot && (
-            <p style={{ color: 'var(--ps-slate)', marginBottom: 'var(--ps-space-lg)' }}>
-              📅 {new Date(slot.start_time).toLocaleString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
-            </p>
-          )}
-          <p style={{ color: 'var(--ps-slate)', fontSize: 'var(--ps-font-sm)' }}>The pharmacy will confirm your appointment shortly.</p>
-          <button className="ps-btn ps-btn-primary" onClick={() => navigate('/book')} style={{ marginTop: 'var(--ps-space-lg)' }}>Back to Home</button>
-        </div>
+      <div className="booking-public"><header className="booking-nav"><button type="button" className="booking-wordmark" onClick={() => navigate('/book')}>Pharm<span>Station</span><small>Book</small></button></header><main className="booking-result"><div className="booking-result-mark">✓</div><span className="booking-eyebrow">Appointment requested</span><h1>You're booked in.</h1><p>Your appointment for <strong>{service?.name}</strong> at <strong>{org?.name}</strong> has been created.</p>{slot && <div className="booking-result-detail"><span>Date and time</span><strong>{new Date(slot.start_time).toLocaleString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</strong></div>}<small>The pharmacy will confirm your appointment shortly.</small><button type="button" className="booking-primary-action" onClick={() => navigate('/book')}>Book another service</button></main><PublicFooter />
       </div>
     )
   }
 
   if (loading) {
-    return <div style={{ maxWidth: '600px', margin: '60px auto', textAlign: 'center', color: 'var(--ps-slate)' }}>Loading booking details…</div>
+    return <div className="booking-public"><div className="booking-loading booking-page-state"><i /><span>Loading booking details…</span></div></div>
   }
 
   return (
-    <div style={{ maxWidth: '700px', margin: '40px auto', padding: '0 var(--ps-space-lg)' }}>
-      <button className="ps-btn ps-btn-ghost" onClick={() => navigate(-1)} style={{ marginBottom: 'var(--ps-space-md)' }}>← Back</button>
-
-      <h1 style={{ marginBottom: 'var(--ps-space-sm)' }}>Confirm Your Booking</h1>
-
-      {/* Booking summary */}
-      <div className="ps-card" style={{ padding: 'var(--ps-space-lg)', marginBottom: 'var(--ps-space-xl)' }}>
-        <h3 style={{ margin: '0 0 var(--ps-space-sm)' }}>{service?.name}</h3>
-        <p style={{ color: 'var(--ps-slate)', margin: 0 }}>{org?.name}</p>
-        {slot && (
-          <p style={{ color: 'var(--ps-slate)', margin: '4px 0 0' }}>
-            📅 {new Date(slot.start_time).toLocaleString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
-            {' – '}
-            {new Date(slot.end_time).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}
-          </p>
-        )}
-      </div>
-
-      {/* Patient info */}
-      <div className="ps-card" style={{ padding: 'var(--ps-space-lg)', marginBottom: 'var(--ps-space-lg)' }}>
-        <h3 style={{ margin: '0 0 var(--ps-space-md)' }}>Your Details</h3>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--ps-space-md)' }}>
+    <div className="booking-public">
+      <header className="booking-nav"><button type="button" className="booking-wordmark" onClick={() => navigate('/book')}>Pharm<span>Station</span><small>Book</small></button><nav><a href="/shop">Shop</a><a href="/maps">Find a pharmacy</a><a href="/patient/login">Sign in</a></nav></header>
+      <main className="booking-confirm-main">
+        <button type="button" className="booking-back" onClick={() => navigate(-1)}>← Choose another time</button>
+        <header className="booking-confirm-heading"><span className="booking-eyebrow">Step 3 of 3</span><h1>Complete your booking</h1><p>Check the appointment and tell the pharmacy who will be attending.</p></header>
+        <div className="booking-confirm-layout">
+          <aside className="booking-confirm-summary"><span className="booking-eyebrow">Appointment summary</span><h2>{service?.name}</h2><dl><div><dt>Pharmacy</dt><dd>{org?.name}</dd></div>{slot && <><div><dt>Date</dt><dd>{new Date(slot.start_time).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })}</dd></div><div><dt>Time</dt><dd>{new Date(slot.start_time).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })} – {new Date(slot.end_time).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}</dd></div></>}{service?.is_chargeable && service.price_pence != null && service.price_pence > 0 && <div><dt>Payment</dt><dd>£{(service.price_pence / 100).toFixed(2)} online after confirmation</dd></div>}</dl><p>Your details are sent securely to the pharmacy handling this appointment.</p></aside>
+          <div className="booking-confirm-form">
+            <section><header><span>01</span><div><h2>Your details</h2><p>Fields marked * are required.</p></div></header><div className="booking-form-grid">
           <div className="form-group">
             <label>First Name *</label>
             <input className="ps-input" value={firstName} onChange={(e) => setFirstName(e.target.value)} />
@@ -202,36 +176,26 @@ export function PublicBookingConfirmPage() {
             <label>NHS Number</label>
             <input className="ps-input" value={nhsNumber} onChange={(e) => setNhsNumber(e.target.value)} />
           </div>
-        </div>
-      </div>
+            </div></section>
 
-      {/* Service form */}
       {form && form.fields && form.fields.length > 0 && (
-        <div className="ps-card" style={{ padding: 'var(--ps-space-lg)', marginBottom: 'var(--ps-space-lg)' }}>
-          <h3 style={{ margin: '0 0 var(--ps-space-md)' }}>{form.name}</h3>
+        <section><header><span>02</span><div><h2>{form.name}</h2><p>These answers help the pharmacy prepare safely.</p></div></header><div className="booking-dynamic-fields">
           {form.fields.map((field) => (
             <div className="form-group" key={field.id}>
               <label>{field.label}{field.is_required ? ' *' : ''}</label>
               <FormField field={field} value={formData[field.field_key]} onChange={(v) => setFormData((p) => ({ ...p, [field.field_key]: v }))} />
             </div>
           ))}
-        </div>
+        </div></section>
       )}
 
-      {/* Notes */}
-      <div className="ps-card" style={{ padding: 'var(--ps-space-lg)', marginBottom: 'var(--ps-space-xl)' }}>
-        <h3 style={{ margin: '0 0 var(--ps-space-md)' }}>Additional Notes</h3>
-        <textarea className="ps-input" value={notes} onChange={(e) => setNotes(e.target.value)} rows={3} style={{ width: '100%', resize: 'vertical' }} placeholder="Any additional information…" />
-      </div>
-
-      {error && <div className="auth-error" style={{ marginBottom: 'var(--ps-space-md)' }}>{error}</div>}
-
-      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 'var(--ps-space-sm)' }}>
-        <button className="ps-btn ps-btn-secondary" onClick={() => navigate(-1)} disabled={submitting}>Cancel</button>
-        <button className="ps-btn ps-btn-primary" onClick={handleSubmit} disabled={submitting || !firstName.trim() || !lastName.trim()}>
-          {submitting ? 'Booking…' : 'Confirm Booking'}
-        </button>
-      </div>
+            <section><header><span>{form?.fields?.length ? '03' : '02'}</span><div><h2>Anything else?</h2><p>Optional information for the pharmacy team.</p></div></header><textarea className="ps-input" value={notes} onChange={(e) => setNotes(e.target.value)} rows={4} placeholder="Add a note for the pharmacy" /></section>
+            {error && <div className="booking-form-error">{error}</div>}
+            <footer><button type="button" className="booking-secondary-action" onClick={() => navigate(-1)} disabled={submitting}>Cancel</button><button type="button" className="booking-primary-action" onClick={handleSubmit} disabled={submitting || !firstName.trim() || !lastName.trim()}>{submitting ? 'Booking…' : service?.is_chargeable && service.price_pence != null && service.price_pence > 0 ? 'Continue to secure payment →' : 'Confirm booking →'}</button></footer>
+          </div>
+        </div>
+      </main>
+      <PublicFooter />
     </div>
   )
 }
@@ -248,7 +212,7 @@ function FormField({ field, value, onChange }: { field: ServiceFormField; value:
       return <textarea className="ps-input" value={value || ''} onChange={(e) => onChange(e.target.value)} rows={3} style={{ width: '100%', resize: 'vertical' }} />
     case 'boolean':
       return (
-        <label style={{ display: 'flex', alignItems: 'center', gap: 'var(--ps-space-sm)' }}>
+        <label className="booking-checkbox-option">
           <input type="checkbox" checked={!!value} onChange={(e) => onChange(e.target.checked)} />
           {field.label}
         </label>
@@ -266,9 +230,9 @@ function FormField({ field, value, onChange }: { field: ServiceFormField; value:
       const opts = ((field.options as any)?.choices || []) as string[]
       const selected: string[] = value || []
       return (
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--ps-space-sm)' }}>
+        <div className="booking-multiselect-options">
           {opts.map((o) => (
-            <label key={o} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+            <label key={o}>
               <input
                 type="checkbox"
                 checked={selected.includes(o)}

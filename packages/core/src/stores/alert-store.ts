@@ -30,6 +30,7 @@ export const ALERT_EVENT_TYPES: { key: AlertEventType; label: string; descriptio
   { key: 'appointment', label: 'New appointments', description: 'A patient books (or a booking is made for them).' },
   { key: 'peps', label: 'Prescription alerts', description: 'A new private prescription (PEPS) is sent to this pharmacy.' },
   { key: 'network_message', label: 'Pharmacy network', description: 'Another pharmacy sends a direct message or broadcast.' },
+  { key: 'shop_order', label: 'Shop orders', description: 'A customer places an order in your marketplace shop.' },
   { key: 'patient_message', label: 'Patient message', description: 'A patient texts the store. (coming soon)' },
   { key: 'system', label: 'System notifications', description: 'Warnings and alerts from PharmStation itself. (coming soon)' },
 ]

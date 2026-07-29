@@ -6,8 +6,9 @@
 
 import { useEffect, useCallback, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useAuthStore, useShopStore } from '@pharmstation/core'
+import { useAuthStore, useShopStore, useDeliveryRoundStore } from '@pharmstation/core'
 import type { ShopOrder, ShopOrderStatus } from '@pharmstation/types'
+import { Modal } from '../../components/Modal'
 
 const formatPrice = (pence: number) => `£${(pence / 100).toFixed(2)}`
 
@@ -34,10 +35,19 @@ const NEXT_ACTIONS: Record<ShopOrderStatus, ShopOrderStatus[]> = {
 
 export function ShopOrdersPage() {
   const navigate = useNavigate()
-  const { organisation } = useAuthStore()
-  const { orders, loading, error, fetchOrders, updateOrderStatus, clearError } = useShopStore()
+  const { organisation, activeUser } = useAuthStore()
+  const { orders, loading, error, fetchOrders, updateOrderStatus, addOrderToDeliveryRound, clearError } = useShopStore()
+  const { rounds, fetchRounds } = useDeliveryRoundStore()
   const [statusFilter, setStatusFilter] = useState<'active' | 'all' | ShopOrderStatus>('active')
   const [expandedId, setExpandedId] = useState<string | null>(null)
+
+  // Add-to-run modal
+  const [runOrder, setRunOrder] = useState<ShopOrder | null>(null)
+  const [runMode, setRunMode] = useState<'existing' | 'new'>('existing')
+  const [runRoundId, setRunRoundId] = useState('')
+  const [runTitle, setRunTitle] = useState('')
+  const [runSaving, setRunSaving] = useState(false)
+  const [runError, setRunError] = useState<string | null>(null)
 
   const load = useCallback(() => {
     if (organisation?.id) fetchOrders(organisation.id)
@@ -56,6 +66,37 @@ export function ShopOrdersPage() {
     try {
       await updateOrderStatus(order.id, status)
     } catch { /* error surfaced by store */ }
+  }
+
+  const openRunModal = (order: ShopOrder) => {
+    setRunOrder(order)
+    setRunError(null)
+    setRunTitle(`Shop orders — ${new Date().toLocaleDateString('en-GB')}`)
+    setRunRoundId('')
+    if (organisation?.id) fetchRounds(organisation.id)
+    setRunMode('existing')
+  }
+
+  const openRounds = rounds.filter((r) => r.status === 'draft' || r.status === 'scheduled')
+
+  const handleAddToRun = async () => {
+    if (!runOrder || !organisation?.id || !activeUser?.id) return
+    if (runMode === 'existing' && !runRoundId) { setRunError('Choose a delivery run'); return }
+    setRunSaving(true); setRunError(null)
+    try {
+      const { roundId } = await addOrderToDeliveryRound(runOrder, {
+        orgId: organisation.id,
+        createdBy: activeUser.id,
+        roundId: runMode === 'existing' ? runRoundId : undefined,
+        newRoundTitle: runMode === 'new' ? runTitle : undefined,
+      })
+      setRunOrder(null)
+      navigate(`/deliveries/${roundId}`)
+    } catch (e: any) {
+      setRunError(e.message)
+    } finally {
+      setRunSaving(false)
+    }
   }
 
   return (
@@ -160,6 +201,21 @@ export function ShopOrdersPage() {
                       📍 {[o.delivery_address.line_1, o.delivery_address.city, o.delivery_address.postcode].filter(Boolean).join(', ')}
                     </p>
                   )}
+                  {o.fulfilment_method === 'delivery' && (
+                    <div style={{ marginTop: 'var(--ps-space-sm)' }}>
+                      {o.delivery_round_id ? (
+                        <button className="ps-btn ps-btn-secondary" onClick={() => navigate(`/deliveries/${o.delivery_round_id}`)}>
+                          🚚 On a delivery run — view →
+                        </button>
+                      ) : (
+                        !['completed', 'cancelled'].includes(o.status) && (
+                          <button className="ps-btn ps-btn-secondary" onClick={() => openRunModal(o)}>
+                            🚚 Add to delivery run
+                          </button>
+                        )
+                      )}
+                    </div>
+                  )}
                   {o.customer_notes && (
                     <p style={{ margin: 'var(--ps-space-sm) 0 0', fontSize: 'var(--ps-font-sm)' }}>
                       💬 <em>{o.customer_notes}</em>
@@ -210,6 +266,82 @@ export function ShopOrdersPage() {
           )
         })}
       </div>
+
+      {/* Add to delivery run modal */}
+      <Modal isOpen={!!runOrder} onClose={() => setRunOrder(null)} title={`Add ${runOrder?.order_number || ''} to a delivery run`}>
+        <div style={{ display: 'grid', gap: 'var(--ps-space-md)' }}>
+          {runError && <div style={{ color: 'var(--ps-error, #dc2626)' }}>{runError}</div>}
+
+          {/* Prefill summary */}
+          {runOrder && (
+            <div className="ps-card" style={{ padding: 'var(--ps-space-md)', background: 'var(--ps-off-white)', fontSize: 'var(--ps-font-sm)' }}>
+              <div><strong>{runOrder.guest_name || 'Registered patient'}</strong>{runOrder.guest_phone ? ` · ${runOrder.guest_phone}` : ''}</div>
+              {runOrder.delivery_address && (
+                <div style={{ color: 'var(--ps-slate)', marginTop: 2 }}>
+                  📍 {[runOrder.delivery_address.line_1, runOrder.delivery_address.city, runOrder.delivery_address.postcode].filter(Boolean).join(', ')}
+                </div>
+              )}
+              <div style={{ color: 'var(--ps-slate)', marginTop: 2 }}>
+                📦 {(runOrder.items || []).map((it) => `${it.quantity} × ${it.product_name}`).join(', ')}
+              </div>
+              <div style={{ color: 'var(--ps-slate)', marginTop: 6, fontSize: 12 }}>
+                The stop is prefilled with this name, address and item list{runOrder.patient_id ? '.' : ' — a patient record will be created for this customer.'}
+              </div>
+            </div>
+          )}
+
+          <div style={{ display: 'flex', gap: 'var(--ps-space-sm)' }}>
+            <button
+              className="ps-btn ps-btn-secondary"
+              style={runMode === 'existing' ? { background: 'var(--ps-deep-blue, #0077B6)', color: 'white' } : undefined}
+              onClick={() => setRunMode('existing')}
+            >
+              Add to existing run
+            </button>
+            <button
+              className="ps-btn ps-btn-secondary"
+              style={runMode === 'new' ? { background: 'var(--ps-deep-blue, #0077B6)', color: 'white' } : undefined}
+              onClick={() => setRunMode('new')}
+            >
+              Start a new run
+            </button>
+          </div>
+
+          {runMode === 'existing' ? (
+            openRounds.length === 0 ? (
+              <p style={{ color: 'var(--ps-slate)', margin: 0 }}>No open (draft or scheduled) runs — start a new one instead.</p>
+            ) : (
+              <label>
+                Delivery run
+                <select className="ps-input" value={runRoundId} onChange={(e) => setRunRoundId(e.target.value)} style={{ width: '100%' }}>
+                  <option value="">Choose a run…</option>
+                  {openRounds.map((r) => (
+                    <option key={r.id} value={r.id}>
+                      {r.title}{r.scheduled_date ? ` · ${new Date(r.scheduled_date).toLocaleDateString('en-GB')}` : ''} · {r.status}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )
+          ) : (
+            <label>
+              New run title
+              <input className="ps-input" value={runTitle} onChange={(e) => setRunTitle(e.target.value)} style={{ width: '100%' }} />
+            </label>
+          )}
+
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 'var(--ps-space-sm)' }}>
+            <button className="ps-btn ps-btn-secondary" onClick={() => setRunOrder(null)}>Cancel</button>
+            <button
+              className="ps-btn ps-btn-primary"
+              disabled={runSaving || (runMode === 'existing' && !runRoundId) || (runMode === 'new' && !runTitle.trim())}
+              onClick={handleAddToRun}
+            >
+              {runSaving ? 'Adding…' : 'Add to run →'}
+            </button>
+          </div>
+        </div>
+      </Modal>
     </div>
   )
 }

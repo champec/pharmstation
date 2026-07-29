@@ -16,6 +16,7 @@ import type {
   ShopFulfilmentMethod,
   ShopQuestionnaire,
   ShopQuestionnaireAnswer,
+  DeliveryRound,
 } from '@pharmstation/types'
 import { getUserClient } from '@pharmstation/supabase-client'
 
@@ -62,6 +63,14 @@ export interface ShopState {
   deleteProduct: (productId: string) => Promise<void>
   fetchOrders: (orgId: string) => Promise<void>
   updateOrderStatus: (orderId: string, status: ShopOrderStatus, orgNotes?: string) => Promise<void>
+  /** Add a (delivery) order to a delivery round — existing round or a brand-new one.
+   *  Guest orders get a ps_patients record created from the order details. */
+  addOrderToDeliveryRound: (order: ShopOrder, opts: {
+    orgId: string
+    createdBy: string
+    roundId?: string
+    newRoundTitle?: string
+  }) => Promise<{ roundId: string }>
   // Questionnaires (own + public templates)
   fetchQuestionnaires: (orgId: string) => Promise<void>
   createQuestionnaire: (q: Partial<ShopQuestionnaire>) => Promise<ShopQuestionnaire>
@@ -220,6 +229,89 @@ export const useShopStore = create<ShopState>((set, get) => ({
       .single()
     if (error) throw error
     set({ orders: get().orders.map((o) => (o.id === orderId ? (data as ShopOrder) : o)) })
+  },
+
+  addOrderToDeliveryRound: async (order, opts) => {
+    const client = getUserClient()
+
+    // 1. Resolve a patient record (guests get one created from order details)
+    let patientId = order.patient_id
+    if (!patientId) {
+      const nameParts = (order.guest_name || 'Shop Customer').trim().split(/\s+/)
+      const { data: patient, error: pErr } = await client
+        .from('ps_patients')
+        .insert({
+          organisation_id: opts.orgId,
+          first_name: nameParts[0] || 'Shop',
+          last_name: nameParts.slice(1).join(' ') || 'Customer',
+          phone: order.guest_phone || null,
+          address_line_1: order.delivery_address?.line_1 || null,
+          city: order.delivery_address?.city || null,
+          postcode: order.delivery_address?.postcode || null,
+        })
+        .select('id')
+        .single()
+      if (pErr) throw pErr
+      patientId = patient.id as string
+    }
+
+    // 2. Resolve the round (existing or new)
+    let roundId = opts.roundId
+    if (!roundId) {
+      const { data: round, error: rErr } = await client
+        .from('ps_delivery_rounds')
+        .insert({
+          organisation_id: opts.orgId,
+          title: opts.newRoundTitle?.trim() || `Shop orders — ${new Date().toLocaleDateString('en-GB')}`,
+          status: 'draft',
+          created_by: opts.createdBy,
+        } as Partial<DeliveryRound>)
+        .select('id')
+        .single()
+      if (rErr) throw rErr
+      roundId = round.id as string
+    }
+
+    // 3. Next position on the round
+    const { data: existing } = await client
+      .from('ps_delivery_round_patients')
+      .select('delivery_order')
+      .eq('round_id', roundId)
+      .order('delivery_order', { ascending: false })
+      .limit(1)
+    const nextOrder = ((existing?.[0]?.delivery_order as number) || 0) + 1
+
+    // 4. Add the stop, prefilled with order address + items in the notes
+    const itemsSummary = (order.items || [])
+      .map((it) => `${it.quantity} × ${it.product_name}`)
+      .join(', ')
+    const { data: stop, error: rpErr } = await client
+      .from('ps_delivery_round_patients')
+      .insert({
+        round_id: roundId,
+        patient_id: patientId,
+        organisation_id: opts.orgId,
+        delivery_order: nextOrder,
+        delivery_address_line_1: order.delivery_address?.line_1 || null,
+        delivery_city: order.delivery_address?.city || null,
+        delivery_postcode: order.delivery_address?.postcode || null,
+        notes: `🛍️ Shop order ${order.order_number}: ${itemsSummary}${order.customer_notes ? ` — “${order.customer_notes}”` : ''}`,
+      })
+      .select('id')
+      .single()
+    if (rpErr) throw rpErr
+
+    // 5. Link the order to the round + its stop (drives auto status sync)
+    const { data: updated, error: oErr } = await client
+      .from('ps_shop_orders')
+      .update({ delivery_round_id: roundId, delivery_round_patient_id: stop.id })
+      .eq('id', order.id)
+      .select('*, items:ps_shop_order_items(*), responses:ps_shop_questionnaire_responses(*)')
+      .single()
+    if (oErr) throw oErr
+    set({ orders: get().orders.map((o) => (o.id === order.id ? (updated as ShopOrder) : o)) })
+
+    return { roundId }
   },
 
   fetchQuestionnaires: async (orgId) => {

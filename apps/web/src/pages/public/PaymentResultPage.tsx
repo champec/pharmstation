@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { getUserClient } from '@pharmstation/supabase-client'
+import { PublicFooter } from '../../components/public/PublicFooter'
 
 type PaymentInfo = {
   id: string
@@ -51,25 +52,21 @@ export function PaymentResultPage() {
   }, [paymentId, canceled])
 
   const backBtn = (
-    <button className="ps-btn ps-btn-primary" onClick={() => navigate(`/book/${orgSlug ?? ''}`)} style={{ marginTop: 'var(--ps-space-lg)' }}>
-      Back to Pharmacy
+    <button type="button" className="booking-primary-action" onClick={() => navigate(`/book/${orgSlug ?? ''}`)}>
+      Back to pharmacy
     </button>
   )
 
   const card = (icon: string, title: string, body: React.ReactNode) => (
-    <div style={{ maxWidth: '600px', margin: '80px auto', textAlign: 'center', padding: '0 var(--ps-space-lg)' }}>
-      <div className="ps-card" style={{ padding: 'var(--ps-space-2xl)' }}>
-        <div style={{ fontSize: '3rem', marginBottom: 'var(--ps-space-md)' }}>{icon}</div>
-        <h1 style={{ marginBottom: 'var(--ps-space-sm)' }}>{title}</h1>
-        {body}
-        {backBtn}
-      </div>
+    <div className="booking-public">
+      <header className="booking-nav"><button type="button" className="booking-wordmark" onClick={() => navigate('/book')}>Pharm<span>Station</span><small>Book</small></button></header>
+      <main className="booking-result booking-payment-result"><div className="booking-result-mark">{icon}</div><span className="booking-eyebrow">Payment update</span><h1>{title}</h1><div className="booking-payment-copy">{body}</div>{backBtn}</main><PublicFooter />
     </div>
   )
 
   if (canceled) {
     return card('⚠️', 'Payment Cancelled', (
-      <p style={{ color: 'var(--ps-slate)' }}>
+      <p>
         Your booking was created but has not been paid. You can contact the pharmacy to arrange payment, or book again.
       </p>
     ))
@@ -77,17 +74,17 @@ export function PaymentResultPage() {
 
   if (!paymentId) {
     return card('❓', 'No payment reference', (
-      <p style={{ color: 'var(--ps-slate)' }}>We couldn't find a payment reference in the link.</p>
+      <p>We couldn't find a payment reference in the link.</p>
     ))
   }
 
   if (payment?.status === 'succeeded') {
     return card('✅', 'Payment Successful!', (
       <>
-        <p style={{ color: 'var(--ps-slate)', marginBottom: 'var(--ps-space-sm)' }}>
+        <p>
           {payment.description ?? 'Your booking'} — <strong>£{(payment.amount_pence / 100).toFixed(2)}</strong>
         </p>
-        <p style={{ color: 'var(--ps-slate)', fontSize: 'var(--ps-font-sm)' }}>
+        <p>
           Your appointment is booked and paid. A receipt has been emailed to you by Stripe.
         </p>
       </>
@@ -96,7 +93,7 @@ export function PaymentResultPage() {
 
   if (payment && ['failed', 'canceled'].includes(payment.status)) {
     return card('❌', 'Payment Failed', (
-      <p style={{ color: 'var(--ps-slate)' }}>
+      <p>
         Your payment didn't go through. Your booking was created — please contact the pharmacy to arrange payment.
       </p>
     ))
@@ -104,13 +101,13 @@ export function PaymentResultPage() {
 
   if (timedOut) {
     return card('⏳', 'Payment Processing', (
-      <p style={{ color: 'var(--ps-slate)' }}>
+      <p>
         Your payment is still being confirmed. If you were charged, your booking is safe — the pharmacy will see the payment shortly.
       </p>
     ))
   }
 
   return card('⏳', 'Confirming your payment…', (
-    <p style={{ color: 'var(--ps-slate)' }}>One moment — we're confirming your payment with Stripe.</p>
+    <p>One moment — we're confirming your payment with Stripe.</p>
   ))
 }

@@ -10,6 +10,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import { useShopStore, type ShopFrontOrg } from '@pharmstation/core'
 import type { ShopPlaceOrderResult, ShopQuestion } from '@pharmstation/types'
+import { PublicFooter } from '../../components/public/PublicFooter'
 
 const formatPrice = (pence: number) => `£${(pence / 100).toFixed(2)}`
 
@@ -479,7 +480,7 @@ export function PublicShopOrgPage() {
         </div>
       )}
 
-      <footer className="modern-store-footer"><span className="modern-shop-logo"><span className="modern-shop-wordmark">Pharm<span>Station</span></span><small>Shop</small></span><span>Orders are prepared and fulfilled directly by {org?.name || 'the pharmacy'}.</span><span>© {new Date().getFullYear()} PharmStation</span></footer>
+      <PublicFooter />
     </div>
   )
 }

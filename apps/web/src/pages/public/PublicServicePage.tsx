@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { getUserClient } from '@pharmstation/supabase-client'
 import type { Organisation, Service, AppointmentSlot } from '@pharmstation/types'
 import { orgSlugOrIdFilter } from '../../lib/orgSlugFilter'
+import { PublicFooter } from '../../components/public/PublicFooter'
 
 export function PublicServicePage() {
   const { orgSlug, serviceId } = useParams<{ orgSlug: string; serviceId: string }>()
@@ -72,88 +73,42 @@ export function PublicServicePage() {
   }, [slots])
 
   if (loading) {
-    return <div style={{ maxWidth: '600px', margin: '60px auto', textAlign: 'center', color: 'var(--ps-slate)' }}>Loading…</div>
+    return <div className="booking-public"><div className="booking-loading booking-page-state"><i /><span>Loading appointments…</span></div></div>
   }
 
   if (error) {
     return (
-      <div style={{ maxWidth: '600px', margin: '80px auto', textAlign: 'center' }}>
-        <h2>{error}</h2>
-        <button className="ps-btn ps-btn-secondary" onClick={() => navigate(`/book/${orgSlug}`)}>← Back</button>
-      </div>
+      <div className="booking-public"><div className="booking-empty booking-page-state"><strong>{error}</strong><p>Return to the pharmacy and choose another service.</p><button type="button" onClick={() => navigate(`/book/${orgSlug}`)}>Back to services</button></div></div>
     )
   }
 
   const slug = orgSlug || ''
 
   return (
-    <div style={{ maxWidth: '700px', margin: '40px auto', padding: '0 var(--ps-space-lg)' }}>
-      <button className="ps-btn ps-btn-ghost" onClick={() => navigate(`/book/${slug}`)} style={{ marginBottom: 'var(--ps-space-md)' }}>← Back to {org?.name || 'Pharmacy'}</button>
-
-      <div className="ps-card" style={{ padding: 'var(--ps-space-lg)', marginBottom: 'var(--ps-space-xl)' }}>
-        <h2 style={{ margin: '0 0 4px' }}>{service?.name}</h2>
-        <p style={{ color: 'var(--ps-slate)', margin: 0 }}>{service?.description}</p>
-        <p style={{ color: 'var(--ps-slate)', margin: '4px 0 0', fontSize: 'var(--ps-font-sm)' }}>⏱️ {service?.duration_minutes} minutes</p>
-        {service?.is_chargeable && service.price_pence != null && service.price_pence > 0 && (
-          <p style={{ margin: '8px 0 0', fontWeight: 600, color: 'var(--ps-midnight)' }}>
-            💳 £{(service.price_pence / 100).toFixed(2)} <span style={{ fontWeight: 400, color: 'var(--ps-slate)', fontSize: 'var(--ps-font-sm)' }}>— paid online when booking</span>
-          </p>
-        )}
-      </div>
-
-      <h3 style={{ marginBottom: 'var(--ps-space-sm)' }}>1. Select a date</h3>
-      <input
-        className="ps-input"
-        type="date"
-        value={selectedDate}
-        min={new Date().toISOString().slice(0, 10)}
-        onChange={(e) => { setSelectedDate(e.target.value); setSelectedSlot(null) }}
-        style={{ marginBottom: 'var(--ps-space-md)', width: '220px' }}
-      />
-      {availableDates.size > 0 && (
-        <p style={{ color: 'var(--ps-slate)', fontSize: 'var(--ps-font-sm)', marginBottom: 'var(--ps-space-md)' }}>
-          {availableDates.size} date{availableDates.size !== 1 ? 's' : ''} with availability
-        </p>
-      )}
-
-      <h3 style={{ marginBottom: 'var(--ps-space-sm)' }}>2. Choose a time slot</h3>
-      {dateSlots.length === 0 ? (
-        <div className="ps-card" style={{ padding: 'var(--ps-space-lg)', textAlign: 'center', color: 'var(--ps-slate)' }}>
-          No available slots on this date. Please select another date.
-        </div>
-      ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: 'var(--ps-space-sm)', marginBottom: 'var(--ps-space-xl)' }}>
-          {dateSlots.map((slot) => {
+    <div className="booking-public">
+      <header className="booking-nav"><button type="button" className="booking-wordmark" onClick={() => navigate('/book')}>Pharm<span>Station</span><small>Book</small></button><nav><a href="/shop">Shop</a><a href="/maps">Find a pharmacy</a><a href="/patient/login">Sign in</a></nav></header>
+      <main className="booking-appointment-main">
+        <button type="button" className="booking-back" onClick={() => navigate(`/book/${slug}`)}>← Services at {org?.name || 'pharmacy'}</button>
+        <section className="booking-appointment-layout">
+          <aside className="booking-service-summary"><span className="booking-eyebrow">Your selection</span><h1>{service?.name}</h1><p>{service?.description}</p><dl><div><dt>Pharmacy</dt><dd>{org?.name}</dd></div><div><dt>Duration</dt><dd>{service?.duration_minutes} minutes</dd></div>{service?.is_chargeable && service.price_pence != null && service.price_pence > 0 && <div><dt>Price</dt><dd>£{(service.price_pence / 100).toFixed(2)} · paid online</dd></div>}</dl></aside>
+          <section className="booking-slot-picker">
+            <header><span className="booking-eyebrow">Step 2 of 3</span><h2>Choose your appointment</h2><p>Select a date, then choose one of the available times.</p></header>
+            <div className="booking-date-field"><label htmlFor="booking-date">Appointment date</label><input id="booking-date" type="date" value={selectedDate} min={new Date().toISOString().slice(0, 10)} onChange={(event) => { setSelectedDate(event.target.value); setSelectedSlot(null) }} /><small>{availableDates.size > 0 ? `${availableDates.size} date${availableDates.size === 1 ? '' : 's'} currently have availability` : 'No future availability is listed yet'}</small></div>
+            <div className="booking-time-heading"><strong>Available times</strong><span>{dateSlots.length} {dateSlots.length === 1 ? 'time' : 'times'}</span></div>
+            {dateSlots.length === 0 ? <div className="booking-slot-empty"><strong>No times on this date</strong><p>Try another date to see the pharmacy's available appointments.</p></div> : <div className="booking-slot-grid">{dateSlots.map((slot) => {
             const start = new Date(slot.start_time)
             const end = new Date(slot.end_time)
             const fmt = (d: Date) => d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
             const isSelected = selectedSlot === slot.id
             return (
-              <button
-                key={slot.id}
-                className={`ps-btn ${isSelected ? 'ps-btn-primary' : 'ps-btn-secondary'}`}
-                onClick={() => setSelectedSlot(slot.id)}
-                style={{ textAlign: 'center' }}
-              >
-                {fmt(start)} – {fmt(end)}
-                <br />
-                <span style={{ fontSize: 'var(--ps-font-xs)' }}>{slot.max_bookings - slot.booked_count} left</span>
-              </button>
+              <button type="button" key={slot.id} className={isSelected ? 'selected' : ''} onClick={() => setSelectedSlot(slot.id)}><strong>{fmt(start)}</strong><span>to {fmt(end)}</span><small>{slot.max_bookings - slot.booked_count} remaining</small></button>
             )
-          })}
-        </div>
-      )}
-
-      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 'var(--ps-space-sm)' }}>
-        <button className="ps-btn ps-btn-secondary" onClick={() => navigate(`/book/${slug}`)}>Cancel</button>
-        <button
-          className="ps-btn ps-btn-primary"
-          disabled={!selectedSlot}
-          onClick={() => navigate(`/book/${slug}/${serviceId}/confirm`, { state: { slotId: selectedSlot } })}
-        >
-          Continue →
-        </button>
-      </div>
+          })}</div>}
+            <footer><button type="button" className="booking-secondary-action" onClick={() => navigate(`/book/${slug}`)}>Cancel</button><button type="button" className="booking-primary-action" disabled={!selectedSlot} onClick={() => navigate(`/book/${slug}/${serviceId}/confirm`, { state: { slotId: selectedSlot } })}>Continue to your details →</button></footer>
+          </section>
+        </section>
+      </main>
+      <PublicFooter />
     </div>
   )
 }
