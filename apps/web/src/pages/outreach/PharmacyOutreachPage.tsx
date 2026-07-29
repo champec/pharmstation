@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { getUserClient } from '@pharmstation/supabase-client'
 import { useAuthStore } from '@pharmstation/core'
+import { Modal } from '../../components/Modal'
 import { PharmacyMapModal, type BoundsPharmacy } from '../../components/maps/PharmacyMapModal'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -111,6 +112,70 @@ const ACTIVITIES: Array<{ value: ActivityType; label: string; emoji: string }> =
 ]
 
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+
+type PitchItem = {
+  id: string
+  title: string
+  summary: string
+  body: string[]
+}
+
+const PITCHES: PitchItem[] = [
+  {
+    id: 'overview',
+    title: 'Overview pitch',
+    summary: 'A broad, polished introduction to PharmStation as the one-platform answer for modern pharmacy operations.',
+    body: [
+      'Welcome to PharmStation. PharmStation is one place for the whole digital side of pharmacy. Instead of having registers in one place, notes somewhere else, messages on phones, paperwork in folders and people chasing each other for updates, you can bring it all together in one system.',
+      'The main idea is simple. Pharmacy staff, locums, drivers, care homes and patients all have different things they need to do, but they should not need a different system for every job. With PharmStation, your pharmacy can manage daily work, communicate properly, keep records, deliver services and stay connected with the people around it.',
+      'You can go paperless with your CD register, RP log, patient returns and your own custom logs for things like fridges, cleaning, visitors, date checks or anything else your pharmacy needs. You can scan a prescription or invoice with your phone, let the system pull out the information and then review it before it is added. Handover notes can be shared with the team, tasks can be assigned, and SOPs can be given to the right people so everyone knows what is expected.',
+      'Communication is a big part of PharmStation. You can message patients, send broadcasts about services, closures, holidays or important updates, and keep the history all in one place. The Pharmacy Network also lets connected pharmacies communicate with each other. A pharmacy can ask about stock, send a prescription query, send an alert to nearby pharmacies or quickly find out who can help. Instead of making call after call, the right message can go to the right people and they can respond from the system.',
+      'PharmStation also helps with services. You can create services, build forms, manage appointments, let patients book online, take payments and keep track of service delivery. Patients can book with a pharmacy through a public booking page, and the pharmacy can manage the appointments, patients and follow-up from one place. There is also video consultation and a Private Electronic Prescription Service, giving prescribers and pharmacies a way to create, receive, track and manage private prescriptions digitally.',
+      'Then there is the wider operation. You can plan deliveries, organise rounds, manage redeliveries and give drivers a mobile view of their route, delivery history and proof of delivery. For care homes, you can manage residents, medication requests, supply cycles, packs and deliveries. For staffing, pharmacies can post shifts, manage applications and work with locums through the same platform.',
+      'Every person can have their own account and connect to the pharmacy they work with, with manager approval and permissions based on their role. So a pharmacist, technician, dispenser, driver, locum or care-home user only sees what they need to see and can do what they are allowed to do.',
+      'PharmStation is not just one tool for one problem. It is a full platform for the day-to-day running of modern pharmacy, on the web and on mobile. This is the main overview, and we will go deeper into every part of the system in the next videos.',
+    ],
+  },
+  {
+    id: 'questions',
+    title: 'Questions-led pitch',
+    summary: 'A sharper, more conversational version built around frustration, communication and the cost of doing things the old way.',
+    body: [
+      'What do your patients do when they need to contact you right now? They call the pharmacy. And what happens when the line is engaged? They call again. And again. Meanwhile, somebody at the counter is asking a question, the phone is ringing, someone is trying to find a prescription, and the answer the patient wanted was probably just: "Yes, we are open until six."',
+      'Do you only call your friends when you want to ask them something? Of course not. You send a message. It is quicker, clearer and it does not require both people to be available at the exact same second. Yet in pharmacy, for some reason, every simple question has been promoted into a telephone event.',
+      'So why not put a mobile number online? Well, now you have a phone that has to live in the pharmacy, be charged, be found, not go missing, and somehow not become the personal responsibility of whoever last touched it. One person can read it. One person can reply. Then they go on break, get busy, go home, and the whole communication system has quietly left the building with them.',
+      'PharmStation fixes that. Your pharmacy gets a textable number for patients, but you do not need a phone behind the counter. Messages come straight into PharmStation on the web. Any approved member of the team, on any terminal, can see the conversation and reply. The number belongs to the pharmacy. The history belongs to the pharmacy. And nobody needs to play detective with a handset at the end of the day.',
+      'What about spam? Also handled. You can block numbers, silence numbers, filter messages and set rules around repeat messages over a set period. When an existing patient messages, PharmStation can recognise them and bring their information into the conversation. They do not have to write their life story just to ask whether their prescription is ready, and your team does not have to ask them to start again from the beginning.',
+      'Now think about pharmacy-to-pharmacy communication. You need to know whether a pharmacy nearby has a product in stock. What do you do? Phone the manager you know? Then phone another pharmacy. Then another. Repeat the same question. Wait on hold. Be told to call back. It is not exactly the best use of anyone\'s afternoon, especially not the patient\'s.',
+      'With the PharmStation Pharmacy Network, connected pharmacies are discoverable and can be contacted digitally. Send the request to pharmacies around you instead of working through a handwritten calling list. We have created action messages for common requests too. If you are asking about a patient\'s medicine, the pharmacy receiving it can answer yes or no, and add a quantity if needed. No essay. No game of phone tag. Stock queries, prescription queries and pharmacy alerts can move properly, with a clear record of what was asked and what was answered.',
+      'Let me ask another question. Do you offer private services, private products, or items that patients cannot easily get elsewhere? Do you have a website? So do thousands of other pharmacies. Is it realistic for patients to remember every pharmacy website, make a new account every time, invent another password, and go through a different checkout just to buy something local?',
+      'The rest of the world has mostly moved on from that. People use one account to shop in a marketplace. They use one app to arrange a delivery. Nobody wakes up hoping to learn a new checkout system.',
+      'That is what PharmStation shop is for. PharmStation.co.uk/shop brings local pharmacy products, services and supplies into one place, while you keep control of your own products. Patients can find what is available locally, order through one platform and check out without setting up a private account for every pharmacy. You do not need to become a web-hosting expert, payment-gateway expert and search-engine expert just to sell products to people a few streets away.',
+      'And because PharmStation is connected, the order does not disappear into a separate system after checkout. It can move straight into the delivery workflow. Your driver opens the app, sees the jobs, makes the drop, marks it complete, and the order updates. Or the patient collects it from the pharmacy with an order number. You keep control of your products, use questionnaires where they are needed, offer P medicines responsibly and make services discoverable in the same place.',
+      'Then there is paperwork. Do you still have paper logs, paper registers, paper notes and paper checks? What is the future: more folders, or digital records? Plenty of systems have one digital form or one digital log, but then you are back to a collection of websites, different passwords and the classic question: "Who has the login for that one?"',
+      'Why not have it in one place? One login. One organisation. Registers, custom logs, handover notes, tasks, SOPs, services, deliveries, messages and patient information working together instead of competing for space on the desk.',
+      'One more question. Can you contact a patient by video in a way that is simple, secure and straightforward, without asking them to download another app or create another account? Can you see what you need to see, support someone who cannot easily get into the pharmacy, and run a consultation through the same platform your team already uses?',
+      'Why should pharmacy communication, patient services, online orders, deliveries, paperless records and video consultations all live in different places? They should not. PharmStation brings them together. Less chasing. Less waiting. Less paper. More time for the work that actually matters.',
+    ],
+  },
+  {
+    id: 'commercial',
+    title: 'Commercial pitch',
+    summary: 'A direct, sales-focused version that speaks to cost, fragmentation and the value of replacing the messy stack.',
+    body: [
+      'Right now, your pharmacy is probably paying for five, six, maybe eight different systems just to function. One for NHS service claims. One for appointments. One for video consultations, if you have one at all. One for patient texts. One for deliveries. A stack of paper for CD registers, RP logs, patient returns and every other log a GPhC inspector might ask about. Add it up and most pharmacies are quietly spending somewhere between £130 and £300 a month, spread across tools that were never designed to talk to each other, on top of the paper that never talks to anything.',
+      'None of those tools were built for pharmacy first. They were built for something else, then bent into shape, then sold to you as "the pharmacy solution." That is why they still look and feel like software from 2010: clunky forms, no autofill, no real-time anything, and a UI that makes you wince before you have even logged the entry.',
+      'PharmStation was built differently. It was built by someone who has actually stood behind the counter, not a corporate roadmap team retrofitting a claims tool. One connected platform, one login, for everything your pharmacy actually does all day.',
+      'Your CD register, RP log and patient returns go digital and searchable, no more hunting through a paper binder while an inspector waits. Add any custom log you need: fridge, cleaning, visitors, whatever your SOPs require, and go paperless for good. Handover notes, task assignment and your SOP library live in the same place, so nothing gets lost between shifts or forgotten because "the folder was on the other counter."',
+      'Patients can message your pharmacy on a real, textable number, without you handing a personal mobile to whoever is on shift. Every approved staff member can see and answer from any terminal, spam is filtered automatically, and existing patients are recognised the second they text in, no re-explaining who they are every single time. Multiply that across every other pharmacy near you and you get the Pharmacy Network: instant stock checks, prescription queries and community alerts sent to pharmacies around you at once, answered with a tap instead of a phone call you have to make five more times.',
+      'Then there is everything patient-facing. Book appointments and NHS or private services online, take payment through checkout without setting up your own payment gateway, run secure video consultations without your patient downloading a single app, and issue private prescriptions digitally through PEPS so they can be tracked and honoured anywhere. When you are ready to sell products or services beyond the counter, PharmStation.co.uk/shop gives you a marketplace listing with your own products under your own control. No website to host, no SEO to chase, no fifteenth login for the patient to forget. Orders drop straight into the same delivery pipeline your driver already uses, or patients collect in-store with an order number.',
+      'Speaking of deliveries, plan rounds, manage redeliveries, and give your driver a proper app: today\'s stops, proof of delivery, and automatic status updates, not a clipboard and a prayer. Care homes get their own workspace for residents, medication requests and supply cycles. Short-staffed on a Tuesday? Post the shift and pull from the locum network, right there in the same system.',
+      'And built into all of it is Genie, your in-app AI assistant. Ask it a question, get it to help pull up information or handle a routine task, instead of digging through menus.',
+      'Here is the part that should actually make you sit up: PharmStation costs less than the mess you are already paying for. Start free just by joining the network. Go digital with the Essential tier at £39 a month. Get the full platform, services, appointments, video, messaging, deliveries, the lot, for £79 a month. That is less than what most pharmacies already spend on service-claims software alone, and it replaces everything else too.',
+      'You are not choosing between features and cost anymore. One platform, one price, everything pharmacy actually needs to run, built by someone who has done the job, not just studied it from a spreadsheet.',
+    ],
+  },
+]
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -327,7 +392,7 @@ function ActivityEntry({
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export function PharmacyOutreachPage() {
-  const { organisation } = useAuthStore()
+  const { organisation, membership } = useAuthStore()
   const [profiles, setProfiles] = useState<OutreachProfile[]>([])
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [activities, setActivities] = useState<Activity[]>([])
@@ -335,6 +400,9 @@ export function PharmacyOutreachPage() {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [mapOpen, setMapOpen] = useState(false)
+  const [pitchesOpen, setPitchesOpen] = useState(false)
+  const [pitchView, setPitchView] = useState<'list' | 'detail'>('list')
+  const [selectedPitchId, setSelectedPitchId] = useState<string | null>(null)
   const [query, setQuery] = useState('')
   const [stageFilter, setStageFilter] = useState<'all' | Stage | 'due'>('all')
   const [activityType, setActivityType] = useState<ActivityType>('visit')
@@ -342,6 +410,25 @@ export function PharmacyOutreachPage() {
   const [activityDetails, setActivityDetails] = useState('')
 
   const selected = profiles.find((p) => p.id === selectedId) ?? null
+  const isAdmin = membership?.role === 'owner' || membership?.role === 'manager'
+  const selectedPitch = PITCHES.find((pitch) => pitch.id === selectedPitchId) ?? null
+
+  function openPitchesLibrary() {
+    setPitchesOpen(true)
+    setPitchView('list')
+    setSelectedPitchId(null)
+  }
+
+  function closePitchesLibrary() {
+    setPitchesOpen(false)
+    setPitchView('list')
+    setSelectedPitchId(null)
+  }
+
+  function openPitchDetail(pitchId: string) {
+    setSelectedPitchId(pitchId)
+    setPitchView('detail')
+  }
 
   // ── Data loading ──────────────────────────────────────────────────────────
 
@@ -484,10 +571,25 @@ export function PharmacyOutreachPage() {
         </div>
         <div className="page-header-actions">
           <button className="ps-btn ps-btn-primary" onClick={() => setMapOpen(true)}>Open pharmacy map</button>
+          {isAdmin && (
+            <button className="ps-btn ps-btn-secondary" onClick={openPitchesLibrary}>Pitches</button>
+          )}
         </div>
       </header>
 
       {error && <div className="ps-alert ps-alert-error" style={{ marginBottom: 'var(--ps-space-md)' }}>{error}</div>}
+
+      {isAdmin && (
+        <section className="outreach-section" style={{ marginBottom: 'var(--ps-space-lg)' }}>
+          <div className="outreach-section-heading">
+            <div>
+              <h3>Pitches</h3>
+              <p>Keep your polished outreach pitches close at hand and open the full version when you want it.</p>
+            </div>
+            <button className="ps-btn ps-btn-secondary" onClick={openPitchesLibrary}>Open pitch library</button>
+          </div>
+        </section>
+      )}
 
       <section className="outreach-stats" aria-label="Outreach summary">
         <button onClick={() => setStageFilter('all')}><span>Tracked</span><strong>{profiles.length}</strong></button>
@@ -671,6 +773,56 @@ export function PharmacyOutreachPage() {
           )}
         </main>
       </div>
+
+      <Modal isOpen={pitchesOpen} onClose={closePitchesLibrary} title="Pitches" width="760px">
+        {pitchView === 'list' && (
+          <div style={{ display: 'grid', gap: 'var(--ps-space-md)' }}>
+            {PITCHES.map((pitch) => (
+              <button
+                key={pitch.id}
+                type="button"
+                className="ps-btn ps-btn-ghost"
+                style={{
+                  width: '100%',
+                  justifyContent: 'flex-start',
+                  textAlign: 'left',
+                  whiteSpace: 'normal',
+                  overflowWrap: 'anywhere',
+                  padding: 'var(--ps-space-md)',
+                  border: '1px solid var(--ps-border)',
+                  borderRadius: 'var(--ps-radius-md)',
+                  background: 'var(--ps-surface)',
+                }}
+                onClick={() => openPitchDetail(pitch.id)}
+              >
+                <div style={{ display: 'grid', gap: '6px' }}>
+                  <strong>{pitch.title}</strong>
+                  <span style={{ fontSize: '0.92rem', color: 'var(--ps-slate)', lineHeight: 1.4 }}>{pitch.summary}</span>
+                </div>
+              </button>
+            ))}
+          </div>
+        )}
+
+        {pitchView === 'detail' && selectedPitch && (
+          <div style={{ display: 'grid', gap: 'var(--ps-space-md)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--ps-space-sm)' }}>
+              <button type="button" className="ps-btn ps-btn-ghost ps-btn-sm" onClick={() => setPitchView('list')}>
+                ← Back to all pitches
+              </button>
+            </div>
+            <div style={{ border: '1px solid var(--ps-border)', borderRadius: 'var(--ps-radius-md)', padding: 'var(--ps-space-lg)', background: 'var(--ps-surface)' }}>
+              <h3 style={{ marginTop: 0, marginBottom: 'var(--ps-space-sm)' }}>{selectedPitch.title}</h3>
+              <p style={{ marginTop: 0, marginBottom: 'var(--ps-space-md)', color: 'var(--ps-slate)' }}>{selectedPitch.summary}</p>
+              <div style={{ display: 'grid', gap: 'var(--ps-space-sm)' }}>
+                {selectedPitch.body.map((paragraph, index) => (
+                  <p key={index} style={{ margin: 0, lineHeight: 1.6 }}>{paragraph}</p>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+      </Modal>
 
       <PharmacyMapModal
         isOpen={mapOpen}
