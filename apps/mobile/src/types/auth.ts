@@ -53,6 +53,19 @@ export interface UserProfile {
   updated_at: string
 }
 
+export interface LocumProfile {
+  id: string
+  user_id: string
+  gphc_number: string | null
+  gphc_expiry: string | null
+  indemnity_provider: string | null
+  indemnity_expiry: string | null
+  dbs_number: string | null
+  dbs_expiry: string | null
+  onboarding_complete: boolean
+  stripe_onboarded: boolean
+}
+
 export interface Permissions {
   cd_register_read?: boolean
   cd_register_write?: boolean

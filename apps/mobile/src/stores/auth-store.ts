@@ -11,6 +11,7 @@
 import { create } from 'zustand'
 import type { Session } from '@supabase/supabase-js'
 import type {
+  LocumProfile,
   Organisation,
   OrganisationMember,
   Permissions,
@@ -18,6 +19,7 @@ import type {
 } from '@/types/auth'
 import { resolvePermissions } from '@/types/auth'
 import {
+  fetchLocumProfile,
   fetchOrganisation,
   fetchOrgMembership,
   fetchUserProfile,
@@ -35,6 +37,7 @@ export interface AuthState {
   // --- User layer (primary) ---
   userSession: Session | null
   userProfile: UserProfile | null
+  locumProfile: LocumProfile | null
   isUserLoggedIn: boolean
 
   // --- Org layer (additive) ---
@@ -67,6 +70,7 @@ export interface AuthState {
 export const useAuthStore = create<AuthState>((set, get) => ({
   userSession: null,
   userProfile: null,
+  locumProfile: null,
   isUserLoggedIn: false,
 
   orgSession: null,
@@ -89,11 +93,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   isLocumUser: () => {
-    const s = get()
-    return (
-      s.userProfile?.default_role === 'locum' ||
-      s.membership?.is_locum === true
-    )
+    return get().locumProfile !== null
   },
 
   // ------------------------------------------
@@ -106,8 +106,11 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     try {
       const userSession = await getUserSession()
       if (userSession?.user) {
-        const userProfile = await fetchUserProfile(userSession.user.id)
-        set({ userSession, userProfile, isUserLoggedIn: true })
+        const [userProfile, locumProfile] = await Promise.all([
+          fetchUserProfile(userSession.user.id),
+          fetchLocumProfile(userSession.user.id),
+        ])
+        set({ userSession, userProfile, locumProfile, isUserLoggedIn: true })
       }
     } catch {
       // No / invalid user session.
@@ -146,6 +149,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         set({
           userSession: null,
           userProfile: null,
+          locumProfile: null,
           isUserLoggedIn: false,
           // Org context is meaningless without a user.
           orgSession: null,
@@ -185,8 +189,12 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       }
 
       let userProfile: UserProfile
+      let locumProfile: LocumProfile | null
       try {
-        userProfile = await fetchUserProfile(data.user.id)
+        ;[userProfile, locumProfile] = await Promise.all([
+          fetchUserProfile(data.user.id),
+          fetchLocumProfile(data.user.id),
+        ])
       } catch {
         await userSignOut()
         throw new Error('No account profile found for this login.')
@@ -195,6 +203,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       set({
         userSession: data.session,
         userProfile,
+        locumProfile,
         isUserLoggedIn: true,
         busy: false,
       })
@@ -216,6 +225,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       set({
         userSession: null,
         userProfile: null,
+        locumProfile: null,
         isUserLoggedIn: false,
         orgSession: null,
         organisation: null,

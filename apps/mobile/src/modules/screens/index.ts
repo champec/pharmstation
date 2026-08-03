@@ -14,6 +14,7 @@ import { communicationsScreens } from '@/modules/screens/communications'
 import { deliveriesScreens } from '@/modules/screens/deliveries'
 import { locumScreens } from '@/modules/screens/locum'
 import { pharmacyScreens } from '@/modules/screens/pharmacy'
+import { productScannerScreens } from '@/modules/screens/product-scanner'
 import { scanningScreens } from '@/modules/screens/scanning'
 import { servicesScreens } from '@/modules/screens/services'
 
@@ -24,6 +25,7 @@ export const MODULE_SCREENS: Record<string, ModuleScreens> = {
   locum: locumScreens,
   deliveries: deliveriesScreens,
   scanning: scanningScreens,
+  'product-scanner': productScannerScreens,
   pharmacy: pharmacyScreens,
   communications: communicationsScreens,
   services: servicesScreens,

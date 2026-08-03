@@ -7,6 +7,7 @@ import type {
   DeliveryRoundPatient,
   BnfDrugSearchResult,
 } from '@pharmstation/types'
+import { getUserClient } from '@pharmstation/supabase-client'
 import { DeliveryRouteMap } from '../../components/maps/DeliveryRouteMap'
 
 const ROUND_STATUS_BADGE: Record<DeliveryRoundStatus, { cls: string; label: string }> = {
@@ -33,6 +34,12 @@ const PATIENT_STATUS_BADGE: Record<DeliveryPatientStatus, { cls: string; label: 
 function patientName(first?: string | null, last?: string | null) {
   return [first, last].filter(Boolean).join(' ') || 'Unnamed patient'
 }
+
+const DELIVERY_METHOD_LABELS = {
+  handed_to_patient: 'Handed to patient',
+  handed_to_representative: 'Handed to representative',
+  left_in_safe_place: 'Left in safe place',
+} as const
 
 export function DeliveryRoundDetailPage() {
   const { id } = useParams<{ id: string }>()
@@ -75,6 +82,7 @@ export function DeliveryRoundDetailPage() {
   const [selectedDrug, setSelectedDrug] = useState<BnfDrugSearchResult | null>(null)
   const [newMedForm, setNewMedForm] = useState({ dose: '', quantity: '', addToDelivery: true, addToRecord: true })
   const [actionError, setActionError] = useState<string | null>(null)
+  const [proofUrls, setProofUrls] = useState<Record<string, string>>({})
 
   const careHomeGroup = round?.care_home_batch_id
     ? groups.find((g) => g.delivery_round_id === round.id || g.active_batch_id === round.care_home_batch_id) ?? null
@@ -90,6 +98,27 @@ export function DeliveryRoundDetailPage() {
   }, [organisation?.id, links.length, fetchLinks])
 
   useEffect(() => { load() }, [load])
+
+  useEffect(() => {
+    const paths = round?.patients?.flatMap((patient) => patient.proof_photo_paths ?? []) ?? []
+    if (paths.length === 0) {
+      setProofUrls({})
+      return
+    }
+    let cancelled = false
+    void getUserClient().storage
+      .from('delivery-evidence')
+      .createSignedUrls(paths, 3600)
+      .then(({ data, error }) => {
+        if (cancelled || error) return
+        setProofUrls(Object.fromEntries(
+          (data ?? [])
+            .filter((item) => item.signedUrl)
+            .map((item) => [item.path, item.signedUrl]),
+        ))
+      })
+    return () => { cancelled = true }
+  }, [round?.patients])
 
   useEffect(() => {
     if (!id) return
@@ -411,6 +440,25 @@ export function DeliveryRoundDetailPage() {
                     {rp.failure_reason && <small style={{ color: 'var(--ps-red)' }}>⚠️ {rp.failure_reason}</small>}
                     {rp.delivered_at && <small style={{ color: 'var(--ps-green)' }}>✓ Delivered {formatDatetime(rp.delivered_at)}</small>}
                     {rp.signature_data && <small>✍️ Signature captured</small>}
+                    {rp.delivery_method && (
+                      <small>
+                        {DELIVERY_METHOD_LABELS[rp.delivery_method]}
+                        {rp.delivery_recipient_name ? ` · ${rp.delivery_recipient_name}` : ''}
+                      </small>
+                    )}
+                    {(rp.proof_photo_paths?.length ?? 0) > 0 && (
+                      <span style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 6 }}>
+                        {rp.proof_photo_paths.map((path, index) => proofUrls[path] ? (
+                          <a key={path} href={proofUrls[path]} target="_blank" rel="noreferrer" title={`Open proof photo ${index + 1}`}>
+                            <img
+                              src={proofUrls[path]}
+                              alt={`Delivery proof ${index + 1}`}
+                              style={{ width: 72, height: 72, objectFit: 'cover', borderRadius: 6, border: '1px solid var(--ps-border)' }}
+                            />
+                          </a>
+                        ) : null)}
+                      </span>
+                    )}
                   </span>
                   <span className="care-home-split-item-actions" style={{ alignItems: 'center' }}>
                     <span className={`ps-badge ${PATIENT_STATUS_BADGE[rp.status]?.cls}`}>

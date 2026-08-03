@@ -1905,6 +1905,11 @@ export type DeliveryPatientStatus =
   | 'returned'
   | 'cancelled'
 
+export type DeliveryMethod =
+  | 'handed_to_patient'
+  | 'handed_to_representative'
+  | 'left_in_safe_place'
+
 // Delivery Round
 
 export interface DeliveryRound {
@@ -1945,6 +1950,9 @@ export interface DeliveryRoundPatient {
   delivery_postcode: string | null
   notes: string | null
   signature_data: string | null
+  proof_photo_paths: string[]
+  delivery_recipient_name: string | null
+  delivery_method: DeliveryMethod | null
   delivered_at: string | null
   failure_reason: string | null
   original_round_patient_id: string | null

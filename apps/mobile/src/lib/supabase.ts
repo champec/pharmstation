@@ -91,6 +91,16 @@ export async function fetchUserProfile(userId: string) {
   return data
 }
 
+export async function fetchLocumProfile(userId: string) {
+  const { data, error } = await userClient
+    .from('ps_locum_profiles')
+    .select('*')
+    .eq('user_id', userId)
+    .maybeSingle()
+  if (error) throw error
+  return data
+}
+
 // ============================================
 // Organisation helpers
 // ============================================

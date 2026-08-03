@@ -42,14 +42,14 @@
       [
         "expo-camera",
         {
-          "cameraPermission": "PharmStation uses the camera to scan prescriptions, invoices, and medication barcodes (GTIN).",
+          "cameraPermission": "PharmStation uses the camera to scan pharmacy documents and capture delivery evidence.",
           "recordAudioAndroid": false
         }
       ],
       [
         "expo-image-picker",
         {
-          "photosPermission": "PharmStation accesses your photos to attach prescription and invoice images to records."
+          "photosPermission": "PharmStation accesses your photos to attach pharmacy documents and delivery evidence to records."
         }
       ],
       [
