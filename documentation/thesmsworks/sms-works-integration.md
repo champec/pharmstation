@@ -269,7 +269,7 @@ These **cannot be done via API** — the account owner must:
 | App showed "sent" but SMS Works dashboard showed `UNDELIVERABLE` | Webhook not registered, so delivery reports never arrived; separately the carrier rejected that specific number (failure code 4, permanent, credit auto-refunded) | Register webhook (§8); number formatting was verified correct (`447989224165`) |
 | "Messaging not configured" banner despite SMS enabled | Three pages still gated on the legacy NHS Notify `has_api_key` check | Replaced with provider-aware checks (`smsSettings.is_active` OR NHS path) |
 | Status "Check" button did nothing | Passed the provider message id where the store expects our row id | `checkStatus(orgId, m.id)` |
-| Test user couldn't log in | Password drift in DB | Reset via SQL `extensions.crypt()`; creds: `testuser@pharmstation.dev` / `TestUser123!` |
+| Test user couldn't log in | Password drift in DB | Reset via SQL `extensions.crypt()`; creds: `testuser@pharmstation.dev` / `[password removed — see password manager]` |
 | Security advisor warning on billing view | View defaulted to `security definer` | Recreated with `security_invoker` |
 
 ### Smoke tests performed
@@ -288,7 +288,7 @@ These **cannot be done via API** — the account owner must:
 |------|-------|
 | Test org | `8c78fb31-8bd9-42f4-8bec-dbdfd8fb2fd1` ("PharmStation Test Pharmacy") |
 | Sender ID | `TestPharm` (alpha, active) |
-| Test login | `testuser@pharmstation.dev` / `TestUser123!` |
+| Test login | `testuser@pharmstation.dev` / `[password removed — see password manager]` |
 
 ---
 

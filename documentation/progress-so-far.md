@@ -16,8 +16,8 @@
 - [x] Saved migrations to `supabase/migrations/`
 
 ### Test Data
-- [x] Created org account: `testpharmacy@pharmstation.dev` / `TestPharmacy123!`
-- [x] Created user account: `testuser@pharmstation.dev` / `TestUser123!`
+- [x] Created org account: `testpharmacy@pharmstation.dev` / `[password removed — see password manager]`
+- [x] Created user account: `testuser@pharmstation.dev` / `[password removed — see password manager]`
 - [x] Created org→user membership (pharmacist, active)
 - [x] Fixed GoTrue NULL column issue for manual auth inserts
 

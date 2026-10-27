@@ -111,8 +111,8 @@ Migration files saved in `supabase/migrations/`.
 
 | Account | Email | Password | Type |
 |---------|-------|----------|------|
-| Pharmacy | testpharmacy@pharmstation.dev | TestPharmacy123! | Organisation |
-| Staff | testuser@pharmstation.dev | TestUser123! | User (pharmacist) |
+| Pharmacy | testpharmacy@pharmstation.dev | [password removed — see password manager] | Organisation |
+| Staff | testuser@pharmstation.dev | [password removed — see password manager] | User (pharmacist) |
 
 - Org: "PharmStation Test Pharmacy" (GPhC: 1234567, 123 High Street, London SW1A 1AA)
 - User: "John Smith" (pharmacist, GPhC: 2087654)

@@ -18,8 +18,8 @@ export default function ConnectPharmacyScreen() {
   const organisation = useAuthStore((s) => s.organisation)
   const membership = useAuthStore((s) => s.membership)
 
-  const [email, setEmail] = useState('testpharmacy@pharmstation.dev')
-  const [password, setPassword] = useState('TestPharmacy123!')
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
 
   const onConnect = async () => {
