@@ -12,6 +12,9 @@ export interface UIState {
   sideNavMode: SideNavMode
   setSideNavMode: (mode: SideNavMode) => void
   toggleSideNav: () => void
+  // Off-canvas side nav on phone-sized screens
+  mobileNavOpen: boolean
+  setMobileNavOpen: (open: boolean) => void
 
   // Right panel
   rightPanelOpen: boolean
@@ -34,6 +37,8 @@ export const useUIStore = create<UIState>((set, get) => ({
       current === 'expanded' ? 'icons' : current === 'icons' ? 'hidden' : 'expanded'
     set({ sideNavMode: next })
   },
+  mobileNavOpen: false,
+  setMobileNavOpen: (open) => set({ mobileNavOpen: open }),
 
   // Right panel
   rightPanelOpen: false,

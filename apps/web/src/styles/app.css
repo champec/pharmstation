@@ -12306,3 +12306,105 @@ textarea.form-input {
   line-height: 1.6;
   margin: 0;
 }
+
+/* ============================================
+   Staff dashboard — phone layout
+   The side nav becomes an off-canvas drawer opened from the top nav.
+   Keep the breakpoint in sync with MOBILE_NAV_QUERY in hooks/useIsMobile.ts.
+   ============================================ */
+
+/* The sidebar already shows the logo when it is fully open */
+.top-nav[data-sidenav="expanded"] .top-nav-brand {
+  display: none;
+}
+
+.side-nav-backdrop {
+  display: none;
+}
+
+@media (max-width: 800px) {
+  .dashboard-main[data-sidenav] {
+    margin-left: 0;
+  }
+
+  .top-nav[data-sidenav] {
+    left: 0;
+    padding: 0 var(--ps-space-sm);
+  }
+
+  .top-nav[data-sidenav] .top-nav-brand {
+    display: inline;
+  }
+
+  .top-nav-left,
+  .top-nav-right {
+    gap: 2px;
+  }
+
+  .top-nav-org,
+  .top-nav-user,
+  .top-nav-btn-text {
+    display: none;
+  }
+
+  .top-nav-dropdown {
+    position: fixed !important;
+    top: var(--ps-topnav-height) !important;
+    left: var(--ps-space-sm) !important;
+    right: var(--ps-space-sm) !important;
+    width: auto !important;
+  }
+
+  .side-nav[data-mode] {
+    width: min(280px, 85vw);
+    border-right: 1px solid var(--ps-off-white);
+    transform: translateX(-100%);
+    transition: transform var(--ps-transition-normal);
+    box-shadow: none;
+  }
+
+  .side-nav[data-mobile-open="true"] {
+    transform: translateX(0);
+    box-shadow: var(--ps-shadow-xl);
+  }
+
+  .side-nav-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.4);
+    z-index: 150;
+  }
+
+  .dashboard-content {
+    padding: var(--ps-space-md);
+  }
+
+  .dashboard-content .fc .fc-header-toolbar {
+    flex-wrap: wrap;
+    gap: var(--ps-space-sm);
+  }
+
+  .top-nav .ps-btn {
+    padding-left: 8px;
+    padding-right: 8px;
+  }
+
+  /* Page headers lay out title + actions with inline flex rows; let them wrap */
+  .page-header h1 {
+    font-size: var(--ps-font-2xl);
+  }
+
+  .page-header div[style*="display: flex"],
+  .page-header-actions {
+    flex-wrap: wrap;
+    gap: var(--ps-space-sm);
+  }
+
+  .genie-panel,
+  .dashboard-layout:has([data-mode="icons"]) .genie-panel {
+    left: var(--ps-space-sm);
+    right: var(--ps-space-sm);
+    width: auto;
+  }
+}

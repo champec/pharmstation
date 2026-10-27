@@ -22,7 +22,7 @@ export function SettingsPage() {
       </div>
 
       {/* Tab bar */}
-      <div style={{ display: 'flex', gap: 'var(--ps-space-sm)', marginBottom: 'var(--ps-space-lg)', borderBottom: '2px solid var(--ps-mist)', paddingBottom: 'var(--ps-space-sm)' }}>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--ps-space-sm)', marginBottom: 'var(--ps-space-lg)', borderBottom: '2px solid var(--ps-mist)', paddingBottom: 'var(--ps-space-sm)' }}>
         {([
           { key: 'general' as Tab, label: 'General' },
           { key: 'ai' as Tab, label: '✨ AI' },
