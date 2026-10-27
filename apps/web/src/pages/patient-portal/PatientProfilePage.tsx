@@ -5,7 +5,12 @@ import { getPatientClient } from '@pharmstation/supabase-client'
 
 export function PatientProfilePage() {
   const navigate = useNavigate()
-  const { patient, isLoggedIn, loading: authLoading, logout } = usePatientStore()
+  const { patient, isLoggedIn, loading: authLoading, initialize, logout } = usePatientStore()
+
+  // Restore the patient session on a direct visit or page refresh
+  useEffect(() => {
+    if (authLoading) initialize()
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
   const [editing, setEditing] = useState(false)
   const [phone, setPhone] = useState('')
   const [dob, setDob] = useState('')

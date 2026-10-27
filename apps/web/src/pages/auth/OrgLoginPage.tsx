@@ -4,8 +4,9 @@ import { useAuthStore } from '@pharmstation/core'
 
 export function OrgLoginPage() {
   const { orgLogin } = useAuthStore()
-  const [email, setEmail] = useState('testpharmacy@pharmstation.dev')
-  const [password, setPassword] = useState('TestPharmacy123!')
+  // Test credentials are prefilled in local dev only
+  const [email, setEmail] = useState(import.meta.env.DEV ? 'testpharmacy@pharmstation.dev' : '')
+  const [password, setPassword] = useState(import.meta.env.DEV ? 'TestPharmacy123!' : '')
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
 
