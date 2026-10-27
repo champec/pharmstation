@@ -937,11 +937,11 @@ credentials - will be changed later via supabase ServiceType
 new credentials 
 
 Key
-5e8e8c31-3bac-431d-9982-74b5bc27e76e
+[REDACTED — stored in Supabase secrets]
 Secret
-f52cdf680ea91ddc6abeb0c307ffdcb3ef4e767baab5e6b5634f90060e3b1330
+[REDACTED — stored in Supabase secrets]
 
 
 new token 
 
-JWT eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJrZXkiOiI1ZThlOGMzMS0zYmFjLTQzMWQtOTk4Mi03NGI1YmMyN2U3NmUiLCJzZWNyZXQiOiJmNTJjZGY2ODBlYTkxZGRjNmFiZWIwYzMwN2ZmZGNiM2VmNGU3NjdiYWFiNWU2YjU2MzRmOTAwNjBlM2IxMzMwIiwiaWF0IjoxNzgzMDIzMDc3LCJleHAiOjI1NzE0MjMwNzd9.dObqYaQO0l_9qY8hRi-aUcX9U1N0Te8CU1Uo998BrA4
+JWT [REDACTED — stored as SMSWORKS_JWT in Supabase secrets]

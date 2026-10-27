@@ -109,6 +109,21 @@ function getAdminClient() {
   )
 }
 
+// The admin client bypasses RLS, so this is the tenant check: the caller
+// must be the org's own auth user or an active member of the org.
+async function isOrgMember(userId: string, orgId: string): Promise<boolean> {
+  const admin = getAdminClient()
+  const { data: org } = await admin
+    .from('ps_organisations').select('auth_user_id').eq('id', orgId).maybeSingle()
+  if (!org) return false
+  if (org.auth_user_id === userId) return true
+  const { data: member } = await admin
+    .from('ps_organisation_members').select('user_id')
+    .eq('organisation_id', orgId).eq('user_id', userId).eq('status', 'active')
+    .maybeSingle()
+  return !!member
+}
+
 type OrgSettings = {
   api_key: string
   sms_template_id: string | null
@@ -581,6 +596,9 @@ Deno.serve(async (req) => {
     )
     const { data: { user }, error: authError } = await supabase.auth.getUser()
     if (authError || !user) throw new Error('Unauthorized')
+    if (typeof body.org_id !== 'string' || !(await isOrgMember(user.id, body.org_id))) {
+      throw new Error('Forbidden')
+    }
 
     let result: unknown
     switch (action) {

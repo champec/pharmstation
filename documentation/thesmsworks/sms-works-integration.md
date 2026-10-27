@@ -172,12 +172,12 @@ Set via `npx supabase secrets set` on project `xsqwpmqfbirqdncoephf`:
 | Secret | Purpose |
 |--------|---------|
 | `SMSWORKS_JWT` | Platform API token (stored **without** the `JWT ` prefix; the function adds it) |
-| `SMSWORKS_WEBHOOK_SECRET` | Shared secret for webhook URL auth: `f5142aab0a8a1c8ba610b8d9bee30571de0b46b7268a9689` |
+| `SMSWORKS_WEBHOOK_SECRET` | Shared secret for webhook URL auth (value in Supabase secrets only, never in the repo) |
 
 **Webhook URL to register (see §8):**
 
 ```
-https://xsqwpmqfbirqdncoephf.supabase.co/functions/v1/sms-works-webhook?token=f5142aab0a8a1c8ba610b8d9bee30571de0b46b7268a9689
+https://xsqwpmqfbirqdncoephf.supabase.co/functions/v1/sms-works-webhook?token=<SMSWORKS_WEBHOOK_SECRET>
 ```
 
 ---

@@ -71,7 +71,7 @@ Three Railway services, all on a shared internal network:
    | `PEM111_AMQP_ROUTING_KEY` | `encounter-report` |
    | `JAVA_TOOL_OPTIONS` | `-XX:-UseContainerSupport` (fixes CgroupV2 crash on Railway) |
    | `MANAGEMENT_METRICS_BINDERS_PROCESSOR_ENABLED` | `false` |
-   | `PEM111_ITK_EXTERNAL_CONFIGURATION_URL` | `https://xsqwpmqfbirqdncoephf.supabase.co/functions/v1/get-ods-dos-codes` |
+   | `PEM111_ITK_EXTERNAL_CONFIGURATION_URL` | `https://xsqwpmqfbirqdncoephf.supabase.co/functions/v1/get-ods-dos-codes?token=<ODS_CONFIG_TOKEN>` |
    | `PEM111_ITK_FETCH_INTERVAL_MIN` | `60` |
    | `PEM111_SOAP_VALIDATION_ENABLED` | `false` |
    | `LOG_LEVEL` | `INFO` |
@@ -100,6 +100,7 @@ Three Railway services, all on a shared internal network:
    | `RABBITMQ_QUEUE` | `encounter-report` |
    | `SUPABASE_FUNCTION_URL` | `https://xsqwpmqfbirqdncoephf.supabase.co/functions/v1/nhs111-receive` |
    | `SUPABASE_ANON_KEY` | `<your-supabase-anon-key>` |
+   | `NHS111_BRIDGE_SECRET` | `<same value as the nhs111-receive function secret>` |
    | `LOG_LEVEL` | `info` |
 
 4. Under **Settings** → **Networking**: No public domain needed (bridge is internal only)
@@ -181,7 +182,7 @@ To receive real NHS 111 messages, you need to:
 | **Bridge connected but no messages arrive** | **Most common issue.** Ensure `PEM111_AMQP_EXCHANGE=jms.durable.queues` is set on the adaptor. The adaptor uses the RabbitMQ JMS client which publishes to this exchange. Without it, `isAmqpWritable()` returns false and messages go through a JMS-internal path the bridge can't consume from. |
 | `dosIds` NullPointerException | The `get-ods-dos-codes` function must return `dosIds: []` (empty array), NOT `null`. |
 | Bridge can't connect to RabbitMQ | Verify the internal hostname and credentials match. Check Railway internal networking. |
-| Messages not appearing in PharmStation | Check Bridge logs for HTTP errors. Verify `SUPABASE_FUNCTION_URL` and `SUPABASE_ANON_KEY`. |
+| Messages not appearing in PharmStation | Check Bridge logs for HTTP errors. Verify `SUPABASE_FUNCTION_URL`, `SUPABASE_ANON_KEY` and `NHS111_BRIDGE_SECRET`. A 401 means the bridge secret doesn't match. |
 | Adaptor rejects messages | Check ODS codes are correctly configured in your `pharmacies` table. The `get-ods-dos-codes` function returns them. |
 | "Queue not found" errors | The adaptor creates the queue on first message. Send a test message first. Or check the bridge — it also asserts the queue. |
 | `railway up` deploys wrong files | Clear "Root Directory" in Railway dashboard → Service Settings → Build if previously set from a GitHub deploy. |

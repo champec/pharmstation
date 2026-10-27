@@ -740,13 +740,13 @@ Deno.serve(async (req: Request) => {
     const { data: { user }, error: authError } = await supabase.auth.getUser()
     if (authError || !user) throw new Error('Unauthorized')
 
-    if (typeof body.org_id === 'string') {
-      const { data: membership } = await getAdminClient()
-        .from('ps_organisation_members').select('user_id')
-        .eq('organisation_id', body.org_id).eq('user_id', user.id)
-        .eq('status', 'active').maybeSingle()
-      if (!membership) throw new Error('You do not have access to this organisation')
-    }
+    // Every action is org-scoped, so org_id is mandatory and always checked.
+    if (typeof body.org_id !== 'string') throw new Error('Missing org_id')
+    const { data: membership } = await getAdminClient()
+      .from('ps_organisation_members').select('user_id')
+      .eq('organisation_id', body.org_id).eq('user_id', user.id)
+      .eq('status', 'active').maybeSingle()
+    if (!membership) throw new Error('You do not have access to this organisation')
 
     let result: unknown
     switch (action) {

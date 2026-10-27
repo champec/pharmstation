@@ -10,6 +10,8 @@
  *   RABBITMQ_QUEUE        — Queue name (default: encounter-report)
  *   SUPABASE_FUNCTION_URL — Full URL to nhs111-receive edge function
  *   SUPABASE_ANON_KEY     — Supabase anon/public key for Authorization header
+ *   NHS111_BRIDGE_SECRET  — Shared secret sent as x-bridge-secret; must match
+ *                           the nhs111-receive function secret of the same name
  *   LOG_LEVEL             — "debug" | "info" | "warn" | "error" (default: info)
  */
 
@@ -20,6 +22,7 @@ const RABBITMQ_URL = process.env.RABBITMQ_URL || 'amqp://localhost:5672';
 const QUEUE_NAME = process.env.RABBITMQ_QUEUE || 'encounter-report';
 const SUPABASE_FUNCTION_URL = process.env.SUPABASE_FUNCTION_URL;
 const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY;
+const NHS111_BRIDGE_SECRET = process.env.NHS111_BRIDGE_SECRET;
 const LOG_LEVEL = (process.env.LOG_LEVEL || 'info').toLowerCase();
 
 const LOG_LEVELS = { debug: 0, info: 1, warn: 2, error: 3 };
@@ -43,6 +46,10 @@ if (!SUPABASE_FUNCTION_URL) {
 }
 if (!SUPABASE_ANON_KEY) {
   log('error', 'SUPABASE_ANON_KEY is required');
+  process.exit(1);
+}
+if (!NHS111_BRIDGE_SECRET) {
+  log('error', 'NHS111_BRIDGE_SECRET is required');
   process.exit(1);
 }
 
@@ -144,6 +151,7 @@ async function start() {
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+          'x-bridge-secret': NHS111_BRIDGE_SECRET,
         },
         body: fhirBundle,
       });
