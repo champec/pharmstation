@@ -345,8 +345,8 @@ date range pickers.
 | Account | Email | Password | Notes |
 |---|---|---|---|
 | Locum (champe) | `champe@live.co.uk` | `Pharmex123!` | Real user, exists since Feb 2023. Password reset 3 Mar 2026. No `ps_locum_profiles` row — will land on `/locum/complete-profile` on first login. |
-| Org (test) | `testpharmacy@pharmstation.dev` | `TestPharmacy123!` | Seed org account. |
-| Staff (test) | `testuser@pharmstation.dev` | `TestUser123!` | Seed staff account, member of test org. |
+| Org (test) | `testpharmacy@pharmstation.dev` | `[password removed — see password manager]` | Seed org account. |
+| Staff (test) | `testuser@pharmstation.dev` | `[password removed — see password manager]` | Seed staff account, member of test org. |
 
 ---
 

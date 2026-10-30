@@ -12,13 +12,16 @@
 // inserts into ps_nhs111_referrals.
 //
 // JWT verification OFF — called by bridge script.
+// Authenticated by the x-bridge-secret header, which
+// must match the NHS111_BRIDGE_SECRET function secret.
+// Fails closed when the secret is not configured.
 // ============================================
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.0'
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-bridge-secret',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 }
 
@@ -36,6 +39,16 @@ function getAdminClient() {
     Deno.env.get('SUPABASE_URL')!,
     Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
   )
+}
+
+/** Length-safe constant-time string compare, so the secret can't be timed */
+function safeEqual(a: string, b: string): boolean {
+  const enc = new TextEncoder()
+  const x = enc.encode(a)
+  const y = enc.encode(b)
+  let diff = x.length ^ y.length
+  for (let i = 0; i < Math.max(x.length, y.length); i++) diff |= (x[i] ?? 0) ^ (y[i] ?? 0)
+  return diff === 0
 }
 
 function jsonResponse(body: unknown, status = 200) {
@@ -363,6 +376,15 @@ Deno.serve(async (req) => {
     return jsonResponse({ error: 'Method not allowed' }, 405)
   }
 
+  const expected = Deno.env.get('NHS111_BRIDGE_SECRET')
+  if (!expected) {
+    console.error('NHS111_BRIDGE_SECRET is not configured; rejecting request')
+    return jsonResponse({ error: 'Service unavailable' }, 503)
+  }
+  if (!safeEqual(req.headers.get('x-bridge-secret') ?? '', expected)) {
+    return jsonResponse({ error: 'Unauthorized' }, 401)
+  }
+
   const supabase = getAdminClient()
 
   try {
@@ -497,7 +519,7 @@ Deno.serve(async (req) => {
 
     if (insertError) {
       console.error('Failed to insert referral:', insertError)
-      return jsonResponse({ error: 'Failed to store referral', details: insertError.message }, 500)
+      return jsonResponse({ error: 'Failed to store referral' }, 500)
     }
 
     console.log(`✅ NHS 111 referral received: ${inserted.id} for ODS ${destinationOds} (${eventType})`)
@@ -506,12 +528,10 @@ Deno.serve(async (req) => {
       message: 'Referral received successfully',
       referral_id: inserted.id,
       event_type: eventType,
-      patient_name: patientName,
-      disposition: disposition.text,
     }, 201)
 
   } catch (err) {
     console.error('Error processing NHS 111 referral:', err)
-    return jsonResponse({ error: 'Internal server error', details: String(err) }, 500)
+    return jsonResponse({ error: 'Internal server error' }, 500)
   }
 })

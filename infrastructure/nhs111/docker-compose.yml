@@ -78,6 +78,7 @@ services:
       RABBITMQ_QUEUE: encounter-report
       SUPABASE_FUNCTION_URL: ${SUPABASE_FUNCTION_URL}
       SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY}
+      NHS111_BRIDGE_SECRET: ${NHS111_BRIDGE_SECRET}
       LOG_LEVEL: ${LOG_LEVEL:-info}
     depends_on:
       rabbitmq:

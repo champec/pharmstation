@@ -13,8 +13,8 @@ export default function UserLoginScreen() {
   const userLogin = useAuthStore((s) => s.userLogin)
   const busy = useAuthStore((s) => s.busy)
 
-  const [email, setEmail] = useState('testuser@pharmstation.dev')
-  const [password, setPassword] = useState('TestUser123!')
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
 
   const onSubmit = async () => {

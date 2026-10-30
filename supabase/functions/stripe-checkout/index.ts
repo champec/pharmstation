@@ -37,6 +37,27 @@ function getStripe(): Stripe {
   return new Stripe(key, { apiVersion: '2025-02-24.acacia', httpClient: Stripe.createFetchHttpClient() })
 }
 
+// Checkout redirects only to our own app, so a crafted request can't use a
+// trusted Stripe page to bounce patients to a phishing site. Override with
+// the APP_ORIGINS secret (comma-separated) for new domains.
+const DEFAULT_APP_ORIGINS = [
+  'https://pharmstation.co.uk',
+  'https://www.pharmstation.co.uk',
+  'https://pharmstation-web.vercel.app',
+  'http://localhost:3000',
+]
+
+function isAllowedRedirect(url: string): boolean {
+  const allowed = (Deno.env.get('APP_ORIGINS') ?? '')
+    .split(',').map((o) => o.trim()).filter(Boolean)
+  const origins = allowed.length ? allowed : DEFAULT_APP_ORIGINS
+  try {
+    return origins.includes(new URL(url).origin)
+  } catch {
+    return false
+  }
+}
+
 function getAdminClient() {
   return createClient(
     Deno.env.get('SUPABASE_URL')!,
@@ -70,7 +91,24 @@ async function createCheckoutSession(body: Record<string, unknown>): Promise<Res
     return json({ error: 'org_id, service_id, success_url and cancel_url are required' }, 400)
   }
 
+  if (!isAllowedRedirect(success_url) || !isAllowedRedirect(cancel_url)) {
+    return json({ error: 'success_url and cancel_url must be on the PharmStation app' }, 400)
+  }
+
   const db = getAdminClient()
+
+  // The caller is unauthenticated, so any linked appointment or patient
+  // must already belong to this org.
+  if (appointment_id) {
+    const { data } = await db.from('ps_appointments').select('id')
+      .eq('id', appointment_id).eq('org_id', org_id).maybeSingle()
+    if (!data) return json({ error: 'Appointment not found' }, 404)
+  }
+  if (patient_id) {
+    const { data } = await db.from('ps_patients').select('id')
+      .eq('id', patient_id).eq('organisation_id', org_id).maybeSingle()
+    if (!data) return json({ error: 'Patient not found' }, 404)
+  }
 
   // Server-side price lookup — the client never sets the amount.
   const { data: service, error: svcErr } = await db

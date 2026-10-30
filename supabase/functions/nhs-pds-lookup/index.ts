@@ -68,6 +68,21 @@ function getAdminClient() {
   return createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!)
 }
 
+// The admin client bypasses RLS, so this is the tenant check: the caller
+// must be the org's own auth user or an active member of the org.
+async function isOrgMember(userId: string, orgId: string): Promise<boolean> {
+  const admin = getAdminClient()
+  const { data: org } = await admin
+    .from('ps_organisations').select('auth_user_id').eq('id', orgId).maybeSingle()
+  if (!org) return false
+  if (org.auth_user_id === userId) return true
+  const { data: member } = await admin
+    .from('ps_organisation_members').select('user_id')
+    .eq('organisation_id', orgId).eq('user_id', userId).eq('status', 'active')
+    .maybeSingle()
+  return !!member
+}
+
 // ============================================
 // Audit logging (Risk APPRESTPDSCONN-019)
 // Every PDS query is recorded in ps_nhs_api_audit —
@@ -402,6 +417,11 @@ Deno.serve(async (req) => {
     action = body.action as string
     orgId = typeof body.org_id === 'string' ? body.org_id : null
     auditParams = pdsAuditParams(action, body)
+
+    // Checked after capturing context so denied attempts are audited too.
+    if (typeof body.org_id !== 'string' || !(await isOrgMember(user.id, body.org_id))) {
+      throw new Error('Forbidden')
+    }
 
     let result: unknown
     switch (body.action) {

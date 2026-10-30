@@ -172,12 +172,12 @@ Set via `npx supabase secrets set` on project `xsqwpmqfbirqdncoephf`:
 | Secret | Purpose |
 |--------|---------|
 | `SMSWORKS_JWT` | Platform API token (stored **without** the `JWT ` prefix; the function adds it) |
-| `SMSWORKS_WEBHOOK_SECRET` | Shared secret for webhook URL auth: `f5142aab0a8a1c8ba610b8d9bee30571de0b46b7268a9689` |
+| `SMSWORKS_WEBHOOK_SECRET` | Shared secret for webhook URL auth (value in Supabase secrets only, never in the repo) |
 
 **Webhook URL to register (see §8):**
 
 ```
-https://xsqwpmqfbirqdncoephf.supabase.co/functions/v1/sms-works-webhook?token=f5142aab0a8a1c8ba610b8d9bee30571de0b46b7268a9689
+https://xsqwpmqfbirqdncoephf.supabase.co/functions/v1/sms-works-webhook?token=<SMSWORKS_WEBHOOK_SECRET>
 ```
 
 ---
@@ -269,7 +269,7 @@ These **cannot be done via API** — the account owner must:
 | App showed "sent" but SMS Works dashboard showed `UNDELIVERABLE` | Webhook not registered, so delivery reports never arrived; separately the carrier rejected that specific number (failure code 4, permanent, credit auto-refunded) | Register webhook (§8); number formatting was verified correct (`447989224165`) |
 | "Messaging not configured" banner despite SMS enabled | Three pages still gated on the legacy NHS Notify `has_api_key` check | Replaced with provider-aware checks (`smsSettings.is_active` OR NHS path) |
 | Status "Check" button did nothing | Passed the provider message id where the store expects our row id | `checkStatus(orgId, m.id)` |
-| Test user couldn't log in | Password drift in DB | Reset via SQL `extensions.crypt()`; creds: `testuser@pharmstation.dev` / `TestUser123!` |
+| Test user couldn't log in | Password drift in DB | Reset via SQL `extensions.crypt()`; creds: `testuser@pharmstation.dev` / `[password removed — see password manager]` |
 | Security advisor warning on billing view | View defaulted to `security definer` | Recreated with `security_invoker` |
 
 ### Smoke tests performed
@@ -288,7 +288,7 @@ These **cannot be done via API** — the account owner must:
 |------|-------|
 | Test org | `8c78fb31-8bd9-42f4-8bec-dbdfd8fb2fd1` ("PharmStation Test Pharmacy") |
 | Sender ID | `TestPharm` (alpha, active) |
-| Test login | `testuser@pharmstation.dev` / `TestUser123!` |
+| Test login | `testuser@pharmstation.dev` / `[password removed — see password manager]` |
 
 ---
 

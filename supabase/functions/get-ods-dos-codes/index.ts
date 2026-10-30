@@ -9,7 +9,10 @@
 // Used by the NHS 111 adaptor configuration
 // and DoS integration.
 //
-// JWT verification OFF — called by bridge config.
+// JWT verification OFF — called by the NHS 111
+// adaptor, which can only be given a URL. It must
+// carry ?token= matching the ODS_CONFIG_TOKEN
+// function secret. Fails closed when unset.
 // ============================================
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.0'
@@ -19,9 +22,29 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
+/** Length-safe constant-time string compare, so the secret can't be timed */
+function safeEqual(a: string, b: string): boolean {
+  const enc = new TextEncoder()
+  const x = enc.encode(a)
+  const y = enc.encode(b)
+  let diff = x.length ^ y.length
+  for (let i = 0; i < Math.max(x.length, y.length); i++) diff |= (x[i] ?? 0) ^ (y[i] ?? 0)
+  return diff === 0
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
+  }
+
+  const expected = Deno.env.get('ODS_CONFIG_TOKEN')
+  const token = new URL(req.url).searchParams.get('token') ?? ''
+  if (!expected || !safeEqual(token, expected)) {
+    if (!expected) console.error('ODS_CONFIG_TOKEN is not configured; rejecting request')
+    return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+      status: 401,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    })
   }
 
   try {
@@ -37,7 +60,8 @@ Deno.serve(async (req: Request) => {
       .select('org_id, pharmacy:pharmacy_id(id, ods_code)')
 
     if (error) {
-      return new Response(JSON.stringify({ error: error.message }), {
+      console.error('get-ods-dos-codes query failed', error)
+      return new Response(JSON.stringify({ error: 'Internal server error' }), {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
@@ -54,7 +78,8 @@ Deno.serve(async (req: Request) => {
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
     )
   } catch (err) {
-    return new Response(JSON.stringify({ error: String(err) }), {
+    console.error('get-ods-dos-codes failed', err)
+    return new Response(JSON.stringify({ error: 'Internal server error' }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
