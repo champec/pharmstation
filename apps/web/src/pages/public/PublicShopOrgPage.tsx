@@ -11,6 +11,7 @@ import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import { useShopStore, type ShopFrontOrg } from '@pharmstation/core'
 import type { ShopPlaceOrderResult, ShopQuestion } from '@pharmstation/types'
 import { PublicFooter } from '../../components/public/PublicFooter'
+import { usePageTitle } from '../../seo/RouteMeta'
 
 const formatPrice = (pence: number) => `£${(pence / 100).toFixed(2)}`
 
@@ -53,6 +54,7 @@ export function PublicShopOrgPage() {
     () => shopOrgs.find((o) => o.slug === orgSlug || o.org_id === orgSlug),
     [shopOrgs, orgSlug]
   )
+  usePageTitle(org ? `${org.name} shop` : null)
 
   useEffect(() => {
     if (org) fetchPublicProducts({ orgId: org.org_id })
