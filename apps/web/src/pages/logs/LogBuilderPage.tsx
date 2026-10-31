@@ -280,9 +280,9 @@ export function LogBuilderPage() {
           )}
         </div>
       ) : (
-        <div style={{ display: 'flex', gap: 'var(--ps-space-lg)', alignItems: 'flex-start' }}>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--ps-space-lg)', alignItems: 'flex-start' }}>
           {/* Left: Field palette */}
-          <div style={{ width: 200, flexShrink: 0 }}>
+          <div style={{ flex: '0 1 200px', minWidth: 0 }}>
             <div className="ps-card" style={{ padding: 'var(--ps-space-md)', position: 'sticky', top: 'var(--ps-space-lg)' }}>
               <h3 style={{ fontSize: 'var(--ps-font-sm)', fontWeight: 600, color: 'var(--ps-midnight)', marginBottom: 'var(--ps-space-sm)' }}>
                 Add Field
@@ -303,7 +303,7 @@ export function LogBuilderPage() {
           </div>
 
           {/* Right: Log settings + fields */}
-          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 'var(--ps-space-lg)' }}>
+          <div style={{ flex: '1 1 320px', minWidth: 0, display: 'flex', flexDirection: 'column', gap: 'var(--ps-space-lg)' }}>
             {/* Log settings */}
             <div className="ps-card" style={{ padding: 'var(--ps-space-lg)' }}>
               <h3 style={{ fontSize: 'var(--ps-font-md)', fontWeight: 600, color: 'var(--ps-midnight)', marginBottom: 'var(--ps-space-md)' }}>

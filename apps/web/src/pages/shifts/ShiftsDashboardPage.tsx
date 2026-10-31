@@ -171,7 +171,7 @@ export function ShiftsDashboardPage() {
       )}
 
       {/* Stats cards */}
-      <div className="stats-grid" style={{ gridTemplateColumns: 'repeat(4, 1fr)', gap: '1rem', marginBottom: '2rem' }}>
+      <div className="stats-grid" style={{ gap: '1rem', marginBottom: '2rem' }}>
         <div className="stat-card">
           <div className="stat-card-label">Open Shifts</div>
           <div className="stat-card-value">{loading ? '…' : stats.open}</div>
