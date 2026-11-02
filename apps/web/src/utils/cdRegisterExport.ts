@@ -29,6 +29,7 @@ export const CD_EXPORT_HEADERS = [
   'Date',
   'Type',
   'Received from (supplier)',
+  'Supplier address',
   'Invoice',
   'Supplied to (patient)',
   'Patient address',
@@ -37,6 +38,7 @@ export const CD_EXPORT_HEADERS = [
   'Prescriber reg.',
   'ID requested',
   'ID provided',
+  'Collected by',
   'Qty in',
   'Qty out',
   'Balance',
@@ -53,7 +55,7 @@ export const CD_PRINT_HEADERS = [
   'Received from',
   'Supplied to',
   'Prescriber',
-  'ID req / given',
+  'Collected by / ID req / given',
   'In',
   'Out',
   'Balance',
@@ -82,6 +84,11 @@ function notesText(e: RegisterEntry, numberById: Map<string, number>): string {
   return parts.join('\n')
 }
 
+function collectorText(e: RegisterEntry): string {
+  if (!e.collector_type && !e.collector_details) return ''
+  return collectorNote(e.collector_type ?? '', e.collector_details)?.replace(/^Collected by: /, '') ?? ''
+}
+
 function enteredBy(e: RegisterEntry): string {
   return e.entered_by_profile?.full_name || e.authorised_by || ''
 }
@@ -93,6 +100,7 @@ export function cdEntryCsvRow(e: RegisterEntry, numberById: Map<string, number>)
     fmtDate(e.date_of_transaction),
     entryTypeLabel(e),
     e.supplier_name ?? '',
+    e.supplier_address ?? '',
     e.invoice_number ?? '',
     e.patient_name ?? '',
     e.patient_address ?? '',
@@ -101,6 +109,7 @@ export function cdEntryCsvRow(e: RegisterEntry, numberById: Map<string, number>)
     e.prescriber_registration ?? '',
     isSupply ? yesNo(e.was_id_requested) : '',
     isSupply ? yesNo(e.was_id_provided) : '',
+    collectorText(e),
     e.quantity_received ?? '',
     e.quantity_deducted ?? '',
     e.running_balance ?? '',
@@ -112,7 +121,7 @@ export function cdEntryCsvRow(e: RegisterEntry, numberById: Map<string, number>)
 
 export function cdEntryPrintRow(e: RegisterEntry, numberById: Map<string, number>): ExportCell[] {
   const isSupply = !!e.patient_name
-  const supplier = [e.supplier_name, e.invoice_number ? `Inv: ${e.invoice_number}` : null]
+  const supplier = [e.supplier_name, e.supplier_address, e.invoice_number ? `Inv: ${e.invoice_number}` : null]
     .filter(Boolean)
     .join('\n')
   const patient = [e.patient_name, e.patient_address].filter(Boolean).join('\n')
@@ -130,7 +139,11 @@ export function cdEntryPrintRow(e: RegisterEntry, numberById: Map<string, number
     supplier,
     patient,
     prescriber,
-    isSupply ? `${yesNo(e.was_id_requested) || 'No'} / ${yesNo(e.was_id_provided) || 'No'}` : '',
+    isSupply
+      ? [collectorText(e), `ID ${yesNo(e.was_id_requested) || 'No'} / ${yesNo(e.was_id_provided) || 'No'}`]
+          .filter(Boolean)
+          .join('\n')
+      : '',
     e.quantity_received ?? '',
     e.quantity_deducted ?? '',
     e.running_balance ?? '',
@@ -185,9 +198,8 @@ export function cdLedgerSection(
 // ─── Person collecting a Schedule 2 supply ───────────────────
 // Schedule 6 asks whether the person who collected was the patient,
 // the patient's representative or a healthcare professional (and if a
-// healthcare professional, their name and address). There is no column
-// for this yet, so it is written into the entry's own notes, which are
-// part of the immutable entry and appear in every export.
+// healthcare professional, their name and address). Stored in
+// collector_type / collector_details on ps_register_entries.
 
 export type CollectorType = '' | 'patient' | 'representative' | 'hcp'
 
@@ -204,7 +216,19 @@ export function collectorNote(type: CollectorType, details: string | null | unde
   return details?.trim() ? `Collected by: ${label} (${details.trim()})` : `Collected by: ${label}`
 }
 
-export function joinNotes(...parts: (string | null | undefined)[]): string | null {
-  const text = parts.map((p) => p?.trim()).filter(Boolean).join('. ')
-  return text || null
+/**
+ * RPC params for the Schedule 6 columns. Only non-empty values are sent, so
+ * an entry without them still matches the function on a database that has
+ * not had the 2 Nov 2026 migration yet.
+ */
+export function schedule6Params(opts: {
+  supplierAddress?: string | null
+  collectorType?: CollectorType | null
+  collectorDetails?: string | null
+}): Record<string, string> {
+  const out: Record<string, string> = {}
+  if (opts.supplierAddress?.trim()) out.p_supplier_address = opts.supplierAddress.trim()
+  if (opts.collectorType) out.p_collector_type = opts.collectorType
+  if (opts.collectorDetails?.trim()) out.p_collector_details = opts.collectorDetails.trim()
+  return out
 }

@@ -30,8 +30,8 @@ import {
   COLLECTOR_OPTIONS,
   cdEntryCsvRow,
   cdLedgerSection,
-  collectorNote,
   ledgerTitle,
+  schedule6Params,
   type CollectorType,
 } from '../../utils/cdRegisterExport'
 
@@ -894,7 +894,7 @@ export function CDLedgerPage() {
         p_register_type: activeLedger.register_type,
         p_entry_type: 'normal',
         p_date_of_transaction: provDate,
-        p_notes: !isIn ? collectorNote(provCollector, provCollectorDetails) : null,
+        p_notes: null,
         p_source: 'manual',
         p_expected_lock_version: activeLedger.lock_version,
         p_transaction_type: isIn ? 'receipt' : 'supply',
@@ -914,6 +914,17 @@ export function CDLedgerPage() {
         p_authorised_by: activeUser.full_name,
         p_was_id_requested: !isIn ? provIdRequested : null,
         p_was_id_provided: !isIn ? provIdProvided : null,
+        ...schedule6Params(
+          isIn
+            ? {
+                supplierAddress: selectedSupplierContact
+                  ? [selectedSupplierContact.address_line_1, selectedSupplierContact.city, selectedSupplierContact.postcode]
+                      .filter(Boolean)
+                      .join(', ')
+                  : null,
+              }
+            : { collectorType: provCollector, collectorDetails: provCollectorDetails },
+        ),
       })
 
       if (error) {

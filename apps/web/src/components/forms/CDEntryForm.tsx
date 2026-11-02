@@ -14,13 +14,14 @@ import type { KnownContact, RegisterEntry } from '@pharmstation/types'
 import { addEntryAnnotation } from '../annotations/EntryAnnotationsPanel'
 import { CDEntryWarningModal } from '../registers/CDEntryWarningModal'
 import { getCDEntryWarnings, type CDEntryWarning } from '../../utils/cdEntryWarnings'
-import { COLLECTOR_OPTIONS, collectorNote, joinNotes } from '../../utils/cdRegisterExport'
+import { COLLECTOR_OPTIONS, schedule6Params } from '../../utils/cdRegisterExport'
 
 // Schema changes based on direction (IN vs OUT)
 const cdInSchema = z.object({
   direction: z.literal('in'),
   date_of_transaction: z.string().min(1, 'Date is required'),
   supplier_name: z.string().min(1, 'Supplier is required'),
+  supplier_address: z.string().optional().nullable(),
   invoice_number: z.string().optional().nullable(),
   quantity: z.coerce.number().min(0.01, 'Quantity must be greater than 0'),
   notes: z.string().optional().nullable(),
@@ -72,6 +73,7 @@ export function CDEntryForm({ direction, packLabel, onSuccess, onCancel }: CDEnt
         direction: 'in',
         date_of_transaction: new Date().toISOString().split('T')[0],
         supplier_name: lastUsedValues.supplier_name ?? '',
+        supplier_address: '',
         invoice_number: '',
         quantity: 0,
         notes: '',
@@ -186,6 +188,10 @@ export function CDEntryForm({ direction, packLabel, onSuccess, onCancel }: CDEnt
       setPrescriberSuggestions([])
     } else {
       setValue('supplier_name' as keyof CDEntryFormData, contact.full_name)
+      setValue(
+        'supplier_address' as keyof CDEntryFormData,
+        [contact.address_line_1, contact.city, contact.postcode].filter(Boolean).join(', '),
+      )
       setShowSupplierSuggest(false)
       setSupplierSuggestions([])
     }
@@ -203,15 +209,7 @@ export function CDEntryForm({ direction, packLabel, onSuccess, onCancel }: CDEnt
         p_register_type: activeLedger.register_type,
         p_entry_type: 'normal',
         p_date_of_transaction: data.date_of_transaction,
-        p_notes: isIn
-          ? data.notes || null
-          : joinNotes(
-              collectorNote(
-                (data as z.infer<typeof cdOutSchema>).collector_type,
-                (data as z.infer<typeof cdOutSchema>).collector_name,
-              ),
-              data.notes,
-            ),
+        p_notes: data.notes || null,
         p_source: 'manual',
         p_expected_lock_version: activeLedger.lock_version,
         p_transaction_type: isIn ? 'receipt' : 'supply',
@@ -233,6 +231,14 @@ export function CDEntryForm({ direction, packLabel, onSuccess, onCancel }: CDEnt
         // Schedule 6: record whether ID was asked for and seen on supplies
         p_was_id_requested: !isIn ? (data as z.infer<typeof cdOutSchema>).was_id_requested : null,
         p_was_id_provided: !isIn ? (data as z.infer<typeof cdOutSchema>).was_id_provided : null,
+        ...schedule6Params(
+          isIn
+            ? { supplierAddress: (data as z.infer<typeof cdInSchema>).supplier_address }
+            : {
+                collectorType: (data as z.infer<typeof cdOutSchema>).collector_type,
+                collectorDetails: (data as z.infer<typeof cdOutSchema>).collector_name,
+              },
+        ),
       }
 
       const { data: entry, error } = await getUserClient().rpc('ps_make_register_entry', rpcParams)
@@ -365,6 +371,11 @@ export function CDEntryForm({ direction, packLabel, onSuccess, onCancel }: CDEnt
               <label>Invoice Number</label>
               <input className="ps-input" placeholder="e.g. INV-12345" {...register('invoice_number')} />
             </div>
+          </div>
+
+          <div className="form-group">
+            <label>Supplier Address</label>
+            <input className="ps-input" placeholder="Wholesaler address" {...register('supplier_address')} />
           </div>
 
           <div className="form-group">

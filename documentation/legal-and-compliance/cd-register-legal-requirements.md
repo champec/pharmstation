@@ -30,7 +30,7 @@ register is "compliant".
 | No cancellation, obliteration or alteration; corrections by dated marginal note or footnote | Entries are immutable. Corrections are separate correction entries with a reason; notes are append-only annotations with author and time. Both appear in exports | Met |
 | Computerised register: every entry attributable to the person who made it | `entered_by` and `authorised_by` stored on each entry and shown in exports | Met |
 | Computerised register: capable of being audited | Immutable entries, correction trail, annotation trail | Met |
-| Computerised register: safeguards against unauthorised access | Supabase auth with row level security per organisation. No staff MFA yet | Partly met: add MFA for owners and managers |
+| Computerised register: safeguards against unauthorised access | Supabase auth with row level security per organisation. Entries go through `ps_make_register_entry`, which (from the Nov 2026 migration) only accepts active members of the ledger's pharmacy and records the signed-in user. No staff MFA yet | Partly met: add MFA for owners and managers |
 | Computerised register: accessible from the premises and capable of being printed | Web app. **Print / PDF** and **CSV** export on the CD register (all drugs, any date range), each drug ledger, the returns register, the RP log and custom logs | Met (added Nov 2026) |
 | Kept for 2 years from the date of the last entry | Data is not deleted. Retention depends on the hosted database and its backups | Met, subject to hosting. Keep London cutover and backup plan on track |
 | Backups | Supabase managed backups (plan dependent). CSV export lets the pharmacy keep its own copy | Partly met: document the backup schedule in the customer terms |
@@ -42,7 +42,7 @@ register is "compliant".
 | Field | Stored | Status |
 | --- | --- | --- |
 | Date supply received | `date_of_transaction` | Met |
-| Name and address of the supplier | Name in `supplier_name`. **Address is not stored** | Gap: add a supplier address (or store the known-contact id) on receipts |
+| Name and address of the supplier | `supplier_name`, `supplier_address` (filled from the saved supplier contact, or typed on the full IN form) | Met once the Nov 2026 migration is applied |
 | Quantity received | `quantity_received` | Met |
 | Running balance (good practice) | `running_balance` | Met |
 
@@ -54,7 +54,7 @@ register is "compliant".
 | Name and address of the person or firm supplied | `patient_name`, `patient_address`. Address is optional in the UI; a "No patient address" warning now shows when it is blank | Met, with warning |
 | Details of authority to possess: prescriber name and address | `prescriber_name`, `prescriber_address`, `prescriber_registration`. "No prescriber address" warning when blank | Met, with warning |
 | Quantity supplied | `quantity_deducted` | Met |
-| Person collecting: patient, patient's representative or healthcare professional, and if a healthcare professional their name and address | "Collected by" choice and details on both entry forms. Saved into the entry's own notes (immutable, exported) because there is no dedicated column yet | Met for now; add `collector_type` and `collector_details` columns to `ps_register_entries` |
+| Person collecting: patient, patient's representative or healthcare professional, and if a healthcare professional their name and address | "Collected by" choice and details on both entry forms, stored in `collector_type` and `collector_details` | Met once the Nov 2026 migration is applied |
 | Was proof of identity requested of the patient or representative | `was_id_requested` | Met. The full OUT form did not save this until Nov 2026 (fixed) |
 | Was proof of identity of the person collecting provided | `was_id_provided` | Met. Same fix as above |
 
@@ -68,12 +68,11 @@ register is "compliant".
 
 ## Open items before saying "compliant" in sales material
 
-1. Add supplier address to receipt entries.
-2. Move "Collected by" from notes into its own columns.
-3. Staff MFA for owners and managers.
-4. Finish the London data cutover and write the backup and retention schedule into the
+1. Apply the Nov 2026 migration (`supplier_address`, `collector_type`, `collector_details`, and the pharmacy-membership check in `ps_make_register_entry`) to the live database.
+2. Staff MFA for owners and managers.
+3. Finish the London data cutover and write the backup and retention schedule into the
    customer terms.
-5. Hands-on walkthrough of an entry, a correction, a return and an export with a
+4. Hands-on walkthrough of an entry, a correction, a return and an export with a
    practising pharmacist before the first demo.
 
 Until these are done, describe the register as "built to the Misuse of Drugs Regulations
