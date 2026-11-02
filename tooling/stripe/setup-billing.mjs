@@ -22,12 +22,20 @@
 // No dependencies. Prices must match packages/core/src/billing/plans.ts.
 // ============================================================
 
+const ESSENTIAL = { plan: 'essential', name: 'PharmStation Essential',
+  description: 'Paperless compliance: CD register, RP log, returns, logs, SOPs.' }
+const COMPLETE = { plan: 'complete', name: 'PharmStation Complete',
+  description: 'Everything in Essential plus booking, payments, video, messaging and deliveries.' }
+
 const PLANS = [
-  { plan: 'essential', name: 'PharmStation Essential', amount: 3900, lookupKey: 'pharmstation_essential_monthly',
-    description: 'Paperless compliance: CD register, RP log, returns, logs, SOPs.' },
-  { plan: 'complete', name: 'PharmStation Complete', amount: 7900, lookupKey: 'pharmstation_complete_monthly',
-    description: 'Everything in Essential plus booking, payments, video, messaging and deliveries.' },
+  { ...ESSENTIAL, interval: 'month', amount: 1500, lookupKey: 'pharmstation_essential_monthly' },
+  { ...ESSENTIAL, interval: 'year', amount: 15000, lookupKey: 'pharmstation_essential_annual' },
+  { ...COMPLETE, interval: 'month', amount: 2900, lookupKey: 'pharmstation_complete_monthly' },
+  { ...COMPLETE, interval: 'year', amount: 29000, lookupKey: 'pharmstation_complete_annual' },
 ]
+
+// Product per plan, remembered within a run (Stripe search is eventually consistent).
+const productByPlan = {}
 
 const PLATFORM_EVENTS = [
   'checkout.session.completed',
@@ -96,12 +104,14 @@ async function stripe(method, path, params) {
 // ---------- 1. products + prices ----------
 async function ensurePlan(p) {
   const existing = (await stripe('GET', '/prices', { 'lookup_keys[]': p.lookupKey, active: 'true', expand: ['data.product'] })).data[0]
-  if (existing && existing.unit_amount === p.amount && existing.currency === 'gbp' && existing.recurring?.interval === 'month') {
-    console.log(`  ✓ ${p.name}: ${existing.id} (£${p.amount / 100}/month) already set up`)
-    return { productId: existing.product.id ?? existing.product, priceId: existing.id }
+  const label = `${p.name} £${p.amount / 100}/${p.interval}`
+  if (existing && existing.unit_amount === p.amount && existing.currency === 'gbp' && existing.recurring?.interval === p.interval) {
+    console.log(`  ✓ ${label}: ${existing.id} already set up`)
+    productByPlan[p.plan] = existing.product.id ?? existing.product
+    return { productId: productByPlan[p.plan], priceId: existing.id }
   }
 
-  let productId = existing ? (existing.product.id ?? existing.product) : null
+  let productId = productByPlan[p.plan] ?? (existing ? (existing.product.id ?? existing.product) : null)
   if (!productId) {
     const found = await stripe('GET', '/products/search', { query: `metadata['ps_plan']:'${p.plan}' AND active:'true'` })
     productId = found.data[0]?.id ?? null
@@ -121,14 +131,15 @@ async function ensurePlan(p) {
     product: productId,
     currency: 'gbp',
     unit_amount: p.amount,
-    recurring: { interval: 'month' },
+    recurring: { interval: p.interval },
     tax_behavior: 'exclusive',
     lookup_key: p.lookupKey,
     transfer_lookup_key: 'true',
-    nickname: `${p.name} monthly`,
+    nickname: `${p.name} ${p.interval === 'year' ? 'annual' : 'monthly'}`,
     metadata: { ps_plan: p.plan, app: 'pharmstation' },
   })
-  console.log(`  + price ${p.name}: ${price.id} (£${p.amount / 100}/month)${existing ? ` replaces ${existing.id}` : ''}`)
+  console.log(`  + price ${label}: ${price.id}${existing ? ` replaces ${existing.id}` : ''}`)
+  productByPlan[p.plan] = productId
   return { productId, priceId: price.id }
 }
 
@@ -152,7 +163,9 @@ async function ensurePortal(planIds) {
         enabled: 'true',
         default_allowed_updates: ['price'],
         proration_behavior: 'create_prorations',
-        products: planIds.map((p) => ({ product: p.productId, prices: [p.priceId] })),
+        products: Object.entries(
+          planIds.reduce((acc, p) => ({ ...acc, [p.productId]: [...(acc[p.productId] ?? []), p.priceId] }), {}),
+        ).map(([product, prices]) => ({ product, prices })),
       },
     },
     metadata: { app: 'pharmstation' },

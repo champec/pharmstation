@@ -9,6 +9,8 @@
 
 export type PlanId = 'network' | 'essential' | 'complete'
 
+export type BillingInterval = 'month' | 'year'
+
 /** Product areas that can be gated by plan. */
 export type Feature =
   | 'network' // Pharm Network hub, linking, public profile
@@ -31,8 +33,10 @@ export interface Plan {
   name: string
   /** Monthly price in pence, before VAT. */
   monthlyPence: number
-  /** Stripe Price lookup key for the monthly price (null = free, no Stripe price). */
-  stripeLookupKey: string | null
+  /** Price for a year paid up front, in pence (two months free). */
+  annualPence: number
+  /** Stripe Price lookup keys (null = free plan, no Stripe price). */
+  stripeLookupKeys: Record<BillingInterval, string> | null
   tagline: string
   /** Max active staff accounts; null = unlimited. */
   staffLimit: number | null
@@ -69,7 +73,8 @@ export const PLANS: Record<PlanId, Plan> = {
     id: 'network',
     name: 'Network',
     monthlyPence: 0,
-    stripeLookupKey: null,
+    annualPence: 0,
+    stripeLookupKeys: null,
     tagline: 'Join the pharmacy network for free',
     staffLimit: 3,
     smsIncluded: 0,
@@ -83,8 +88,9 @@ export const PLANS: Record<PlanId, Plan> = {
   essential: {
     id: 'essential',
     name: 'Essential',
-    monthlyPence: 3900,
-    stripeLookupKey: 'pharmstation_essential_monthly',
+    monthlyPence: 1500,
+    annualPence: 15000,
+    stripeLookupKeys: { month: 'pharmstation_essential_monthly', year: 'pharmstation_essential_annual' },
     tagline: 'Paperless compliance',
     staffLimit: 3,
     smsIncluded: 0,
@@ -102,17 +108,18 @@ export const PLANS: Record<PlanId, Plan> = {
   complete: {
     id: 'complete',
     name: 'Complete',
-    monthlyPence: 7900,
-    stripeLookupKey: 'pharmstation_complete_monthly',
+    monthlyPence: 2900,
+    annualPence: 29000,
+    stripeLookupKeys: { month: 'pharmstation_complete_monthly', year: 'pharmstation_complete_annual' },
     tagline: 'Compliance plus services that earn you money',
     staffLimit: null,
-    smsIncluded: 200,
+    smsIncluded: 0,
     features: COMPLETE_FEATURES,
     highlights: [
       'Everything in Essential',
       'Online booking with card payments to your bank',
       'Appointments calendar and video consultations',
-      'Patient text messaging, inbox and broadcasts',
+      'Patient text messaging, inbox and broadcasts (texts bought as top-ups)',
       'Delivery rounds and driver app',
       'Online shop and care homes',
       'Unlimited staff',

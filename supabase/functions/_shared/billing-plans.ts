@@ -9,9 +9,15 @@
 export type PaidPlan = 'essential' | 'complete'
 export type PlanId = 'network' | PaidPlan
 
-export const PLAN_LOOKUP_KEYS: Record<PaidPlan, string> = {
-  essential: 'pharmstation_essential_monthly',
-  complete: 'pharmstation_complete_monthly',
+export type BillingInterval = 'month' | 'year'
+
+export const PLAN_LOOKUP_KEYS: Record<PaidPlan, Record<BillingInterval, string>> = {
+  essential: { month: 'pharmstation_essential_monthly', year: 'pharmstation_essential_annual' },
+  complete: { month: 'pharmstation_complete_monthly', year: 'pharmstation_complete_annual' },
+}
+
+export function isInterval(v: unknown): v is BillingInterval {
+  return v === 'month' || v === 'year'
 }
 
 export function isPaidPlan(v: unknown): v is PaidPlan {
@@ -26,8 +32,8 @@ export function planFromPrice(price: {
   if (!price) return null
   const fromMeta = price.metadata?.ps_plan
   if (isPaidPlan(fromMeta)) return fromMeta
-  for (const [plan, key] of Object.entries(PLAN_LOOKUP_KEYS)) {
-    if (price.lookup_key === key) return plan as PaidPlan
+  for (const [plan, keys] of Object.entries(PLAN_LOOKUP_KEYS)) {
+    if (price.lookup_key && Object.values(keys).includes(price.lookup_key)) return plan as PaidPlan
   }
   return null
 }

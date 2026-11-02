@@ -7,6 +7,7 @@
 //   get_mode         → { mode: 'test' | 'live' }            any member
 //   create_checkout  → { url }  Stripe Checkout, subscription mode
 //                      body: { org_id, plan: 'essential'|'complete',
+//                              interval?: 'month'|'year' (default month),
 //                              success_url, cancel_url }      owner/manager
 //   create_portal    → { url }  Stripe customer portal (change plan, card,
 //                      cancel, invoices). body: { org_id, return_url }
@@ -25,7 +26,7 @@
 
 import Stripe from 'https://esm.sh/stripe@17.7.0?target=denonext'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.0'
-import { PLAN_LOOKUP_KEYS, isPaidPlan, trialDays, type PaidPlan } from '../_shared/billing-plans.ts'
+import { PLAN_LOOKUP_KEYS, isInterval, isPaidPlan, trialDays, type BillingInterval, type PaidPlan } from '../_shared/billing-plans.ts'
 import { syncSubscription } from '../_shared/billing-sync.ts'
 
 const CORS_HEADERS = {
@@ -195,8 +196,8 @@ async function ensureCustomer(db: Db, stripe: Stripe, orgId: string, email: stri
   return customer.id
 }
 
-async function priceForPlan(stripe: Stripe, plan: PaidPlan): Promise<Stripe.Price> {
-  const key = PLAN_LOOKUP_KEYS[plan]
+async function priceForPlan(stripe: Stripe, plan: PaidPlan, interval: BillingInterval): Promise<Stripe.Price> {
+  const key = PLAN_LOOKUP_KEYS[plan][interval]
   const prices = await stripe.prices.list({ lookup_keys: [key], active: true, limit: 1 })
   const price = prices.data[0]
   if (!price) {
@@ -215,6 +216,8 @@ async function createCheckout(db: Db, caller: Caller, body: Record<string, unkno
   const orgId = body.org_id as string
   const plan = body.plan
   if (!isPaidPlan(plan)) throw new HttpError(400, 'plan must be "essential" or "complete"')
+  const interval = body.interval ?? 'month'
+  if (!isInterval(interval)) throw new HttpError(400, 'interval must be "month" or "year"')
   if (!isAllowedRedirect(body.success_url) || !isAllowedRedirect(body.cancel_url)) {
     throw new HttpError(400, 'success_url and cancel_url must be PharmStation addresses')
   }
@@ -235,7 +238,7 @@ async function createCheckout(db: Db, caller: Caller, body: Record<string, unkno
   const stripe = getStripe()
   const [customerId, price] = await Promise.all([
     ensureCustomer(db, stripe, orgId, caller.email),
-    priceForPlan(stripe, plan),
+    priceForPlan(stripe, plan, interval),
   ])
 
   // Free trial only on the first subscription an org ever starts.

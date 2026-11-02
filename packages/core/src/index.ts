@@ -37,6 +37,7 @@ export {
   formatPence,
   type Plan,
   type PlanId,
+  type BillingInterval,
   type Feature,
   type OrgSubscription,
 } from './billing/plans'

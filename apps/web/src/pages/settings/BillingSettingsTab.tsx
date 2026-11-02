@@ -11,6 +11,7 @@ import {
   formatPence,
   type BillingMode,
   type PlanId,
+  type BillingInterval,
 } from '@pharmstation/core'
 import { BILLING_ROLES } from '../../lib/billing'
 import '../../components/billing/billing.css'
@@ -30,6 +31,7 @@ export function BillingSettingsTab() {
   const [busy, setBusy] = useState<string | null>(null)
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
+  const [interval, setBillingInterval] = useState<BillingInterval>('month')
 
   // The org login itself (no staff membership) is treated as the owner.
   const canManage = !membership || BILLING_ROLES.has(membership.role)
@@ -85,7 +87,7 @@ export function BillingSettingsTab() {
     setBusy(target)
     setError('')
     try {
-      window.location.href = await startCheckout(orgId, target)
+      window.location.href = await startCheckout(orgId, target, interval)
     } catch (e) {
       setError((e as Error).message)
       setBusy(null)
@@ -173,6 +175,23 @@ export function BillingSettingsTab() {
         <p className="billing-note">Only the pharmacy owner or a manager can change the plan.</p>
       )}
 
+      {!hasStripeSub && (
+        <div className="billing-interval" role="group" aria-label="Billing period">
+          <button
+            className={`ps-btn ${interval === 'month' ? 'ps-btn-primary' : 'ps-btn-ghost'}`}
+            onClick={() => setBillingInterval('month')}
+          >
+            Monthly
+          </button>
+          <button
+            className={`ps-btn ${interval === 'year' ? 'ps-btn-primary' : 'ps-btn-ghost'}`}
+            onClick={() => setBillingInterval('year')}
+          >
+            Yearly: 2 months free
+          </button>
+        </div>
+      )}
+
       <div className="billing-plans">
         {PLAN_ORDER.map((id) => {
           const p = PLANS[id]
@@ -207,8 +226,8 @@ export function BillingSettingsTab() {
               {id === 'complete' && <div className="billing-plan-flag">Most popular</div>}
               <h4>{p.name}</h4>
               <div className="billing-price">
-                {formatPence(p.monthlyPence)}
-                <span>{p.monthlyPence ? ' / month' : ' forever'}</span>
+                {formatPence(interval === 'year' && !hasStripeSub ? p.annualPence : p.monthlyPence)}
+                <span>{!p.monthlyPence ? ' forever' : interval === 'year' && !hasStripeSub ? ' / year' : ' / month'}</span>
               </div>
               <p className="billing-tagline">{p.tagline}</p>
               <ul>

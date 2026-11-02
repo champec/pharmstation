@@ -6,6 +6,7 @@ import {
   type Feature,
   type OrgSubscription,
   type PlanId,
+  type BillingInterval,
 } from '../billing/plans'
 
 export type BillingMode = 'test' | 'live' | 'unconfigured'
@@ -21,7 +22,11 @@ export interface SubscriptionState {
   fetchSubscription: (orgId: string) => Promise<void>
   hasFeature: (feature: Feature) => boolean
   /** Start Stripe Checkout for a paid plan; resolves to the hosted Checkout URL. */
-  startCheckout: (orgId: string, plan: Exclude<PlanId, 'network'>) => Promise<string>
+  startCheckout: (
+    orgId: string,
+    plan: Exclude<PlanId, 'network'>,
+    interval?: BillingInterval,
+  ) => Promise<string>
   /** Open the Stripe customer portal (change card, switch plan, cancel, invoices). */
   openPortal: (orgId: string) => Promise<string>
   /** Ask the server whether Stripe is in test or live mode. */
@@ -76,12 +81,13 @@ export const useSubscriptionStore = create<SubscriptionState>((set, get) => ({
 
   hasFeature: (feature) => planHasFeature(get().plan, feature),
 
-  startCheckout: async (orgId, plan) => {
+  startCheckout: async (orgId, plan, interval = 'month') => {
     const origin = window.location.origin
     const data = await invokeBilling<{ url: string }>({
       action: 'create_checkout',
       org_id: orgId,
       plan,
+      interval,
       success_url: `${origin}/settings?tab=billing&checkout=success`,
       cancel_url: `${origin}/settings?tab=billing&checkout=cancel`,
     })

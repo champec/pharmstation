@@ -111,3 +111,12 @@
   .billing-current, .billing-plan { padding: var(--ps-space-md); }
   .plan-gate { padding: var(--ps-space-lg) var(--ps-space-md); margin: var(--ps-space-md) 0; }
 }
+
+.billing-interval {
+  display: inline-flex;
+  gap: var(--ps-space-xs);
+  padding: var(--ps-space-xs);
+  border-radius: var(--ps-radius-lg);
+  background: #fff;
+  margin-top: var(--ps-space-sm);
+}

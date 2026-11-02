@@ -4,8 +4,8 @@
 > need a person with the Stripe and Supabase dashboards; nothing here can be
 > done from code alone.
 
-Plans: **Network £0**, **Essential £39/month**, **Complete £79/month** (placeholder
-prices, not final). No free trial by default; set `BILLING_TRIAL_DAYS` to offer one. Catalogue: `packages/core/src/billing/plans.ts`.
+Plans: **Network £0**, **Essential £15/month or £150/year**, **Complete £29/month or
+£290/year** (agreed 2 Nov 2026). No free trial by default; set `BILLING_TRIAL_DAYS` to offer one. Catalogue: `packages/core/src/billing/plans.ts`.
 
 ## 0. Decide first
 
@@ -70,7 +70,7 @@ billing" and switch plan and cancel once each.
    customer id, but Connect onboarding needs the reset.)
 6. Each pharmacy that takes card payments redoes **Settings → Payments → Set up
    payments** (live Connect onboarding with their real bank).
-7. Make a real £39 purchase on your own card, check it appears in Stripe, in
+7. Make a real £15 purchase on your own card, check it appears in Stripe, in
    `ps_org_subscriptions` and as a `subscription` row on the Payments ledger, then
    refund and cancel it.
 

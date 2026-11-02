@@ -138,7 +138,7 @@ Connect Express pattern as pharmacies, different direction of money.
 `documentation/payments/stripe-go-live.md`.
 
 - [x] Plan catalogue in `packages/core/src/billing/plans.ts`: Network £0,
-      Essential £39, Complete £79 (monthly), feature map, route → feature map
+      Essential £15, Complete £29 (monthly; annual = 10× monthly), feature map, route → feature map
 - [x] `ps_org_subscriptions` + `ps_org_effective_plan()` (SQL in
       `documentation/payments/subscriptions-schema.sql`, client read-only)
 - [x] `stripe-billing` edge function: checkout (subscription mode, optional
@@ -148,7 +148,7 @@ Connect Express pattern as pharmacies, different direction of money.
 - [x] Settings → Plan & billing tab; plan gate + 🔒 menu items behind
       `VITE_ENFORCE_PLANS`
 - [x] `tooling/stripe/setup-billing.mjs`: products, prices, portal, webhooks
-- [ ] SMS credits / staff limits enforcement (server side)
+- [ ] SMS top-ups (e.g. £10 for 250 texts) and staff limits, enforced server side
 - [ ] Webmaster admin UI
 
 Original plan:
