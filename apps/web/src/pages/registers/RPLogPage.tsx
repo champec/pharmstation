@@ -9,6 +9,7 @@ import { Drawer } from '../../components/Drawer'
 import { Modal } from '../../components/Modal'
 import { RPEntryForm } from '../../components/forms/RPEntryForm'
 import { RPCertificate } from '../../components/RPCertificate'
+import { downloadCsv, escapeHtml, fmtDate as fmtExportDate, fmtDateTime, safeFilename, todayIso as todayIsoDate } from '../../utils/registerExport'
 
 interface RPEditHistoryItem {
   correctionEntry: RegisterEntry
@@ -676,12 +677,12 @@ export function RPLogPage() {
           const entry = row.entry
           const edited = row.editHistory.length > 0 ? ` (Edited ${row.editHistory.length}×)` : ''
           return `<tr${row.date === todayIso ? ' class="rp-today-row"' : ''}>
-            <td>${formatDate(row.date)}</td>
-            <td>${entry?.pharmacist_name || '—'}${edited}</td>
-            <td>${entry?.gphc_number || '—'}</td>
-            <td>${formatTime(entry?.rp_signed_in_at ?? null)}</td>
-            <td>${formatTime(entry?.rp_signed_out_at ?? null)}</td>
-            <td>${entry?.notes || '—'}</td>
+            <td>${escapeHtml(formatDate(row.date))}</td>
+            <td>${escapeHtml(entry?.pharmacist_name || '—')}${edited}</td>
+            <td>${escapeHtml(entry?.gphc_number || '—')}</td>
+            <td>${escapeHtml(formatTime(entry?.rp_signed_in_at ?? null))}</td>
+            <td>${escapeHtml(formatTime(entry?.rp_signed_out_at ?? null))}</td>
+            <td>${escapeHtml(entry?.notes || '—')}</td>
           </tr>`
         })
         .join('')
@@ -697,7 +698,7 @@ export function RPLogPage() {
         <!DOCTYPE html>
         <html>
         <head>
-          <title>RP Log — ${organisation?.name ?? 'PharmStation'}</title>
+          <title>RP Log — ${escapeHtml(organisation?.name ?? 'PharmStation')}</title>
           <style>
             * { margin: 0; padding: 0; box-sizing: border-box; }
             body { font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; padding: 8px; }
@@ -721,7 +722,7 @@ export function RPLogPage() {
         <body>
           <div class="print-header">
             <h1>👤 RP Log</h1>
-            <p>${organisation?.name ?? ''} — ${subtitle} — Printed ${new Date().toLocaleString('en-GB')}</p>
+            <p>${escapeHtml(organisation?.name ?? '')} — ${escapeHtml(subtitle)} — Printed ${new Date().toLocaleString('en-GB')}</p>
           </div>
           <table>
             <thead><tr>
@@ -739,6 +740,32 @@ export function RPLogPage() {
     },
     [organisation, buildPrintRows],
   )
+
+  // Full audit export: every entry, including corrections, in entry order
+  const handleCsvExport = useCallback(() => {
+    const numberById = new Map(entries.map((e) => [e.id, e.entry_number]))
+    const headers = [
+      'Entry', 'Date', 'Type', 'Pharmacist', 'GPhC number', 'Became RP', 'Ceased to be RP',
+      'Notes', 'Corrects entry', 'Correction reason', 'Entered by', 'Entered at',
+    ]
+    const rows = [...entries]
+      .sort((a, b) => a.entry_number - b.entry_number)
+      .map((e) => [
+        e.entry_number,
+        fmtExportDate(e.date_of_transaction),
+        e.entry_type === 'correction' ? 'Correction' : 'RP record',
+        e.pharmacist_name ?? '',
+        e.gphc_number ?? '',
+        fmtDateTime(e.rp_signed_in_at),
+        fmtDateTime(e.rp_signed_out_at),
+        e.notes ?? '',
+        e.corrects_entry_id ? numberById.get(e.corrects_entry_id) ?? '' : '',
+        e.correction_reason ?? '',
+        userNameMap[e.entered_by] ?? e.authorised_by ?? '',
+        fmtDateTime(e.entered_at),
+      ])
+    downloadCsv(safeFilename(organisation?.name, 'rp-log', todayIsoDate()), headers, rows)
+  }, [entries, organisation, userNameMap])
 
   const handlePrintFromModal = useCallback(() => {
     if (printMode === 'current') {
@@ -883,6 +910,14 @@ export function RPLogPage() {
             </button>
             <button className="ps-btn ps-btn-ghost no-print" onClick={() => setPrintModalOpen(true)}>
               🖨️ Print Log
+            </button>
+            <button
+              className="ps-btn ps-btn-ghost no-print"
+              onClick={handleCsvExport}
+              disabled={entriesLoading || entries.length === 0}
+              title="Download every RP entry, including corrections, as a CSV spreadsheet"
+            >
+              ⬇ CSV
             </button>
             <button className="ps-btn ps-btn-primary no-print" onClick={() => setDrawerOpen(true)}>
               + Add RP Entry
