@@ -22,6 +22,9 @@
 //   list_templates / save_template / delete_template — per-org templating
 //   assign_reply_number / release_reply_number — two-way reply numbers
 //   usage_summary   — per-org monthly usage + estimated charge (billing)
+//   network_ping    — urgent text alert for Pharmacy Network messages, sent
+//                     to the RECIPIENT pharmacy's registered numbers and
+//                     billed to the SENDER (see handleNetworkPing)
 //
 // SMS Works uses a SINGLE platform account. The JWT lives in the
 // SMSWORKS_JWT edge secret and is never exposed to the browser. Per-org
@@ -295,41 +298,58 @@ type SendCommon = {
   use_reply_number?: boolean
 }
 
-async function sendSms(
-  admin: AdminClient,
-  settings: SmsSettings,
-  args: SendCommon & { phone_number: string; body?: string },
-  userId: string,
-) {
+type DeliverArgs = {
+  org_id: string
+  phone_number: string
+  sender: string
+  content: string
+  feature: string
+  reference: string
+  patient_id?: string | null
+  broadcast_id?: string | null
+  template_id?: string | null
+  reply_number?: string | null
+  personalisation?: Record<string, unknown>
+  /** Store a masked number: the sender must not learn the recipient's phone. */
+  mask_recipient?: boolean
+}
+
+/** "•••• 123" — enough for staff to tell numbers apart, not to dial them. */
+function maskPhone(n: string): string {
+  return `•••• ${n.slice(-3)}`
+}
+
+/**
+ * Log, send and bill one SMS. Every outbound text goes through here so that
+ * ps_messages and the monthly usage ledger always match what SMS Works sent.
+ */
+async function deliverSms(admin: AdminClient, args: DeliverArgs, userId: string) {
   const destination = normaliseDestination(args.phone_number)
-  const sender = resolveSender(settings, args.use_reply_number)
-  const { content, templateId } = await buildContent(admin, settings, args)
-  const reference = args.reference || `${args.feature || 'manual'}${args.patient_id ? `:${args.patient_id}` : ''}`
 
   // 1) Insert a pending row first so we can stamp its id into SMS Works
   //    metadata (this is what makes multi-tenant reply routing reliable).
   const pending = await insertPending(admin, {
     org_id: args.org_id,
     patient_id: args.patient_id || null,
-    recipient_phone: args.phone_number,
-    recipient_phone_normalized: destination,
-    body: content,
-    personalisation: args.personalisation ?? { body: content },
-    sms_sender: sender,
-    reply_number: settings.reply_enabled ? settings.reply_number : null,
-    template_id: templateId,
-    reference,
-    feature: args.feature || 'manual',
+    recipient_phone: args.mask_recipient ? maskPhone(destination) : args.phone_number,
+    recipient_phone_normalized: args.mask_recipient ? null : destination,
+    body: args.content,
+    personalisation: args.personalisation ?? { body: args.content },
+    sms_sender: args.sender,
+    reply_number: args.reply_number ?? null,
+    template_id: args.template_id ?? null,
+    reference: args.reference,
+    feature: args.feature,
     broadcast_id: args.broadcast_id || null,
     created_by_user_id: userId,
   })
 
   // 2) Send via SMS Works
   const payload: Record<string, unknown> = {
-    sender,
+    sender: args.sender,
     destination,
-    content,
-    tag: args.feature || 'manual',
+    content: args.content,
+    tag: args.feature,
     metadata: [
       { key: 'org_id', value: args.org_id },
       { key: 'message_id', value: pending.id },
@@ -346,7 +366,7 @@ async function sendSms(
     const messageId = (result.messageid as string) || null
     const status = mapSmsworksStatus((result.status as string) || 'SENT')
     // Prefer the values SMS Works returns; fall back to a local estimate.
-    const est = estimateSegments(content)
+    const est = estimateSegments(args.content)
     const credits = typeof result.credits === 'number' ? result.credits : est.credits
     const segments = typeof result.messageparts === 'number' ? result.messageparts : est.segments
 
@@ -378,6 +398,32 @@ async function sendSms(
     }).eq('id', pending.id)
     throw e
   }
+}
+
+async function sendSms(
+  admin: AdminClient,
+  settings: SmsSettings,
+  args: SendCommon & { phone_number: string; body?: string; footer?: string },
+  userId: string,
+) {
+  const sender = resolveSender(settings, args.use_reply_number)
+  const built = await buildContent(admin, settings, args)
+  const content = args.footer ? `${built.content}\n${args.footer}` : built.content
+  const reference = args.reference || `${args.feature || 'manual'}${args.patient_id ? `:${args.patient_id}` : ''}`
+
+  return deliverSms(admin, {
+    org_id: args.org_id,
+    phone_number: args.phone_number,
+    sender,
+    content,
+    feature: args.feature || 'manual',
+    reference,
+    patient_id: args.patient_id,
+    broadcast_id: args.broadcast_id,
+    template_id: built.templateId,
+    reply_number: settings.reply_enabled ? settings.reply_number : null,
+    personalisation: args.personalisation,
+  }, userId)
 }
 
 // ============================================
@@ -435,6 +481,24 @@ async function handleNotify(body: Record<string, unknown>, userId: string) {
 // Action: send_broadcast (SMS only)
 // ============================================
 
+const BROADCAST_CONCURRENCY = 5
+
+/** Phone numbers (normalised) that have texted STOP to this pharmacy. */
+async function loadOptOuts(admin: AdminClient, orgId: string): Promise<Set<string>> {
+  const out = new Set<string>()
+  const pageSize = 1000
+  for (let from = 0; ; from += pageSize) {
+    const { data, error } = await admin
+      .from('ps_sms_opt_outs').select('phone_normalized')
+      .eq('org_id', orgId).range(from, from + pageSize - 1)
+    // Fail closed: never broadcast if we cannot check who opted out.
+    if (error) throw new Error(`Could not check SMS opt-outs: ${error.message}`)
+    for (const row of data ?? []) out.add(row.phone_normalized as string)
+    if (!data || data.length < pageSize) break
+  }
+  return out
+}
+
 async function handleSendBroadcast(body: Record<string, unknown>, userId: string) {
   const { org_id, broadcast_id } = body as { org_id: string; broadcast_id: string }
   if (!org_id || !broadcast_id) throw new Error('Missing org_id or broadcast_id')
@@ -451,33 +515,79 @@ async function handleSendBroadcast(body: Record<string, unknown>, userId: string
   const { data: patients, error: pErr } = await admin
     .from('ps_patients').select('id, phone').eq('organisation_id', org_id).not('phone', 'is', null)
   if (pErr) throw new Error(`Failed to fetch patients: ${pErr.message}`)
-  if (!patients || patients.length === 0) throw new Error('No matching patients found')
 
-  await admin.from('ps_broadcasts')
-    .update({ status: 'sending', total_count: patients.length }).eq('id', broadcast_id)
+  // Skip anyone who texted STOP, and send once per number (families often
+  // share a phone; they should not get the same broadcast three times).
+  const optOuts = await loadOptOuts(admin, org_id)
+  const seen = new Set<string>()
+  let optedOutCount = 0
+  let duplicateCount = 0
+  let invalidCount = 0
+  const recipients: { id: string; phone: string }[] = []
+  for (const p of patients ?? []) {
+    let norm: string
+    try { norm = normaliseDestination(p.phone as string) } catch { invalidCount++; continue }
+    if (optOuts.has(norm)) { optedOutCount++; continue }
+    if (seen.has(norm)) { duplicateCount++; continue }
+    seen.add(norm)
+    recipients.push({ id: p.id as string, phone: p.phone as string })
+  }
+  if (recipients.length === 0) {
+    throw new Error(
+      optedOutCount > 0
+        ? 'No patients to message: everyone with a mobile number has opted out.'
+        : 'No matching patients found',
+    )
+  }
+
+  // Claim the broadcast atomically so a double-click or a retry cannot send
+  // the same broadcast twice.
+  const { data: claimed } = await admin.from('ps_broadcasts')
+    .update({ status: 'sending', total_count: recipients.length })
+    .eq('id', broadcast_id).eq('status', 'draft')
+    .select('id').maybeSingle()
+  if (!claimed) throw new Error('Broadcast already processed')
+
+  // Tell patients how to opt out whenever they can actually reply.
+  const sender = resolveSender(settings)
+  const canReply = /^\d+$/.test(sender)
+  const footer = canReply && !/\bSTOP\b/i.test(broadcast.body ?? '') ? 'Reply STOP to opt out' : undefined
 
   let sentCount = 0
   let failedCount = 0
-  const common = { org_id, feature: 'broadcast', broadcast_id, reference: `broadcast:${broadcast_id}` }
+  const common = { org_id, feature: 'broadcast', broadcast_id, reference: `broadcast:${broadcast_id}`, footer }
 
-  for (const patient of patients) {
-    try {
-      await sendSms(admin, settings, {
-        ...common, patient_id: patient.id, phone_number: patient.phone as string, body: broadcast.body,
-      }, userId)
-      sentCount++
-    } catch (_e) {
-      failedCount++
+  let next = 0
+  async function worker() {
+    while (next < recipients.length) {
+      const patient = recipients[next++]
+      try {
+        await sendSms(admin, settings, {
+          ...common, patient_id: patient.id, phone_number: patient.phone, body: broadcast.body,
+        }, userId)
+        sentCount++
+      } catch (_e) {
+        failedCount++
+      }
+      await sleep(20)
     }
-    await sleep(20)
   }
+  await Promise.all(Array.from({ length: Math.min(BROADCAST_CONCURRENCY, recipients.length) }, worker))
 
-  const finalStatus = failedCount === patients.length ? 'failed' : 'sent'
+  const finalStatus = failedCount === recipients.length ? 'failed' : 'sent'
   await admin.from('ps_broadcasts').update({
     status: finalStatus, sent_count: sentCount, failed_count: failedCount,
   }).eq('id', broadcast_id)
 
-  return { sent_count: sentCount, failed_count: failedCount, total_count: patients.length, status: finalStatus }
+  return {
+    sent_count: sentCount,
+    failed_count: failedCount,
+    total_count: recipients.length,
+    opted_out_count: optedOutCount,
+    duplicate_count: duplicateCount,
+    invalid_count: invalidCount,
+    status: finalStatus,
+  }
 }
 
 // ============================================
@@ -702,6 +812,150 @@ async function handleReleaseReplyNumber(body: Record<string, unknown>) {
 }
 
 // ============================================
+// Action: network_ping — urgent text alert for a Pharmacy Network message
+//
+// The sender's browser inserts the network message(s) under RLS, then calls
+// this with their ids. For each message we check that it really came from
+// the caller's pharmacy and asked for a ping, then text the RECIPIENT
+// pharmacy's registered numbers, respecting their on/off switch, paused
+// numbers and quiet hours (UK time). The text never contains the message
+// body (it could hold patient details); it says who wrote and links to the
+// thread. Usage is billed to the sending pharmacy.
+// ============================================
+
+const PING_MAX_AGE_MINUTES = 10
+const PING_RATE_LIMIT_MINUTES = 15
+const PING_MAX_NUMBERS = 3
+
+const NETWORK_LABEL_TEXT: Record<string, string> = {
+  prescription_query: 'prescription query',
+  community_alert: 'community alert',
+  stock_query: 'stock query',
+  other: 'message',
+}
+
+/** "HH:MM" in Europe/London for the given instant. */
+function londonClock(at: Date): string {
+  return new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Europe/London', hour: '2-digit', minute: '2-digit', hour12: false,
+  }).format(at)
+}
+
+/** True when `now` (HH:MM) is inside [start, end); handles overnight windows. */
+function inWindow(now: string, start?: string | null, end?: string | null): boolean {
+  const s = (start || '00:00').slice(0, 5)
+  const e = (end || '23:59').slice(0, 5)
+  if (s === e) return true
+  return s < e ? now >= s && now < e : now >= s || now < e
+}
+
+type PingResult = { message_id: string; to_org_id?: string; status: string; numbers?: number }
+
+async function handleNetworkPing(body: Record<string, unknown>, userId: string) {
+  const { org_id, message_ids } = body as { org_id: string; message_ids?: unknown }
+  if (!Array.isArray(message_ids) || message_ids.length === 0) throw new Error('Missing message_ids')
+  if (message_ids.length > 100) throw new Error('Too many messages in one request')
+  const ids = message_ids.filter((x): x is string => typeof x === 'string')
+
+  const admin = getAdminClient()
+  const sender = validateAlphaSender(Deno.env.get('NETWORK_PING_SENDER') || 'PharmStn')
+  const appUrl = (Deno.env.get('PUBLIC_APP_URL') || 'https://pharmstation.co.uk').replace(/\/+$/, '')
+  const since = new Date(Date.now() - PING_MAX_AGE_MINUTES * 60_000).toISOString()
+
+  const { data: msgs, error } = await admin
+    .from('ps_network_messages')
+    .select('id, from_org_id, to_org_id, thread_id, label, from_org_name, request_sms_ping, sms_ping_status, created_at')
+    .in('id', ids)
+    .eq('from_org_id', org_id)
+  if (error) throw new Error(`Failed to load messages: ${error.message}`)
+
+  const results: PingResult[] = []
+  const now = new Date()
+  const clock = londonClock(now)
+
+  for (const id of ids) {
+    const m = (msgs ?? []).find((x) => x.id === id)
+    if (!m) { results.push({ message_id: id, status: 'not_found' }); continue }
+    if (!m.request_sms_ping) { results.push({ message_id: id, status: 'not_requested' }); continue }
+    if (m.sms_ping_status) { results.push({ message_id: id, status: m.sms_ping_status }); continue }
+    if (m.created_at < since) { results.push({ message_id: id, status: 'too_old' }); continue }
+
+    // Claim the message so retries can never text twice.
+    const { data: claimed } = await admin.from('ps_network_messages')
+      .update({ sms_ping_status: 'processing' })
+      .eq('id', id).is('sms_ping_status', null)
+      .select('id').maybeSingle()
+    if (!claimed) { results.push({ message_id: id, status: 'already_processed' }); continue }
+
+    const finish = async (status: string, count = 0) => {
+      await admin.from('ps_network_messages').update({
+        sms_ping_status: status,
+        sms_ping_count: count,
+        sms_ping_sent_at: status === 'sent' ? new Date().toISOString() : null,
+      }).eq('id', id)
+      results.push({ message_id: id, to_org_id: m.to_org_id, status, numbers: count })
+    }
+
+    const { data: settings } = await admin
+      .from('ps_network_settings').select('network_enabled, sms_pings_enabled')
+      .eq('org_id', m.to_org_id).maybeSingle()
+    if (!settings?.sms_pings_enabled || settings.network_enabled === false) {
+      await finish('recipient_disabled'); continue
+    }
+
+    // One ping per sender → recipient pair per window, so the feature can't
+    // be used to spam another pharmacy's phones.
+    const { count: recent } = await admin.from('ps_network_messages')
+      .select('id', { count: 'exact', head: true })
+      .eq('from_org_id', org_id).eq('to_org_id', m.to_org_id)
+      .gte('sms_ping_sent_at', new Date(Date.now() - PING_RATE_LIMIT_MINUTES * 60_000).toISOString())
+    if ((recent ?? 0) > 0) { await finish('rate_limited'); continue }
+
+    const { data: contacts } = await admin
+      .from('ps_network_sms_contacts')
+      .select('phone_number, is_enabled, pause_until, notify_start, notify_end')
+      .eq('org_id', m.to_org_id).eq('is_enabled', true)
+      .order('created_at', { ascending: true })
+    const reachable = (contacts ?? []).filter((c) =>
+      !(c.pause_until && new Date(c.pause_until) > now) &&
+      inWindow(clock, c.notify_start as string | null, c.notify_end as string | null),
+    ).slice(0, PING_MAX_NUMBERS)
+    if (reachable.length === 0) { await finish('no_contacts_available'); continue }
+
+    const what = NETWORK_LABEL_TEXT[m.label as string] ?? 'message'
+    const from = (m.from_org_name as string | null) || 'A pharmacy'
+    const content =
+      `PharmStation Network: urgent ${what} from ${from}. ` +
+      `Open to read and reply: ${appUrl}/messaging/network/thread/${m.thread_id}`
+
+    let sent = 0
+    for (const c of reachable) {
+      try {
+        await deliverSms(admin, {
+          org_id,
+          phone_number: c.phone_number as string,
+          sender,
+          content,
+          feature: 'network_ping',
+          reference: `network:${id}`,
+          mask_recipient: true,
+        }, userId)
+        sent++
+      } catch (e) {
+        console.error('network ping send failed', e instanceof Error ? e.message : e)
+      }
+    }
+    await finish(sent > 0 ? 'sent' : 'failed', sent)
+  }
+
+  return {
+    results,
+    sent: results.filter((r) => r.status === 'sent').length,
+    total: results.length,
+  }
+}
+
+// ============================================
 // Action: usage_summary — billing view for the org
 // ============================================
 
@@ -764,6 +1018,7 @@ Deno.serve(async (req: Request) => {
       case 'assign_reply_number': result = await handleAssignReplyNumber(body); break
       case 'release_reply_number': result = await handleReleaseReplyNumber(body); break
       case 'usage_summary': result = await handleUsageSummary(body); break
+      case 'network_ping': result = await handleNetworkPing(body, user.id); break
       default: throw new Error(`Unknown action: ${action}`)
     }
 

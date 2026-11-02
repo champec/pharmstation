@@ -84,6 +84,11 @@ function metaValue(meta: unknown, key: string): string | undefined {
   return undefined
 }
 
+// Industry-standard opt-out / opt-in keywords (whole message, any case).
+// CANCEL is left out on purpose: patients text it about appointments.
+const OPT_OUT_KEYWORDS = new Set(['STOP', 'STOPALL', 'STOP ALL', 'UNSUBSCRIBE', 'OPT OUT', 'OPTOUT'])
+const OPT_IN_KEYWORDS = new Set(['START', 'UNSTOP', 'SUBSCRIBE', 'OPT IN', 'OPTIN'])
+
 function normalisePhone(raw: string): string {
   let n = (raw || '').replace(/[^\d+]/g, '')
   if (n.startsWith('+')) n = n.slice(1)
@@ -187,6 +192,21 @@ async function handleInbound(admin: AdminClient, payload: Record<string, unknown
     if (duplicate) {
       return json({ received: true, routed: true, duplicate: true, disposition: duplicate.disposition })
     }
+  }
+
+  // STOP / START keywords: record the patient's choice so broadcasts skip
+  // them. The message still lands in the inbox so staff can see it.
+  const keyword = content.trim().toUpperCase().replace(/[^A-Z ]/g, '').replace(/\s+/g, ' ')
+  if (OPT_OUT_KEYWORDS.has(keyword)) {
+    const { error: optErr } = await admin.from('ps_sms_opt_outs').upsert({
+      org_id: orgId, phone_normalized: fromNorm, source: 'sms_keyword', keyword,
+      opted_out_at: new Date().toISOString(),
+    }, { onConflict: 'org_id,phone_normalized' })
+    if (optErr) console.error('opt-out upsert error', optErr)
+  } else if (OPT_IN_KEYWORDS.has(keyword)) {
+    const { error: optErr } = await admin.from('ps_sms_opt_outs')
+      .delete().eq('org_id', orgId).eq('phone_normalized', fromNorm)
+    if (optErr) console.error('opt-in delete error', optErr)
   }
 
   // Match only when exactly one patient owns this number. Shared family

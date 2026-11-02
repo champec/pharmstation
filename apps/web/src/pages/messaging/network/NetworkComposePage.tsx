@@ -23,7 +23,7 @@ export function NetworkComposePage() {
   const location = useLocation()
   const { organisation } = useAuthStore()
   const {
-    searchResults, searchLoading, error,
+    searchResults, searchLoading, error, lastPing, lastPingError,
     searchPharmacies, sendMessage, clearError,
   } = useNetworkStore()
 
@@ -122,9 +122,17 @@ export function NetworkComposePage() {
           <h2 style={{ marginBottom: 'var(--ps-space-sm)' }}>
             Message sent to {recipients.length} {recipients.length === 1 ? 'pharmacy' : 'pharmacies'}
           </h2>
-          <p style={{ color: 'var(--ps-slate)', marginBottom: 'var(--ps-space-lg)' }}>
-            {requestSmsPing && 'SMS ping requests have been sent to pharmacies with text notifications enabled.'}
-          </p>
+          {requestSmsPing && (
+            <p style={{ color: lastPingError ? 'var(--ps-red, crimson)' : 'var(--ps-slate)', marginBottom: 'var(--ps-space-lg)' }}>
+              {lastPingError
+                ? `Your message was delivered, but the text alert could not be sent: ${lastPingError}`
+                : lastPing
+                  ? lastPing.sent === lastPing.total
+                    ? `📱 Text alert sent to ${lastPing.sent === 1 ? 'the pharmacy' : `all ${lastPing.sent} pharmacies`}.`
+                    : `📱 Text alert sent to ${lastPing.sent} of ${lastPing.total} ${lastPing.total === 1 ? 'pharmacy' : 'pharmacies'}. The others have text alerts off, are in quiet hours, or were alerted by you in the last 15 minutes. They will still see your message in PharmStation.`
+                  : 'Sending text alert…'}
+            </p>
+          )}
           <div style={{ display: 'flex', gap: 'var(--ps-space-md)', justifyContent: 'center' }}>
             <button className="ps-btn ps-btn-primary" onClick={() => {
               setSent(false); setStep(1); setRecipients([]); setSubject(''); setBody(''); setLabel('other'); setRequestSmsPing(false)
@@ -411,10 +419,10 @@ export function NetworkComposePage() {
                 />
                 <div>
                   <label htmlFor="smsPing" style={{ fontWeight: 600, cursor: 'pointer' }}>
-                    📱 Request SMS ping
+                    📱 Send a text alert
                   </label>
                   <p style={{ margin: '4px 0 0', fontSize: '0.85rem', color: 'var(--ps-slate)' }}>
-                    For urgent messages. Recipients with SMS notifications enabled will receive a text alert (if within their notification window).
+                    For urgent messages only. Pharmacies that have turned on text alerts get a text on their registered phones saying you have written, with a link to reply. The text never includes your message, so it is safe to mention patient details here. One alert per pharmacy every 15 minutes, charged to your SMS usage.
                   </p>
                 </div>
               </div>

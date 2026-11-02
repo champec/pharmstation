@@ -282,6 +282,11 @@ export function NewBroadcastPage() {
               {channel === 'sms' && body && (
                 <> ({smsFragments(body)} fragment{smsFragments(body) !== 1 ? 's' : ''} × {recipientCount} = {smsFragments(body) * recipientCount} SMS units)</>
               )}
+              {channel === 'sms' && (
+                <div style={{ marginTop: 4, color: 'var(--ps-slate)' }}>
+                  One text per mobile number. Patients who replied STOP are skipped automatically, and if you text from your reply number we add "Reply STOP to opt out".
+                </div>
+              )}
             </div>
           )}
         </div>
