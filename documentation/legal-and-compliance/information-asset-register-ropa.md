@@ -656,8 +656,8 @@ This section classifies all hardware, software, and cloud service assets used by
 
 | ID | Asset | Type | Purpose | Location/Provider | Owner | Status |
 |----|-------|------|---------|-------------------|-------|--------|
-| CS-01 | **Supabase** (Project: xsqwpmqfbirqdncoephf) | Cloud BaaS | PostgreSQL database, RLS, auth, storage, edge functions, realtime | Supabase Cloud (AWS eu-west-2, London) | Champe Chilufya | Active |
-| CS-02 | **Railway** (Project: pharmstation-nhs111) | Cloud PaaS | NHS 111 pipeline hosting (3 Docker services) | Railway Cloud | Champe Chilufya | Active |
+| CS-01 | **Supabase** (Project: dbgwfdrvqzuevbfrmsdt, "Pharmstation") | Cloud BaaS | PostgreSQL database, RLS, auth, storage, edge functions, realtime | Supabase Cloud (AWS eu-west-2, London). Migrated from legacy project xsqwpmqfbirqdncoephf (us-east-1) on 2 Nov 2026; legacy project to be decommissioned. | Champe Chilufya | Active |
+| CS-02 | **Railway** (Project: pharmstation-nhs111) | Cloud PaaS | NHS 111 pipeline hosting (3 Docker services) | Railway Cloud, region us-west2 (USA) as of 2 Nov 2026. To move to an EU region before live NHS 111 traffic. | Champe Chilufya | Active |
 | CS-03 | **Vercel** | Cloud PaaS | Production web frontend hosting | Vercel Edge Network | Champe Chilufya | Active |
 | CS-04 | **GitHub** (champec/pharmstation) | Cloud SaaS | Source code repository, version control | GitHub Cloud | Champe Chilufya | Active |
 | CS-05 | **GitHub Codespaces** | Cloud Dev Environment | Cloud-based development IDE | GitHub / Azure | Champe Chilufya | Active |
