@@ -24,6 +24,16 @@ import {
 } from '../../components/annotations/EntryAnnotationsPanel'
 import { CDEntryWarningModal } from '../../components/registers/CDEntryWarningModal'
 import { getCDEntryWarnings, type CDEntryWarning } from '../../utils/cdEntryWarnings'
+import { downloadCsv, openPrintReport, organisationDetail, safeFilename, todayIso } from '../../utils/registerExport'
+import {
+  CD_EXPORT_HEADERS,
+  COLLECTOR_OPTIONS,
+  cdEntryCsvRow,
+  cdLedgerSection,
+  collectorNote,
+  ledgerTitle,
+  type CollectorType,
+} from '../../utils/cdRegisterExport'
 
 const columnHelper = createColumnHelper<RegisterEntry>()
 
@@ -545,6 +555,33 @@ export function CDLedgerPage() {
     loadLedger()
   }
 
+  // ── Export (print / PDF and CSV) of this drug's full register ──
+  const [exportError, setExportError] = useState<string | null>(null)
+
+  const handlePrintLedger = () => {
+    if (!activeLedger) return
+    setExportError(null)
+    const opened = openPrintReport({
+      title: 'Controlled Drugs Register',
+      organisationName: organisation?.name,
+      organisationDetail: organisationDetail(organisation),
+      periodLabel: entries.length > 0 ? 'All entries' : undefined,
+      generatedBy: activeUser?.full_name,
+      sections: [cdLedgerSection(activeLedger, entries)],
+    })
+    if (!opened) setExportError('Your browser blocked the print window. Allow pop-ups for PharmStation and try again.')
+  }
+
+  const handleCsvLedger = () => {
+    if (!activeLedger) return
+    const numberById = new Map(entries.map((e) => [e.id, e.entry_number]))
+    downloadCsv(
+      safeFilename(organisation?.name, 'cd-register', ledgerTitle(activeLedger), todayIso()),
+      CD_EXPORT_HEADERS,
+      entries.map((e) => cdEntryCsvRow(e, numberById)),
+    )
+  }
+
   const openDrawer = (dir: 'in' | 'out') => {
     setEntryDirection(dir)
     setDrawerOpen(true)
@@ -569,6 +606,8 @@ export function CDLedgerPage() {
   const [provPartSupply, setProvPartSupply] = useState(false)
   const [provPartLink, setProvPartLink] = useState<'none' | 'completes' | 'continues'>('none')
   const [provNote, setProvNote] = useState('')
+  const [provCollector, setProvCollector] = useState<CollectorType>('')
+  const [provCollectorDetails, setProvCollectorDetails] = useState('')
   const [provExtrasOpen, setProvExtrasOpen] = useState(false)
   const [provSaving, setProvSaving] = useState(false)
   const [provError, setProvError] = useState<string | null>(null)
@@ -785,6 +824,8 @@ export function CDLedgerPage() {
     setProvPartSupply(false)
     setProvPartLink('none')
     setProvNote('')
+    setProvCollector('')
+    setProvCollectorDetails('')
     setProvExtrasOpen(false)
     setProvError(null)
     setEntryWarnings([])
@@ -831,6 +872,8 @@ export function CDLedgerPage() {
       supplierName: provSupplier,
       invoiceNumber: provInvoice,
       patientName: provPatient,
+      patientAddress: isIn ? undefined : provAddress,
+      prescriberAddress: isIn ? undefined : provPrescriberAddr,
       wasIdRequested: provIdRequested,
       wasIdProvided: provIdProvided,
       packLabel: drug?.units,
@@ -851,7 +894,7 @@ export function CDLedgerPage() {
         p_register_type: activeLedger.register_type,
         p_entry_type: 'normal',
         p_date_of_transaction: provDate,
-        p_notes: null,
+        p_notes: !isIn ? collectorNote(provCollector, provCollectorDetails) : null,
         p_source: 'manual',
         p_expected_lock_version: activeLedger.lock_version,
         p_transaction_type: isIn ? 'receipt' : 'supply',
@@ -1297,7 +1340,7 @@ export function CDLedgerPage() {
             disabled={!entryMode}
           >
             💬
-            {(provNote.trim() !== '' || provPartSupply || provPartLink !== 'none') && <span className="prov-extras-dot" />}
+            {(provNote.trim() !== '' || provPartSupply || provPartLink !== 'none' || provCollector !== '') && <span className="prov-extras-dot" />}
           </button>
           {provExtrasOpen && entryMode && (
             <div className="prov-extras-pop">
@@ -1308,6 +1351,28 @@ export function CDLedgerPage() {
                 value={provNote}
                 onChange={(e) => setProvNote(e.target.value)}
               />
+              {entryMode === 'out' && (
+                <>
+                  <label className="prov-extras-label">Collected by</label>
+                  <select
+                    className="ps-input annotation-input"
+                    value={provCollector}
+                    onChange={(e) => setProvCollector(e.target.value as CollectorType)}
+                  >
+                    {COLLECTOR_OPTIONS.map((o) => (
+                      <option key={o.value} value={o.value}>{o.label}</option>
+                    ))}
+                  </select>
+                  {(provCollector === 'representative' || provCollector === 'hcp') && (
+                    <input
+                      className="ps-input annotation-input"
+                      placeholder={provCollector === 'hcp' ? 'Name and address of professional' : 'Name (optional)'}
+                      value={provCollectorDetails}
+                      onChange={(e) => setProvCollectorDetails(e.target.value)}
+                    />
+                  )}
+                </>
+              )}
               {entryMode === 'out' && (
                 linkedOutstanding ? (
                   /* This patient has an outstanding part supply — offer to link this entry to it */
@@ -1392,7 +1457,7 @@ export function CDLedgerPage() {
               </p>
             )}
           </div>
-          <div style={{ display: 'flex', gap: 'var(--ps-space-sm)', alignItems: 'center' }}>
+          <div style={{ display: 'flex', gap: 'var(--ps-space-sm)', alignItems: 'center', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
             {activeLedger && (
               <div className="ledger-balance-badge">
                 <span>Balance</span>
@@ -1421,6 +1486,22 @@ export function CDLedgerPage() {
               📸 Scan
             </button>
             <button
+              className="ps-btn ps-btn-ghost"
+              onClick={handlePrintLedger}
+              disabled={!activeLedger || entriesLoading}
+              title="Print or save this register as a PDF"
+            >
+              🖨️ Print / PDF
+            </button>
+            <button
+              className="ps-btn ps-btn-ghost"
+              onClick={handleCsvLedger}
+              disabled={!activeLedger || entriesLoading}
+              title="Download every entry in this register as a CSV spreadsheet"
+            >
+              ⬇ CSV
+            </button>
+            <button
               className="ps-btn ps-btn-success"
               onClick={() => openDrawer('in')}
               disabled={!activeLedger}
@@ -1439,6 +1520,10 @@ export function CDLedgerPage() {
           </div>
         </div>
       </div>
+
+      {exportError && (
+        <div className="auth-error" style={{ marginBottom: 'var(--ps-space-md)' }}>{exportError}</div>
+      )}
 
       {/* Search bar + part supply filter */}
       <div style={{ marginBottom: 'var(--ps-space-md)', display: 'flex', gap: 'var(--ps-space-sm)', alignItems: 'center' }}>

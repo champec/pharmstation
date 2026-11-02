@@ -7,6 +7,10 @@ export interface CDEntryWarningInput {
   supplierName?: string | null
   invoiceNumber?: string | null
   patientName?: string | null
+  /** Pass to check it is filled in (Schedule 6 asks for it); omit to skip the check */
+  patientAddress?: string | null
+  /** Pass to check it is filled in (Schedule 6 asks for it); omit to skip the check */
+  prescriberAddress?: string | null
   wasIdRequested?: boolean
   wasIdProvided?: boolean
   packLabel?: string | null
@@ -124,6 +128,17 @@ export function getCDEntryWarnings(
     })
   }
 
+  // Entries must be made on the day of the transaction or the next day
+  const yesterday = new Date(today)
+  yesterday.setDate(yesterday.getDate() - 1)
+  if (transactionDate < yesterday) {
+    warnings.push({
+      id: 'late-entry',
+      title: 'Late entry',
+      detail: `This transaction was on ${transactionDate.toLocaleDateString('en-GB')}. CD register entries should be made on the day or the next day. Add a note explaining the delay.`,
+    })
+  }
+
   if (input.direction === 'in') {
     const supplier = normalise(input.supplierName)
     const invoice = normalise(input.invoiceNumber)
@@ -204,6 +219,22 @@ export function getCDEntryWarnings(
           detail: `Entry #${recentEntry.entry_number} was ${days === 0 ? 'today' : `${days} day${days === 1 ? '' : 's'} ago`} (${recentEntry.quantity_deducted ?? 'unknown'} supplied).`,
         })
       }
+    }
+
+    if (input.patientAddress !== undefined && !input.patientAddress?.trim()) {
+      warnings.push({
+        id: 'missing-patient-address',
+        title: 'No patient address',
+        detail: 'The register should record the name and address of the person supplied.',
+      })
+    }
+
+    if (input.prescriberAddress !== undefined && !input.prescriberAddress?.trim()) {
+      warnings.push({
+        id: 'missing-prescriber-address',
+        title: 'No prescriber address',
+        detail: 'The register should record the name and address of the prescriber.',
+      })
     }
 
     if (input.wasIdRequested && !input.wasIdProvided) {

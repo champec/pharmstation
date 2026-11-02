@@ -14,6 +14,7 @@ import type { KnownContact, RegisterEntry } from '@pharmstation/types'
 import { addEntryAnnotation } from '../annotations/EntryAnnotationsPanel'
 import { CDEntryWarningModal } from '../registers/CDEntryWarningModal'
 import { getCDEntryWarnings, type CDEntryWarning } from '../../utils/cdEntryWarnings'
+import { COLLECTOR_OPTIONS, collectorNote, joinNotes } from '../../utils/cdRegisterExport'
 
 // Schema changes based on direction (IN vs OUT)
 const cdInSchema = z.object({
@@ -32,6 +33,7 @@ const cdOutSchema = z.object({
   patient_address: z.string().optional().nullable(),
   prescriber_name: z.string().min(1, 'Prescriber is required'),
   prescriber_address: z.string().optional().nullable(),
+  collector_type: z.enum(['', 'patient', 'representative', 'hcp']).default(''),
   collector_name: z.string().optional().nullable(),
   was_id_requested: z.boolean(),
   was_id_provided: z.boolean(),
@@ -81,6 +83,7 @@ export function CDEntryForm({ direction, packLabel, onSuccess, onCancel }: CDEnt
         patient_address: '',
         prescriber_name: lastUsedValues.prescriber_name ?? '',
         prescriber_address: lastUsedValues.prescriber_address ?? '',
+        collector_type: '',
         collector_name: '',
         was_id_requested: false,
         was_id_provided: false,
@@ -200,7 +203,15 @@ export function CDEntryForm({ direction, packLabel, onSuccess, onCancel }: CDEnt
         p_register_type: activeLedger.register_type,
         p_entry_type: 'normal',
         p_date_of_transaction: data.date_of_transaction,
-        p_notes: data.notes || null,
+        p_notes: isIn
+          ? data.notes || null
+          : joinNotes(
+              collectorNote(
+                (data as z.infer<typeof cdOutSchema>).collector_type,
+                (data as z.infer<typeof cdOutSchema>).collector_name,
+              ),
+              data.notes,
+            ),
         p_source: 'manual',
         p_expected_lock_version: activeLedger.lock_version,
         p_transaction_type: isIn ? 'receipt' : 'supply',
@@ -219,6 +230,9 @@ export function CDEntryForm({ direction, packLabel, onSuccess, onCancel }: CDEnt
         p_witness_name: null,
         p_witness_role: null,
         p_authorised_by: activeUser.full_name,
+        // Schedule 6: record whether ID was asked for and seen on supplies
+        p_was_id_requested: !isIn ? (data as z.infer<typeof cdOutSchema>).was_id_requested : null,
+        p_was_id_provided: !isIn ? (data as z.infer<typeof cdOutSchema>).was_id_provided : null,
       }
 
       const { data: entry, error } = await getUserClient().rpc('ps_make_register_entry', rpcParams)
@@ -272,6 +286,8 @@ export function CDEntryForm({ direction, packLabel, onSuccess, onCancel }: CDEnt
       supplierName: isIn ? (data as z.infer<typeof cdInSchema>).supplier_name : null,
       invoiceNumber: isIn ? (data as z.infer<typeof cdInSchema>).invoice_number : null,
       patientName: !isIn ? (data as z.infer<typeof cdOutSchema>).patient_name : null,
+      patientAddress: !isIn ? (data as z.infer<typeof cdOutSchema>).patient_address ?? null : undefined,
+      prescriberAddress: !isIn ? (data as z.infer<typeof cdOutSchema>).prescriber_address ?? null : undefined,
       wasIdRequested: !isIn ? (data as z.infer<typeof cdOutSchema>).was_id_requested : false,
       wasIdProvided: !isIn ? (data as z.infer<typeof cdOutSchema>).was_id_provided : false,
       packLabel,
@@ -425,9 +441,23 @@ export function CDEntryForm({ direction, packLabel, onSuccess, onCancel }: CDEnt
           </div>
 
           {/* Collector */}
-          <div className="form-group">
-            <label>Person Collecting</label>
-            <input className="ps-input" placeholder="Name of collector (if different from patient)" {...register('collector_name')} />
+          <div className="form-row">
+            <div className="form-group">
+              <label>Collected By</label>
+              <select className="ps-input" {...register('collector_type')}>
+                {COLLECTOR_OPTIONS.map((o) => (
+                  <option key={o.value} value={o.value}>{o.label}</option>
+                ))}
+              </select>
+            </div>
+            <div className="form-group">
+              <label>Collector Details</label>
+              <input
+                className="ps-input"
+                placeholder="Name (and address if a healthcare professional)"
+                {...register('collector_name')}
+              />
+            </div>
           </div>
 
           {/* ID Check */}
