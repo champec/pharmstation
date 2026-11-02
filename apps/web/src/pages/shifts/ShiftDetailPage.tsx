@@ -65,18 +65,19 @@ function fmtTs(ts: string) {
 }
 
 const STATUS_COLOURS: Record<string, string> = {
-  draft: 'ps-badge',
   open: 'ps-badge ps-badge-success',
-  confirmed: 'ps-badge ps-badge-primary',
+  filled: 'ps-badge ps-badge-primary',
   completed: 'ps-badge ps-badge-muted',
   cancelled: 'ps-badge ps-badge-danger',
 }
 
 const BOOKING_STATUS_COLOURS: Record<string, string> = {
   pending: 'ps-badge ps-badge-warning',
-  confirmed: 'ps-badge ps-badge-primary',
+  approved: 'ps-badge ps-badge-primary',
   rejected: 'ps-badge ps-badge-danger',
   cancelled: 'ps-badge',
+  completed: 'ps-badge ps-badge-success',
+  no_show: 'ps-badge ps-badge-danger',
 }
 
 export function ShiftDetailPage() {
@@ -136,7 +137,7 @@ export function ShiftDetailPage() {
       setBookings(enriched)
 
       // Load sign-in for confirmed booking
-      const confirmedBooking = rawBookings.find((b) => b.status === 'confirmed')
+      const confirmedBooking = rawBookings.find((b) => b.status === 'approved')
       if (confirmedBooking) {
         const { data: si } = await client
           .from('ps_locum_sign_ins')
@@ -162,16 +163,18 @@ export function ShiftDetailPage() {
       const { error } = await client
         .from('ps_locum_bookings')
         .update({
-          status: action === 'confirm' ? 'confirmed' : 'rejected',
+          status: action === 'confirm' ? 'approved' : 'rejected',
           reviewed_at: new Date().toISOString(),
           reviewed_by: activeUser.id,
         })
         .eq('id', bookingId)
       if (error) throw error
 
-      // If confirming, update shift status to confirmed
+      // If confirming, the shift is filled and any other applicants are turned down
       if (action === 'confirm') {
-        await client.from('ps_locum_shifts').update({ status: 'confirmed' }).eq('id', id)
+        await client.from('ps_locum_shifts').update({ status: 'filled' }).eq('id', id)
+        await client.from('ps_locum_bookings').update({ status: 'rejected' })
+          .eq('shift_id', id).eq('status', 'pending').neq('id', bookingId)
       }
       await load()
     } catch (err) {
@@ -218,8 +221,8 @@ export function ShiftDetailPage() {
   })()
 
   const pendingBookings = bookings.filter((b) => b.status === 'pending')
-  const confirmedBooking = bookings.find((b) => b.status === 'confirmed')
-  const canManage = ['open', 'draft', 'confirmed'].includes(shift.status)
+  const confirmedBooking = bookings.find((b) => b.status === 'approved')
+  const canManage = ['open', 'filled'].includes(shift.status)
 
   return (
     <div className="page-container">
@@ -265,7 +268,7 @@ export function ShiftDetailPage() {
             <div className="ps-card" style={{ marginBottom: '1.5rem', border: '2px solid var(--ps-primary)' }}>
               <div className="ps-card-header">
                 <h2 className="ps-card-title">Confirmed Locum</h2>
-                <span className={BOOKING_STATUS_COLOURS['confirmed']}>confirmed</span>
+                <span className={BOOKING_STATUS_COLOURS['approved']}>approved</span>
               </div>
               <div className="ps-card-body">
                 <div className="review-row"><span>Name</span><strong>{confirmedBooking.user?.full_name ?? '—'}</strong></div>
@@ -285,7 +288,7 @@ export function ShiftDetailPage() {
                     <div className="review-row"><span>Duration</span><strong>{signIn.duration_minutes} min</strong></div>
                   )}
                 </div>
-              ) : shift.status === 'confirmed' ? (
+              ) : shift.status === 'filled' ? (
                 <div className="ps-card-body" style={{ borderTop: '1px solid var(--ps-border)' }}>
                   <p className="text-muted" style={{ fontSize: '0.875rem' }}>Locum has not signed in yet.</p>
                 </div>

@@ -10629,6 +10629,12 @@
   border: 1px solid rgba(34, 197, 94, 0.2);
 }
 
+.ps-alert-warning {
+  background: rgba(245, 158, 11, 0.12);
+  color: #92400e;
+  border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
 /* ── Empty state ──────────────────────────────────────────── */
 
 .ps-empty-state {

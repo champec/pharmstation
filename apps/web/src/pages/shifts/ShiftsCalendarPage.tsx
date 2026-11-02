@@ -22,14 +22,13 @@ interface ShiftEvent {
 }
 
 const STATUS_COLOURS: Record<string, string> = {
-  draft: '#94a3b8',
   open: '#22c55e',
-  confirmed: '#3b82f6',
+  filled: '#3b82f6',
   completed: '#6b7280',
   cancelled: '#ef4444',
 }
 
-const STATUS_OPTIONS = ['draft', 'open', 'confirmed', 'completed', 'cancelled']
+const STATUS_OPTIONS = ['open', 'filled', 'completed', 'cancelled']
 
 export function ShiftsCalendarPage() {
   const navigate = useNavigate()

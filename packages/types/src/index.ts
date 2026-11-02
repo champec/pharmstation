@@ -2115,6 +2115,9 @@ export interface LocumProfile {
   stripe_account_id: string | null
   stripe_onboarded: boolean
   onboarding_complete: boolean
+  /** Set by a reviewer. Only approved locums can book shifts. */
+  compliance_status?: 'pending' | 'approved' | 'rejected' | string
+  compliance_review_notes?: string | null
   created_at: string
   updated_at: string
   // Joined

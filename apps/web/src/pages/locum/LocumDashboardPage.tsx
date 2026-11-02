@@ -68,7 +68,7 @@ export function LocumDashboardPage() {
           .from('ps_locum_bookings')
           .select('id, shift_id, status, shift:ps_locum_shifts(date, start_time, end_time, rate_per_hour, org_id)')
           .eq('locum_id', locumProfile.id)
-          .eq('status', 'confirmed')
+          .eq('status', 'approved')
           .gte('ps_locum_shifts.date', today)
           .order('ps_locum_shifts(date)', { ascending: true })
           .limit(5),
