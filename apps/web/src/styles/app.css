@@ -12862,6 +12862,9 @@ textarea.form-input {
   line-height: 1;
 }
 
+.landing-price-soon { flex-wrap: wrap; }
+.landing-price-soon b { color: var(--landing-blue); font-size: 30px; }
+
 .landing-price span,
 .landing-plans p {
   color: var(--landing-muted);
