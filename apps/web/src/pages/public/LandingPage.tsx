@@ -76,16 +76,16 @@ const PLANS = [
   },
   {
     name: 'Essential',
-    price: '£39',
-    note: 'per month',
+    price: 'Coming soon',
+    note: 'early access pricing',
     pitch: 'Go paperless for registers, logs and SOPs.',
     items: ['Everything in Network', 'Digital CD register, RP log and returns', 'Custom logs, handover notes and tasks', 'SOP library with read tracking'],
     cta: 'Book a demo',
   },
   {
     name: 'Complete',
-    price: '£79',
-    note: 'per month',
+    price: 'Coming soon',
+    note: 'early access pricing',
     pitch: 'The whole platform for the whole pharmacy.',
     items: ['Everything in Essential', 'Services, appointments, payments and video', 'Patient messaging and online shop', 'Deliveries, care homes and locum shifts'],
     cta: 'Book a demo',
@@ -185,14 +185,14 @@ export function LandingPage() {
           <header className="landing-section-head">
             <span className="landing-eyebrow">Pricing</span>
             <h2>Costs less than the tools it replaces</h2>
-            <p>Most pharmacies spend £130 to £300 a month across systems that don’t talk to each other.</p>
+            <p>Start free on the network. Paid plans are being finalised, and early pharmacies will get founding prices. Book a demo to hear first.</p>
           </header>
           <div className="landing-plans">
             {PLANS.map((plan) => (
               <article key={plan.name} className={plan.featured ? 'landing-plan-featured' : undefined}>
-                {plan.featured && <em>Most popular</em>}
+                {plan.featured && <em>Everything included</em>}
                 <h3>{plan.name}</h3>
-                <div className="landing-price"><b>{plan.price}</b><span>{plan.note}</span></div>
+                <div className={plan.price === 'Coming soon' ? 'landing-price landing-price-soon' : 'landing-price'}><b>{plan.price}</b><span>{plan.note}</span></div>
                 <p>{plan.pitch}</p>
                 <ul>
                   {plan.items.map((item) => <li key={item}>{item}</li>)}
