@@ -6,6 +6,7 @@ import type { CDDrug, SubscribedRegister } from '@pharmstation/types'
 import { Modal } from '../../components/Modal'
 import { BalanceCheckModal } from '../../components/balance-check/BalanceCheckModal'
 import { BarcodeScanModal } from '../../components/scan/BarcodeScanModal'
+import { CDRegisterExportModal } from '../../components/registers/CDRegisterExportModal'
 
 export function CDRegisterPage() {
   const navigate = useNavigate()
@@ -24,6 +25,7 @@ export function CDRegisterPage() {
   // Balance Check modal state
   const [balanceCheckOpen, setBalanceCheckOpen] = useState(false)
   const [barcodeScanOpen, setBarcodeScanOpen] = useState(false)
+  const [exportOpen, setExportOpen] = useState(false)
 
   // ============================================
   // Fetch subscribed registers for this org
@@ -141,7 +143,7 @@ export function CDRegisterPage() {
         </div>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <h1>💊 CD Register</h1>
-          <div style={{ display: 'flex', gap: 'var(--ps-space-sm)' }}>
+          <div style={{ display: 'flex', gap: 'var(--ps-space-sm)', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
             <button
               className="ps-btn ps-btn-ghost"
               onClick={() => setBalanceCheckOpen(true)}
@@ -164,6 +166,13 @@ export function CDRegisterPage() {
               ▦ Barcode Scan
             </button>
             <button
+              className="ps-btn ps-btn-ghost"
+              onClick={() => setExportOpen(true)}
+              title="Print, save as PDF or download a CSV of the CD register"
+            >
+              ⬇ Export
+            </button>
+            <button
               className="ps-btn ps-btn-primary"
               onClick={() => { setAddModalInitialSearch(''); setAddModalOpen(true) }}
             >
@@ -177,6 +186,8 @@ export function CDRegisterPage() {
         isOpen={barcodeScanOpen}
         onClose={() => setBarcodeScanOpen(false)}
       />
+
+      <CDRegisterExportModal isOpen={exportOpen} onClose={() => setExportOpen(false)} />
 
       {/* Global search */}
       <div style={{ marginBottom: 'var(--ps-space-md)', maxWidth: '400px' }}>
