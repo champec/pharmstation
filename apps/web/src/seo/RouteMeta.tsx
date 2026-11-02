@@ -1,5 +1,6 @@
 import { useEffect } from 'react'
 import { useLocation } from 'react-router-dom'
+import { useAuthStore } from '@pharmstation/core'
 import { DEFAULT_DESCRIPTION, SITE_URL, formatTitle, getPageMeta } from './routeMeta'
 
 function setMeta(attr: 'name' | 'property', key: string, content: string) {
@@ -29,9 +30,10 @@ function setCanonical(href: string | null) {
 /** Keeps the document title, description, robots and social tags in step with the current route. */
 export function RouteMeta() {
   const { pathname } = useLocation()
+  const isOrgLoggedIn = useAuthStore((state) => state.isOrgLoggedIn)
 
   useEffect(() => {
-    const meta = getPageMeta(pathname)
+    const meta = getPageMeta(pathname, { staff: isOrgLoggedIn })
     const title = formatTitle(meta.title)
     const description = meta.description ?? DEFAULT_DESCRIPTION
     const url = `${SITE_URL}${pathname === '/' ? '' : pathname.replace(/\/+$/, '')}`
@@ -45,7 +47,7 @@ export function RouteMeta() {
     setMeta('name', 'twitter:title', title)
     setMeta('name', 'twitter:description', description)
     setCanonical(meta.index ? url : null)
-  }, [pathname])
+  }, [pathname, isOrgLoggedIn])
 
   return null
 }

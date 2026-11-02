@@ -27,6 +27,12 @@ interface PublicPage {
 /** Every public, indexable page with a fixed URL. These also make up sitemap.xml. */
 export const PUBLIC_PAGES: PublicPage[] = [
   {
+    // Landing page for visitors who aren't signed in; staff see their dashboard at "/" instead
+    path: '/',
+    title: SITE_NAME,
+    description: DEFAULT_DESCRIPTION,
+  },
+  {
     path: '/about',
     title: 'About',
     description: 'PharmStation brings the CD register, RP log, services, bookings and messaging for UK pharmacies into one secure, cloud-based workstation.',
@@ -167,16 +173,16 @@ const PRIVATE_TITLES: Array<[string, string]> = [
   ['/care-homes', 'Care Homes'],
 ]
 
-export function getPageMeta(pathname: string): PageMeta {
+export function getPageMeta(pathname: string, { staff = false }: { staff?: boolean } = {}): PageMeta {
   const path = pathname !== '/' ? pathname.replace(/\/+$/, '') : pathname
+
+  if (path === '/' && staff) return { title: 'Dashboard', index: false }
 
   const page = PUBLIC_PAGES.find((p) => p.path === path)
   if (page) return { title: page.title, description: page.description, index: true }
 
   const dynamic = DYNAMIC_PUBLIC.find((d) => d.pattern.test(path))
   if (dynamic) return { ...dynamic.meta, index: dynamic.index }
-
-  if (path === '/') return { title: 'Dashboard', index: false }
 
   let best: [string, string] | undefined
   for (const entry of PRIVATE_TITLES) {
