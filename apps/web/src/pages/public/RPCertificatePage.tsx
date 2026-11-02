@@ -8,6 +8,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { getOrgClient } from '@pharmstation/supabase-client'
 import { RPCertificate } from '../../components/RPCertificate'
+import { PublicSiteShell } from '../../components/public/PublicSiteShell'
 
 type LookupState = 'idle' | 'searching' | 'found' | 'not-found'
 
@@ -142,35 +143,13 @@ export function RPCertificatePage() {
   const showCertificate = name.trim() && /^\d{7}$/.test(gphcNumber) && lookupState !== 'searching'
 
   return (
-    <div
-      style={{
-        minHeight: '100vh',
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
-        background: 'linear-gradient(135deg, #257BB4 0%, #04B0FF 100%)',
-        padding: '40px 20px',
-      }}
-    >
-      <div
-        style={{
-          background: '#fff',
-          borderRadius: '16px',
-          boxShadow: '0 8px 32px rgba(0,0,0,0.15)',
-          padding: '40px',
-          width: '100%',
-          maxWidth: '720px',
-        }}
-      >
-        <div style={{ textAlign: 'center', marginBottom: '32px' }}>
-          <h1 style={{ fontSize: '24px', color: '#1a1a2e', marginBottom: '8px' }}>
-            Responsible Pharmacist Certificate
-          </h1>
-          <p style={{ color: '#64748b', fontSize: '14px' }}>
-            Free utility by <strong>PharmStation</strong> — www.pharmstation.co.uk/rp — enter your GPhC number to get started.
-          </p>
-        </div>
+    <PublicSiteShell>
+      <div className="public-panel public-tool-card">
+        <header className="public-tool-head">
+          <span className="landing-eyebrow">Free tool</span>
+          <h1>Responsible Pharmacist notice</h1>
+          <p>Enter your GPhC number to make a printable RP notice for your pharmacy. Free, no account needed.</p>
+        </header>
 
         {/* Step 1: GPhC Number */}
         <div style={{ marginBottom: '24px' }}>
@@ -346,10 +325,6 @@ export function RPCertificatePage() {
           </div>
         )}
       </div>
-
-      <p style={{ color: 'rgba(255,255,255,0.7)', fontSize: '12px', marginTop: '24px', textAlign: 'center' }}>
-        PharmStation — Pharmacy Management, Simplified.
-      </p>
-    </div>
+    </PublicSiteShell>
   )
 }

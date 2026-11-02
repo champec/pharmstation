@@ -13053,3 +13053,153 @@ textarea.form-input {
     text-align: center;
   }
 }
+
+/* ============================================
+   Public site shell (About, Privacy, Find a pharmacy, RP notice, sign-in pages)
+   Reuses the landing page's header, buttons and footer; restyles the ps-* bits inside
+   so these pages match the landing and booking pages.
+   ============================================ */
+
+.public-shell {
+  display: flex;
+  flex-direction: column;
+}
+
+.public-shell-main {
+  flex: 1;
+  width: 100%;
+  margin: 0 auto;
+  padding: clamp(36px, 6vw, 72px) clamp(16px, 5vw, 40px) clamp(56px, 8vw, 96px);
+}
+
+.public-shell-article { max-width: 960px; }
+.public-shell-wide { max-width: 1200px; }
+.public-shell-narrow {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  max-width: 640px;
+}
+
+.public-shell h1 {
+  margin: 0 0 12px;
+  font-family: 'Franklin Gothic Medium', 'Century Gothic', sans-serif;
+  font-size: clamp(30px, 4vw, 44px);
+  font-weight: 600;
+  line-height: 1.05;
+}
+
+.public-shell h2 { font-size: 21px; font-weight: 800; }
+.public-shell h3 { font-size: 16px; font-weight: 800; }
+
+.public-page-head { margin-bottom: 32px; }
+.public-page-head p { max-width: 640px; margin: 0; color: var(--landing-muted); font-size: 17px; line-height: 1.6; }
+
+/* Square card with the offset shadow used across the public site */
+.public-panel,
+.public-shell .ps-card,
+.public-shell .auth-card {
+  width: 100%;
+  padding: clamp(24px, 4vw, 40px);
+  border: 1px solid var(--landing-line);
+  border-top: 5px solid var(--landing-blue);
+  border-radius: 0;
+  background: #fff;
+  box-shadow: 12px 12px 0 rgba(37, 123, 180, 0.12);
+}
+
+.public-panel p { color: var(--landing-muted); line-height: 1.6; }
+.public-panel h2 { margin: 0 0 10px; }
+
+.public-panel-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 24px;
+}
+
+.public-panel-grid .public-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.public-panel-grid .public-panel > :last-child { margin-top: auto; }
+
+.public-text-link {
+  color: var(--landing-blue);
+  font-size: 14px;
+  font-weight: 800;
+}
+
+/* Long-form document (privacy notice) */
+.public-doc { font-size: 15px; }
+.public-doc h1 { text-align: left; }
+.public-doc > div:first-child { text-align: left !important; }
+.public-doc h2 { color: var(--landing-ink); border-bottom-color: var(--landing-line) !important; }
+.public-doc li { margin-bottom: 4px; line-height: 1.55; }
+
+/* Centered single-purpose card (pharmacy map) */
+.public-feature-card { text-align: center; }
+.public-feature-card > p { max-width: 460px; margin: 0 auto 28px; font-size: 16px; }
+.public-feature-card small { display: block; margin-top: 18px; color: var(--landing-muted); font-size: 12px; }
+
+.public-chip-list {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  margin: 28px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.public-chip-list li {
+  padding: 5px 12px;
+  border: 1px solid var(--landing-line);
+  background: var(--landing-paper);
+  color: var(--landing-muted);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+/* RP notice tool */
+.public-tool-head { margin-bottom: 28px; }
+.public-tool-head p { margin: 0; }
+
+/* Sign-in cards */
+.public-shell .auth-card,
+.public-shell .public-form-card { max-width: 460px; }
+.public-shell .auth-card .logo { display: none; }
+.public-shell .auth-card h1,
+.public-shell .public-form-card h1 { color: var(--landing-ink); font-size: clamp(28px, 4vw, 34px); }
+.public-shell .auth-card .subtitle { color: var(--landing-muted); }
+
+.public-shell .login-portal-tab { border-radius: 0; border-color: var(--landing-line); color: var(--landing-muted); }
+.public-shell .login-portal-tab.active { border-color: var(--landing-blue); background: #e5f2f7; color: var(--landing-blue); }
+
+/* ps-* controls inside the public shell */
+.public-shell .ps-btn,
+.public-shell .ps-input,
+.public-shell label,
+.public-shell button,
+.public-shell input,
+.public-shell select,
+.public-shell textarea { font-family: inherit; }
+
+.public-shell .ps-btn { min-height: 44px; border-radius: 0; font-weight: 800; }
+.public-shell .ps-btn-primary { background: var(--landing-blue); }
+.public-shell .ps-btn-primary:hover:not(:disabled) { background: var(--landing-blue-dark); }
+.public-shell .ps-input { border-radius: 0; border-color: #aabbbf; }
+.public-shell .ps-input:focus { border-color: var(--landing-blue); box-shadow: 0 0 0 3px rgba(37, 123, 180, 0.15); }
+.public-shell .form-group label { color: var(--landing-ink); font-weight: 700; }
+.public-shell .auth-error { border-radius: 0; }
+
+@media (max-width: 860px) {
+  .public-panel-grid { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 520px) {
+  .public-panel,
+  .public-shell .ps-card,
+  .public-shell .auth-card { box-shadow: 6px 6px 0 rgba(37, 123, 180, 0.12); }
+}

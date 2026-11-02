@@ -1,8 +1,8 @@
 import { Link } from 'react-router-dom'
+import { CONTACT_EMAIL, PublicSiteFooter } from '../../components/public/PublicSiteShell'
 
 // Shown at "/" to visitors who aren't signed in to a pharmacy. Signed-in staff get the dashboard.
 
-const CONTACT_EMAIL = 'hello@pharmstation.co.uk'
 function mailto(subject: string, opening: string) {
   const body = `${opening}\n\nPharmacy name:\nPostcode:\nBest number to reach me:\n`
   return `mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`
@@ -246,29 +246,7 @@ export function LandingPage() {
         </section>
       </main>
 
-      <footer className="public-site-footer">
-        <div className="public-site-footer-brand">
-          <span className="public-site-wordmark">Pharm<span>Station</span></span>
-          <p>The digital workstation for UK community pharmacies.</p>
-        </div>
-        <div>
-          <strong>Pharmacies</strong>
-          <a href="#features">Features</a>
-          <a href="#pricing">Pricing</a>
-          <Link to="/resources">Free resources</Link>
-          <Link to="/login/org">Sign in</Link>
-        </div>
-        <div>
-          <strong>Patients</strong>
-          <Link to="/book">Book services</Link>
-          <Link to="/shop">Shop</Link>
-          <Link to="/maps">Find a pharmacy</Link>
-        </div>
-        <small>
-          <Link to="/about">About</Link> · <Link to="/privacy">Privacy</Link> · <a href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>
-          <br />© {new Date().getFullYear()} PharmStation
-        </small>
-      </footer>
+      <PublicSiteFooter />
     </div>
   )
 }

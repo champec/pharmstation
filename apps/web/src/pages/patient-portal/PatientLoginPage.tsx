@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
+import { PublicSiteShell } from '../../components/public/PublicSiteShell'
 import { usePatientStore } from '@pharmstation/core'
 
 export function PatientLoginPage() {
@@ -25,10 +26,11 @@ export function PatientLoginPage() {
   }
 
   return (
-    <div style={{ maxWidth: '420px', margin: '80px auto', padding: '0 var(--ps-space-lg)' }}>
-      <div className="ps-card" style={{ padding: 'var(--ps-space-xl)' }}>
+    <PublicSiteShell variant="narrow" headerActions={<Link to="/login/org" className="landing-btn landing-btn-ghost">Pharmacy sign in</Link>}>
+      <div className="ps-card public-form-card">
         <div style={{ textAlign: 'center', marginBottom: 'var(--ps-space-xl)' }}>
-          <h1 style={{ marginBottom: 'var(--ps-space-xs)' }}>👤 Patient Login</h1>
+          <span className="landing-eyebrow">For patients</span>
+          <h1 style={{ marginBottom: 'var(--ps-space-xs)' }}>Patient sign in</h1>
           <p style={{ color: 'var(--ps-slate)' }}>Sign in to view your appointments</p>
         </div>
 
@@ -56,6 +58,6 @@ export function PatientLoginPage() {
           <a href="/book" onClick={(e) => { e.preventDefault(); navigate('/book') }} style={{ color: 'var(--ps-slate)' }}>← Book without an account</a>
         </div>
       </div>
-    </div>
+    </PublicSiteShell>
   )
 }
