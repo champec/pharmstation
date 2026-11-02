@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { getUserClient } from '@pharmstation/supabase-client'
 import { useAuthStore, useAlertStore } from '@pharmstation/core'
+import { LocumReviewAdminCard } from '../components/LocumReviewAdminCard'
 
 interface LocumSummary {
   id: string
@@ -345,6 +346,8 @@ export function PersonalProfilePage() {
           </Link>
         </div>
       </div>
+
+      <LocumReviewAdminCard />
 
       {/* Personal billing — future (Phase 6) */}
       <div className="ps-card">

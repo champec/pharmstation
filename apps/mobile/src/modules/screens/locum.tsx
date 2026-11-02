@@ -77,6 +77,7 @@ function FindShiftsScreen() {
   const shifts = useLocumStore((state) => state.shifts)
   const error = useLocumStore((state) => state.error)
   const compliance = useAuthStore((state) => state.locumProfile?.compliance_status)
+  const complianceNotes = useAuthStore((state) => state.locumProfile?.compliance_review_notes)
   const [query, setQuery] = useState('')
   const [dateFilter, setDateFilter] = useState<'all' | 'week' | 'weekend'>('all')
   const [eligibleOnly, setEligibleOnly] = useState(true)
@@ -132,6 +133,7 @@ function FindShiftsScreen() {
             {compliance === 'rejected'
               ? 'Your compliance documents were not approved. Update them on pharmstation.co.uk and we will review them again.'
               : 'Your compliance documents are being reviewed. You can browse now and book once you are approved.'}
+            {compliance === 'rejected' && complianceNotes ? `\n\nReason: ${complianceNotes}` : ''}
           </Text>
         </View>
       ) : null}

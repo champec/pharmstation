@@ -231,6 +231,9 @@ export function LocumShiftsBrowsePage() {
           {locumProfile.compliance_status === 'rejected'
             ? 'Your compliance documents were not approved. Update them in your profile and we will review them again.'
             : 'Your compliance documents are being reviewed. You can browse shifts now and book once you are approved.'}
+          {locumProfile.compliance_status === 'rejected' && locumProfile.compliance_review_notes && (
+            <div style={{ marginTop: 4 }}><strong>Reason:</strong> {locumProfile.compliance_review_notes}</div>
+          )}
         </div>
       )}
 
