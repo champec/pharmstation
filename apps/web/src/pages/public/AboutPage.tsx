@@ -1,40 +1,40 @@
 import { Link } from 'react-router-dom'
+import { PublicSiteShell } from '../../components/public/PublicSiteShell'
 
 export function AboutPage() {
   return (
-    <div style={{ maxWidth: '800px', margin: '40px auto', padding: '0 var(--ps-space-lg)' }}>
-      <div className="ps-card" style={{ padding: 'var(--ps-space-2xl)' }}>
-        <div style={{ textAlign: 'center', marginBottom: 'var(--ps-space-xl)' }}>
-          <h1 style={{ marginBottom: 'var(--ps-space-sm)' }}>About PharmStation</h1>
-          <p style={{ color: 'var(--ps-slate)' }}>
-            PharmStation helps pharmacies run core workflows from one modern platform.
-          </p>
-        </div>
+    <PublicSiteShell>
+      <header className="public-page-head">
+        <span className="landing-eyebrow">About</span>
+        <h1>About PharmStation</h1>
+        <p>PharmStation helps community pharmacies run their core workflows from one modern platform.</p>
+      </header>
 
-        <div style={{ display: 'grid', gap: 'var(--ps-space-md)' }}>
-          <div>
-            <h3 style={{ marginBottom: 'var(--ps-space-xs)' }}>What we provide</h3>
-            <p style={{ margin: 0, color: 'var(--ps-slate)' }}>
-              Registers, service delivery, appointments, messaging, SOPs, and patient-facing booking tools.
-            </p>
+      <div className="public-panel-grid">
+        <section className="public-panel">
+          <h2>What we provide</h2>
+          <p>Registers, service delivery, appointments, messaging, SOPs and patient-facing booking tools, plus a secure network for messaging pharmacies near you.</p>
+          <Link to="/#features" className="public-text-link">See all features →</Link>
+        </section>
+        <section className="public-panel">
+          <h2>Free public tools</h2>
+          <p>Use the Responsible Pharmacist certificate, printable resources and public booking pages without signing in.</p>
+          <div className="landing-links">
+            <Link to="/rp">RP notice</Link>
+            <Link to="/resources">Free resources</Link>
+            <Link to="/book">Book a service</Link>
           </div>
-
-          <div>
-            <h3 style={{ marginBottom: 'var(--ps-space-xs)' }}>Public tools</h3>
-            <p style={{ margin: 0, color: 'var(--ps-slate)' }}>
-              You can use our Responsible Pharmacist certificate utility and public booking pages without signing in.
-            </p>
+        </section>
+        <section className="public-panel">
+          <h2>For patients</h2>
+          <p>Book with a participating pharmacy, shop online or find a pharmacy near you.</p>
+          <div className="landing-links">
+            <Link to="/patient/login">Patient sign in</Link>
+            <Link to="/maps">Find a pharmacy</Link>
+            <Link to="/privacy">Privacy notice</Link>
           </div>
-        </div>
-
-        <div style={{ marginTop: 'var(--ps-space-xl)', display: 'flex', flexWrap: 'wrap', gap: 'var(--ps-space-sm)' }}>
-          <Link className="ps-btn ps-btn-primary" to="/rp">RP Certificate Tool</Link>
-          <Link className="ps-btn ps-btn-ghost" to="/resources">Free Resources</Link>
-          <Link className="ps-btn ps-btn-ghost" to="/book">Book a Service</Link>
-          <Link className="ps-btn ps-btn-ghost" to="/patient/login">Patient Login</Link>
-          <Link className="ps-btn ps-btn-ghost" to="/privacy">Privacy Notice</Link>
-        </div>
+        </section>
       </div>
-    </div>
+    </PublicSiteShell>
   )
 }
