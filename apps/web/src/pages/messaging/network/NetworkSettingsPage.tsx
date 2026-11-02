@@ -4,7 +4,16 @@ import { useAuthStore, useNetworkStore } from '@pharmstation/core'
 import type { NetworkSmsContact } from '@pharmstation/types'
 
 function timeLabel(t: string) {
-  return t ?? '—'
+  return t ? t.slice(0, 5) : '—'
+}
+
+/** UK mobile in any common format → "+447xxxxxxxxx", or null if it isn't one. */
+function normaliseUkMobile(raw: string): string | null {
+  let n = raw.replace(/[^\d+]/g, '')
+  if (n.startsWith('+')) n = n.slice(1)
+  else if (n.startsWith('00')) n = n.slice(2)
+  else if (n.startsWith('0')) n = `44${n.slice(1)}`
+  return /^447\d{9}$/.test(n) ? `+${n}` : null
 }
 
 export function NetworkSettingsPage() {
@@ -29,6 +38,7 @@ export function NetworkSettingsPage() {
   const [newStart,     setNewStart]     = useState('08:00')
   const [newEnd,       setNewEnd]       = useState('20:00')
   const [addingPhone,  setAddingPhone]  = useState(false)
+  const [phoneError,   setPhoneError]   = useState<string | null>(null)
 
   // Pause toggles
   const [pausingId, setPausingId] = useState<string | null>(null)
@@ -58,11 +68,21 @@ export function NetworkSettingsPage() {
 
   async function handleAddContact() {
     if (!organisation?.id || !newPhone.trim()) return
+    const phone = normaliseUkMobile(newPhone)
+    if (!phone) {
+      setPhoneError('Enter a UK mobile number, for example 07700 900123. Text alerts cannot go to landlines.')
+      return
+    }
+    if (smsContacts.some((c) => normaliseUkMobile(c.phone_number) === phone)) {
+      setPhoneError('That number is already on the list.')
+      return
+    }
+    setPhoneError(null)
     setAddingPhone(true)
     try {
       await addSmsContact(organisation.id, {
         label:       newLabel.trim() || null,
-        phone_number: newPhone.trim(),
+        phone_number: phone,
         is_enabled:  true,
         pause_until: null,
         notify_start: newStart,
@@ -139,10 +159,11 @@ export function NetworkSettingsPage() {
               style={{ marginTop: 3 }}
             />
             <div>
-              <div style={{ fontWeight: 600 }}>📱 Enable SMS Pings</div>
+              <div style={{ fontWeight: 600 }}>📱 Receive urgent text alerts</div>
               <div style={{ fontSize: '0.85rem', color: 'var(--ps-slate)' }}>
-                Allow senders to request an SMS notification to your registered phone numbers for urgent messages.
-                You can manage which numbers receive pings below, and set quiet hours.
+                When another pharmacy marks a message as urgent, text the numbers below so nothing waits until someone
+                checks the screen. The text says who wrote and links to the message; it never contains the message itself.
+                Each number has its own hours (UK time) and can be paused. Texts are paid for by the sender.
               </div>
             </div>
           </label>
@@ -161,7 +182,7 @@ export function NetworkSettingsPage() {
           <div>
             <h3 style={{ margin: '0 0 4px' }}>📱 SMS Notification Numbers</h3>
             <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--ps-slate)' }}>
-              Add phone numbers to receive SMS pings for urgent network messages. Each number can have its own notification window.
+              UK mobiles that get urgent network alerts (up to 3 are texted each time). Each number has its own hours.
             </p>
           </div>
           <button
@@ -176,7 +197,7 @@ export function NetworkSettingsPage() {
 
         {!smsPingsEnabled && (
           <div style={{ padding: 'var(--ps-space-md)', background: '#fff8e6', borderRadius: 'var(--ps-radius)', marginBottom: 'var(--ps-space-md)', fontSize: '0.9rem' }}>
-            ⚠️ Enable SMS Pings above to manage notification numbers.
+            ⚠️ Turn on urgent text alerts above, then save, to add numbers.
           </div>
         )}
 
@@ -191,8 +212,13 @@ export function NetworkSettingsPage() {
                   className="ps-input"
                   placeholder="+44 7700 900123"
                   value={newPhone}
-                  onChange={(e) => setNewPhone(e.target.value)}
+                  onChange={(e) => { setNewPhone(e.target.value); setPhoneError(null) }}
+                  inputMode="tel"
+                  autoComplete="tel"
                 />
+                {phoneError && (
+                  <div style={{ color: 'var(--ps-red, crimson)', fontSize: '0.8rem', marginTop: 4 }}>{phoneError}</div>
+                )}
               </div>
               <div>
                 <label className="ps-label">Label (optional)</label>

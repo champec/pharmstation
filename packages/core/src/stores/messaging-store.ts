@@ -144,7 +144,15 @@ export interface MessagingState {
   /** Reusable functional notification — the plug & play hook for any feature. */
   notify: (params: NotifyParams) => Promise<NotifyMessage>
   createBroadcast: (broadcast: Partial<Broadcast>) => Promise<Broadcast>
-  sendBroadcast: (orgId: string, broadcastId: string) => Promise<{ sent_count: number; failed_count: number; total_count: number }>
+  sendBroadcast: (orgId: string, broadcastId: string) => Promise<{
+    sent_count: number
+    failed_count: number
+    total_count: number
+    /** SMS only: patients skipped because they texted STOP */
+    opted_out_count?: number
+    /** SMS only: patients sharing a number already texted */
+    duplicate_count?: number
+  }>
   checkStatus: (orgId: string, messageId: string) => Promise<{ status: string }>
   testConnection: (orgId: string, apiKey?: string) => Promise<{ valid: boolean; templates?: Array<{ id: string; name: string; type: string }>; error?: string }>
   getCallbackInfo: (orgId: string) => Promise<CallbackInfo>
@@ -515,12 +523,42 @@ export const useMessagingStore = create<MessagingState>((set, get) => ({
 
   getRecipientCount: async (orgId, channel, _recipientFilter?: string) => {
     const client = getUserClient()
+
+    // SMS: match what the server will actually send to: one text per mobile
+    // number, skipping anyone who texted STOP.
+    if (channel === 'sms') {
+      const norm = (raw: string) => {
+        let n = (raw || '').replace(/[^\d+]/g, '')
+        if (n.startsWith('+')) n = n.slice(1)
+        else if (n.startsWith('00')) n = n.slice(2)
+        else if (n.startsWith('0')) n = `44${n.slice(1)}`
+        else if (n.startsWith('7') && n.length === 10) n = `44${n}`
+        return /^\d{8,15}$/.test(n) ? n : null
+      }
+      const numbers = new Set<string>()
+      for (let from = 0; ; from += 1000) {
+        const { data, error } = await client
+          .from('ps_patients').select('phone')
+          .eq('organisation_id', orgId).not('phone', 'is', null)
+          .range(from, from + 999)
+        if (error) throw error
+        for (const p of data ?? []) {
+          const n = norm(p.phone as string)
+          if (n) numbers.add(n)
+        }
+        if (!data || data.length < 1000) break
+      }
+      const { data: optOuts } = await client
+        .from('ps_sms_opt_outs').select('phone_normalized').eq('org_id', orgId)
+      for (const o of optOuts ?? []) numbers.delete(o.phone_normalized as string)
+      return numbers.size
+    }
+
     let query = client
       .from('ps_patients')
       .select('*', { count: 'exact', head: true })
       .eq('organisation_id', orgId)
 
-    if (channel === 'sms') query = query.not('phone', 'is', null)
     if (channel === 'email') query = query.not('email', 'is', null)
     if (channel === 'letter') query = query.not('address_line_1', 'is', null)
 

@@ -6,6 +6,7 @@ import type {
   NetworkSmsContact,
   OrgPharmacyLink,
   NetworkMessageLabel,
+  NetworkPingSummary,
 } from '@pharmstation/types'
 import { getUserClient } from '@pharmstation/supabase-client'
 import type { RealtimeChannel } from '@supabase/supabase-js'
@@ -13,6 +14,34 @@ import type { RealtimeChannel } from '@supabase/supabase-js'
 // ============================================================
 // Network Store — Pharmacy-to-Pharmacy messaging
 // ============================================================
+
+/**
+ * Other pharmacies' ps_organisations rows are hidden by RLS, so a join on
+ * from_org/to_org comes back null. The database stamps both names on each
+ * message; build the familiar from_org/to_org objects from them.
+ */
+function withOrgNames(msg: NetworkMessage): NetworkMessage {
+  return {
+    ...msg,
+    from_org: msg.from_org ?? { id: msg.from_org_id, name: msg.from_org_name || 'Unknown pharmacy' },
+    to_org:   msg.to_org   ?? { id: msg.to_org_id,   name: msg.to_org_name   || 'Unknown pharmacy' },
+  }
+}
+
+/** Latest message per thread, newest first. */
+function latestPerThread(messages: NetworkMessage[]): NetworkMessage[] {
+  const threadMap = new Map<string, NetworkMessage>()
+  for (const msg of messages) {
+    const existing = threadMap.get(msg.thread_id)
+    if (!existing || msg.created_at > existing.created_at) threadMap.set(msg.thread_id, msg)
+  }
+  return Array.from(threadMap.values()).sort((a, b) => (a.created_at < b.created_at ? 1 : -1))
+}
+
+// Several components (top bar bell, network hub, thread page) want the live
+// inbox. They share one channel; it closes when the last one unsubscribes.
+let realtimeSubscribers = 0
+let realtimeOrgId: string | null = null
 
 export interface NetworkState {
   // Inbox / sent / thread data
@@ -41,6 +70,10 @@ export interface NetworkState {
   // Realtime
   _realtimeChannel: RealtimeChannel | null
 
+  // Result of the last SMS ping request (null if none was asked for)
+  lastPing: NetworkPingSummary | null
+  lastPingError: string | null
+
   // Actions — inbox/sent
   fetchInbox:   (orgId: string) => Promise<void>
   fetchSent:    (orgId: string) => Promise<void>
@@ -66,7 +99,7 @@ export interface NetworkState {
     label: NetworkMessageLabel
     requestSmsPing?: boolean
     threadId?: string           // if replying to a thread
-  }) => Promise<void>
+  }) => Promise<NetworkMessage[]>
 
   // Actions — onboarding link
   fetchMyLink:  (orgId: string) => Promise<void>
@@ -104,6 +137,8 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
   loading:       false,
   error:         null,
   _realtimeChannel: null,
+  lastPing: null,
+  lastPingError: null,
 
   // ----------------------------------------------------------------
   // Inbox
@@ -114,23 +149,13 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
       const client = getUserClient()
       const { data, error } = await client
         .from('ps_network_messages')
-        .select(`
-          *,
-          from_org:from_org_id ( id, name ),
-          to_org:to_org_id     ( id, name )
-        `)
+        .select('*')
         .eq('to_org_id', orgId)
         .order('created_at', { ascending: false })
         .limit(100)
       if (error) throw error
       // Deduplicate threads — show latest message per thread
-      const threadMap = new Map<string, NetworkMessage>()
-      for (const msg of (data ?? []) as NetworkMessage[]) {
-        if (!threadMap.has(msg.thread_id) || msg.created_at > (threadMap.get(msg.thread_id)!.created_at)) {
-          threadMap.set(msg.thread_id, msg)
-        }
-      }
-      set({ inbox: Array.from(threadMap.values()), loading: false })
+      set({ inbox: latestPerThread(((data ?? []) as NetworkMessage[]).map(withOrgNames)), loading: false })
     } catch (e: unknown) {
       set({ error: (e as Error).message, loading: false })
     }
@@ -145,16 +170,12 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
       const client = getUserClient()
       const { data, error } = await client
         .from('ps_network_messages')
-        .select(`
-          *,
-          from_org:from_org_id ( id, name ),
-          to_org:to_org_id     ( id, name )
-        `)
+        .select('*')
         .eq('from_org_id', orgId)
         .order('created_at', { ascending: false })
         .limit(100)
       if (error) throw error
-      set({ sent: (data ?? []) as NetworkMessage[], loading: false })
+      set({ sent: ((data ?? []) as NetworkMessage[]).map(withOrgNames), loading: false })
     } catch (e: unknown) {
       set({ error: (e as Error).message, loading: false })
     }
@@ -169,16 +190,12 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
       const client = getUserClient()
       const { data, error } = await client
         .from('ps_network_messages')
-        .select(`
-          *,
-          from_org:from_org_id ( id, name ),
-          to_org:to_org_id     ( id, name )
-        `)
+        .select('*')
         .eq('thread_id', threadId)
         .or(`from_org_id.eq.${orgId},to_org_id.eq.${orgId}`)
         .order('created_at', { ascending: true })
       if (error) throw error
-      set({ thread: (data ?? []) as NetworkMessage[], loading: false })
+      set({ thread: ((data ?? []) as NetworkMessage[]).map(withOrgNames), loading: false })
     } catch (e: unknown) {
       set({ error: (e as Error).message, loading: false })
     }
@@ -269,7 +286,7 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
   // Send message / broadcast
   // ----------------------------------------------------------------
   sendMessage: async ({ fromOrgId, toOrgIds, subject, body, label, requestSmsPing = false, threadId }) => {
-    set({ loading: true, error: null })
+    set({ loading: true, error: null, lastPing: null, lastPingError: null })
     try {
       const client = getUserClient()
       const isBroadcast = toOrgIds.length > 1
@@ -290,9 +307,37 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
         }
       })
 
-      const { error } = await client.from('ps_network_messages').insert(rows)
-      if (error) throw error
-      set({ loading: false })
+      const { data, error } = await client.from('ps_network_messages').insert(rows).select('*')
+      if (error) {
+        // RLS refuses messages to pharmacies that have left the network.
+        if (error.code === '42501') {
+          throw new Error('One or more of these pharmacies is not accepting new network messages.')
+        }
+        throw error
+      }
+      const inserted = ((data ?? []) as NetworkMessage[]).map(withOrgNames)
+      set((s) => ({
+        loading: false,
+        sent: [...inserted, ...s.sent],
+        thread: threadId && s.thread[0]?.thread_id === threadId ? [...s.thread, ...inserted] : s.thread,
+      }))
+
+      // Urgent text alerts are sent by the server, which checks the
+      // recipient's settings, quiet hours and rate limits. A failure here
+      // must not look like the message itself failed.
+      if (requestSmsPing && inserted.length > 0) {
+        try {
+          const { data: ping, error: pingError } = await client.functions.invoke('sms-works', {
+            body: { action: 'network_ping', org_id: fromOrgId, message_ids: inserted.map((m) => m.id) },
+          })
+          if (pingError) throw pingError
+          if ((ping as { error?: string })?.error) throw new Error((ping as { error: string }).error)
+          set({ lastPing: ping as NetworkPingSummary })
+        } catch (e: unknown) {
+          set({ lastPingError: (e as Error).message || 'Text alert could not be sent' })
+        }
+      }
+      return inserted
     } catch (e: unknown) {
       set({ error: (e as Error).message, loading: false })
       throw e
@@ -451,10 +496,13 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
   // Realtime subscription
   // ----------------------------------------------------------------
   subscribeToInbox: (orgId) => {
+    realtimeSubscribers++
     const existing = get()._realtimeChannel
+    if (existing && realtimeOrgId === orgId) return
     if (existing) existing.unsubscribe()
 
     const client = getUserClient()
+    realtimeOrgId = orgId
     const channel = client
       .channel(`network_inbox:${orgId}`)
       .on(
@@ -466,11 +514,16 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
           filter: `to_org_id=eq.${orgId}`,
         },
         (payload) => {
-          const msg = payload.new as NetworkMessage
-          set((s) => ({
-            inbox:       [msg, ...s.inbox],
-            unreadCount: s.unreadCount + 1,
-          }))
+          const msg = withOrgNames(payload.new as NetworkMessage)
+          set((s) => {
+            if (s.inbox.some((m) => m.id === msg.id)) return {}
+            const viewingThread = s.thread.length > 0 && s.thread[0].thread_id === msg.thread_id
+            return {
+              inbox:       latestPerThread([msg, ...s.inbox]),
+              thread:      viewingThread && !s.thread.some((m) => m.id === msg.id) ? [...s.thread, msg] : s.thread,
+              unreadCount: s.unreadCount + 1,
+            }
+          })
         },
       )
       .subscribe()
@@ -479,9 +532,12 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
   },
 
   unsubscribeFromInbox: () => {
+    realtimeSubscribers = Math.max(0, realtimeSubscribers - 1)
+    if (realtimeSubscribers > 0) return
     const ch = get()._realtimeChannel
     if (ch) {
       ch.unsubscribe()
+      realtimeOrgId = null
       set({ _realtimeChannel: null })
     }
   },

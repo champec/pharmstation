@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useAuthStore, useNetworkStore } from '@pharmstation/core'
-import { NETWORK_LABEL_CONFIG } from '@pharmstation/types'
+import { NETWORK_LABEL_CONFIG, NETWORK_PING_STATUS_TEXT } from '@pharmstation/types'
 import type { NetworkMessageLabel } from '@pharmstation/types'
 
 function formatDateTime(iso: string) {
@@ -18,6 +18,7 @@ export function NetworkMessageDetailPage() {
   const {
     thread, loading, error,
     fetchThread, markThreadRead, sendMessage, clearError,
+    subscribeToInbox, unsubscribeFromInbox,
   } = useNetworkStore()
 
   const [replyBody, setReplyBody]   = useState('')
@@ -32,6 +33,20 @@ export function NetworkMessageDetailPage() {
   }, [threadId, organisation?.id, fetchThread, markThreadRead])
 
   useEffect(() => { load() }, [load])
+
+  // Live replies: new messages for this thread arrive on the shared inbox
+  // channel and are appended to the open conversation.
+  useEffect(() => {
+    if (!organisation?.id) return
+    subscribeToInbox(organisation.id)
+    return () => unsubscribeFromInbox()
+  }, [organisation?.id]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Mark replies that arrive while the thread is open as read.
+  const unreadForMe = thread.some((m) => m.to_org_id === organisation?.id && !m.is_read)
+  useEffect(() => {
+    if (unreadForMe && threadId && organisation?.id) markThreadRead(threadId, organisation.id)
+  }, [unreadForMe, threadId, organisation?.id, markThreadRead])
 
   // Determine the "other party" (the one that is not us)
   const orgId = organisation?.id
@@ -53,7 +68,6 @@ export function NetworkMessageDetailPage() {
       })
       setReplyBody('')
       setShowReply(false)
-      await fetchThread(threadId, orgId)
     } catch {
       // error shown via store
     } finally {
@@ -147,7 +161,10 @@ export function NetworkMessageDetailPage() {
                       {formatDateTime(msg.created_at)}
                     </span>
                     {msg.request_sms_ping && (
-                      <span title="SMS ping was requested" style={{ fontSize: '1rem' }}>📱</span>
+                      <span
+                        title={isFromMe && msg.sms_ping_status ? NETWORK_PING_STATUS_TEXT[msg.sms_ping_status] : 'Marked urgent with a text alert'}
+                        style={{ fontSize: '1rem' }}
+                      >📱</span>
                     )}
                   </div>
                 </div>
@@ -166,6 +183,11 @@ export function NetworkMessageDetailPage() {
                     color: msg.is_read ? 'var(--ps-green, #22c55e)' : 'var(--ps-slate)',
                     textAlign: 'right',
                   }}>
+                    {msg.request_sms_ping && msg.sms_ping_status && (
+                      <span style={{ marginRight: 12, color: msg.sms_ping_status === 'sent' ? 'var(--ps-green, #22c55e)' : 'var(--ps-slate)' }}>
+                        📱 {NETWORK_PING_STATUS_TEXT[msg.sms_ping_status]}
+                      </span>
+                    )}
                     {msg.is_read
                       ? `✓✓ Read ${msg.read_at ? formatDateTime(msg.read_at) : ''}`
                       : '✓ Sent'}
