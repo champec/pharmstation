@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuthStore } from '@pharmstation/core'
+import { getAuthRedirectType } from '@pharmstation/supabase-client'
 
 export function OrgLoginPage() {
   const { orgLogin } = useAuthStore()
@@ -53,6 +54,11 @@ export function OrgLoginPage() {
       <h1>Pharmacy Login</h1>
       <p className="subtitle">Sign in to your pharmacy workstation</p>
 
+      {getAuthRedirectType() === 'signup' && !error && (
+        <div className="ps-alert ps-alert-success onboarding-notice">
+          Email confirmed. Sign in to the pharmacy to carry on.
+        </div>
+      )}
       {error && <div className="auth-error">{error}</div>}
 
       <form onSubmit={handleSubmit}>
@@ -92,6 +98,10 @@ export function OrgLoginPage() {
           {loading ? 'Signing in...' : 'Sign In to Pharmacy'}
         </button>
       </form>
+
+      <p className="onboarding-footer">
+        New pharmacy? <Link to="/signup">Create a pharmacy account</Link>
+      </p>
 
       <div style={{ marginTop: '16px', textAlign: 'center' }}>
         <Link to="/me/login" style={{ fontSize: 'var(--ps-font-sm)' }}>
