@@ -27,7 +27,9 @@ async function dailyFetch(path: string, options: RequestInit = {}) {
 }
 
 function generateAccessCode(): string {
-  return String(Math.floor(100000 + Math.random() * 900000))
+  // crypto RNG: the patient access code is a credential.
+  const n = crypto.getRandomValues(new Uint32Array(1))[0] % 900000
+  return String(100000 + n)
 }
 
 // --- Supabase admin client ---
@@ -38,12 +40,34 @@ function getAdminClient() {
   )
 }
 
+// The admin client bypasses RLS, so this is the tenant check: the caller
+// must be the org's own auth user or an active member of the org.
+async function isOrgMember(userId: string, orgId: string): Promise<boolean> {
+  const admin = getAdminClient()
+  const { data: org } = await admin
+    .from('ps_organisations').select('auth_user_id').eq('id', orgId).maybeSingle()
+  if (!org) return false
+  if (org.auth_user_id === userId) return true
+  const { data: member } = await admin
+    .from('ps_organisation_members').select('user_id')
+    .eq('organisation_id', orgId).eq('user_id', userId).eq('status', 'active')
+    .maybeSingle()
+  return !!member
+}
+
+async function assertConsultationAccess(consultationId: string, userId: string) {
+  const { data } = await getAdminClient()
+    .from('ps_video_consultations').select('org_id').eq('id', consultationId).maybeSingle()
+  if (!data || !(await isOrgMember(userId, data.org_id))) throw new Error('Consultation not found')
+}
+
 // --- Action: create_room ---
 async function handleCreateRoom(body: any, userId: string) {
   const { org_id, patient_name, patient_phone, patient_id, appointment_id, scheduled_for } = body
   if (!org_id || !patient_name || !scheduled_for) {
     throw new Error('Missing required fields: org_id, patient_name, scheduled_for')
   }
+  if (typeof org_id !== 'string' || !(await isOrgMember(userId, org_id))) throw new Error('Forbidden')
 
   const roomName = `ps-${org_id.slice(0, 8)}-${Date.now()}`
   const scheduledDate = new Date(scheduled_for)
@@ -126,9 +150,10 @@ async function handleCreateRoom(body: any, userId: string) {
 }
 
 // --- Action: end_consultation ---
-async function handleEndConsultation(body: any, _userId: string) {
+async function handleEndConsultation(body: any, userId: string) {
   const { consultation_id } = body
   if (!consultation_id) throw new Error('Missing consultation_id')
+  await assertConsultationAccess(consultation_id, userId)
 
   const admin = getAdminClient()
 
@@ -162,9 +187,10 @@ async function handleEndConsultation(body: any, _userId: string) {
 }
 
 // --- Action: get_staff_token ---
-async function handleGetStaffToken(body: any, _userId: string) {
+async function handleGetStaffToken(body: any, userId: string) {
   const { consultation_id } = body
   if (!consultation_id) throw new Error('Missing consultation_id')
+  await assertConsultationAccess(consultation_id, userId)
 
   const admin = getAdminClient()
   const { data, error } = await admin

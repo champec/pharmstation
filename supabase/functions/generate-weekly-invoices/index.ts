@@ -21,6 +21,19 @@ function lastWeekRange(from: Date): { weekStart: string; weekEnd: string } {
   return { weekStart: isoDate(lastMonday), weekEnd: isoDate(lastSunday) };
 }
 
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+function safeEqual(a: string, b: string): boolean {
+  if (a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return diff === 0;
+}
+
+function jsonResponse(body: unknown, status = 200): Response {
+  return new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
+}
+
 Deno.serve(async (req: Request) => {
   try {
     // Service-role client — bypasses RLS
@@ -29,11 +42,35 @@ Deno.serve(async (req: Request) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
     );
 
+    // Who may run this: the scheduled job (x-cron-secret == INVOICE_CRON_SECRET),
+    // which invoices every org, or a signed-in member of an org, who can only
+    // invoice their own org(s). A bare anon key is not enough.
+    let orgScope: string[] | null = null;
+    const cronSecret = Deno.env.get('INVOICE_CRON_SECRET') ?? '';
+    const presented = req.headers.get('x-cron-secret') ?? '';
+    if (!(cronSecret && presented && safeEqual(presented, cronSecret))) {
+      const token = (req.headers.get('Authorization') ?? '').replace(/^Bearer\s+/i, '');
+      const { data: { user } } = token ? await supabase.auth.getUser(token) : { data: { user: null } };
+      if (!user) return jsonResponse({ ok: false, error: 'Unauthorized' }, 401);
+      const [{ data: owned }, { data: memberships }] = await Promise.all([
+        supabase.from('ps_organisations').select('id').eq('auth_user_id', user.id),
+        supabase.from('ps_organisation_members').select('organisation_id').eq('user_id', user.id).eq('status', 'active'),
+      ]);
+      orgScope = [
+        ...(owned ?? []).map((o: { id: string }) => o.id),
+        ...(memberships ?? []).map((m: { organisation_id: string }) => m.organisation_id),
+      ];
+      if (orgScope.length === 0) return jsonResponse({ ok: false, error: 'Forbidden' }, 403);
+    }
+
     // Determine week range
     let weekStart: string;
     let weekEnd: string;
     const body = await req.json().catch(() => ({}));
     if (body.week_start && body.week_end) {
+      if (!DATE_RE.test(String(body.week_start)) || !DATE_RE.test(String(body.week_end))) {
+        return jsonResponse({ ok: false, error: 'week_start and week_end must be YYYY-MM-DD' }, 400);
+      }
       weekStart = body.week_start;
       weekEnd = body.week_end;
     } else {
@@ -49,11 +86,13 @@ Deno.serve(async (req: Request) => {
     const dueDateStr = isoDate(dueDate);
 
     // ---- Step 1: Shifts in the week -------------------------------------------
-    const { data: shifts, error: sErr } = await supabase
+    let shiftQuery = supabase
       .from('ps_locum_shifts')
       .select('id, date, start_time, end_time, rate_per_hour, org_id')
       .gte('date', weekStart)
       .lte('date', weekEnd);
+    if (orgScope) shiftQuery = shiftQuery.in('org_id', orgScope);
+    const { data: shifts, error: sErr } = await shiftQuery;
     if (sErr) throw new Error(`shifts query: ${sErr.message}`);
     if (!shifts || shifts.length === 0) {
       return new Response(JSON.stringify({ ok: true, invoicesCreated: 0, message: 'No shifts in range', weekStart, weekEnd }), {
@@ -198,7 +237,7 @@ Deno.serve(async (req: Request) => {
   } catch (err) {
     console.error('generate-weekly-invoices error', err);
     return new Response(
-      JSON.stringify({ ok: false, error: err instanceof Error ? err.message : String(err) }),
+      JSON.stringify({ ok: false, error: 'Invoice generation failed' }),
       { status: 500, headers: { 'Content-Type': 'application/json' } },
     );
   }
