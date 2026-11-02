@@ -53,7 +53,7 @@ export function NetworkHubPage() {
   const isNetworkEnabled = settings?.network_enabled !== false
 
   function renderMessage(msg: NetworkMessage, isInbox: boolean) {
-    const labelCfg = NETWORK_LABEL_CONFIG[msg.label]
+    const labelCfg = NETWORK_LABEL_CONFIG[msg.label] ?? NETWORK_LABEL_CONFIG.other
     const other = isInbox ? msg.from_org : msg.to_org
     const isUnread = isInbox && !msg.is_read
 
@@ -71,7 +71,7 @@ export function NetworkHubPage() {
             <span>{other?.name ?? '—'}</span>
           </div>
         </td>
-        <td style={{ maxWidth: 280, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+        <td className="ps-cell-wide" style={{ maxWidth: 280, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
           {msg.subject && <strong>{msg.subject} · </strong>}
           <span style={{ color: 'var(--ps-slate)' }}>{msg.body.slice(0, 80)}{msg.body.length > 80 ? '…' : ''}</span>
         </td>
@@ -198,7 +198,7 @@ export function NetworkHubPage() {
       )}
 
       {/* Quick stats */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 'var(--ps-space-md)', marginBottom: 'var(--ps-space-lg)' }}>
+      <div className="ps-stat-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 'var(--ps-space-md)', marginBottom: 'var(--ps-space-lg)' }}>
         {[
           { label: 'Inbox', value: inbox.length, icon: '📨' },
           { label: 'Unread', value: unreadCount, icon: '🔵' },
@@ -244,7 +244,7 @@ export function NetworkHubPage() {
               : 'No sent messages yet. Use the "New Message" button to reach out to another pharmacy.'}
           </div>
         ) : (
-          <table className="ps-table">
+          <table className="ps-table ps-table-stack">
             <thead>
               <tr>
                 <th>{tab === 'inbox' ? 'From' : 'To'}</th>

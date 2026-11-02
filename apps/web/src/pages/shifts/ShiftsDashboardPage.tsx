@@ -32,8 +32,7 @@ function fmtDate(d: string) {
 function statusBadgeClass(status: string) {
   switch (status) {
     case 'open': return 'ps-badge ps-badge-success'
-    case 'draft': return 'ps-badge ps-badge-warning'
-    case 'confirmed': return 'ps-badge ps-badge-primary'
+    case 'filled': return 'ps-badge ps-badge-primary'
     case 'completed': return 'ps-badge ps-badge-muted'
     case 'cancelled': return 'ps-badge ps-badge-danger'
     default: return 'ps-badge'
@@ -70,7 +69,7 @@ export function ShiftsDashboardPage() {
           .from('ps_locum_shifts')
           .select('id', { count: 'exact', head: true })
           .eq('org_id', orgId)
-          .in('status', ['open', 'draft'])
+          .eq('status', 'open')
           .gte('date', today),
 
         // Confirmed upcoming
@@ -78,7 +77,7 @@ export function ShiftsDashboardPage() {
           .from('ps_locum_shifts')
           .select('id', { count: 'exact', head: true })
           .eq('org_id', orgId)
-          .eq('status', 'confirmed')
+          .eq('status', 'filled')
           .gte('date', today),
 
         // Completed this month
@@ -94,7 +93,7 @@ export function ShiftsDashboardPage() {
           .from('ps_locum_shifts')
           .select('id, date, start_time, end_time, rate_per_hour, status, booking_mode')
           .eq('org_id', orgId)
-          .in('status', ['open', 'draft', 'confirmed'])
+          .in('status', ['open', 'filled'])
           .gte('date', today)
           .lte('date', inTwoWeeks)
           .order('date')

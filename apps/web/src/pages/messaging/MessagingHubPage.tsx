@@ -133,7 +133,7 @@ export function MessagingHubPage() {
 
       {/* Stats cards */}
       {stats && (
-        <div style={{
+        <div className="ps-stat-grid" style={{
           display: 'grid',
           gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
           gap: 'var(--ps-space-md)',
@@ -205,7 +205,7 @@ export function MessagingHubPage() {
             <p>No messages sent yet. Use the Compose button to send your first message.</p>
           </div>
         ) : (
-          <table className="ps-table">
+          <table className="ps-table ps-table-stack">
             <thead>
               <tr>
                 <th>Recipient</th>
@@ -228,7 +228,7 @@ export function MessagingHubPage() {
                   >
                     <td style={{ fontWeight: 500 }}>{getRecipient(msg)}</td>
                     <td><span className={channelBadge.cssClass}>{channelBadge.label}</span></td>
-                    <td style={{ maxWidth: '300px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'var(--ps-slate)' }}>
+                    <td className="ps-cell-wide" style={{ maxWidth: '300px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'var(--ps-slate)' }}>
                       {msg.body?.slice(0, 80)}{msg.body && msg.body.length > 80 ? '…' : ''}
                     </td>
                     <td><span className={statusBadge.cssClass}>{statusBadge.label}</span></td>

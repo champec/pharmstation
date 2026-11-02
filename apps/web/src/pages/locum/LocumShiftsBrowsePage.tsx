@@ -60,6 +60,7 @@ export function LocumShiftsBrowsePage() {
   const [error, setError] = useState<string | null>(null)
   const [applying, setApplying] = useState<string | null>(null)
   const [applyError, setApplyError] = useState<string | null>(null)
+  const [applyNotice, setApplyNotice] = useState<string | null>(null)
 
   /* Filters */
   const [filterEligible, setFilterEligible] = useState(false)
@@ -123,16 +124,14 @@ export function LocumShiftsBrowsePage() {
         .select('shift_id')
         .eq('locum_id', locumProfile.id)
         .in('shift_id', shiftIds)
-        .in('status', ['pending', 'confirmed'])
+        .in('status', ['pending', 'approved'])
       setAppliedShiftIds((bookings ?? []).map((b: { shift_id: string }) => b.shift_id))
 
       // 5. Org names
       const orgIds = [...new Set(shiftList.map((s) => s.org_id))]
       if (orgIds.length > 0) {
-        const { data: orgs } = await client
-          .from('ps_organisations')
-          .select('id, name')
-          .in('id', orgIds)
+        // Locums aren't members of these pharmacies, so read names through the RPC
+        const { data: orgs } = await client.rpc('ps_locum_shift_orgs', { p_org_ids: orgIds })
         const map: Record<string, string> = {}
         for (const o of (orgs ?? []) as OrgName[]) map[o.id] = o.name
         setOrgNames(map)
@@ -145,8 +144,8 @@ export function LocumShiftsBrowsePage() {
         const { data: clashResult } = await client.rpc('ps_get_locum_booking_clashes', {
           p_locum_id: locumProfile.id,
           p_date: s.date,
-          p_start_time: s.start_time,
-          p_end_time: s.end_time,
+          p_start: s.start_time,
+          p_end: s.end_time,
         })
         if (clashResult && Array.isArray(clashResult) && clashResult.length > 0) {
           clashes.push(s.id)
@@ -192,15 +191,19 @@ export function LocumShiftsBrowsePage() {
     if (!locumProfile) return
     setApplying(shift.id)
     setApplyError(null)
+    setApplyNotice(null)
     try {
-      const { error } = await getUserClient().from('ps_locum_bookings').insert({
-        shift_id: shift.id,
-        locum_id: locumProfile.id,
-        status: 'pending',
-        applied_at: new Date().toISOString(),
-      })
+      // Same rules as the app: instant-book shifts are approved straight away,
+      // others wait for the pharmacy. The RPC also checks compliance and clashes.
+      const { data, error } = await getUserClient().rpc('ps_locum_book_shift', { p_shift_id: shift.id })
       if (error) throw error
-      setAppliedShiftIds((prev) => [...prev, shift.id])
+      if ((data as { status?: string } | null)?.status === 'approved') {
+        setShifts((prev) => prev.filter((s) => s.id !== shift.id))
+        setApplyNotice('Booked. It is in your upcoming shifts.')
+      } else {
+        setAppliedShiftIds((prev) => [...prev, shift.id])
+        setApplyNotice('Applied. The pharmacy will confirm.')
+      }
     } catch (err) {
       setApplyError(err instanceof Error ? err.message : 'Failed to apply')
     } finally {
@@ -222,6 +225,17 @@ export function LocumShiftsBrowsePage() {
 
       {error && <div className="ps-alert ps-alert-error" style={{ marginBottom: '1rem' }}>{error}</div>}
       {applyError && <div className="ps-alert ps-alert-error" style={{ marginBottom: '1rem' }}>{applyError}</div>}
+      {applyNotice && <div className="ps-alert ps-alert-success" style={{ marginBottom: '1rem' }}>{applyNotice}</div>}
+      {locumProfile && locumProfile.compliance_status !== 'approved' && (
+        <div className="ps-alert ps-alert-warning" style={{ marginBottom: '1rem' }}>
+          {locumProfile.compliance_status === 'rejected'
+            ? 'Your compliance documents were not approved. Update them in your profile and we will review them again.'
+            : 'Your compliance documents are being reviewed. You can browse shifts now and book once you are approved.'}
+          {locumProfile.compliance_status === 'rejected' && locumProfile.compliance_review_notes && (
+            <div style={{ marginTop: 4 }}><strong>Reason:</strong> {locumProfile.compliance_review_notes}</div>
+          )}
+        </div>
+      )}
 
       {/* Filters */}
       <div style={{ display: 'flex', gap: '0.75rem', marginBottom: '1.5rem', flexWrap: 'wrap', alignItems: 'center' }}>

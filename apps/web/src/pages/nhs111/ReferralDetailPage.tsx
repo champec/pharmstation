@@ -187,7 +187,7 @@ export function ReferralDetailPage() {
       </div>
 
       {/* Two-column layout */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--ps-space-lg)', alignItems: 'start' }}>
+      <div className="ps-split" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--ps-space-lg)', alignItems: 'start' }}>
         {/* LEFT — Patient & Clinical */}
         <div style={{ display: 'grid', gap: 'var(--ps-space-md)' }}>
           {/* Patient Demographics */}

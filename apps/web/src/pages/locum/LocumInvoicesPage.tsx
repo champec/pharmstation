@@ -77,7 +77,7 @@ export function LocumInvoicesPage() {
 
       const orgIds = [...new Set(list.map((i) => i.org_id))]
       if (orgIds.length > 0) {
-        const { data: orgs } = await client.from('ps_organisations').select('id, name').in('id', orgIds)
+        const { data: orgs } = await client.rpc('ps_locum_shift_orgs', { p_org_ids: orgIds })
         const map: Record<string, string> = {}
         for (const o of (orgs ?? []) as { id: string; name: string }[]) map[o.id] = o.name
         setOrgNames(map)

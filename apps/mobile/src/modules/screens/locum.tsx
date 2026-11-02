@@ -26,6 +26,7 @@ import {
   type LocumShift,
 } from '@/stores/locum-store'
 import { palette, radius } from '@/theme/palette'
+import { useAuthStore } from '@/stores/auth-store'
 
 const ACCENT = '#6D28D9'
 const ACCENT_TINT = '#F1EAFE'
@@ -75,6 +76,8 @@ function FindShiftsScreen() {
   const { loading, refresh } = useLocumData()
   const shifts = useLocumStore((state) => state.shifts)
   const error = useLocumStore((state) => state.error)
+  const compliance = useAuthStore((state) => state.locumProfile?.compliance_status)
+  const complianceNotes = useAuthStore((state) => state.locumProfile?.compliance_review_notes)
   const [query, setQuery] = useState('')
   const [dateFilter, setDateFilter] = useState<'all' | 'week' | 'weekend'>('all')
   const [eligibleOnly, setEligibleOnly] = useState(true)
@@ -123,6 +126,17 @@ function FindShiftsScreen() {
         <FilterChip label={minimumRate ? `£${minimumRate}+/hr` : 'Any rate'} active={minimumRate > 0} onPress={() => setMinimumRate(minimumRate === 0 ? 25 : minimumRate === 25 ? 30 : 0)} />
       </ScrollView>
 
+      {compliance && compliance !== 'approved' ? (
+        <View style={styles.complianceNotice}>
+          <Ionicons name="shield-checkmark-outline" size={18} color={palette.warning} />
+          <Text style={styles.complianceText}>
+            {compliance === 'rejected'
+              ? 'Your compliance documents were not approved. Update them on pharmstation.co.uk and we will review them again.'
+              : 'Your compliance documents are being reviewed. You can browse now and book once you are approved.'}
+            {compliance === 'rejected' && complianceNotes ? `\n\nReason: ${complianceNotes}` : ''}
+          </Text>
+        </View>
+      ) : null}
       <ErrorBanner message={error} />
       <View style={styles.resultRow}><Text style={styles.sectionTitle}>Available shifts</Text><Text style={styles.resultCount}>{visible.length} found</Text></View>
       {loading && shifts.length === 0 ? <LoadingState /> : null}
@@ -474,6 +488,8 @@ const styles = StyleSheet.create({
   earningRow: { backgroundColor: palette.surface, borderRadius: radius.md, borderWidth: 1, borderColor: palette.border, padding: 12, flexDirection: 'row', alignItems: 'center', gap: 10 },
   earningIcon: { width: 34, height: 34, borderRadius: radius.sm, backgroundColor: '#D1FAE5', alignItems: 'center', justifyContent: 'center' },
   earningAmount: { color: palette.text, fontSize: 14, fontWeight: '800' },
+  complianceNotice: { flexDirection: 'row', gap: 8, backgroundColor: '#FEF3C7', borderRadius: radius.sm, padding: 12, alignItems: 'flex-start' },
+  complianceText: { flex: 1, color: '#92400E', fontSize: 13, lineHeight: 18 },
   errorBanner: { flexDirection: 'row', gap: 7, backgroundColor: palette.dangerTint, borderRadius: radius.sm, padding: 10, alignItems: 'center' },
   errorText: { color: palette.danger, fontSize: 12, flex: 1 },
   loading: { alignItems: 'center', paddingVertical: 36, gap: 9 },
