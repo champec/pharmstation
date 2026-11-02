@@ -1480,10 +1480,35 @@ export interface NetworkMessage {
   is_read: boolean
   read_at: string | null
   request_sms_ping: boolean
+  /** Set by the server once it has tried to text the recipient's numbers. */
+  sms_ping_status?: NetworkPingStatus | null
+  sms_ping_sent_at?: string | null
+  sms_ping_count?: number
   created_at: string
-  // Joined
+  /** Stamped on insert by the database (other pharmacies' rows are hidden by RLS). */
+  from_org_name?: string | null
+  to_org_name?: string | null
+  // Joined / derived
   from_org?: { id: string; name: string }
   to_org?:   { id: string; name: string }
+}
+
+export type NetworkPingStatus =
+  | 'processing' | 'sent' | 'failed' | 'recipient_disabled' | 'no_contacts_available' | 'rate_limited'
+
+export const NETWORK_PING_STATUS_TEXT: Record<NetworkPingStatus, string> = {
+  processing:            'Sending text alert…',
+  sent:                  'Text alert sent',
+  failed:                'Text alert failed',
+  recipient_disabled:    'No text alert: this pharmacy has text alerts turned off',
+  no_contacts_available: 'No text alert: no numbers available right now (quiet hours or paused)',
+  rate_limited:          'No text alert: you already alerted this pharmacy in the last 15 minutes',
+}
+
+export interface NetworkPingSummary {
+  sent: number
+  total: number
+  results: { message_id: string; to_org_id?: string; status: string; numbers?: number }[]
 }
 
 export interface OrgPharmacyLink {
