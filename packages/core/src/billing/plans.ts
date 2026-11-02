@@ -125,8 +125,8 @@ export const PLAN_ORDER: PlanId[] = ['network', 'essential', 'complete']
 
 export const PAID_PLANS: PlanId[] = ['essential', 'complete']
 
-/** Free trial on a first paid subscription. Must match BILLING_TRIAL_DAYS on the server. */
-export const TRIAL_DAYS = 30
+/** Free trial on a first paid subscription (0 = none). Must match BILLING_TRIAL_DAYS on the server. */
+export const TRIAL_DAYS = 0
 
 export function planRank(plan: PlanId): number {
   return PLAN_ORDER.indexOf(plan)

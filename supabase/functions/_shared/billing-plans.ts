@@ -32,9 +32,8 @@ export function planFromPrice(price: {
   return null
 }
 
-/** Days of free trial on an org's first paid subscription (0 disables). */
+/** Days of free trial on an org's first paid subscription. Default 0: no trial. */
 export function trialDays(): number {
-  const raw = Deno.env.get('BILLING_TRIAL_DAYS')
-  const n = raw === undefined ? 30 : Number(raw)
-  return Number.isFinite(n) && n >= 0 ? Math.floor(n) : 30
+  const n = Number(Deno.env.get('BILLING_TRIAL_DAYS') ?? 0)
+  return Number.isFinite(n) && n > 0 ? Math.floor(n) : 0
 }

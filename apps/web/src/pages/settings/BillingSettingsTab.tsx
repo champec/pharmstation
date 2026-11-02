@@ -197,7 +197,7 @@ export function BillingSettingsTab() {
                 onClick={() => choose(id)}
                 disabled={!canManage || busy !== null || mode === 'unconfigured'}
               >
-                {busy === id ? 'Opening Stripe…' : everSubscribed ? `Choose ${p.name}` : `Start ${TRIAL_DAYS}-day free trial`}
+                {busy === id ? 'Opening Stripe…' : everSubscribed || TRIAL_DAYS === 0 ? `Choose ${p.name}` : `Start ${TRIAL_DAYS}-day free trial`}
               </button>
             )
           }

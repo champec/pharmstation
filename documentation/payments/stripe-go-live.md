@@ -4,8 +4,8 @@
 > need a person with the Stripe and Supabase dashboards; nothing here can be
 > done from code alone.
 
-Plans: **Network £0**, **Essential £39/month**, **Complete £79/month**, 30-day free
-trial on a pharmacy's first subscription. Catalogue: `packages/core/src/billing/plans.ts`.
+Plans: **Network £0**, **Essential £39/month**, **Complete £79/month** (placeholder
+prices, not final). No free trial by default; set `BILLING_TRIAL_DAYS` to offer one. Catalogue: `packages/core/src/billing/plans.ts`.
 
 ## 0. Decide first
 
@@ -55,7 +55,7 @@ billing" and switch plan and cancel once each.
    ```
 4. Set Supabase edge function secrets (replace the test values):
    `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_CONNECT_WEBHOOK_SECRET`,
-   `STRIPE_PORTAL_CONFIGURATION`. Optional: `BILLING_TRIAL_DAYS` (default 30),
+   `STRIPE_PORTAL_CONFIGURATION`. Optional: `BILLING_TRIAL_DAYS` (default 0, no trial),
    `STRIPE_AUTOMATIC_TAX`, `APP_ORIGINS`.
 5. Clear test-mode Stripe ids, which don't exist in live mode:
    ```sql

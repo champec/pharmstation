@@ -18,7 +18,7 @@
 // Prices are never taken from the client: the plan name is mapped to a
 // Stripe Price lookup key (see _shared/billing-plans.ts).
 //
-// Secrets: STRIPE_SECRET_KEY. Optional: BILLING_TRIAL_DAYS (default 30),
+// Secrets: STRIPE_SECRET_KEY. Optional: BILLING_TRIAL_DAYS (default 0 = no trial),
 // STRIPE_AUTOMATIC_TAX ('true' once VAT registered + Stripe Tax set up),
 // APP_ORIGINS (comma-separated allowed redirect origins).
 // ============================================================

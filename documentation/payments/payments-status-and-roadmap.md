@@ -141,8 +141,8 @@ Connect Express pattern as pharmacies, different direction of money.
       Essential £39, Complete £79 (monthly), feature map, route → feature map
 - [x] `ps_org_subscriptions` + `ps_org_effective_plan()` (SQL in
       `documentation/payments/subscriptions-schema.sql`, client read-only)
-- [x] `stripe-billing` edge function: checkout (subscription mode, 30-day
-      trial on first subscription), customer portal, refresh
+- [x] `stripe-billing` edge function: checkout (subscription mode, optional
+      trial via BILLING_TRIAL_DAYS, off by default), customer portal, refresh
 - [x] `stripe-webhook`: `customer.subscription.*`, subscription checkout,
       `invoice.paid` → `ps_payments` kind=subscription; failed events now retry
 - [x] Settings → Plan & billing tab; plan gate + 🔒 menu items behind
