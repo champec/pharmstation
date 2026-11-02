@@ -43,3 +43,14 @@ export function trialDays(): number {
   const n = Number(Deno.env.get('BILLING_TRIAL_DAYS') ?? 0)
   return Number.isFinite(n) && n > 0 ? Math.floor(n) : 0
 }
+
+/**
+ * Prepaid text message packs. 1 credit = 1 SMS segment (160 characters).
+ * Keep in step with SMS_PACKS in packages/core/src/billing/plans.ts.
+ * The amount charged is always taken from here, never from the client.
+ */
+export const SMS_PACKS: Record<string, { credits: number; pence: number }> = {
+  sms_250: { credits: 250, pence: 1000 },
+  sms_1000: { credits: 1000, pence: 3500 },
+  sms_2500: { credits: 2500, pence: 8000 },
+}

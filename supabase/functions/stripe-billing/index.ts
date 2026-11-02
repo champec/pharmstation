@@ -12,6 +12,9 @@
 //   create_portal    → { url }  Stripe customer portal (change plan, card,
 //                      cancel, invoices). body: { org_id, return_url }
 //                                                             owner/manager
+//   buy_sms_credits  → { url }  Stripe Checkout (one-off payment) for a pack
+//                      of prepaid text credits. body: { org_id, pack,
+//                      success_url, cancel_url }        owner/manager
 //   refresh          → { subscription } re-read the org's subscription from
 //                      Stripe and store it (backup if a webhook is late)
 //                                                             any member
@@ -26,7 +29,15 @@
 
 import Stripe from 'https://esm.sh/stripe@17.7.0?target=denonext'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.0'
-import { PLAN_LOOKUP_KEYS, isInterval, isPaidPlan, trialDays, type BillingInterval, type PaidPlan } from '../_shared/billing-plans.ts'
+import {
+  PLAN_LOOKUP_KEYS,
+  SMS_PACKS,
+  isInterval,
+  isPaidPlan,
+  trialDays,
+  type BillingInterval,
+  type PaidPlan,
+} from '../_shared/billing-plans.ts'
 import { syncSubscription } from '../_shared/billing-sync.ts'
 
 const CORS_HEADERS = {
@@ -293,6 +304,63 @@ async function createPortal(db: Db, caller: Caller, body: Record<string, unknown
   return json({ url: portal.url })
 }
 
+async function buySmsCredits(db: Db, caller: Caller, body: Record<string, unknown>): Promise<Response> {
+  const orgId = body.org_id as string
+  const packId = body.pack as string
+  const pack = SMS_PACKS[packId]
+  if (!pack) throw new HttpError(400, 'Unknown text credit pack')
+  if (!isAllowedRedirect(body.success_url) || !isAllowedRedirect(body.cancel_url)) {
+    throw new HttpError(400, 'success_url and cancel_url must be PharmStation addresses')
+  }
+  await requireBillingManager(db, caller.id, orgId)
+
+  const stripe = getStripe()
+  const customerId = await ensureCustomer(db, stripe, orgId, caller.email)
+  const description = `${pack.credits.toLocaleString('en-GB')} text message credits`
+
+  // Ledger first: the payment row exists before any Stripe object.
+  const { data: payment, error: payErr } = await db
+    .from('ps_payments')
+    .insert({
+      org_id: orgId,
+      kind: 'credits',
+      description,
+      amount_pence: pack.pence,
+      currency: 'gbp',
+      status: 'pending',
+      metadata: { pack: packId, credits: pack.credits },
+    })
+    .select('id')
+    .single()
+  if (payErr || !payment) throw new Error(`Could not create payment record: ${payErr?.message}`)
+
+  const metadata = { kind: 'sms_credits', org_id: orgId, pack: packId, credits: String(pack.credits), payment_id: payment.id }
+  const session = await stripe.checkout.sessions.create({
+    mode: 'payment',
+    customer: customerId,
+    client_reference_id: orgId,
+    line_items: [
+      {
+        quantity: 1,
+        price_data: {
+          currency: 'gbp',
+          unit_amount: pack.pence,
+          product_data: { name: description, metadata: { app: 'pharmstation', kind: 'sms_credits' } },
+        },
+      },
+    ],
+    invoice_creation: { enabled: true, invoice_data: { description, metadata } },
+    payment_intent_data: { metadata },
+    metadata,
+    success_url: body.success_url as string,
+    cancel_url: body.cancel_url as string,
+  })
+
+  await db.from('ps_payments').update({ stripe_checkout_session_id: session.id }).eq('id', payment.id)
+  if (!session.url) throw new Error('Stripe did not return a checkout URL')
+  return json({ url: session.url })
+}
+
 async function refresh(db: Db, caller: Caller, body: Record<string, unknown>): Promise<Response> {
   const orgId = body.org_id as string
   await requireMember(db, caller.id, orgId)
@@ -343,6 +411,8 @@ Deno.serve(async (req: Request) => {
         return await createCheckout(db, caller, body)
       case 'create_portal':
         return await createPortal(db, caller, body)
+      case 'buy_sms_credits':
+        return await buySmsCredits(db, caller, body)
       case 'refresh':
         return await refresh(db, caller, body)
       default:

@@ -35,6 +35,8 @@ export {
   featureForPath,
   effectivePlan,
   formatPence,
+  SMS_PACKS,
+  type SmsPack,
   type Plan,
   type PlanId,
   type BillingInterval,

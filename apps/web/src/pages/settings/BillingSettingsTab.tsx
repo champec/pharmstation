@@ -14,6 +14,7 @@ import {
   type BillingInterval,
 } from '@pharmstation/core'
 import { BILLING_ROLES } from '../../lib/billing'
+import { SmsCreditsCard } from './SmsCreditsCard'
 import '../../components/billing/billing.css'
 
 const fmtDate = (iso: string | null) =>
@@ -240,6 +241,8 @@ export function BillingSettingsTab() {
           )
         })}
       </div>
+
+      <SmsCreditsCard orgId={orgId} canManage={canManage} />
 
       <p className="billing-note">
         Payments are handled by Stripe; PharmStation never sees your card details. Cancel any time from

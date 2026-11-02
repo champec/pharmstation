@@ -221,3 +221,20 @@ export function effectivePlan(sub: OrgSubscription | null, now: Date = new Date(
   if (comp && planRank(comp) > planRank(paid)) return comp
   return paid
 }
+
+/**
+ * Prepaid text message packs. 1 credit = 1 SMS segment (160 characters;
+ * longer texts use more). Keep in step with SMS_PACKS in
+ * supabase/functions/_shared/billing-plans.ts, which sets the real charge.
+ */
+export interface SmsPack {
+  id: string
+  credits: number
+  pence: number
+}
+
+export const SMS_PACKS: SmsPack[] = [
+  { id: 'sms_250', credits: 250, pence: 1000 },
+  { id: 'sms_1000', credits: 1000, pence: 3500 },
+  { id: 'sms_2500', credits: 2500, pence: 8000 },
+]

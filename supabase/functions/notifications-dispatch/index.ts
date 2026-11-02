@@ -19,6 +19,7 @@
 // ============================================================
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.0'
+import { spendCredits, settleCredits } from '../_shared/sms-credits.ts'
 
 const SMSWORKS_API_BASE = 'https://api.thesmsworks.co.uk/v1'
 
@@ -208,7 +209,12 @@ async function dispatch(admin: AdminClient, notificationId: string) {
       continue
     }
 
+    let charged = 0
     try {
+      // Staff alerts use the pharmacy's prepaid text credits too
+      // (only checked when SMS_CREDITS_ENFORCED=true).
+      await spendCredits(admin, notification.org_id, est.credits)
+      charged = est.credits
       const destination = normaliseDestination(phone)
       const result = await smsworksFetch('/message/send', {
         method: 'POST',
@@ -225,6 +231,7 @@ async function dispatch(admin: AdminClient, notificationId: string) {
       })
       const credits = typeof result.credits === 'number' ? result.credits : est.credits
       const segments = typeof result.messageparts === 'number' ? result.messageparts : est.segments
+      if (charged > 0) await settleCredits(admin, notification.org_id, charged, credits)
 
       await admin.from('ps_notification_receipts')
         .update({ sms_status: 'sent', sms_sent_at: new Date().toISOString() })
@@ -237,6 +244,7 @@ async function dispatch(admin: AdminClient, notificationId: string) {
       sent++
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'Send failed'
+      if (charged > 0) await settleCredits(admin, notification.org_id, charged, 0)
       await admin.from('ps_notification_receipts')
         .update({ sms_status: 'failed', sms_error: msg })
         .eq('id', receipt.id)

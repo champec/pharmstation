@@ -148,7 +148,9 @@ Connect Express pattern as pharmacies, different direction of money.
 - [x] Settings → Plan & billing tab; plan gate + 🔒 menu items behind
       `VITE_ENFORCE_PLANS`
 - [x] `tooling/stripe/setup-billing.mjs`: products, prices, portal, webhooks
-- [ ] SMS top-ups (e.g. £10 for 250 texts) and staff limits, enforced server side
+- [x] Prepaid SMS credits: packs via Checkout, ledger `ps_sms_credit_ledger`,
+      checked in sms-works + notifications-dispatch behind `SMS_CREDITS_ENFORCED`
+- [ ] Staff limits enforced server side; claw back credits on refund
 - [ ] Webmaster admin UI
 
 Original plan:

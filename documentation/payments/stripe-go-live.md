@@ -16,9 +16,9 @@ Plans: **Network £0**, **Essential £15/month or £150/year**, **Complete £29/
   you change it. A separate Stripe account for PharmStation is cleaner for
   accounts and VAT. Decide before step 2, because customers and Connect accounts
   can't be moved between Stripe accounts later.
-- **VAT.** Prices are set as *exclusive* of tax. If PharmStation is VAT
-  registered, turn on Stripe Tax and set `STRIPE_AUTOMATIC_TAX=true`; otherwise
-  leave it off and no VAT is added.
+- **VAT.** PharmStation is not VAT registered (2 Nov 2026), so leave Stripe Tax and
+  `STRIPE_AUTOMATIC_TAX` off; prices are charged exactly as shown. Revisit if turnover
+  nears the VAT threshold.
 - **Where the app runs.** Do this after the London cutover so the live webhook
   points at the London project and you set secrets only once.
 
@@ -73,6 +73,18 @@ billing" and switch plan and cancel once each.
 7. Make a real £15 purchase on your own card, check it appears in Stripe, in
    `ps_org_subscriptions` and as a `subscription` row on the Payments ledger, then
    refund and cancel it.
+
+## 3b. Prepaid text credits
+
+1. Run `documentation/payments/sms-credits-schema.sql`.
+2. Deploy `sms-works`, `notifications-dispatch`, `stripe-billing`, `stripe-webhook`.
+3. Packs (Settings → Plan & billing): 250 texts £10, 1,000 £35, 2,500 £80. Change in
+   `supabase/functions/_shared/billing-plans.ts` and `packages/core/src/billing/plans.ts`.
+   Check these stay above your SMS Works cost per credit.
+4. Give existing pharmacies some starting credits so texting doesn't stop, e.g.
+   `select ps_sms_add_credits(id, 100, 'grant', null, null, null, 'Launch credits') from ps_organisations;`
+5. Then set `SMS_CREDITS_ENFORCED=true` on the edge functions. Until then texts send
+   as before and no credits are taken. Pharmacy Network pings stay free.
 
 ## 4. Turn on plan enforcement
 

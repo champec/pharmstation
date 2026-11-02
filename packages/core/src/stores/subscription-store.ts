@@ -18,6 +18,8 @@ export interface SubscriptionState {
   loaded: boolean
   loading: boolean
   error: string | null
+  /** Prepaid text credits left; null until loaded or if not available. */
+  smsBalance: number | null
 
   fetchSubscription: (orgId: string) => Promise<void>
   hasFeature: (feature: Feature) => boolean
@@ -31,6 +33,9 @@ export interface SubscriptionState {
   openPortal: (orgId: string) => Promise<string>
   /** Ask the server whether Stripe is in test or live mode. */
   getBillingMode: (orgId: string) => Promise<BillingMode>
+  fetchSmsBalance: (orgId: string) => Promise<number | null>
+  /** Start Stripe Checkout for a text credit pack; resolves to the Checkout URL. */
+  buySmsCredits: (orgId: string, packId: string) => Promise<string>
   reset: () => void
 }
 
@@ -62,6 +67,7 @@ export const useSubscriptionStore = create<SubscriptionState>((set, get) => ({
   loaded: false,
   loading: false,
   error: null,
+  smsBalance: null,
 
   fetchSubscription: async (orgId) => {
     set({ loading: true, error: null, orgId })
@@ -112,5 +118,24 @@ export const useSubscriptionStore = create<SubscriptionState>((set, get) => ({
     }
   },
 
-  reset: () => set({ orgId: null, subscription: null, plan: 'network', loaded: false, error: null }),
+  fetchSmsBalance: async (orgId) => {
+    const { data, error } = await getUserClient().rpc('ps_sms_credit_balance', { p_org_id: orgId })
+    const balance = error ? null : ((data as number | null) ?? 0)
+    set({ smsBalance: balance })
+    return balance
+  },
+
+  buySmsCredits: async (orgId, packId) => {
+    const origin = window.location.origin
+    const data = await invokeBilling<{ url: string }>({
+      action: 'buy_sms_credits',
+      org_id: orgId,
+      pack: packId,
+      success_url: `${origin}/settings?tab=billing&credits=success`,
+      cancel_url: `${origin}/settings?tab=billing&credits=cancel`,
+    })
+    return data.url
+  },
+
+  reset: () => set({ smsBalance: null, orgId: null, subscription: null, plan: 'network', loaded: false, error: null }),
 }))

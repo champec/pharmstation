@@ -14,6 +14,8 @@
 //   customer.subscription.created/updated/deleted/paused/resumed
 //                                     → sync ps_org_subscriptions
 //   invoice.paid                      → ledger row in ps_payments (kind=subscription)
+//   checkout.session.completed (metadata.kind=sms_credits)
+//                                     → add prepaid text credits
 // Handled events (Phase 2 — Connect):
 //   account.updated                   → sync ps_org_billing (orgs) or
 //                                       ps_locum_profiles (locums, via
@@ -121,6 +123,26 @@ async function orgIdForCustomer(db: Db, customerId: string | null | undefined): 
   if (!customerId) return null
   const { data } = await db.from('ps_org_billing').select('org_id').eq('stripe_customer_id', customerId).maybeSingle()
   return (data?.org_id as string | undefined) ?? null
+}
+
+// Prepaid text credits: add them once the card payment has gone through.
+// Idempotent: the ledger allows one row per Checkout session.
+async function onSmsCreditsPaid(db: Db, session: Stripe.Checkout.Session) {
+  if (session.payment_status !== 'paid') return
+  const orgId = session.metadata?.org_id
+  const credits = Number(session.metadata?.credits)
+  if (!orgId || !Number.isInteger(credits) || credits <= 0) {
+    throw new Error(`sms credits session ${session.id} has bad metadata`)
+  }
+  const { error } = await db.rpc('ps_sms_add_credits', {
+    p_org_id: orgId,
+    p_credits: credits,
+    p_reason: 'purchase',
+    p_checkout_session_id: session.id,
+    p_payment_id: session.metadata?.payment_id ?? null,
+    p_note: `${credits} text credits bought`,
+  })
+  if (error) throw new Error(`ps_sms_add_credits failed: ${error.message}`)
 }
 
 // Record what the pharmacy paid us, so ps_payments stays the whole money story.
@@ -257,7 +279,10 @@ Deno.serve(async (req: Request) => {
       case 'checkout.session.completed': {
         const session = event.data.object as Stripe.Checkout.Session
         if (session.mode === 'subscription') await onSubscriptionCheckoutCompleted(db, stripe, session)
-        else await onCheckoutCompleted(db, session)
+        else {
+          await onCheckoutCompleted(db, session)
+          if (session.metadata?.kind === 'sms_credits') await onSmsCreditsPaid(db, session)
+        }
         break
       }
       case 'checkout.session.expired': {
