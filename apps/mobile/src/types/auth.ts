@@ -64,6 +64,9 @@ export interface LocumProfile {
   dbs_expiry: string | null
   onboarding_complete: boolean
   stripe_onboarded: boolean
+  /** Only approved locums can book shifts (enforced by ps_locum_book_shift). */
+  compliance_status?: 'pending' | 'approved' | 'rejected' | string
+  compliance_review_notes?: string | null
 }
 
 export interface Permissions {

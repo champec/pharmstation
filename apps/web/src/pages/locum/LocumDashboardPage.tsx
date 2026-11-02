@@ -68,7 +68,7 @@ export function LocumDashboardPage() {
           .from('ps_locum_bookings')
           .select('id, shift_id, status, shift:ps_locum_shifts(date, start_time, end_time, rate_per_hour, org_id)')
           .eq('locum_id', locumProfile.id)
-          .eq('status', 'confirmed')
+          .eq('status', 'approved')
           .gte('ps_locum_shifts.date', today)
           .order('ps_locum_shifts(date)', { ascending: true })
           .limit(5),
@@ -166,7 +166,7 @@ export function LocumDashboardPage() {
         </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem', alignItems: 'start' }}>
+      <div className="ps-split" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem', alignItems: 'start' }}>
         {/* Upcoming shifts */}
         <div className="ps-card">
           <div className="ps-card-header">

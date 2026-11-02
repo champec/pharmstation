@@ -150,7 +150,7 @@ export function PatientDetailPage() {
 
       {/* Profile card */}
       <div className="ps-card" style={{ padding: 'var(--ps-space-lg)', marginBottom: 'var(--ps-space-lg)' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--ps-space-lg)' }}>
+        <div className="ps-split" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--ps-space-lg)' }}>
           <div style={{ fontSize: 'var(--ps-font-sm)', display: 'grid', gridTemplateColumns: '120px 1fr', gap: 'var(--ps-space-xs)' }}>
             <strong>DOB:</strong> <span>{patient.dob ? new Date(patient.dob).toLocaleDateString('en-GB') : '—'}</span>
             <strong>NHS Number:</strong> <span>{patient.nhs_number || '—'}</span>

@@ -259,7 +259,7 @@ function DeliveryDetail({
   return (
     <div>
       {/* Summary row */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--ps-space-md)', marginBottom: 'var(--ps-space-lg)' }}>
+      <div className="ps-split" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--ps-space-md)', marginBottom: 'var(--ps-space-lg)' }}>
         <div>
           <div style={{ fontSize: 'var(--ps-font-xs)', color: 'var(--ps-slate)', marginBottom: 2 }}>Service</div>
           <div style={{ fontWeight: 600, color: 'var(--ps-midnight)' }}>{serviceName}</div>

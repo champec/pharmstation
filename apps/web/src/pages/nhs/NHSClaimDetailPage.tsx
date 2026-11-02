@@ -116,7 +116,7 @@ export function NHSClaimDetailPage() {
         </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--ps-space-md)', marginBottom: 'var(--ps-space-md)' }}>
+      <div className="ps-split" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--ps-space-md)', marginBottom: 'var(--ps-space-md)' }}>
         {/* Claim summary */}
         <div className="ps-card" style={{ padding: 'var(--ps-space-lg)' }}>
           <h3 style={{ margin: '0 0 var(--ps-space-md)' }}>Claim Summary</h3>

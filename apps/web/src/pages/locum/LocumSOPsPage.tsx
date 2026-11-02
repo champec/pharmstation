@@ -43,13 +43,14 @@ export function LocumSOPsPage() {
       // 1. Confirmed upcoming bookings → unique org_ids
       const { data: bookings, error: bErr } = await client
         .from('ps_locum_bookings')
-        .select('org_id, shift:ps_locum_shifts(date)')
+        .select('shift:ps_locum_shifts(org_id, date)')
         .eq('locum_id', locumProfile.id)
-        .in('status', ['confirmed', 'completed'])
+        .in('status', ['approved', 'completed'])
       if (bErr) throw bErr
 
       const orgIds = [...new Set(
-        ((bookings ?? []) as { org_id: string }[]).map((b) => b.org_id)
+        ((bookings ?? []) as unknown as { shift: { org_id: string } | null }[])
+          .flatMap((b) => (b.shift ? [b.shift.org_id] : []))
       )]
 
       if (orgIds.length === 0) {
@@ -69,7 +70,7 @@ export function LocumSOPsPage() {
           .from('ps_locum_sop_signoffs')
           .select('sop_id, sop_version, signed_at')
           .eq('locum_id', locumProfile.id),
-        client.from('ps_organisations').select('id, name').in('id', orgIds),
+        client.rpc('ps_locum_shift_orgs', { p_org_ids: orgIds }),
       ])
 
       if (sopRes.error) throw sopRes.error

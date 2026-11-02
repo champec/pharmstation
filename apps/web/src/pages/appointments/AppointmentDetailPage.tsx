@@ -124,7 +124,7 @@ export function AppointmentDetailPage() {
         </span>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--ps-space-lg)' }}>
+      <div className="ps-split" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--ps-space-lg)' }}>
         {/* Patient info */}
         <div className="ps-card" style={{ padding: 'var(--ps-space-lg)' }}>
           <h3 style={{ fontSize: 'var(--ps-font-md)', fontWeight: 600, color: 'var(--ps-midnight)', marginBottom: 'var(--ps-space-md)' }}>
