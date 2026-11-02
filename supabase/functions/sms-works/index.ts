@@ -37,6 +37,7 @@
 // ============================================
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.0'
+import { creditsEnforced, spendCredits, settleCredits } from '../_shared/sms-credits.ts'
 
 const SMSWORKS_API_BASE = 'https://api.thesmsworks.co.uk/v1'
 
@@ -344,7 +345,21 @@ async function deliverSms(admin: AdminClient, args: DeliverArgs, userId: string)
     created_by_user_id: userId,
   })
 
-  // 2) Send via SMS Works
+  // 2) Take prepaid credits (only when SMS_CREDITS_ENFORCED=true). Network
+  //    pings to other pharmacies are part of the free Pharmacy Network.
+  const est = estimateSegments(args.content)
+  const charged = args.feature === 'network_ping' ? 0 : est.credits
+  try {
+    await spendCredits(admin, args.org_id, charged, pending.id)
+  } catch (e) {
+    await admin.from('ps_messages').update({
+      status: 'failed', failed_at: new Date().toISOString(),
+      failure_reason: e instanceof Error ? e.message : 'No text credits', updated_at: new Date().toISOString(),
+    }).eq('id', pending.id)
+    throw e
+  }
+
+  // 3) Send via SMS Works
   const payload: Record<string, unknown> = {
     sender: args.sender,
     destination,
@@ -366,7 +381,6 @@ async function deliverSms(admin: AdminClient, args: DeliverArgs, userId: string)
     const messageId = (result.messageid as string) || null
     const status = mapSmsworksStatus((result.status as string) || 'SENT')
     // Prefer the values SMS Works returns; fall back to a local estimate.
-    const est = estimateSegments(args.content)
     const credits = typeof result.credits === 'number' ? result.credits : est.credits
     const segments = typeof result.messageparts === 'number' ? result.messageparts : est.segments
 
@@ -379,7 +393,9 @@ async function deliverSms(admin: AdminClient, args: DeliverArgs, userId: string)
       updated_at: new Date().toISOString(),
     }).eq('id', pending.id).select('*, patient:ps_patients(id, first_name, last_name)').single()
 
-    // 3) Record usage for chargeback billing (best-effort).
+    if (charged > 0) await settleCredits(admin, args.org_id, charged, credits, pending.id)
+
+    // 4) Record usage for chargeback billing (best-effort).
     await admin.rpc('ps_sms_record_usage', {
       p_org_id: args.org_id,
       p_period: currentPeriod(),
@@ -396,6 +412,8 @@ async function deliverSms(admin: AdminClient, args: DeliverArgs, userId: string)
       status: 'failed', failed_at: new Date().toISOString(),
       failure_reason: msg, updated_at: new Date().toISOString(),
     }).eq('id', pending.id)
+    // Nothing was sent, so give the credits back.
+    if (charged > 0) await settleCredits(admin, args.org_id, charged, 0, pending.id)
     throw e
   }
 }
@@ -538,6 +556,20 @@ async function handleSendBroadcast(body: Record<string, unknown>, userId: string
         ? 'No patients to message: everyone with a mobile number has opted out.'
         : 'No matching patients found',
     )
+  }
+
+  // With prepaid texts switched on, refuse up front rather than sending to
+  // the first few hundred patients and failing the rest.
+  if (creditsEnforced()) {
+    const perText = estimateSegments(broadcast.body ?? '').credits
+    const needed = perText * recipients.length
+    const { data: balance, error: balErr } = await admin.rpc('ps_sms_credit_balance', { p_org_id: org_id })
+    if (balErr) throw new Error(`Could not check text credits: ${balErr.message}`)
+    if ((balance as number) < needed) {
+      throw new Error(
+        `This broadcast needs about ${needed} text credits and you have ${balance}. Buy more in Settings → Plan & billing.`,
+      )
+    }
   }
 
   // Claim the broadcast atomically so a double-click or a retry cannot send

@@ -9,6 +9,11 @@ import { UserLoginPage } from './pages/auth/UserLoginPage'
 import { PersonalLoginPage } from './pages/auth/PersonalLoginPage'
 import { PersonalProfilePage } from './pages/PersonalProfilePage'
 import { LocumApprovalsPage } from './pages/admin/LocumApprovalsPage'
+import { PrescriberApprovalsPage } from './pages/peps/PrescriberApprovalsPage'
+import { PharmacySignupPage } from './pages/onboarding/PharmacySignupPage'
+import { OwnerSetupPage } from './pages/onboarding/OwnerSetupPage'
+import { JoinInvitePage } from './pages/onboarding/JoinInvitePage'
+import { PharmacyApprovalsPage } from './pages/admin/PharmacyApprovalsPage'
 import { DashboardPage } from './pages/DashboardPage'
 import { RegistersPage } from './pages/registers/RegistersPage'
 import { CDRegisterPage } from './pages/registers/CDRegisterPage'
@@ -253,6 +258,16 @@ export function App() {
             )
           }
         />
+        {/* Pharmacy self-sign-up, owner setup and staff invites */}
+        <Route
+          path="/signup"
+          element={isOrgLoggedIn ? <Navigate to="/login/user" replace /> : <PharmacySignupPage />}
+        />
+        <Route
+          path="/setup/owner"
+          element={isOrgLoggedIn ? <OwnerSetupPage /> : <Navigate to="/login/org" replace />}
+        />
+        <Route path="/join/:token" element={<JoinInvitePage />} />
         {/* Personal (individual-tier) login — bypasses org entirely */}
         <Route
           path="/me/login"
@@ -272,6 +287,14 @@ export function App() {
       <Route
         path="/me/admin/locums"
         element={isUserLoggedIn ? <LocumApprovalsPage /> : <Navigate to="/me/login" replace />}
+      />
+      <Route
+        path="/me/admin/prescribers"
+        element={isUserLoggedIn ? <PrescriberApprovalsPage /> : <Navigate to="/me/login" replace />}
+      />
+      <Route
+        path="/me/admin/pharmacies"
+        element={isUserLoggedIn ? <PharmacyApprovalsPage /> : <Navigate to="/me/login" replace />}
       />
       <Route
         path="/peps/:id/print"

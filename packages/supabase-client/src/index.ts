@@ -25,11 +25,19 @@ export interface SupabaseConfig {
  * Must be called once at app startup.
  */
 export function initSupabase(config: SupabaseConfig) {
+  // detectSessionInUrl is off for BOTH clients. With two clients on one page,
+  // an email-confirmation redirect would otherwise be picked up by whichever
+  // client reads the URL first, so a staff member's personal session could
+  // land in the pharmacy (org) slot or vice versa. After confirming, people
+  // sign in with their password instead.
+  stripAuthTokensFromUrl()
+
   _orgClient = createClient(config.url, config.anonKey, {
     auth: {
       storageKey: 'ps-org-session',
       autoRefreshToken: true,
       persistSession: true,
+      detectSessionInUrl: false,
     },
   })
 
@@ -38,10 +46,29 @@ export function initSupabase(config: SupabaseConfig) {
       storageKey: 'ps-user-session',
       autoRefreshToken: true,
       persistSession: true,
+      detectSessionInUrl: false,
     },
   })
 
   return { orgClient: _orgClient, userClient: _userClient }
+}
+
+let _authRedirectType: string | null = null
+
+/** Remove auth tokens from the URL hash (so they don't sit in history) and
+ *  remember what kind of redirect it was. */
+function stripAuthTokensFromUrl() {
+  if (typeof window === 'undefined') return
+  const hash = window.location.hash
+  if (!hash || !/(access_token|error_description)=/.test(hash)) return
+  const params = new URLSearchParams(hash.slice(1))
+  _authRedirectType = params.get('error_description') ? 'error' : params.get('type')
+  window.history.replaceState(window.history.state, '', window.location.pathname + window.location.search)
+}
+
+/** 'signup' when the page was opened from an email-confirmation link. */
+export function getAuthRedirectType(): string | null {
+  return _authRedirectType
 }
 
 /**
@@ -219,3 +246,6 @@ export async function fetchLocumExtendedProfile(userId: string) {
   if (error) throw error
   return data
 }
+
+// Pharmacy onboarding + team management
+export * from './team'

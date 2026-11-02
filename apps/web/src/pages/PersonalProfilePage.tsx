@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { getUserClient } from '@pharmstation/supabase-client'
 import { useAuthStore, useAlertStore } from '@pharmstation/core'
 import { LocumReviewAdminCard } from '../components/LocumReviewAdminCard'
+import { PlatformAdminCard } from '../components/PlatformAdminCard'
 
 interface LocumSummary {
   id: string
@@ -28,6 +29,11 @@ export function PersonalProfilePage() {
   const [gphcNumber, setGphcNumber] = useState('')
   const [saving, setSaving] = useState(false)
   const [msg, setMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
+  const [isPlatformAdmin, setIsPlatformAdmin] = useState(false)
+
+  useEffect(() => {
+    getUserClient().rpc('ps_is_platform_admin').then(({ data }) => setIsPlatformAdmin(data === true))
+  }, [])
 
   /* Notification preferences */
   const [smsAlertsEnabled, setSmsAlertsEnabled] = useState(false)
@@ -344,10 +350,17 @@ export function PersonalProfilePage() {
           <Link to="/me/prescriber" className="ps-btn ps-btn-primary ps-btn-sm">
             Open prescriber setup
           </Link>
+          {isPlatformAdmin && (
+            <Link to="/me/admin/prescribers" className="ps-btn ps-btn-secondary ps-btn-sm" style={{ marginLeft: '0.5rem' }}>
+              Approve prescribers
+            </Link>
+          )}
         </div>
       </div>
 
       <LocumReviewAdminCard />
+
+      <PlatformAdminCard />
 
       {/* Personal billing — future (Phase 6) */}
       <div className="ps-card">
