@@ -68,8 +68,8 @@ export function PEPSPrescriberSetupPage() {
         phone: phone.trim() || null,
         address: address.trim() || null,
         signature_data: signature,
-        // v1: self-asserted active. Central vetting/approval is a planned follow-up.
-        status: 'active',
+        // Status is server-controlled: new prescribers start 'pending' and a
+        // PharmStation admin activates them after checking the register.
       })
       setSaved(true)
       setTimeout(() => setSaved(false), 3000)
@@ -108,7 +108,9 @@ export function PEPSPrescriberSetupPage() {
           <span style={{ color: 'var(--ps-slate)' }}>
             {myPrescriber.status === 'active'
               ? 'You are authorised to write private prescriptions.'
-              : 'Your prescriber account is awaiting approval.'}
+              : myPrescriber.status === 'pending'
+                ? 'Awaiting verification. We check your registration number with your regulator before you can write prescriptions. Changing your name, type or registration sends it back for verification.'
+                : 'Your prescriber account is not active. Contact PharmStation support.'}
           </span>
         </div>
       )}

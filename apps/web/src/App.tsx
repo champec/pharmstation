@@ -8,6 +8,7 @@ import { OrgLoginPage } from './pages/auth/OrgLoginPage'
 import { UserLoginPage } from './pages/auth/UserLoginPage'
 import { PersonalLoginPage } from './pages/auth/PersonalLoginPage'
 import { PersonalProfilePage } from './pages/PersonalProfilePage'
+import { PrescriberApprovalsPage } from './pages/peps/PrescriberApprovalsPage'
 import { DashboardPage } from './pages/DashboardPage'
 import { RegistersPage } from './pages/registers/RegistersPage'
 import { CDRegisterPage } from './pages/registers/CDRegisterPage'
@@ -264,6 +265,10 @@ export function App() {
       <Route
         path="/me/prescriber"
         element={isUserLoggedIn ? <PEPSPrescriberSetupPage /> : <Navigate to="/me/login" replace />}
+      />
+      <Route
+        path="/me/admin/prescribers"
+        element={isUserLoggedIn ? <PrescriberApprovalsPage /> : <Navigate to="/me/login" replace />}
       />
       <Route
         path="/peps/:id/print"
