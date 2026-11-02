@@ -26,7 +26,19 @@ export function PaymentResultPage() {
 
   const [payment, setPayment] = useState<PaymentInfo | null>(null)
   const [timedOut, setTimedOut] = useState(false)
+  const [released, setReleased] = useState(false)
   const attempts = useRef(0)
+
+  // Patient backed out of Checkout: cancel the unpaid booking now so the
+  // slot is free for someone else, rather than held until Stripe expires it.
+  useEffect(() => {
+    if (!canceled || !paymentId) return
+    getUserClient().functions.invoke('stripe-checkout', {
+      body: { action: 'cancel_checkout', payment_id: paymentId },
+    }).then(({ data }) => {
+      if (data?.payment?.status === 'canceled') setReleased(true)
+    })
+  }, [canceled, paymentId])
 
   useEffect(() => {
     if (canceled || !paymentId) return
@@ -65,9 +77,11 @@ export function PaymentResultPage() {
   )
 
   if (canceled) {
-    return card('⚠️', 'Payment Cancelled', (
+    return card('⚠️', 'Payment cancelled', (
       <p>
-        Your booking was created but has not been paid. You can contact the pharmacy to arrange payment, or book again.
+        {released
+          ? 'You have not been charged and the appointment has been released. You can book again whenever you like.'
+          : 'You have not been charged. Unpaid bookings are released automatically within 30 minutes, so please book again if you still want this appointment.'}
       </p>
     ))
   }
@@ -79,22 +93,22 @@ export function PaymentResultPage() {
   }
 
   if (payment?.status === 'succeeded') {
-    return card('✅', 'Payment Successful!', (
+    return card('✅', 'Payment successful', (
       <>
         <p>
           {payment.description ?? 'Your booking'} — <strong>£{(payment.amount_pence / 100).toFixed(2)}</strong>
         </p>
         <p>
-          Your appointment is booked and paid. A receipt has been emailed to you by Stripe.
+          Your appointment is confirmed and paid. Stripe has emailed you a receipt.
         </p>
       </>
     ))
   }
 
   if (payment && ['failed', 'canceled'].includes(payment.status)) {
-    return card('❌', 'Payment Failed', (
+    return card('❌', 'Payment not completed', (
       <p>
-        Your payment didn't go through. Your booking was created — please contact the pharmacy to arrange payment.
+        Your payment didn't go through, so you have not been charged and the appointment was not booked. Please try booking again.
       </p>
     ))
   }
@@ -102,12 +116,12 @@ export function PaymentResultPage() {
   if (timedOut) {
     return card('⏳', 'Payment Processing', (
       <p>
-        Your payment is still being confirmed. If you were charged, your booking is safe — the pharmacy will see the payment shortly.
+        Your payment is still being confirmed. If you were charged, your booking is safe and the pharmacy will see the payment shortly.
       </p>
     ))
   }
 
   return card('⏳', 'Confirming your payment…', (
-    <p>One moment — we're confirming your payment with Stripe.</p>
+    <p>One moment while we confirm your payment with Stripe.</p>
   ))
 }
