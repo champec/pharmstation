@@ -4,11 +4,13 @@ import { getUserClient } from '@pharmstation/supabase-client'
 import type { Organisation, Service } from '@pharmstation/types'
 import { orgSlugOrIdFilter } from '../../lib/orgSlugFilter'
 import { PublicFooter } from '../../components/public/PublicFooter'
+import { usePageTitle } from '../../seo/RouteMeta'
 
 export function PublicOrgPage() {
   const { orgSlug } = useParams<{ orgSlug: string }>()
   const navigate = useNavigate()
   const [org, setOrg] = useState<Organisation | null>(null)
+  usePageTitle(org ? `Book at ${org.name}` : null)
   const [services, setServices] = useState<Service[]>([])
   const [serviceSearch, setServiceSearch] = useState('')
   const [loading, setLoading] = useState(true)

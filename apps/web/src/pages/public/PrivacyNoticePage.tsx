@@ -1,9 +1,10 @@
 import { Link } from 'react-router-dom'
+import { PublicSiteShell } from '../../components/public/PublicSiteShell'
 
 export function PrivacyNoticePage() {
   return (
-    <div style={{ maxWidth: '900px', margin: '40px auto', padding: '0 var(--ps-space-lg)' }}>
-      <div className="ps-card" style={{ padding: 'var(--ps-space-2xl)' }}>
+    <PublicSiteShell>
+      <article className="public-panel public-doc">
 
         <div style={{ textAlign: 'center', marginBottom: 'var(--ps-space-xl)' }}>
           <h1 style={{ marginBottom: 'var(--ps-space-sm)' }}>Privacy Notice</h1>
@@ -354,7 +355,7 @@ export function PrivacyNoticePage() {
           <Link className="ps-btn ps-btn-ghost" to="/">Home</Link>
         </div>
 
-      </div>
-    </div>
+      </article>
+    </PublicSiteShell>
   )
 }

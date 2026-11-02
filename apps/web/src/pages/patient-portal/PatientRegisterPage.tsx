@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
+import { PublicSiteShell } from '../../components/public/PublicSiteShell'
 import { usePatientStore } from '@pharmstation/core'
 import { getUserClient } from '@pharmstation/supabase-client'
 import type { Organisation } from '@pharmstation/types'
@@ -47,10 +48,11 @@ export function PatientRegisterPage() {
   }
 
   return (
-    <div style={{ maxWidth: '480px', margin: '60px auto', padding: '0 var(--ps-space-lg)' }}>
-      <div className="ps-card" style={{ padding: 'var(--ps-space-xl)' }}>
+    <PublicSiteShell variant="narrow" headerActions={<Link to="/login/org" className="landing-btn landing-btn-ghost">Pharmacy sign in</Link>}>
+      <div className="ps-card public-form-card">
         <div style={{ textAlign: 'center', marginBottom: 'var(--ps-space-xl)' }}>
-          <h1 style={{ marginBottom: 'var(--ps-space-xs)' }}>📝 Patient Registration</h1>
+          <span className="landing-eyebrow">For patients</span>
+          <h1 style={{ marginBottom: 'var(--ps-space-xs)' }}>Create a patient account</h1>
           <p style={{ color: 'var(--ps-slate)' }}>Create an account to book and manage appointments</p>
         </div>
 
@@ -101,6 +103,6 @@ export function PatientRegisterPage() {
           <a href="/patient/login" onClick={(e) => { e.preventDefault(); navigate('/patient/login') }} style={{ color: 'var(--ps-deep-blue)' }}>Sign in</a>
         </div>
       </div>
-    </div>
+    </PublicSiteShell>
   )
 }

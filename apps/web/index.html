@@ -1,12 +1,61 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en-GB">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>PharmStation — Your Digital Pharmacy Workstation</title>
+    <title>PharmStation | Your Digital Pharmacy Workstation</title>
+    <meta
+      name="description"
+      content="PharmStation is the digital workstation for UK community pharmacies: CD register, RP log, NHS and private services, online booking, SOPs and patient messaging in one place."
+    />
+    <meta name="application-name" content="PharmStation" />
+    <meta name="theme-color" content="#257BB4" />
+
+    <link rel="icon" href="/favicon.ico" sizes="48x48" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="manifest" href="/site.webmanifest" />
+    <meta name="apple-mobile-web-app-title" content="PharmStation" />
+
+    <!-- Social previews. Link-preview bots don't run JavaScript, so these defaults are what they show. -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="PharmStation" />
+    <meta property="og:locale" content="en_GB" />
+    <meta property="og:title" content="PharmStation | Your Digital Pharmacy Workstation" />
+    <meta
+      property="og:description"
+      content="CD register, RP log, services, bookings and messaging for UK pharmacies, in one place."
+    />
+    <meta property="og:url" content="https://pharmstation.co.uk" />
+    <meta property="og:image" content="https://pharmstation.co.uk/og-image.jpg" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="PharmStation, your digital pharmacy workstation" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="PharmStation | Your Digital Pharmacy Workstation" />
+    <meta
+      name="twitter:description"
+      content="CD register, RP log, services, bookings and messaging for UK pharmacies, in one place."
+    />
+    <meta name="twitter:image" content="https://pharmstation.co.uk/og-image.jpg" />
+
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "SoftwareApplication",
+        "name": "PharmStation",
+        "url": "https://pharmstation.co.uk",
+        "applicationCategory": "BusinessApplication",
+        "operatingSystem": "Web",
+        "description": "Digital workstation for UK community pharmacies: CD register, RP log, services, online booking, SOPs and patient messaging.",
+        "image": "https://pharmstation.co.uk/og-image.jpg"
+      }
+    </script>
   </head>
   <body>
+    <noscript>PharmStation needs JavaScript enabled to run.</noscript>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
