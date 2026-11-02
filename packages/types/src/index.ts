@@ -21,7 +21,13 @@ export interface Organisation {
   /** True only for NHS-affiliated orgs (NHS-funded, hospital, military, prison) — unlocks NHS Notify email/letter channels. */
   nhs_channels_enabled?: boolean
   organisation_type?: 'pharmacy' | 'carehome'
+  /** Self-sign-ups start 'pending' until PharmStation checks the GPhC premises register. */
+  verification_status?: OrganisationVerificationStatus
+  verified_at?: string | null
+  verification_note?: string | null
 }
+
+export type OrganisationVerificationStatus = 'pending' | 'verified' | 'rejected'
 
 export interface OrganisationAddress {
   line_1?: string
@@ -68,6 +74,55 @@ export interface OrganisationMember {
   last_active_at: string | null
   // Joined
   user_profile?: UserProfile
+}
+
+// --- Team management ---
+
+/** Roles a pharmacy can invite (care-home users have their own flow). */
+export type InvitableRole = Exclude<UserRole, 'carehome_user'>
+
+export const ROLE_LABELS: Record<UserRole, string> = {
+  owner: 'Owner',
+  manager: 'Manager',
+  pharmacist: 'Pharmacist',
+  technician: 'Pharmacy technician',
+  dispenser: 'Dispenser / counter assistant',
+  locum: 'Locum pharmacist',
+  carehome_user: 'Care home staff',
+}
+
+export interface TeamMember {
+  member_id: string
+  user_id: string
+  full_name: string
+  /** Only returned to people who can manage staff (and for your own row). */
+  email: string | null
+  gphc_number: string | null
+  role: UserRole
+  status: MemberStatus
+  is_locum: boolean
+  /** Only returned to people who can manage staff. */
+  permissions: Permissions | null
+  created_at: string
+  last_active_at: string | null
+}
+
+export interface OrganisationInvite {
+  id: string
+  email: string
+  role: InvitableRole
+  created_at: string
+  expires_at: string
+  invited_by_name: string | null
+}
+
+export interface InvitePreview {
+  organisation_name: string
+  role: InvitableRole
+  email: string
+  status: 'pending' | 'accepted' | 'revoked' | 'expired'
+  expires_at: string
+  invited_by_name: string | null
 }
 
 // --- Permissions ---

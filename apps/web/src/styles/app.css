@@ -13470,3 +13470,269 @@ textarea.form-input {
   padding: 4px 0;
   cursor: pointer;
 }
+
+/* ── Pharmacy sign-up, owner setup and invites ─────────────── */
+
+.onboarding-card {
+  max-width: 520px;
+}
+
+.onboarding-steps {
+  display: flex;
+  gap: var(--ps-space-sm);
+  list-style: none;
+  padding: 0;
+  margin: 0 0 var(--ps-space-lg);
+  counter-reset: onboarding-step;
+}
+
+.onboarding-steps li {
+  flex: 1;
+  counter-increment: onboarding-step;
+  font-size: var(--ps-font-xs);
+  font-weight: 600;
+  color: var(--ps-slate);
+  padding-top: var(--ps-space-xs);
+  border-top: 3px solid var(--ps-off-white);
+}
+
+.onboarding-steps li::before {
+  content: counter(onboarding-step) '. ';
+}
+
+.onboarding-steps li.active {
+  color: var(--ps-deep-blue);
+  border-top-color: var(--ps-electric-cyan);
+}
+
+.onboarding-steps li.done {
+  color: var(--ps-success);
+  border-top-color: var(--ps-success);
+}
+
+.onboarding-step-title {
+  font-size: var(--ps-font-lg);
+  color: var(--ps-deep-blue);
+  margin: var(--ps-space-lg) 0 var(--ps-space-xs);
+}
+
+.onboarding-help {
+  color: var(--ps-slate);
+  font-size: var(--ps-font-sm);
+  margin-bottom: var(--ps-space-md);
+}
+
+.onboarding-hint {
+  display: block;
+  color: var(--ps-slate);
+  font-size: var(--ps-font-xs);
+  margin-top: var(--ps-space-xs);
+}
+
+.onboarding-optional {
+  font-weight: 400;
+  color: var(--ps-slate);
+}
+
+.onboarding-stack {
+  margin-top: var(--ps-space-sm);
+}
+
+.onboarding-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--ps-space-md);
+}
+
+.onboarding-toggle {
+  display: flex;
+  gap: var(--ps-space-sm);
+  flex-wrap: wrap;
+  margin-bottom: var(--ps-space-md);
+}
+
+.onboarding-check {
+  display: flex;
+  gap: var(--ps-space-sm);
+  align-items: flex-start;
+  font-size: var(--ps-font-sm);
+  color: var(--ps-text);
+  margin: var(--ps-space-md) 0;
+}
+
+.onboarding-check input {
+  margin-top: 3px;
+  flex-shrink: 0;
+}
+
+.onboarding-submit {
+  display: block;
+  width: 100%;
+  padding: 12px;
+  margin-top: var(--ps-space-sm);
+  text-align: center;
+}
+
+.onboarding-footer {
+  margin-top: var(--ps-space-lg);
+  text-align: center;
+  font-size: var(--ps-font-sm);
+  color: var(--ps-slate);
+}
+
+.onboarding-notice {
+  margin-bottom: var(--ps-space-md);
+}
+
+.ps-btn-link {
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--ps-deep-blue);
+  text-decoration: underline;
+  cursor: pointer;
+  font: inherit;
+}
+
+@media (max-width: 480px) {
+  .onboarding-row {
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+}
+
+/* ── Settings › Team ───────────────────────────────────────── */
+
+.team-settings {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ps-space-lg);
+}
+
+.team-card {
+  padding: var(--ps-space-lg);
+}
+
+.team-card-title {
+  font-size: var(--ps-font-lg);
+  color: var(--ps-deep-blue);
+  margin: 0 0 var(--ps-space-xs);
+}
+
+.team-card-help {
+  color: var(--ps-slate);
+  font-size: var(--ps-font-sm);
+  margin-bottom: var(--ps-space-md);
+}
+
+.team-invite-form {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1.3fr) auto;
+  gap: var(--ps-space-md);
+  align-items: end;
+}
+
+.team-invite-form .form-group {
+  margin-bottom: 0;
+}
+
+.team-role-hint {
+  color: var(--ps-slate);
+  font-size: var(--ps-font-xs);
+  margin: var(--ps-space-sm) 0 var(--ps-space-md);
+}
+
+.team-invite-result {
+  margin-top: var(--ps-space-md);
+  padding: var(--ps-space-md);
+  border-radius: var(--ps-radius-md);
+  background: var(--ps-off-white);
+  font-size: var(--ps-font-sm);
+}
+
+.team-invite-link {
+  display: flex;
+  gap: var(--ps-space-sm);
+  flex-wrap: wrap;
+  margin-top: var(--ps-space-sm);
+}
+
+.team-invite-link .ps-input {
+  flex: 1 1 240px;
+  min-width: 0;
+  font-family: var(--ps-font-mono);
+  font-size: var(--ps-font-xs);
+}
+
+.team-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.team-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--ps-space-md);
+  flex-wrap: wrap;
+  padding: var(--ps-space-md) 0;
+  border-top: 1px solid var(--ps-off-white);
+}
+
+.team-row:first-child {
+  border-top: none;
+}
+
+.team-row-inactive .team-row-main {
+  opacity: 0.6;
+}
+
+.team-row-main {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1 1 220px;
+}
+
+.team-row-meta {
+  color: var(--ps-slate);
+  font-size: var(--ps-font-xs);
+  overflow-wrap: anywhere;
+}
+
+.team-you {
+  font-weight: 400;
+  color: var(--ps-slate);
+}
+
+.team-row-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--ps-space-sm);
+  flex-wrap: wrap;
+}
+
+.team-role-select {
+  width: auto;
+  min-width: 170px;
+  padding: 6px 8px;
+}
+
+.team-role-label {
+  font-size: var(--ps-font-sm);
+  color: var(--ps-text);
+}
+
+.team-remove {
+  color: var(--ps-error);
+}
+
+@media (max-width: 640px) {
+  .team-invite-form {
+    grid-template-columns: 1fr;
+  }
+  .team-card {
+    padding: var(--ps-space-md);
+  }
+}

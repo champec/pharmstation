@@ -5,14 +5,15 @@ import { getUserClient } from '@pharmstation/supabase-client'
 import { MessagingSettingsTab } from './settings/MessagingSettingsTab'
 import { AlertSettingsTab } from './settings/AlertSettingsTab'
 import { BillingSettingsTab } from './settings/BillingSettingsTab'
+import { TeamSettingsTab } from './settings/TeamSettingsTab'
 
-type Tab = 'general' | 'ai' | 'messaging' | 'alerts' | 'nhs' | 'payments' | 'billing'
+type Tab = 'general' | 'team' | 'ai' | 'messaging' | 'alerts' | 'nhs' | 'payments' | 'billing'
 
 export function SettingsPage() {
   const [searchParams] = useSearchParams()
   const [tab, setTab] = useState<Tab>(() => {
     const t = searchParams.get('tab')
-    if (t === 'ai' || t === 'nhs' || t === 'messaging' || t === 'alerts' || t === 'payments' || t === 'billing') return t
+    if (t === 'team' || t === 'ai' || t === 'nhs' || t === 'messaging' || t === 'alerts' || t === 'payments' || t === 'billing') return t
     return 'general'
   })
 
@@ -26,6 +27,7 @@ export function SettingsPage() {
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--ps-space-sm)', marginBottom: 'var(--ps-space-lg)', borderBottom: '2px solid var(--ps-mist)', paddingBottom: 'var(--ps-space-sm)' }}>
         {([
           { key: 'general' as Tab, label: 'General' },
+          { key: 'team' as Tab, label: '👥 Team' },
           { key: 'ai' as Tab, label: '✨ AI' },
           { key: 'messaging' as Tab, label: '📨 Messaging' },
           { key: 'alerts' as Tab, label: '🔔 Alerts' },
@@ -51,6 +53,7 @@ export function SettingsPage() {
         </div>
       )}
 
+      {tab === 'team' && <TeamSettingsTab />}
       {tab === 'messaging' && <MessagingSettingsTab />}
       {tab === 'alerts' && <AlertSettingsTab />}
       {tab === 'ai' && <AISettingsTab />}

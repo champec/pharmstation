@@ -1,5 +1,7 @@
-import { useState, type FormEvent } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
+import { Link } from 'react-router-dom'
 import { useAuthStore } from '@pharmstation/core'
+import { orgNeedsOwner } from '@pharmstation/supabase-client'
 
 export function UserLoginPage() {
   const { organisation, userLogin, orgLogout } = useAuthStore()
@@ -8,6 +10,13 @@ export function UserLoginPage() {
   const [password, setPassword] = useState(import.meta.env.DEV ? 'TestUser123!' : '')
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+  const [needsOwner, setNeedsOwner] = useState(false)
+
+  // A pharmacy that signed up but hasn't linked its owner yet (e.g. the
+  // sign-up paused for email confirmation) has nobody who can sign in here.
+  useEffect(() => {
+    orgNeedsOwner().then(setNeedsOwner)
+  }, [])
 
   // Load saved staff emails from localStorage
   const savedStaff = JSON.parse(localStorage.getItem('ps-saved-staff') || '[]') as string[]
@@ -50,6 +59,14 @@ export function UserLoginPage() {
         Signed in to <strong>{organisation?.name ?? 'Unknown Pharmacy'}</strong>
       </p>
 
+      {needsOwner && (
+        <div className="ps-alert ps-alert-info onboarding-notice">
+          <span>
+            Almost there: this pharmacy doesn&rsquo;t have an owner yet.{' '}
+            <Link to="/setup/owner"><strong>Finish setting up</strong></Link>
+          </span>
+        </div>
+      )}
       {error && <div className="auth-error">{error}</div>}
 
       {/* Saved staff quick-select */}
