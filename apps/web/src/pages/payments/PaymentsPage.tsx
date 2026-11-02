@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useAuthStore } from '@pharmstation/core'
 import { getUserClient } from '@pharmstation/supabase-client'
 import type { PsPayment } from '@pharmstation/types'
+import { Modal } from '../../components/Modal'
 
 type PaymentRow = PsPayment & {
   patient?: { first_name: string; last_name: string } | null
@@ -27,6 +28,54 @@ export function PaymentsPage() {
   const [payments, setPayments] = useState<PaymentRow[]>([])
   const [loading, setLoading] = useState(true)
   const [statusFilter, setStatusFilter] = useState<string>('all')
+
+  // Refund dialog
+  const [refundTarget, setRefundTarget] = useState<PaymentRow | null>(null)
+  const [refundAmount, setRefundAmount] = useState('')
+  const [cancelAppt, setCancelAppt] = useState(true)
+  const [refunding, setRefunding] = useState(false)
+  const [refundError, setRefundError] = useState('')
+  const [notice, setNotice] = useState('')
+
+  const openRefund = (p: PaymentRow) => {
+    setRefundTarget(p)
+    setRefundAmount(((p.amount_pence - p.refunded_pence) / 100).toFixed(2))
+    setCancelAppt(!!p.appointment_id)
+    setRefundError('')
+  }
+
+  const submitRefund = async () => {
+    if (!refundTarget) return
+    const remaining = refundTarget.amount_pence - refundTarget.refunded_pence
+    const pence = Math.round(Number(refundAmount) * 100)
+    if (!Number.isFinite(pence) || pence <= 0 || pence > remaining) {
+      setRefundError(`Enter an amount between £0.01 and £${(remaining / 100).toFixed(2)}.`)
+      return
+    }
+    setRefunding(true)
+    setRefundError('')
+    const { data, error } = await getUserClient().functions.invoke('stripe-checkout', {
+      body: {
+        action: 'refund_payment',
+        payment_id: refundTarget.id,
+        amount_pence: pence === remaining ? undefined : pence,
+        cancel_appointment: cancelAppt && !!refundTarget.appointment_id,
+      },
+    })
+    let detail = data?.error as string | undefined
+    if (error && !detail && typeof (error as any).context?.json === 'function') {
+      try { detail = (await (error as any).context.json())?.error } catch { /* ignore */ }
+    }
+    setRefunding(false)
+    if (error || detail) {
+      setRefundError(detail || 'The refund could not be issued. Please try again.')
+      return
+    }
+    setRefundTarget(null)
+    setNotice(`Refund of £${(pence / 100).toFixed(2)} issued. Stripe usually returns it to the patient's card within 5 to 10 working days.`)
+    // The ledger updates when Stripe's charge.refunded webhook arrives.
+    setTimeout(load, 2500)
+  }
 
   const load = useCallback(async () => {
     if (!orgId) return
@@ -76,6 +125,13 @@ export function PaymentsPage() {
         </div>
       </div>
 
+      {notice && (
+        <div className="ps-card" role="status" style={{ padding: 'var(--ps-space-md)', marginBottom: 'var(--ps-space-md)', display: 'flex', justifyContent: 'space-between', gap: 'var(--ps-space-md)', alignItems: 'center' }}>
+          <span>{notice}</span>
+          <button type="button" className="ps-btn ps-btn-ghost ps-btn-sm" onClick={() => setNotice('')} aria-label="Dismiss">✕</button>
+        </div>
+      )}
+
       {/* Summary */}
       <div className="ps-card" style={{ padding: 'var(--ps-space-lg)', marginBottom: 'var(--ps-space-lg)', display: 'flex', gap: 'var(--ps-space-2xl)' }}>
         <div>
@@ -111,6 +167,7 @@ export function PaymentsPage() {
                 <th style={{ textAlign: 'left', padding: 'var(--ps-space-sm) var(--ps-space-md)' }}>Kind</th>
                 <th style={{ textAlign: 'right', padding: 'var(--ps-space-sm) var(--ps-space-md)' }}>Amount</th>
                 <th style={{ textAlign: 'left', padding: 'var(--ps-space-sm) var(--ps-space-md)' }}>Status</th>
+                <th aria-label="Actions" style={{ padding: 'var(--ps-space-sm) var(--ps-space-md)' }} />
               </tr>
             </thead>
             <tbody>
@@ -139,6 +196,13 @@ export function PaymentsPage() {
                   <td style={{ padding: 'var(--ps-space-sm) var(--ps-space-md)' }}>
                     <span className={`ps-badge ${STATUS_BADGE[p.status] ?? ''}`}>{p.status.replace('_', ' ')}</span>
                   </td>
+                  <td style={{ padding: 'var(--ps-space-sm) var(--ps-space-md)', textAlign: 'right' }}>
+                    {(p.status === 'succeeded' || p.status === 'partially_refunded') && p.stripe_payment_intent_id && p.amount_pence > p.refunded_pence && (
+                      <button type="button" className="ps-btn ps-btn-ghost ps-btn-sm" onClick={() => openRefund(p)}>
+                        Refund
+                      </button>
+                    )}
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -147,8 +211,46 @@ export function PaymentsPage() {
       )}
 
       <p style={{ color: 'var(--ps-slate)', fontSize: 'var(--ps-font-sm)', marginTop: 'var(--ps-space-md)' }}>
-        Refunds are issued from the Stripe Dashboard — they sync back here automatically.
+        Refunds go back to the patient's original card. Refunds made in the Stripe Dashboard also sync back here automatically.
       </p>
+
+      <Modal isOpen={!!refundTarget} onClose={() => !refunding && setRefundTarget(null)} title="Refund payment" width="440px">
+        {refundTarget && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--ps-space-md)' }}>
+            <p style={{ margin: 0 }}>
+              {refundTarget.description ?? refundTarget.service?.name ?? 'Payment'} for{' '}
+              <strong>{refundTarget.patient ? `${refundTarget.patient.first_name} ${refundTarget.patient.last_name}` : (refundTarget.payer_email ?? 'this patient')}</strong>.
+              Up to <strong>£{((refundTarget.amount_pence - refundTarget.refunded_pence) / 100).toFixed(2)}</strong> can be refunded.
+            </p>
+            <div className="form-group">
+              <label htmlFor="refund-amount">Amount to refund (£)</label>
+              <input
+                id="refund-amount"
+                className="ps-input"
+                type="number"
+                inputMode="decimal"
+                min="0.01"
+                step="0.01"
+                value={refundAmount}
+                onChange={(e) => setRefundAmount(e.target.value)}
+              />
+            </div>
+            {refundTarget.appointment_id && (
+              <label style={{ display: 'flex', gap: 'var(--ps-space-sm)', alignItems: 'center' }}>
+                <input type="checkbox" checked={cancelAppt} onChange={(e) => setCancelAppt(e.target.checked)} />
+                Also cancel the appointment and free the slot
+              </label>
+            )}
+            {refundError && <div style={{ color: 'var(--ps-error)', fontSize: 'var(--ps-font-sm)' }}>{refundError}</div>}
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 'var(--ps-space-sm)' }}>
+              <button type="button" className="ps-btn ps-btn-secondary" onClick={() => setRefundTarget(null)} disabled={refunding}>Cancel</button>
+              <button type="button" className="ps-btn ps-btn-danger" onClick={submitRefund} disabled={refunding}>
+                {refunding ? 'Refunding…' : 'Issue refund'}
+              </button>
+            </div>
+          </div>
+        )}
+      </Modal>
     </div>
   )
 }
