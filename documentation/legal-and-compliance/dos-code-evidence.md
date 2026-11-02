@@ -1,7 +1,7 @@
 # DoS Risk Log — Code Evidence (backend)
 
 Source file (deployed): `supabase/functions/nhs-dos-lookup/index.ts`
-Function: `nhs-dos-lookup` — project `xsqwpmqfbirqdncoephf`.
+Function: `nhs-dos-lookup` — project `dbgwfdrvqzuevbfrmsdt` (London; was `xsqwpmqfbirqdncoephf` until 2 Nov 2026).
 
 This document collects the **code-reference** evidence for the DoS risks that are
 backed by the deployed Edge Function source (as opposed to the live-test evidence

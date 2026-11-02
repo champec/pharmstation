@@ -4,6 +4,16 @@ import { useAuthStore, useLogStore } from '@pharmstation/core'
 import type { LogField, LogEntry, LogCategory, FieldType } from '@pharmstation/types'
 import { Drawer } from '../../components/Drawer'
 import { CanvasField } from '../../components/forms/CanvasField'
+import {
+  downloadCsv,
+  fmtDate as fmtExportDate,
+  fmtDateTime,
+  openPrintReport,
+  organisationDetail,
+  safeFilename,
+  signatureImg,
+  type ExportCell,
+} from '../../utils/registerExport'
 
 /* ---- Constants ---- */
 
@@ -317,6 +327,103 @@ export function LogViewPage() {
     setInlineData(existing?.data ? { ...existing.data } : {})
   }
 
+  /* ---- Export (print / PDF and CSV) for the selected date range ---- */
+  const [exportError, setExportError] = useState<string | null>(null)
+  const logTitle = subscription?.custom_title || activeTemplate?.title || 'Log'
+  const dataFields = useMemo(
+    () =>
+      [...activeFields]
+        .filter((f) => f.field_type !== 'heading' && f.field_type !== 'info')
+        .sort((a, b) => a.display_order - b.display_order),
+    [activeFields],
+  )
+
+  /** Rows oldest first; daily logs include required days with no entry as "Not recorded". */
+  const exportEntries = useMemo(() => {
+    const sorted = [...entries].sort((a, b) =>
+      a.entry_date === b.entry_date ? a.created_at.localeCompare(b.created_at) : a.entry_date.localeCompare(b.entry_date),
+    )
+    if (!isDaily) return sorted.map((entry) => ({ date: entry.entry_date, entry }))
+    const out: { date: string; entry: LogEntry | null }[] = []
+    for (const date of [...dates].reverse()) {
+      const dayEntries = sorted.filter((e) => e.entry_date === date)
+      if (dayEntries.length > 0) {
+        for (const entry of dayEntries) out.push({ date, entry })
+        continue
+      }
+      const dow = new Date(date + 'T00:00:00').getDay()
+      const required = activeTemplate?.schedule_type === 'daily' || requiredDays.includes(dow)
+      if (required && date <= todayStr) out.push({ date, entry: null })
+    }
+    return out
+  }, [entries, isDaily, dates, activeTemplate?.schedule_type, requiredDays, todayStr])
+
+  const exportValue = (field: LogField, value: unknown): string => {
+    if (value === null || value === undefined || value === '') return ''
+    if (field.field_type === 'signature' || field.field_type === 'canvas') return 'Signed'
+    if (field.field_type === 'boolean') return value ? 'Yes' : 'No'
+    if (field.field_type === 'date') return fmtExportDate(String(value))
+    if (Array.isArray(value)) return value.join(', ')
+    return String(value)
+  }
+
+  const handleLogPrint = () => {
+    setExportError(null)
+    const htmlCells: Record<string, string> = {}
+    const rows: ExportCell[][] = exportEntries.map(({ date, entry }, i) => {
+      if (!entry) return [fmtExportDate(date), ...dataFields.map((_, c) => (c === 0 ? 'Not recorded' : '')), '']
+      return [
+        fmtExportDate(date),
+        ...dataFields.map((f, c) => {
+          const v = entry.data?.[f.field_key]
+          if (f.field_type === 'signature' || f.field_type === 'canvas') {
+            const img = signatureImg(typeof v === 'string' ? v : null)
+            if (img) {
+              htmlCells[`${i}:${c + 1}`] = img
+              return ''
+            }
+          }
+          return exportValue(f, v)
+        }),
+        `${entry.entered_by_profile?.full_name ?? ''}\n${fmtDateTime(entry.created_at)}`.trim(),
+      ]
+    })
+    const opened = openPrintReport({
+      title: logTitle,
+      organisationName: organisation?.name,
+      organisationDetail: organisationDetail(organisation),
+      periodLabel: `${fmtExportDate(range.start)} to ${fmtExportDate(range.end)}`,
+      generatedBy: activeUser?.full_name,
+      orientation: dataFields.length > 6 ? 'landscape' : 'portrait',
+      sections: [
+        {
+          heading: `${catConfig.label} log`,
+          subheading: activeTemplate?.description || undefined,
+          headers: ['Date', ...dataFields.map((f) => f.label), 'Recorded by'],
+          rows,
+          htmlCells,
+          emptyMessage: 'No entries in this period.',
+        },
+      ],
+    })
+    if (!opened) setExportError('Your browser blocked the print window. Allow pop-ups for PharmStation and try again.')
+  }
+
+  const handleLogCsv = () => {
+    const headers = ['Date', ...dataFields.map((f) => f.label), 'Recorded by', 'Recorded at']
+    const rows: ExportCell[][] = exportEntries.map(({ date, entry }) =>
+      entry
+        ? [
+            fmtExportDate(date),
+            ...dataFields.map((f) => exportValue(f, entry.data?.[f.field_key])),
+            entry.entered_by_profile?.full_name ?? '',
+            fmtDateTime(entry.created_at),
+          ]
+        : [fmtExportDate(date), ...dataFields.map((_, c) => (c === 0 ? 'Not recorded' : '')), '', ''],
+    )
+    downloadCsv(safeFilename(organisation?.name, logTitle, range.start, 'to', range.end), headers, rows)
+  }
+
   return (
     <div>
       {/* Header */}
@@ -357,6 +464,22 @@ export function LogViewPage() {
             )}
             <button
               className="ps-btn ps-btn-secondary"
+              onClick={handleLogPrint}
+              disabled={loading || !activeTemplate}
+              title="Print or save the selected dates as a PDF"
+            >
+              🖨️ Print / PDF
+            </button>
+            <button
+              className="ps-btn ps-btn-secondary"
+              onClick={handleLogCsv}
+              disabled={loading || !activeTemplate}
+              title="Download the selected dates as a CSV spreadsheet"
+            >
+              ⬇ CSV
+            </button>
+            <button
+              className="ps-btn ps-btn-secondary"
               onClick={() => navigate(`/logs/${subscriptionId}/settings`)}
             >
               ⚙️ Settings
@@ -373,9 +496,13 @@ export function LogViewPage() {
         </div>
       )}
 
-      {/* Date range selector (for daily) */}
-      {isDaily && (
-        <div style={{ display: 'flex', gap: 'var(--ps-space-sm)', alignItems: 'center', marginBottom: 'var(--ps-space-lg)' }}>
+      {exportError && (
+        <div className="auth-error" style={{ marginBottom: 'var(--ps-space-md)' }}>{exportError}</div>
+      )}
+
+      {/* Date range selector (sets what is shown and exported) */}
+      {activeTemplate && (
+        <div style={{ display: 'flex', gap: 'var(--ps-space-sm)', alignItems: 'center', marginBottom: 'var(--ps-space-lg)', flexWrap: 'wrap' }}>
           {(['7d', '30d', 'custom'] as DateRange[]).map((r) => (
             <button
               key={r}

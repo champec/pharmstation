@@ -14,12 +14,14 @@ import type { KnownContact, RegisterEntry } from '@pharmstation/types'
 import { addEntryAnnotation } from '../annotations/EntryAnnotationsPanel'
 import { CDEntryWarningModal } from '../registers/CDEntryWarningModal'
 import { getCDEntryWarnings, type CDEntryWarning } from '../../utils/cdEntryWarnings'
+import { COLLECTOR_OPTIONS, schedule6Params } from '../../utils/cdRegisterExport'
 
 // Schema changes based on direction (IN vs OUT)
 const cdInSchema = z.object({
   direction: z.literal('in'),
   date_of_transaction: z.string().min(1, 'Date is required'),
   supplier_name: z.string().min(1, 'Supplier is required'),
+  supplier_address: z.string().optional().nullable(),
   invoice_number: z.string().optional().nullable(),
   quantity: z.coerce.number().min(0.01, 'Quantity must be greater than 0'),
   notes: z.string().optional().nullable(),
@@ -32,6 +34,7 @@ const cdOutSchema = z.object({
   patient_address: z.string().optional().nullable(),
   prescriber_name: z.string().min(1, 'Prescriber is required'),
   prescriber_address: z.string().optional().nullable(),
+  collector_type: z.enum(['', 'patient', 'representative', 'hcp']).default(''),
   collector_name: z.string().optional().nullable(),
   was_id_requested: z.boolean(),
   was_id_provided: z.boolean(),
@@ -70,6 +73,7 @@ export function CDEntryForm({ direction, packLabel, onSuccess, onCancel }: CDEnt
         direction: 'in',
         date_of_transaction: new Date().toISOString().split('T')[0],
         supplier_name: lastUsedValues.supplier_name ?? '',
+        supplier_address: '',
         invoice_number: '',
         quantity: 0,
         notes: '',
@@ -81,6 +85,7 @@ export function CDEntryForm({ direction, packLabel, onSuccess, onCancel }: CDEnt
         patient_address: '',
         prescriber_name: lastUsedValues.prescriber_name ?? '',
         prescriber_address: lastUsedValues.prescriber_address ?? '',
+        collector_type: '',
         collector_name: '',
         was_id_requested: false,
         was_id_provided: false,
@@ -183,6 +188,10 @@ export function CDEntryForm({ direction, packLabel, onSuccess, onCancel }: CDEnt
       setPrescriberSuggestions([])
     } else {
       setValue('supplier_name' as keyof CDEntryFormData, contact.full_name)
+      setValue(
+        'supplier_address' as keyof CDEntryFormData,
+        [contact.address_line_1, contact.city, contact.postcode].filter(Boolean).join(', '),
+      )
       setShowSupplierSuggest(false)
       setSupplierSuggestions([])
     }
@@ -219,6 +228,17 @@ export function CDEntryForm({ direction, packLabel, onSuccess, onCancel }: CDEnt
         p_witness_name: null,
         p_witness_role: null,
         p_authorised_by: activeUser.full_name,
+        // Schedule 6: record whether ID was asked for and seen on supplies
+        p_was_id_requested: !isIn ? (data as z.infer<typeof cdOutSchema>).was_id_requested : null,
+        p_was_id_provided: !isIn ? (data as z.infer<typeof cdOutSchema>).was_id_provided : null,
+        ...schedule6Params(
+          isIn
+            ? { supplierAddress: (data as z.infer<typeof cdInSchema>).supplier_address }
+            : {
+                collectorType: (data as z.infer<typeof cdOutSchema>).collector_type,
+                collectorDetails: (data as z.infer<typeof cdOutSchema>).collector_name,
+              },
+        ),
       }
 
       const { data: entry, error } = await getUserClient().rpc('ps_make_register_entry', rpcParams)
@@ -272,6 +292,8 @@ export function CDEntryForm({ direction, packLabel, onSuccess, onCancel }: CDEnt
       supplierName: isIn ? (data as z.infer<typeof cdInSchema>).supplier_name : null,
       invoiceNumber: isIn ? (data as z.infer<typeof cdInSchema>).invoice_number : null,
       patientName: !isIn ? (data as z.infer<typeof cdOutSchema>).patient_name : null,
+      patientAddress: !isIn ? (data as z.infer<typeof cdOutSchema>).patient_address ?? null : undefined,
+      prescriberAddress: !isIn ? (data as z.infer<typeof cdOutSchema>).prescriber_address ?? null : undefined,
       wasIdRequested: !isIn ? (data as z.infer<typeof cdOutSchema>).was_id_requested : false,
       wasIdProvided: !isIn ? (data as z.infer<typeof cdOutSchema>).was_id_provided : false,
       packLabel,
@@ -352,6 +374,11 @@ export function CDEntryForm({ direction, packLabel, onSuccess, onCancel }: CDEnt
           </div>
 
           <div className="form-group">
+            <label>Supplier Address</label>
+            <input className="ps-input" placeholder="Wholesaler address" {...register('supplier_address')} />
+          </div>
+
+          <div className="form-group">
             <label>Quantity Received *</label>
             <input type="number" className="ps-input" step="any" min="0" {...register('quantity')} />
             {errors.quantity && <div className="form-error">{errors.quantity.message}</div>}
@@ -425,9 +452,23 @@ export function CDEntryForm({ direction, packLabel, onSuccess, onCancel }: CDEnt
           </div>
 
           {/* Collector */}
-          <div className="form-group">
-            <label>Person Collecting</label>
-            <input className="ps-input" placeholder="Name of collector (if different from patient)" {...register('collector_name')} />
+          <div className="form-row">
+            <div className="form-group">
+              <label>Collected By</label>
+              <select className="ps-input" {...register('collector_type')}>
+                {COLLECTOR_OPTIONS.map((o) => (
+                  <option key={o.value} value={o.value}>{o.label}</option>
+                ))}
+              </select>
+            </div>
+            <div className="form-group">
+              <label>Collector Details</label>
+              <input
+                className="ps-input"
+                placeholder="Name (and address if a healthcare professional)"
+                {...register('collector_name')}
+              />
+            </div>
           </div>
 
           {/* ID Check */}

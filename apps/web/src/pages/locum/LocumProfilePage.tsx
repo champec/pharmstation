@@ -357,6 +357,22 @@ export function LocumProfilePage() {
         </p>
       </div>
 
+      {locumProfile && (
+        <div
+          className={`ps-alert ${locumProfile.compliance_status === 'approved' ? 'ps-alert-success' : locumProfile.compliance_status === 'rejected' ? 'ps-alert-error' : 'ps-alert-warning'}`}
+          style={{ marginBottom: '1rem' }}
+        >
+          {locumProfile.compliance_status === 'approved'
+            ? '✅ Your compliance checks are approved. You can book shifts.'
+            : locumProfile.compliance_status === 'rejected'
+              ? 'Your compliance checks were not approved. Update your details or documents below and we will review them again.'
+              : '⏳ We are checking your GPhC registration and documents. You can book shifts once you are approved. Upload your documents in the Documents tab to speed this up.'}
+          {locumProfile.compliance_review_notes && (
+            <div style={{ marginTop: 4 }}><strong>Note from PharmStation:</strong> {locumProfile.compliance_review_notes}</div>
+          )}
+        </div>
+      )}
+
       <div className="ps-tabs" style={{ marginBottom: '1.5rem' }}>
         {(['profile', 'services', 'documents', 'payments'] as Tab[]).map((t) => (
           <button key={t} className={`ps-tab${tab === t ? ' active' : ''}`} onClick={() => { setTab(t); setProfileMsg(null); setServicesMsg(null); setPayMsg(null) }}>

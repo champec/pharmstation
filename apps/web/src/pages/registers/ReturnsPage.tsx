@@ -11,6 +11,17 @@ import { getUserClient } from '@pharmstation/supabase-client'
 import { useAuthStore, useRegisterStore } from '@pharmstation/core'
 import type { RegisterEntry, RegisterLedger } from '@pharmstation/types'
 import { Modal } from '../../components/Modal'
+import {
+  downloadCsv,
+  fmtDate as fmtExportDate,
+  fmtDateTime,
+  openPrintReport,
+  organisationDetail,
+  safeFilename,
+  signatureImg,
+  todayIso,
+  type ExportCell,
+} from '../../utils/registerExport'
 
 // ─── Types ────────────────────────────────────────────────────
 
@@ -648,6 +659,95 @@ export function ReturnsPage() {
 
   const inputStyle: React.CSSProperties = { width: '100%', minWidth: 0, fontSize: '12px' }
 
+  // ── Export (print / PDF and CSV) ──
+  // Exports the rows matching the current filter and search, oldest first.
+
+  const [exportError, setExportError] = useState<string | null>(null)
+
+  const exportRows = useMemo(
+    () => [...filteredRows].sort((a, b) => a.receiveEntry.entry_number - b.receiveEntry.entry_number),
+    [filteredRows],
+  )
+
+  const handleReturnsPrint = () => {
+    setExportError(null)
+    const htmlCells: Record<string, string> = {}
+    const rows: ExportCell[][] = exportRows.map((row, i) => {
+      const r = row.receiveEntry
+      const d = row.destructionEntry
+      const pharmSig = signatureImg(d?.disposal_pharmacist_signature)
+      const witSig = signatureImg(d?.witness_signature)
+      if (pharmSig) htmlCells[`${i}:8`] = pharmSig
+      if (witSig) htmlCells[`${i}:10`] = witSig
+      return [
+        r.entry_number,
+        fmtExportDate(r.date_of_transaction),
+        [r.return_patient_name, r.patient_address].filter(Boolean).join('\n'),
+        [r.return_person_role, r.return_received_by ? `Received by: ${r.return_received_by}` : null].filter(Boolean).join('\n'),
+        [r.return_drug_name, r.return_drug_strength, r.return_drug_form].filter(Boolean).join(' '),
+        r.return_quantity ?? '',
+        d ? fmtExportDate(d.disposal_date ?? d.date_of_transaction) : 'Awaiting destruction',
+        d ? [d.pharmacist_name, d.gphc_number ? `GPhC ${d.gphc_number}` : null].filter(Boolean).join('\n') : '',
+        d ? (pharmSig ? '' : 'Not signed') : '',
+        d ? [d.witness_name, d.witness_role].filter(Boolean).join('\n') : '',
+        d ? (witSig ? '' : 'Not signed') : '',
+      ]
+    })
+    const opened = openPrintReport({
+      title: 'Patient-returned Controlled Drugs Register',
+      organisationName: organisation?.name,
+      organisationDetail: organisationDetail(organisation),
+      periodLabel:
+        viewMode === 'all' ? 'All returns' : viewMode === 'pending' ? 'Awaiting destruction' : 'Destroyed',
+      generatedBy: activeUser?.full_name,
+      notes: search.trim() ? [`Filtered by search: "${search.trim()}"`] : [],
+      sections: [
+        {
+          heading: `${exportRows.length} return${exportRows.length === 1 ? '' : 's'}`,
+          headers: [
+            'Entry', 'Date received', 'Patient', 'Returned by', 'Drug', 'Qty',
+            'Date destroyed', 'Destroyed by', 'Signature', 'Witness', 'Witness signature',
+          ],
+          rows,
+          htmlCells,
+          emptyMessage: 'No returns match this filter.',
+        },
+      ],
+    })
+    if (!opened) setExportError('Your browser blocked the print window. Allow pop-ups for PharmStation and try again.')
+  }
+
+  const handleReturnsCsv = () => {
+    const headers = [
+      'Entry', 'Date received', 'Patient', 'Patient address', 'Returned by (role)', 'Received by',
+      'Drug', 'Strength', 'Form', 'Quantity', 'Status', 'Date destroyed', 'Destroyed by', 'GPhC number',
+      'Pharmacist signed', 'Witness', 'Witness role', 'Witness signed', 'Entered by', 'Entered at',
+    ]
+    const rows: ExportCell[][] = exportRows.map(({ receiveEntry: r, destructionEntry: d }) => [
+      r.entry_number,
+      fmtExportDate(r.date_of_transaction),
+      r.return_patient_name ?? '',
+      r.patient_address ?? '',
+      r.return_person_role ?? '',
+      r.return_received_by ?? '',
+      r.return_drug_name ?? '',
+      r.return_drug_strength ?? '',
+      r.return_drug_form ?? '',
+      r.return_quantity ?? '',
+      d ? 'Destroyed' : 'Awaiting destruction',
+      d ? fmtExportDate(d.disposal_date ?? d.date_of_transaction) : '',
+      d?.pharmacist_name ?? '',
+      d?.gphc_number ?? '',
+      d ? (d.disposal_pharmacist_signature ? 'Yes' : 'No') : '',
+      d?.witness_name ?? '',
+      d?.witness_role ?? '',
+      d ? (d.witness_signature ? 'Yes' : 'No') : '',
+      r.authorised_by ?? '',
+      fmtDateTime(r.entered_at),
+    ])
+    downloadCsv(safeFilename(organisation?.name, 'cd-returns', todayIso()), headers, rows)
+  }
+
   // ── Render ────────────────────────────────────────────────────
 
   return (
@@ -689,33 +789,51 @@ export function ReturnsPage() {
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
+        <button
+          className="ps-btn ps-btn-ghost"
+          onClick={handleReturnsPrint}
+          disabled={entriesLoading}
+          title="Print or save the returns shown as a PDF"
+        >
+          🖨️ Print / PDF
+        </button>
+        <button
+          className="ps-btn ps-btn-ghost"
+          onClick={handleReturnsCsv}
+          disabled={entriesLoading || exportRows.length === 0}
+          title="Download the returns shown as a CSV spreadsheet"
+        >
+          ⬇ CSV
+        </button>
       </div>
+
+      {exportError && <div className="auth-error" style={{ marginBottom: 16 }}>{exportError}</div>}
 
       {/* Register table */}
       <div className="ps-card" style={{ padding: 0, overflow: 'hidden' }}>
         <div style={{ overflowX: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 1720 }}>
             <colgroup>
-              <col style={{ width: 38 }} />    {/* # */}
-              <col style={{ width: 112 }} />   {/* date in */}
-              <col style={{ width: 148 }} />   {/* patient */}
-              <col style={{ width: 148 }} />   {/* address */}
-              <col style={{ width: 128 }} />   {/* role */}
-              <col style={{ width: 138 }} />   {/* received by */}
-              <col style={{ width: 138 }} />   {/* drug */}
-              <col style={{ width: 98 }} />    {/* form */}
-              <col style={{ width: 98 }} />    {/* strength */}
-              <col style={{ width: 68 }} />    {/* qty */}
-              <col style={{ width: 90 }} />    {/* status */}
-              <col style={{ width: 1 }} />     {/* divider */}
-              <col style={{ width: 112 }} />   {/* date destroyed */}
-              <col style={{ width: 138 }} />   {/* pharmacist */}
-              <col style={{ width: 88 }} />    {/* reg */}
-              <col style={{ width: 58 }} />    {/* pharm sig */}
-              <col style={{ width: 128 }} />   {/* witness */}
-              <col style={{ width: 118 }} />   {/* witness role */}
-              <col style={{ width: 58 }} />    {/* witness sig */}
-              <col style={{ width: 118 }} />   {/* actions */}
+              {/* # */}<col style={{ width: 38 }} />
+              {/* date in */}<col style={{ width: 112 }} />
+              {/* patient */}<col style={{ width: 148 }} />
+              {/* address */}<col style={{ width: 148 }} />
+              {/* role */}<col style={{ width: 128 }} />
+              {/* received by */}<col style={{ width: 138 }} />
+              {/* drug */}<col style={{ width: 138 }} />
+              {/* form */}<col style={{ width: 98 }} />
+              {/* strength */}<col style={{ width: 98 }} />
+              {/* qty */}<col style={{ width: 68 }} />
+              {/* status */}<col style={{ width: 90 }} />
+              {/* divider */}<col style={{ width: 1 }} />
+              {/* date destroyed */}<col style={{ width: 112 }} />
+              {/* pharmacist */}<col style={{ width: 138 }} />
+              {/* reg */}<col style={{ width: 88 }} />
+              {/* pharm sig */}<col style={{ width: 58 }} />
+              {/* witness */}<col style={{ width: 128 }} />
+              {/* witness role */}<col style={{ width: 118 }} />
+              {/* witness sig */}<col style={{ width: 58 }} />
+              {/* actions */}<col style={{ width: 118 }} />
             </colgroup>
 
             <thead>

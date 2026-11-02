@@ -11,6 +11,19 @@
 //       Checkout Session carrying payment_id in metadata. Returns { url }.
 //   get_payment — poll payment status (success page)
 //       body: { action, payment_id }
+//   cancel_checkout — patient backed out of Checkout (cancel page)
+//       body: { action, payment_id }
+//       Expires the Stripe session, cancels the payment and the pending
+//       appointment so the slot is released straight away.
+//   refund_payment — staff refund from the Payments page (auth required,
+//       caller must be a member of the payment's org)
+//       body: { action, payment_id, amount_pence?, cancel_appointment? }
+//       Omit amount_pence for a full refund. The ledger is updated by the
+//       charge.refunded webhook; this returns the Stripe refund status.
+//
+// Unpaid bookings: Checkout sessions expire after CHECKOUT_EXPIRY_MINUTES
+// (default 30, Stripe's minimum). The checkout.session.expired webhook then
+// cancels the pending appointment, which frees the slot.
 //
 // Money flow:
 //   Phase 1 (org not onboarded): funds land in the PLATFORM Stripe account.
@@ -19,7 +32,7 @@
 //   currently 0 (services are free-tier); PLATFORM_FEE_PERCENT env can
 //   introduce a fee later without code changes.
 //
-// Secrets required: STRIPE_SECRET_KEY
+// Secrets required: STRIPE_SECRET_KEY (optional: CHECKOUT_EXPIRY_MINUTES)
 // ============================================
 
 import Stripe from 'https://esm.sh/stripe@17.7.0?target=denonext'
@@ -29,6 +42,12 @@ const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
+}
+
+// Stripe allows 30 minutes to 24 hours. Short keeps unpaid slots free.
+function checkoutExpiresAt(): number {
+  const mins = Math.min(Math.max(Number(Deno.env.get('CHECKOUT_EXPIRY_MINUTES') ?? '30') || 30, 30), 1440)
+  return Math.floor(Date.now() / 1000) + mins * 60
 }
 
 function getStripe(): Stripe {
@@ -190,8 +209,9 @@ async function createCheckoutSession(body: Record<string, unknown>): Promise<Res
         },
       ],
       customer_email: payer_email ?? undefined,
+      expires_at: checkoutExpiresAt(),
       success_url: `${success_url}${success_url.includes('?') ? '&' : '?'}payment_id=${payment.id}`,
-      cancel_url,
+      cancel_url: `${cancel_url}${cancel_url.includes('?') ? '&' : '?'}payment_id=${payment.id}`,
       metadata: {
         payment_id: payment.id,
         org_id,
@@ -219,11 +239,23 @@ async function createCheckoutSession(body: Record<string, unknown>): Promise<Res
   } catch (e) {
     console.error('stripe checkout create failed', e)
     await db.from('ps_payments').update({ status: 'failed' }).eq('id', payment.id)
+    // Release the slot: the patient never reached a payment page.
+    if (appointment_id) await cancelPendingAppointment(db, appointment_id)
     // Surface Stripe's real message — a generic error hides fixable problems
     // (invalid email, Connect capability issues, etc.)
     const msg = (e as { message?: string })?.message ?? 'Stripe checkout could not be created'
     return json({ error: `Stripe: ${msg}` }, 502)
   }
+}
+
+// Cancel an appointment only while it is still awaiting payment. The
+// ps_appointment_slot_decrement trigger frees the slot on 'cancelled'.
+async function cancelPendingAppointment(db: ReturnType<typeof getAdminClient>, appointmentId: string) {
+  const { error } = await db.from('ps_appointments')
+    .update({ status: 'cancelled' })
+    .eq('id', appointmentId)
+    .eq('status', 'pending')
+  if (error) console.error('appointment cancel failed', error)
 }
 
 // ============================================
@@ -241,6 +273,129 @@ async function getPayment(body: Record<string, unknown>): Promise<Response> {
     .single()
   if (error || !data) return json({ error: 'Payment not found' }, 404)
   return json({ payment: data })
+}
+
+// ============================================
+// cancel_checkout (patient pressed back on Stripe Checkout)
+// ============================================
+// Unauthenticated: the payment id is an unguessable UUID that only reaches
+// the patient's own browser via the cancel URL, and this can only cancel a
+// payment that has not been paid.
+async function cancelCheckout(body: Record<string, unknown>): Promise<Response> {
+  const payment_id = body.payment_id as string | undefined
+  if (!payment_id) return json({ error: 'payment_id is required' }, 400)
+
+  const db = getAdminClient()
+  const { data: payment } = await db.from('ps_payments')
+    .select('id, status, appointment_id, stripe_checkout_session_id')
+    .eq('id', payment_id).maybeSingle()
+  if (!payment) return json({ error: 'Payment not found' }, 404)
+  if (!['pending', 'processing'].includes(payment.status)) {
+    return json({ payment: { id: payment.id, status: payment.status } })
+  }
+
+  if (payment.stripe_checkout_session_id) {
+    try {
+      await getStripe().checkout.sessions.expire(payment.stripe_checkout_session_id)
+    } catch (e) {
+      // Already completed or expired. If it completed, the webhook wins:
+      // re-read Stripe so we never cancel a paid booking.
+      const session = await getStripe().checkout.sessions.retrieve(payment.stripe_checkout_session_id)
+      if (session.payment_status === 'paid') {
+        return json({ payment: { id: payment.id, status: 'processing' } })
+      }
+      console.warn('session expire failed', (e as Error).message)
+    }
+  }
+
+  await db.from('ps_payments').update({ status: 'canceled' })
+    .eq('id', payment.id).in('status', ['pending', 'processing'])
+  if (payment.appointment_id) await cancelPendingAppointment(db, payment.appointment_id)
+  return json({ payment: { id: payment.id, status: 'canceled' } })
+}
+
+// ============================================
+// refund_payment (staff, from the Payments page)
+// ============================================
+async function getCaller(req: Request): Promise<string | null> {
+  const authHeader = req.headers.get('Authorization')
+  if (!authHeader) return null
+  const anon = createClient(
+    Deno.env.get('SUPABASE_URL')!,
+    Deno.env.get('SUPABASE_ANON_KEY')!,
+    { global: { headers: { Authorization: authHeader } } },
+  )
+  const { data, error } = await anon.auth.getUser()
+  if (error || !data?.user) return null
+  return data.user.id
+}
+
+// The admin client bypasses RLS, so this is the tenant check: the caller
+// must be the org's own auth user or an active member of the org.
+async function isOrgMember(userId: string, orgId: string): Promise<boolean> {
+  const db = getAdminClient()
+  const { data: org } = await db
+    .from('ps_organisations').select('auth_user_id').eq('id', orgId).maybeSingle()
+  if (!org) return false
+  if (org.auth_user_id === userId) return true
+  const { data: member } = await db
+    .from('ps_organisation_members').select('user_id')
+    .eq('organisation_id', orgId).eq('user_id', userId).eq('status', 'active')
+    .maybeSingle()
+  return !!member
+}
+
+async function refundPayment(req: Request, body: Record<string, unknown>): Promise<Response> {
+  const callerId = await getCaller(req)
+  if (!callerId) return json({ error: 'Not authenticated' }, 401)
+
+  const payment_id = body.payment_id as string | undefined
+  if (!payment_id) return json({ error: 'payment_id is required' }, 400)
+
+  const db = getAdminClient()
+  const { data: payment } = await db.from('ps_payments')
+    .select('id, org_id, status, amount_pence, refunded_pence, stripe_payment_intent_id, appointment_id, metadata')
+    .eq('id', payment_id).maybeSingle()
+  if (!payment) return json({ error: 'Payment not found' }, 404)
+
+  // Org comes from the stored row, never from the request.
+  if (!(await isOrgMember(callerId, payment.org_id))) {
+    return json({ error: 'Not authorised for this organisation' }, 403)
+  }
+  if (!['succeeded', 'partially_refunded'].includes(payment.status) || !payment.stripe_payment_intent_id) {
+    return json({ error: 'Only a completed card payment can be refunded' }, 400)
+  }
+
+  const remaining = payment.amount_pence - (payment.refunded_pence ?? 0)
+  const requested = body.amount_pence == null ? remaining : Number(body.amount_pence)
+  if (!Number.isInteger(requested) || requested <= 0 || requested > remaining) {
+    return json({ error: `Refund must be between 1p and £${(remaining / 100).toFixed(2)}` }, 400)
+  }
+
+  // Destination charges: pull the money back from the pharmacy's connected
+  // account, and return any platform fee in proportion.
+  const meta = (payment.metadata ?? {}) as Record<string, unknown>
+  const isDestination = typeof meta.destination === 'string'
+
+  try {
+    const refund = await getStripe().refunds.create({
+      payment_intent: payment.stripe_payment_intent_id,
+      amount: requested,
+      reason: 'requested_by_customer',
+      metadata: { payment_id: payment.id, refunded_by: callerId },
+      ...(isDestination ? { reverse_transfer: true, refund_application_fee: true } : {}),
+    }, { idempotencyKey: `refund-${payment.id}-${payment.refunded_pence ?? 0}-${requested}` })
+
+    if (body.cancel_appointment === true && payment.appointment_id) {
+      await db.from('ps_appointments').update({ status: 'cancelled' })
+        .eq('id', payment.appointment_id).in('status', ['pending', 'confirmed'])
+    }
+
+    return json({ refund: { id: refund.id, status: refund.status, amount_pence: refund.amount } })
+  } catch (e) {
+    const msg = (e as { message?: string })?.message ?? 'Refund failed'
+    return json({ error: `Stripe: ${msg}` }, 502)
+  }
 }
 
 // ============================================
@@ -263,6 +418,10 @@ Deno.serve(async (req: Request) => {
         return await createCheckoutSession(body)
       case 'get_payment':
         return await getPayment(body)
+      case 'cancel_checkout':
+        return await cancelCheckout(body)
+      case 'refund_payment':
+        return await refundPayment(req, body)
       default:
         return json({ error: `Unknown action: ${body.action}` }, 400)
     }

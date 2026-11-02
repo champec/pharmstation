@@ -40,7 +40,7 @@ function fmtTs(ts: string) {
 
 const BOOKING_BADGE: Record<string, string> = {
   pending:   'ps-badge ps-badge-warning',
-  confirmed: 'ps-badge ps-badge-primary',
+  approved:  'ps-badge ps-badge-primary',
   rejected:  'ps-badge ps-badge-danger',
   cancelled: 'ps-badge',
   completed: 'ps-badge ps-badge-success',
@@ -75,7 +75,7 @@ export function LocumBookingsPage() {
       const rows = (data ?? []) as unknown as BookingRow[]
 
       // Load sign-in records for confirmed bookings
-      const confirmedIds = rows.filter((b) => b.status === 'confirmed').map((b) => b.id)
+      const confirmedIds = rows.filter((b) => b.status === 'approved').map((b) => b.id)
       let signInMap: Record<string, BookingRow['sign_in']> = {}
       if (confirmedIds.length > 0) {
         const { data: sis } = await client
@@ -140,10 +140,8 @@ export function LocumBookingsPage() {
     if (!window.confirm('Withdraw this application?')) return
     setActionId(bookingId)
     try {
-      const { error } = await getUserClient()
-        .from('ps_locum_bookings')
-        .update({ status: 'cancelled' })
-        .eq('id', bookingId)
+      // The RPC records the reason and reopens an instant-book shift
+      const { error } = await getUserClient().rpc('ps_locum_cancel_booking', { p_booking_id: bookingId })
       if (error) throw error
       await load()
     } catch (err) {
@@ -154,7 +152,7 @@ export function LocumBookingsPage() {
   }
 
   // Split by tab
-  const upcoming = bookings.filter((b) => b.status === 'confirmed' && b.shift && b.shift.date >= today)
+  const upcoming = bookings.filter((b) => b.status === 'approved' && b.shift && b.shift.date >= today)
   const pending  = bookings.filter((b) => b.status === 'pending')
   const past     = bookings.filter((b) => !upcoming.includes(b) && !pending.includes(b))
 
@@ -261,7 +259,7 @@ export function LocumBookingsPage() {
                   {/* Actions */}
                   <div style={{ display: 'flex', gap: '0.5rem', flexShrink: 0, flexWrap: 'wrap' }}>
                     {/* Sign-in / sign-out on day of confirmed shift */}
-                    {b.status === 'confirmed' && isToday && (
+                    {b.status === 'approved' && isToday && (
                       !hasSignIn ? (
                         <button
                           className="ps-btn ps-btn-primary ps-btn-sm"

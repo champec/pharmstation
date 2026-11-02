@@ -139,7 +139,7 @@ export function SOPReadPage() {
   const myCompletion = completions.find(
     (c) => c.document_id === docId && c.member_id === membership?.id
   )
-  const isCurrentVersion = myCompletion?.document_version === activeDocument?.version
+  const isCurrentVersion = !!myCompletion && myCompletion.document_version === activeDocument?.version
   const needsReread = myCompletion && !isCurrentVersion
 
   const handleMarkComplete = async () => {

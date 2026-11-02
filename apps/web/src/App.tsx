@@ -8,6 +8,7 @@ import { OrgLoginPage } from './pages/auth/OrgLoginPage'
 import { UserLoginPage } from './pages/auth/UserLoginPage'
 import { PersonalLoginPage } from './pages/auth/PersonalLoginPage'
 import { PersonalProfilePage } from './pages/PersonalProfilePage'
+import { LocumApprovalsPage } from './pages/admin/LocumApprovalsPage'
 import { DashboardPage } from './pages/DashboardPage'
 import { RegistersPage } from './pages/registers/RegistersPage'
 import { CDRegisterPage } from './pages/registers/CDRegisterPage'
@@ -97,6 +98,7 @@ import { PaymentsPage } from './pages/payments/PaymentsPage'
 import { AboutPage } from './pages/public/AboutPage'
 import { PublicPharmacyMapPage } from './pages/public/PublicPharmacyMapPage'
 import { PrivacyNoticePage } from './pages/public/PrivacyNoticePage'
+import { LandingPage } from './pages/public/LandingPage'
 import { ModernShopHomePage } from './pages/public/ModernShopHomePage'
 import { PublicShopOrgPage } from './pages/public/PublicShopOrgPage'
 import { ShopProductsPage } from './pages/shop/ShopProductsPage'
@@ -175,6 +177,8 @@ export function App() {
   return (
     <Routes>
       {/* Public routes — no auth required */}
+      {/* Visitors who aren't signed in to a pharmacy get the landing page at "/" instead of the login redirect */}
+      {!isOrgLoggedIn && <Route path="/" element={<LandingPage />} />}
       <Route path="/rp" element={<RPCertificatePage />} />
       <Route path="/maps" element={<PublicPharmacyMapPage />} />
       <Route path="/consult/:consultationId" element={<PatientVideoPage />} />
@@ -264,6 +268,10 @@ export function App() {
       <Route
         path="/me/prescriber"
         element={isUserLoggedIn ? <PEPSPrescriberSetupPage /> : <Navigate to="/me/login" replace />}
+      />
+      <Route
+        path="/me/admin/locums"
+        element={isUserLoggedIn ? <LocumApprovalsPage /> : <Navigate to="/me/login" replace />}
       />
       <Route
         path="/peps/:id/print"

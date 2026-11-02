@@ -3,7 +3,7 @@
 > **Status:** 🔄 In Progress
 > **Owner:** Champe Chilufya (GPhC: 2226350)
 > **Created:** 28 February 2026
-> **Last Updated:** 9 May 2026
+> **Last Updated:** 2 November 2026
 > **Classification:** Internal — Onboarding Tracker
 
 ---
@@ -74,6 +74,7 @@
 | PDS FHIR — technical conformance submitted | ✅ | 13 May 2026 | Application-restricted access mode. All 23 risks in risk log completed. Medical device question answered (not a device). Some aspects already approved by NHS England. Awaiting full approval + witness testing. |
 | NHS Notify — technical conformance submitted | ✅ | 13 May 2026 | Integration via API. Use case, legal basis, volumes, channels, security questions all answered. SLSP (PS-ISMS-001) uploaded. Supplier register uploaded as third-party assurance. Some aspects already approved. Awaiting full approval. |
 | All 3 API conformance sections submitted | ✅ | 13 May 2026 | PDS FHIR, DoS UEC REST, NHS Notify all submitted on Digital Onboarding portal. Some sections already approved. Awaiting remaining approvals + witness testing dates from NHS England. |
+| Supabase moved to London | ✅ | 2 Nov 2026 | App data, auth and storage moved from us-east-1 to project `dbgwfdrvqzuevbfrmsdt` in eu-west-2 (London). Matches the UK-hosting statements in the DSPT, ROPA and privacy notice. |
 | ISMS policy created | ✅ | 8 May 2026 | PS-ISMS-001 — Information Security Policy covering scope, governance, IS risk register, document index, compliance table. |
 
 ### 🔲 Not Done Yet
@@ -989,7 +990,8 @@ Record ALL emails sent and received here in chronological order.
 24. **🟢 Identify pilot pharmacy** — First customer / test site for NHS 111 live
 25. **🟢 Static IP proxy** — For NHSBSA production (after staging credentials received)
 26. **🟢 mTLS certificates** — For live NHS 111 (after pilot pharmacy + DoS registration)
-27. **🟢 Supabase region migration** — Move from us-east-1 to eu-west-2 (London) before first live deployment
+27. ~~**🟢 Supabase region migration**~~ ✅ DONE 2 Nov 2026 — app now runs on Supabase project `dbgwfdrvqzuevbfrmsdt` in eu-west-2 (London). Legacy us-east-1 project to be decommissioned.
+28. **🟡 Railway region move** — NHS 111 adaptor, RabbitMQ and bridge still run in us-west2 (USA). Move to an EU region before any live NHS 111 traffic or witness testing.
 
 **Removed from original list:**
 - ~~🔴 Confirm ODS code FFQ69~~ — **NOT NEEDED.** Test/sample code only.

@@ -143,7 +143,7 @@ export function ReferralQueuePage() {
         flexWrap: 'wrap',
       }}>
         {/* Status tabs */}
-        <div style={{ display: 'flex', gap: 4 }}>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
           {STATUS_FILTERS.map((f) => (
             <button
               key={f.value}

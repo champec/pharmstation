@@ -180,7 +180,7 @@ export function SmsInboxPage() {
   const segmentCount = reply.length === 0 ? 0 : reply.length <= 160 ? 1 : Math.ceil(reply.length / 153)
 
   return (
-    <div>
+    <div className="sms-inbox-page">
       <div className="page-header sms-inbox-header">
         <div>
           <div className="breadcrumbs">
@@ -210,7 +210,7 @@ export function SmsInboxPage() {
         ))}
       </div>
 
-      <div className="sms-inbox-workspace">
+      <div className={`sms-inbox-workspace${selected ? ' has-selection' : ''}`}>
         <aside className="sms-conversation-list">
           <div className="sms-conversation-search">
             <input className="ps-input" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search messages or patients" />
@@ -245,6 +245,14 @@ export function SmsInboxPage() {
           ) : (
             <>
               <header className="sms-thread-header">
+                <button
+                  type="button"
+                  className="sms-thread-back"
+                  onClick={() => { setSelectedPhone(''); setSearchParams({}) }}
+                  aria-label="Back to conversations"
+                >
+                  ← All
+                </button>
                 <div>
                   <h2>{patient ? `${patient.first_name} ${patient.last_name}` : 'Unknown sender'}</h2>
                   <span>{displayPhone(selected.phoneNumber)}</span>

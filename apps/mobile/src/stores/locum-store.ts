@@ -136,8 +136,10 @@ export const useLocumStore = create<LocumState>((set, get) => ({
               .select('shift_id, required_service_ids, references_required, sop_required')
               .in('shift_id', shiftIds)
           : Promise.resolve({ data: [], error: null }),
+        // Locums aren't members of these pharmacies, so RLS hides ps_organisations.
+        // ps_locum_shift_orgs returns just name and address for shifts they can see.
         orgIds.length
-          ? userClient.from('ps_organisations').select('id, name, address').in('id', orgIds)
+          ? userClient.rpc('ps_locum_shift_orgs', { p_org_ids: orgIds })
           : Promise.resolve({ data: [], error: null }),
         bookingIds.length
           ? userClient
@@ -148,14 +150,14 @@ export const useLocumStore = create<LocumState>((set, get) => ({
       ])
 
       if (criteriaResult.error) throw criteriaResult.error
-      if (orgResult.error) throw orgResult.error
+      if (orgResult.error) console.warn('[locum] pharmacy names unavailable:', orgResult.error.message)
       if (signInResult.error) throw signInResult.error
 
       const criteria = new Map(
         (criteriaResult.data ?? []).map((row) => [row.shift_id, row]),
       )
       const orgs = new Map(
-        (orgResult.data ?? []).map((row) => [
+        ((orgResult.data ?? []) as Array<{ id: string; name: string; address: unknown }>).map((row) => [
           row.id,
           { name: row.name as string, address: addressLine(row.address) },
         ]),

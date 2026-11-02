@@ -161,6 +161,8 @@ export interface RegisterEntry {
   previous_balance: number | null
   transaction_type: TransactionType | null
   supplier_name: string | null
+  /** MDR Sch 6: supplier address on receipts */
+  supplier_address?: string | null
   invoice_number: string | null
   patient_name: string | null
   patient_address: string | null
@@ -174,6 +176,10 @@ export interface RegisterEntry {
   authorised_by: string | null
   was_id_requested: boolean
   was_id_provided: boolean
+  /** MDR Sch 6: who collected a supply */
+  collector_type?: 'patient' | 'representative' | 'hcp' | null
+  /** Name, and address if a healthcare professional, of the person collecting */
+  collector_details?: string | null
   // RP fields
   pharmacist_name: string | null
   gphc_number: string | null
@@ -2140,6 +2146,9 @@ export interface LocumProfile {
   stripe_account_id: string | null
   stripe_onboarded: boolean
   onboarding_complete: boolean
+  /** Set by a reviewer. Only approved locums can book shifts. */
+  compliance_status?: 'pending' | 'approved' | 'rejected' | string
+  compliance_review_notes?: string | null
   created_at: string
   updated_at: string
   // Joined

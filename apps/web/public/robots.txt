@@ -1,0 +1,32 @@
+# Public pages (booking, shop, resources, about) are open to search engines.
+# The pharmacy workstation and patient/locum portals are private.
+User-agent: *
+Allow: /
+Disallow: /login/
+Disallow: /me
+Disallow: /patient/
+Disallow: /locum
+Disallow: /consult/
+Disallow: /registers
+Disallow: /settings
+Disallow: /services
+Disallow: /appointments
+Disallow: /patients
+Disallow: /logs
+Disallow: /video
+Disallow: /messaging
+Disallow: /notes
+Disallow: /sops
+Disallow: /deliveries
+Disallow: /delivery-rounds
+Disallow: /driver
+Disallow: /peps
+Disallow: /shifts
+Disallow: /care-homes
+Disallow: /outreach
+Disallow: /patient-safety
+Disallow: /payments
+Disallow: /shop-admin
+Disallow: /book/*/payment-result
+
+Sitemap: https://pharmstation.co.uk/sitemap.xml

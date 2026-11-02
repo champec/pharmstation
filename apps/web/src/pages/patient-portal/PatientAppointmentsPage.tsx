@@ -14,7 +14,12 @@ const STATUS_BADGE: Record<AppointmentStatus, { cls: string; label: string }> = 
 
 export function PatientAppointmentsPage() {
   const navigate = useNavigate()
-  const { patient, isLoggedIn, loading: authLoading } = usePatientStore()
+  const { patient, isLoggedIn, loading: authLoading, initialize } = usePatientStore()
+
+  // Restore the patient session on a direct visit or page refresh
+  useEffect(() => {
+    if (authLoading) initialize()
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
   const [appointments, setAppointments] = useState<Appointment[]>([])
   const [loading, setLoading] = useState(true)
   const [tab, setTab] = useState<'upcoming' | 'past'>('upcoming')

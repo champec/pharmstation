@@ -49,7 +49,7 @@ export const usePatientStore = create<PatientState>((set) => ({
       const profile = await fetchPatientProfile(data.user.id)
       // Patient is a role on the user account — keep the main auth store in sync
       await useAuthStore.getState().refreshUserLayer()
-      set({ patient: profile as Patient, isLoggedIn: true })
+      set({ patient: profile as Patient, isLoggedIn: true, loading: false })
     }
   },
 
@@ -60,13 +60,13 @@ export const usePatientStore = create<PatientState>((set) => ({
     if (data.user) {
       const profile = await fetchPatientProfile(data.user.id)
       await useAuthStore.getState().refreshUserLayer()
-      set({ patient: profile as Patient, isLoggedIn: true })
+      set({ patient: profile as Patient, isLoggedIn: true, loading: false })
     }
   },
 
   logout: async () => {
     await patientSignOut()
     await useAuthStore.getState().refreshUserLayer()
-    set({ patient: null, isLoggedIn: false })
+    set({ patient: null, isLoggedIn: false, loading: false })
   },
 }))

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
 import { useUIStore, useChatStore, useSubscriptionStore, featureForPath } from '@pharmstation/core'
 import { PLANS_ENFORCED } from '../../lib/billing'
+import { useIsMobile } from '../../hooks/useIsMobile'
 
 interface NavItem {
   to: string
@@ -211,7 +212,8 @@ function matchScore(item: NavItem, pathname: string, search: string): number {
 }
 
 export function SideNav() {
-  const { sideNavMode } = useUIStore()
+  const { sideNavMode, mobileNavOpen } = useUIStore()
+  const isMobile = useIsMobile()
   const chatOpen = useChatStore((state) => state.isOpen)
   const location = useLocation()
   const planLoaded = useSubscriptionStore((s) => s.loaded)
@@ -274,10 +276,11 @@ export function SideNav() {
     })
   }
 
-  const isExpanded = sideNavMode === 'expanded'
+  // On phones the nav is a full-width drawer, so it always shows labels
+  const isExpanded = isMobile || sideNavMode === 'expanded'
 
   return (
-    <aside className="side-nav" data-mode={sideNavMode}>
+    <aside className="side-nav" data-mode={sideNavMode} data-mobile-open={isMobile && mobileNavOpen ? 'true' : undefined}>
       <div className="side-nav-logo">
         Pharm<span>Station</span>
       </div>

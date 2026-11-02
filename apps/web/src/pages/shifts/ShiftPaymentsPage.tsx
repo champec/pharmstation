@@ -182,7 +182,7 @@ export function ShiftPaymentsPage() {
         <>
           {invoiceError && <div className="ps-alert ps-alert-error" style={{ marginBottom: '1rem' }}>{invoiceError}</div>}
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem', marginBottom: '1.5rem' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '1rem', marginBottom: '1.5rem' }}>
             <div className="stat-card">
               <div className="stat-card-label">Total Invoiced (filtered)</div>
               <div className="stat-card-value">{loadingInvoices ? '…' : pence(totals.total)}</div>

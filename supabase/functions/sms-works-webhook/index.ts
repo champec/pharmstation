@@ -71,6 +71,8 @@ function mapSmsworksStatus(status: string): string {
 }
 
 /** Pull a value out of the echoed SMS Works metadata array or object. */
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
 function metaValue(meta: unknown, key: string): string | undefined {
   if (!meta) return undefined
   if (Array.isArray(meta)) {
@@ -153,7 +155,16 @@ async function handleInbound(admin: AdminClient, payload: Record<string, unknown
   const content = (payload.content as string) || (payload.message as string) || ''
   const providerId = (payload.messageid as string) || (payload.id as string) || null
   const meta = payload.metadata ?? payload.metatags
-  const outboundMessageId = (payload.outboundmessageid as string) || metaValue(meta, 'message_id') || null
+  // outbound_message_id is our ps_messages uuid. SMS Works' outboundmessageid is
+  // its own numeric id, so use the echoed metadata uuid or look the provider id up.
+  const metaMessageId = metaValue(meta, 'message_id')
+  let outboundMessageId: string | null = metaMessageId && UUID_RE.test(metaMessageId) ? metaMessageId : null
+  const providerOutboundId = payload.outboundmessageid ? String(payload.outboundmessageid) : null
+  if (!outboundMessageId && providerOutboundId) {
+    const { data: out } = await admin
+      .from('ps_messages').select('id').eq('notify_message_id', providerOutboundId).maybeSingle()
+    outboundMessageId = out?.id ?? null
+  }
 
   if (!from) return json({ received: true, note: 'missing from' })
 
