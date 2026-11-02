@@ -7,6 +7,7 @@ import dayGridPlugin from '@fullcalendar/daygrid'
 import timeGridPlugin from '@fullcalendar/timegrid'
 import interactionPlugin from '@fullcalendar/interaction'
 import listPlugin from '@fullcalendar/list'
+import { useIsMobile } from '../../hooks/useIsMobile'
 import type { EventClickArg } from '@fullcalendar/core'
 
 interface ShiftEvent {
@@ -32,6 +33,7 @@ const STATUS_OPTIONS = ['draft', 'open', 'confirmed', 'completed', 'cancelled']
 
 export function ShiftsCalendarPage() {
   const navigate = useNavigate()
+  const isMobile = useIsMobile()
   const { organisation } = useAuthStore()
 
   const [shifts, setShifts] = useState<ShiftEvent[]>([])
@@ -137,8 +139,12 @@ export function ShiftsCalendarPage() {
       <div className="ps-card" style={{ padding: '1rem' }}>
         <FullCalendar
           plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin, listPlugin]}
-          initialView="timeGridWeek"
-          headerToolbar={{
+          initialView={isMobile ? 'listWeek' : 'timeGridWeek'}
+          headerToolbar={isMobile ? {
+            left: 'prev,next',
+            center: 'title',
+            right: 'timeGridDay,listWeek',
+          } : {
             left: 'prev,next today',
             center: 'title',
             right: 'dayGridMonth,timeGridWeek,timeGridDay,listWeek',

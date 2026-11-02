@@ -7,6 +7,7 @@ import dayGridPlugin from '@fullcalendar/daygrid'
 import timeGridPlugin from '@fullcalendar/timegrid'
 import interactionPlugin from '@fullcalendar/interaction'
 import listPlugin from '@fullcalendar/list'
+import { useIsMobile } from '../../hooks/useIsMobile'
 import type { EventClickArg } from '@fullcalendar/core'
 import type { DateClickArg } from '@fullcalendar/interaction'
 
@@ -22,6 +23,7 @@ const STATUS_COLOURS: Record<AppointmentStatus, string> = {
 
 export function AppointmentsCalendarPage() {
   const navigate = useNavigate()
+  const isMobile = useIsMobile()
   const { organisation } = useAuthStore()
   const {
     appointments,
@@ -177,8 +179,12 @@ export function AppointmentsCalendarPage() {
       <div className="ps-card" style={{ padding: 'var(--ps-space-md)' }}>
         <FullCalendar
           plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin, listPlugin]}
-          initialView="timeGridWeek"
-          headerToolbar={{
+          initialView={isMobile ? 'listWeek' : 'timeGridWeek'}
+          headerToolbar={isMobile ? {
+            left: 'prev,next',
+            center: 'title',
+            right: 'timeGridDay,listWeek',
+          } : {
             left: 'prev,next today',
             center: 'title',
             right: 'dayGridMonth,timeGridWeek,timeGridDay,listWeek',

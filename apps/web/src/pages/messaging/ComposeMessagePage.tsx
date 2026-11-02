@@ -194,7 +194,7 @@ export function ComposeMessagePage() {
         </div>
       )}
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 360px', gap: 'var(--ps-space-lg)', alignItems: 'start' }}>
+      <div className="ps-split" style={{ display: 'grid', gridTemplateColumns: '1fr 360px', gap: 'var(--ps-space-lg)', alignItems: 'start' }}>
         {/* Left: compose form */}
         <div className="ps-card" style={{ padding: 'var(--ps-space-lg)' }}>
           {/* Channel selector */}

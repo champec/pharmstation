@@ -71,7 +71,7 @@ export function NetworkMessageDetailPage() {
           <span className="separator">/</span>
           <span>{otherOrg?.name ?? 'Thread'}</span>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div className="network-thread-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--ps-space-sm)' }}>
           <div>
             <h1>
               {rootMsg?.subject
@@ -140,7 +140,7 @@ export function NetworkMessageDetailPage() {
                     </div>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--ps-space-sm)' }}>
-                    <span className={labelCfg?.cssClass} style={{ fontSize: '0.75rem' }}>
+                    <span className={`network-msg-label ${labelCfg?.cssClass ?? ''}`} style={{ fontSize: '0.75rem' }}>
                       {labelCfg?.icon} {labelCfg?.label}
                     </span>
                     <span style={{ fontSize: '0.8rem', color: 'var(--ps-slate)' }}>

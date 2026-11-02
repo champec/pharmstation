@@ -257,7 +257,7 @@ export function ShiftDetailPage() {
         <div className="ps-alert ps-alert-error" style={{ marginBottom: '1.5rem' }}>{error}</div>
       )}
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 320px', gap: '1.5rem', alignItems: 'start' }}>
+      <div className="ps-split" style={{ display: 'grid', gridTemplateColumns: '1fr 320px', gap: '1.5rem', alignItems: 'start' }}>
         {/* Left: bookings */}
         <div>
           {/* Confirmed locum */}

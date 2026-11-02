@@ -13053,3 +13053,261 @@ textarea.form-input {
     text-align: center;
   }
 }
+
+/* ============================================
+   Phone polish (messaging, layouts, forms)
+   Same breakpoint as the phone layout above / MOBILE_NAV_QUERY.
+   Many pages lay out with inline styles, so the hooks below are
+   opt-in class names and need !important to beat those styles.
+   ============================================ */
+
+/* Two-pane page layouts (form + sidebar, detail + detail) */
+.ps-split > * {
+  min-width: 0;
+}
+
+/* Stat tiles */
+.ps-stat-grid > * {
+  min-width: 0;
+}
+
+@media (max-width: 800px) {
+  /* Stop iOS Safari zooming the page when a field is focused (it zooms anything under 16px) */
+  .dashboard-content input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+  .dashboard-content select,
+  .dashboard-content textarea,
+  .top-nav input,
+  .genie-panel textarea,
+  .genie-panel input {
+    font-size: 16px;
+  }
+
+  /* Leave room for the iPhone home indicator when installed to the home screen */
+  .dashboard-content {
+    padding-bottom: calc(var(--ps-space-xl) + env(safe-area-inset-bottom, 0px));
+  }
+
+  .ps-split {
+    grid-template-columns: minmax(0, 1fr) !important;
+    gap: var(--ps-space-md) !important;
+  }
+
+  .ps-stat-grid {
+    grid-template-columns: repeat(auto-fit, minmax(72px, 1fr)) !important;
+    gap: var(--ps-space-sm) !important;
+  }
+
+  .ps-stat-grid > .ps-card {
+    padding: var(--ps-space-sm) var(--ps-space-xs) !important;
+  }
+
+  .ps-stat-grid > .ps-card > div:first-child {
+    font-size: 1.1rem !important;
+    margin-bottom: 0 !important;
+  }
+
+  .ps-stat-grid > .ps-card > div:nth-child(2) {
+    font-size: 1.35rem !important;
+  }
+
+  .ps-stat-grid > .ps-card > div:last-child {
+    font-size: 0.75rem !important;
+  }
+
+  /* Tables that are not converted to cards scroll sideways instead of being clipped */
+  .dashboard-content table.ps-table:not(.ps-table-stack) {
+    display: block;
+    max-width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* List tables shown as tappable cards: first cell is the title, last cell
+     (time) sits top right, .ps-cell-wide spans the row, the rest wrap inline. */
+  .ps-table.ps-table-stack thead {
+    display: none;
+  }
+
+  .ps-table.ps-table-stack,
+  .ps-table.ps-table-stack tbody {
+    display: block;
+    width: 100%;
+  }
+
+  .ps-table.ps-table-stack tr {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px var(--ps-space-sm);
+    padding: var(--ps-space-sm) var(--ps-space-md);
+    border-bottom: 1px solid var(--ps-off-white);
+  }
+
+  .ps-table.ps-table-stack td {
+    display: block;
+    padding: 0;
+    border: 0;
+    max-width: none !important;
+  }
+
+  .ps-table.ps-table-stack td:first-child {
+    flex: 1 1 0;
+    min-width: 0;
+    order: 0;
+  }
+
+  .ps-table.ps-table-stack td:last-child {
+    order: 1;
+    font-size: 0.78rem !important;
+  }
+
+  .ps-table.ps-table-stack td.ps-cell-wide {
+    flex: 1 0 100%;
+    order: 2;
+    display: -webkit-box;
+    overflow: hidden;
+    white-space: normal !important;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    font-size: 0.88rem;
+  }
+
+  .ps-table.ps-table-stack td:not(:first-child):not(:last-child):not(.ps-cell-wide) {
+    order: 3;
+  }
+
+  /* Wizard step indicators: show the current step's name only */
+  .ps-steps {
+    flex-wrap: wrap;
+    gap: var(--ps-space-xs) !important;
+  }
+
+  .ps-steps .ps-step-name {
+    display: none;
+  }
+
+  .ps-steps .ps-step-current .ps-step-name {
+    display: inline;
+  }
+
+  /* Breadcrumbs: one tidy line */
+  .breadcrumbs {
+    flex-wrap: wrap;
+    row-gap: 2px;
+  }
+
+  /* Patient SMS inbox: list first, then the conversation full width with a back link */
+  .sms-inbox-workspace.has-selection .sms-conversation-list {
+    display: none;
+  }
+
+  .sms-inbox-workspace:not(.has-selection) .sms-thread-panel {
+    display: none;
+  }
+
+  .sms-inbox-workspace .sms-conversation-list {
+    max-height: none;
+    border-bottom: 0;
+  }
+
+  /* With a conversation open, the chat takes the whole screen like a phone messaging app */
+  .sms-inbox-page:has(.has-selection) .sms-inbox-header,
+  .sms-inbox-page:has(.has-selection) .sms-inbox-tabs {
+    display: none;
+  }
+
+  .sms-inbox-workspace.has-selection {
+    margin: calc(var(--ps-space-md) * -1) calc(var(--ps-space-md) * -1)
+      calc((var(--ps-space-xl) + env(safe-area-inset-bottom, 0px)) * -1);
+    border: 0;
+  }
+
+  .sms-inbox-workspace.has-selection .sms-thread-panel {
+    height: calc(100dvh - var(--ps-topnav-height));
+    min-height: 0;
+  }
+
+  .sms-thread-back {
+    display: inline-flex !important;
+  }
+
+  .sms-thread-header {
+    flex-direction: row !important;
+    flex-wrap: wrap;
+    align-items: center !important;
+    gap: var(--ps-space-sm);
+    padding: var(--ps-space-sm) var(--ps-space-md) !important;
+  }
+
+  .sms-thread-header > div:nth-child(2) {
+    flex: 1 1 0;
+    min-width: 0;
+  }
+
+  .sms-thread-actions {
+    flex: 1 0 100%;
+    justify-content: flex-start;
+  }
+
+  .sms-thread-body {
+    padding: var(--ps-space-sm) var(--ps-space-md);
+  }
+
+  .sms-patient-strip {
+    flex-direction: row !important;
+    gap: 2px var(--ps-space-sm);
+    margin: calc(var(--ps-space-sm) * -1) calc(var(--ps-space-md) * -1) var(--ps-space-sm);
+    padding: var(--ps-space-xs) var(--ps-space-md);
+  }
+
+  .sms-patient-strip > span:nth-child(n + 4) {
+    display: none;
+  }
+
+  .sms-reply-box {
+    position: sticky;
+    bottom: 0;
+    padding: var(--ps-space-sm) var(--ps-space-md) calc(var(--ps-space-sm) + env(safe-area-inset-bottom, 0px));
+  }
+
+  .sms-reply-box textarea {
+    min-height: 56px;
+  }
+
+  .sms-reply-box > div:last-child {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--ps-space-sm);
+  }
+
+  .sms-message {
+    max-width: 85%;
+  }
+
+  /* Network thread: header title and Back button share a row */
+  .network-thread-header {
+    flex-wrap: nowrap !important;
+    align-items: flex-start !important;
+  }
+
+  .network-thread-header h1 {
+    font-size: var(--ps-font-xl);
+  }
+
+  .network-msg-label {
+    display: none !important;
+  }
+}
+
+.sms-thread-back {
+  display: none;
+  align-items: center;
+  border: 0;
+  background: transparent;
+  color: var(--ps-deep-blue);
+  font: inherit;
+  font-weight: 700;
+  padding: 4px 0;
+  cursor: pointer;
+}

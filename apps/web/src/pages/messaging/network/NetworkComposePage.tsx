@@ -154,9 +154,9 @@ export function NetworkComposePage() {
       </div>
 
       {/* Step indicator */}
-      <div style={{ display: 'flex', gap: 'var(--ps-space-sm)', marginBottom: 'var(--ps-space-lg)', alignItems: 'center' }}>
+      <div className="ps-steps" style={{ display: 'flex', gap: 'var(--ps-space-sm)', marginBottom: 'var(--ps-space-lg)', alignItems: 'center' }}>
         {([1, 2, 3] as Step[]).map((s) => (
-          <div key={s} style={{ display: 'flex', alignItems: 'center', gap: 'var(--ps-space-sm)' }}>
+          <div key={s} className={step === s ? 'ps-step-current' : undefined} style={{ display: 'flex', alignItems: 'center', gap: 'var(--ps-space-sm)' }}>
             <div style={{
               width: 32, height: 32, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center',
               fontWeight: 700, fontSize: '0.9rem',
@@ -166,7 +166,7 @@ export function NetworkComposePage() {
             }} onClick={() => { if (step > s) setStep(s) }}>
               {step > s ? '✓' : s}
             </div>
-            <span style={{ fontWeight: step === s ? 700 : 400, color: step === s ? 'var(--ps-deep-blue)' : 'var(--ps-slate)', fontSize: '0.9rem' }}>
+            <span className="ps-step-name" style={{ fontWeight: step === s ? 700 : 400, color: step === s ? 'var(--ps-deep-blue)' : 'var(--ps-slate)', fontSize: '0.9rem' }}>
               {s === 1 ? 'Select Recipients' : s === 2 ? 'Compose' : 'Confirm'}
             </span>
             {s < 3 && <span style={{ color: 'var(--ps-slate)' }}>›</span>}
@@ -184,7 +184,7 @@ export function NetworkComposePage() {
       {/* ===== STEP 1: SELECT RECIPIENTS ===== */}
       {step === 1 && (
         <div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 320px', gap: 'var(--ps-space-lg)', alignItems: 'start' }}>
+          <div className="ps-split" style={{ display: 'grid', gridTemplateColumns: '1fr 320px', gap: 'var(--ps-space-lg)', alignItems: 'start' }}>
             {/* Search panel */}
             <div className="ps-card" style={{ padding: 'var(--ps-space-lg)' }}>
               <h3 style={{ margin: '0 0 var(--ps-space-md)' }}>Find Pharmacies</h3>

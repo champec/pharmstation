@@ -163,7 +163,7 @@ export function PEPSPrescriptionDetailPage() {
 
       {actionError && <div className="ps-alert ps-alert-error" style={{ marginBottom: 'var(--ps-space-md)' }}>{actionError}</div>}
 
-      <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 'var(--ps-space-md)', alignItems: 'start' }}>
+      <div className="ps-split" style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 'var(--ps-space-md)', alignItems: 'start' }}>
         {/* Prescription document */}
         <div className="ps-card" style={{ padding: 'var(--ps-space-lg)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between' }}>

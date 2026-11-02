@@ -144,7 +144,7 @@ export function NewBroadcastPage() {
         </div>
       )}
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 340px', gap: 'var(--ps-space-lg)', alignItems: 'start' }}>
+      <div className="ps-split" style={{ display: 'grid', gridTemplateColumns: '1fr 340px', gap: 'var(--ps-space-lg)', alignItems: 'start' }}>
         {/* Left: form */}
         <div className="ps-card" style={{ padding: 'var(--ps-space-lg)' }}>
           {/* Name */}
