@@ -132,7 +132,7 @@ async function orgContext(orgId: string): Promise<EntityCtx> {
           {
             org_id: orgId,
             stripe_account_id: accountId,
-            account_status: 'onboarding',
+            stripe_account_status: 'pending',
             charges_enabled: false,
             payouts_enabled: false,
             updated_at: new Date().toISOString(),
@@ -148,10 +148,9 @@ async function orgContext(orgId: string): Promise<EntityCtx> {
           {
             org_id: orgId,
             stripe_account_id: s.accountId,
-            account_status: s.status,
+            stripe_account_status: s.status,
             charges_enabled: s.chargesEnabled,
             payouts_enabled: s.payoutsEnabled,
-            details_submitted: s.detailsSubmitted,
             updated_at: new Date().toISOString(),
           },
           { onConflict: 'org_id' },
@@ -308,9 +307,18 @@ async function getStatus(ctx: EntityCtx): Promise<Response> {
   const payoutsEnabled = !!account.payouts_enabled;
   const detailsSubmitted = !!account.details_submitted;
 
-  let status = 'onboarding';
-  if (chargesEnabled && payoutsEnabled) status = 'active';
-  else if (detailsSubmitted) status = 'pending_verification';
+  // Same vocabulary as ps_org_billing.stripe_account_status (CHECK constraint)
+  // and the stripe-webhook account.updated handler.
+  let orgStatus: 'pending' | 'active' | 'restricted' = 'pending';
+  if (chargesEnabled && payoutsEnabled) orgStatus = 'active';
+  else if (account.requirements?.disabled_reason) orgStatus = 'restricted';
+
+  // The locum portal still uses the older onboarding/pending_verification words.
+  let locumStatus = 'onboarding';
+  if (chargesEnabled && payoutsEnabled) locumStatus = 'active';
+  else if (detailsSubmitted) locumStatus = 'pending_verification';
+
+  const status = ctx.metadata.locum_user_id ? locumStatus : orgStatus;
 
   await ctx.syncStatus({
     accountId: ctx.accountId,
@@ -323,6 +331,7 @@ async function getStatus(ctx: EntityCtx): Promise<Response> {
   return json({
     status,
     account_id: ctx.accountId,
+    stripe_account_id: ctx.accountId,
     charges_enabled: chargesEnabled,
     payouts_enabled: payoutsEnabled,
     details_submitted: detailsSubmitted,

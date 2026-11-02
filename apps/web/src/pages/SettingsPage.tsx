@@ -4,14 +4,15 @@ import { useAuthStore, useChatStore, useNHSStore } from '@pharmstation/core'
 import { getUserClient } from '@pharmstation/supabase-client'
 import { MessagingSettingsTab } from './settings/MessagingSettingsTab'
 import { AlertSettingsTab } from './settings/AlertSettingsTab'
+import { BillingSettingsTab } from './settings/BillingSettingsTab'
 
-type Tab = 'general' | 'ai' | 'messaging' | 'alerts' | 'nhs' | 'payments'
+type Tab = 'general' | 'ai' | 'messaging' | 'alerts' | 'nhs' | 'payments' | 'billing'
 
 export function SettingsPage() {
   const [searchParams] = useSearchParams()
   const [tab, setTab] = useState<Tab>(() => {
     const t = searchParams.get('tab')
-    if (t === 'ai' || t === 'nhs' || t === 'messaging' || t === 'alerts' || t === 'payments') return t
+    if (t === 'ai' || t === 'nhs' || t === 'messaging' || t === 'alerts' || t === 'payments' || t === 'billing') return t
     return 'general'
   })
 
@@ -30,6 +31,7 @@ export function SettingsPage() {
           { key: 'alerts' as Tab, label: '🔔 Alerts' },
           { key: 'nhs' as Tab, label: '🏥 NHS' },
           { key: 'payments' as Tab, label: '💳 Payments' },
+          { key: 'billing' as Tab, label: '⭐ Plan & billing' },
         ]).map((t) => (
           <button
             key={t.key}
@@ -44,7 +46,7 @@ export function SettingsPage() {
       {tab === 'general' && (
         <div className="ps-card" style={{ padding: 'var(--ps-space-lg)' }}>
           <p style={{ color: 'var(--ps-slate)' }}>
-            Organisation settings, user management, and billing will be here.
+            Organisation settings and user management will be here. Your PharmStation plan is under Plan & billing.
           </p>
         </div>
       )}
@@ -54,6 +56,7 @@ export function SettingsPage() {
       {tab === 'ai' && <AISettingsTab />}
       {tab === 'nhs' && <NHSSettingsTab />}
       {tab === 'payments' && <PaymentsSettingsTab />}
+      {tab === 'billing' && <BillingSettingsTab />}
     </div>
   )
 }
