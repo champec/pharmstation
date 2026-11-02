@@ -134,6 +134,25 @@ Connect Express pattern as pharmacies, different direction of money.
 
 ### Phase 4 — Platform monetization (webmaster tooling)
 
+**Phase 4a — subscriptions: BUILT (2 Nov 2026), not yet live.** Go-live steps:
+`documentation/payments/stripe-go-live.md`.
+
+- [x] Plan catalogue in `packages/core/src/billing/plans.ts`: Network £0,
+      Essential £39, Complete £79 (monthly), feature map, route → feature map
+- [x] `ps_org_subscriptions` + `ps_org_effective_plan()` (SQL in
+      `documentation/payments/subscriptions-schema.sql`, client read-only)
+- [x] `stripe-billing` edge function: checkout (subscription mode, 30-day
+      trial on first subscription), customer portal, refresh
+- [x] `stripe-webhook`: `customer.subscription.*`, subscription checkout,
+      `invoice.paid` → `ps_payments` kind=subscription; failed events now retry
+- [x] Settings → Plan & billing tab; plan gate + 🔒 menu items behind
+      `VITE_ENFORCE_PLANS`
+- [x] `tooling/stripe/setup-billing.mjs`: products, prices, portal, webhooks
+- [ ] SMS credits / staff limits enforcement (server side)
+- [ ] Webmaster admin UI
+
+Original plan:
+
 PharmStation charges pharmacies: membership tiers + per-module add-ons.
 
 - [ ] **Pricing catalog — hardcoded** in a shared package (e.g.

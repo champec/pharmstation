@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
-import { useUIStore, useChatStore } from '@pharmstation/core'
+import { useUIStore, useChatStore, useSubscriptionStore, featureForPath } from '@pharmstation/core'
+import { PLANS_ENFORCED } from '../../lib/billing'
 
 interface NavItem {
   to: string
@@ -213,6 +214,15 @@ export function SideNav() {
   const { sideNavMode } = useUIStore()
   const chatOpen = useChatStore((state) => state.isOpen)
   const location = useLocation()
+  const planLoaded = useSubscriptionStore((s) => s.loaded)
+  const hasFeature = useSubscriptionStore((s) => s.hasFeature)
+  useSubscriptionStore((s) => s.plan) // re-render when the plan changes
+  /** True when plan enforcement is on and this item's feature isn't in the plan. */
+  const isLocked = (to: string) => {
+    if (!PLANS_ENFORCED || !planLoaded) return false
+    const feature = featureForPath(to.split('?')[0])
+    return !!feature && !hasFeature(feature)
+  }
 
   /** The single best-matching item across the whole menu. */
   const activeTo = useMemo(() => {
@@ -312,6 +322,9 @@ export function SideNav() {
                         <span className="side-nav-item-icon">{item.icon}</span>
                       )}
                       {isExpanded && <span className="side-nav-item-label">{item.label}</span>}
+                      {isExpanded && isLocked(item.to) && (
+                        <span className="side-nav-item-lock" title="Upgrade your plan to use this">🔒</span>
+                      )}
                     </NavLink>
                   ))}
                 </div>
