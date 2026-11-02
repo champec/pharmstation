@@ -101,7 +101,7 @@ export function LogLibraryPage() {
       </div>
 
       <div className="ps-card" style={{ padding: 'var(--ps-space-md)', marginBottom: 'var(--ps-space-lg)' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(220px, 2fr) minmax(180px, 1fr)', gap: 'var(--ps-space-sm)' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 2fr) minmax(0, 1fr)', gap: 'var(--ps-space-sm)' }}>
           <input
             className="ps-input"
             placeholder="Search logs..."

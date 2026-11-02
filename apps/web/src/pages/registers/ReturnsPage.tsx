@@ -696,26 +696,26 @@ export function ReturnsPage() {
         <div style={{ overflowX: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 1720 }}>
             <colgroup>
-              <col style={{ width: 38 }} />    {/* # */}
-              <col style={{ width: 112 }} />   {/* date in */}
-              <col style={{ width: 148 }} />   {/* patient */}
-              <col style={{ width: 148 }} />   {/* address */}
-              <col style={{ width: 128 }} />   {/* role */}
-              <col style={{ width: 138 }} />   {/* received by */}
-              <col style={{ width: 138 }} />   {/* drug */}
-              <col style={{ width: 98 }} />    {/* form */}
-              <col style={{ width: 98 }} />    {/* strength */}
-              <col style={{ width: 68 }} />    {/* qty */}
-              <col style={{ width: 90 }} />    {/* status */}
-              <col style={{ width: 1 }} />     {/* divider */}
-              <col style={{ width: 112 }} />   {/* date destroyed */}
-              <col style={{ width: 138 }} />   {/* pharmacist */}
-              <col style={{ width: 88 }} />    {/* reg */}
-              <col style={{ width: 58 }} />    {/* pharm sig */}
-              <col style={{ width: 128 }} />   {/* witness */}
-              <col style={{ width: 118 }} />   {/* witness role */}
-              <col style={{ width: 58 }} />    {/* witness sig */}
-              <col style={{ width: 118 }} />   {/* actions */}
+              {/* # */}<col style={{ width: 38 }} />
+              {/* date in */}<col style={{ width: 112 }} />
+              {/* patient */}<col style={{ width: 148 }} />
+              {/* address */}<col style={{ width: 148 }} />
+              {/* role */}<col style={{ width: 128 }} />
+              {/* received by */}<col style={{ width: 138 }} />
+              {/* drug */}<col style={{ width: 138 }} />
+              {/* form */}<col style={{ width: 98 }} />
+              {/* strength */}<col style={{ width: 98 }} />
+              {/* qty */}<col style={{ width: 68 }} />
+              {/* status */}<col style={{ width: 90 }} />
+              {/* divider */}<col style={{ width: 1 }} />
+              {/* date destroyed */}<col style={{ width: 112 }} />
+              {/* pharmacist */}<col style={{ width: 138 }} />
+              {/* reg */}<col style={{ width: 88 }} />
+              {/* pharm sig */}<col style={{ width: 58 }} />
+              {/* witness */}<col style={{ width: 128 }} />
+              {/* witness role */}<col style={{ width: 118 }} />
+              {/* witness sig */}<col style={{ width: 58 }} />
+              {/* actions */}<col style={{ width: 118 }} />
             </colgroup>
 
             <thead>

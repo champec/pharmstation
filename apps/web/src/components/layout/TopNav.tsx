@@ -1,12 +1,14 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useIsMobile } from '../../hooks/useIsMobile'
 import { useAuthStore, useUIStore, useNetworkStore, useNHS111Store, useAlertStore } from '@pharmstation/core'
 import type { NotificationReceipt } from '@pharmstation/types'
 
 export function TopNav() {
   const navigate = useNavigate()
   const { activeUser, organisation, switchUser, orgLogout } = useAuthStore()
-  const { sideNavMode, toggleSideNav } = useUIStore()
+  const { sideNavMode, toggleSideNav, mobileNavOpen, setMobileNavOpen } = useUIStore()
+  const isMobile = useIsMobile()
   const { unreadCount, inbox, fetchUnreadCount, fetchInbox, subscribeToInbox, unsubscribeFromInbox } = useNetworkStore()
   const {
     unreadCount: referralUnread,
@@ -75,6 +77,13 @@ export function TopNav() {
     if (receipt.notification?.link) navigate(receipt.notification.link)
   }
 
+  function handleLogout() {
+    const name = organisation?.name ?? 'this pharmacy'
+    if (window.confirm(`Log out ${name} on this device? Staff will need the pharmacy login to sign back in.`)) {
+      orgLogout()
+    }
+  }
+
   const unreadMessages = inbox.filter((m) => !m.is_read).slice(0, 5)
 
   function relativeTime(iso: string) {
@@ -90,7 +99,13 @@ export function TopNav() {
   return (
     <nav className="top-nav" data-sidenav={sideNavMode}>
       <div className="top-nav-left">
-        <button className="ps-btn ps-btn-ghost" onClick={toggleSideNav} title="Toggle sidebar">
+        <button
+          className="ps-btn ps-btn-ghost"
+          onClick={() => (isMobile ? setMobileNavOpen(!mobileNavOpen) : toggleSideNav())}
+          title={isMobile ? 'Menu' : 'Toggle sidebar'}
+          aria-label={isMobile ? 'Menu' : 'Toggle sidebar'}
+          aria-expanded={isMobile ? mobileNavOpen : undefined}
+        >
           ☰
         </button>
         <span className="top-nav-brand">Pharm<span>Station</span></span>
@@ -106,8 +121,9 @@ export function TopNav() {
             style={{ position: 'relative' }}
             onClick={() => setBellOpen((v) => !v)}
             title="Pharmacy Network messages"
+            aria-label="Pharmacy Network messages"
           >
-            🔔
+            🏥
             {unreadCount > 0 && (
               <span style={{
                 position: 'absolute', top: 2, right: 2,
@@ -124,7 +140,7 @@ export function TopNav() {
 
           {/* Dropdown */}
           {bellOpen && (
-            <div style={{
+            <div className="top-nav-dropdown" style={{
               position: 'absolute', top: '100%', right: 0, zIndex: 200,
               width: 320, background: '#fff',
               boxShadow: '0 4px 24px rgba(0,0,0,0.12)',
@@ -189,6 +205,7 @@ export function TopNav() {
             style={{ position: 'relative' }}
             onClick={() => setAlertBellOpen((v) => !v)}
             title="Alerts"
+            aria-label="Alerts"
           >
             🔔
             {alertUnread > 0 && (
@@ -206,7 +223,7 @@ export function TopNav() {
           </button>
 
           {alertBellOpen && (
-            <div style={{
+            <div className="top-nav-dropdown" style={{
               position: 'absolute', top: '100%', right: 0, zIndex: 200,
               width: 340, background: '#fff',
               boxShadow: '0 4px 24px rgba(0,0,0,0.12)',
@@ -273,6 +290,7 @@ export function TopNav() {
           style={{ position: 'relative' }}
           onClick={() => navigate('/services/111-referrals')}
           title="NHS 111 Referrals"
+          aria-label="NHS 111 Referrals"
         >
           📞
           {referralUnread > 0 && (
@@ -297,15 +315,16 @@ export function TopNav() {
           className="ps-btn ps-btn-ghost"
           onClick={() => navigate('/me')}
           title="My personal account"
+          aria-label="My personal account"
         >
           👤
         </button>
 
-        <button className="ps-btn ps-btn-ghost" onClick={switchUser} title="Switch user">
-          🔄 Switch
+        <button className="ps-btn ps-btn-ghost" onClick={switchUser} title="Switch user" aria-label="Switch user">
+          🔄<span className="top-nav-btn-text"> Switch</span>
         </button>
 
-        <button className="ps-btn ps-btn-ghost" onClick={orgLogout} title="Log out">
+        <button className="ps-btn ps-btn-ghost" onClick={handleLogout} title="Log out pharmacy" aria-label="Log out pharmacy">
           ⏻
         </button>
       </div>
