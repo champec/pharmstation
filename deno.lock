@@ -1,0 +1,165 @@
+{
+  "version": "5",
+  "remote": {
+    "https://esm.sh/@supabase/supabase-js@2.49.0": "552b10ba8101a2c305dd5000a1dc3840c0781deeb7d8e8d69d0a3f46aadcdced"
+  },
+  "workspace": {
+    "packageJson": {
+      "dependencies": [
+        "npm:turbo@^2.8.7"
+      ]
+    },
+    "members": {
+      "apps/mobile": {
+        "packageJson": {
+          "dependencies": [
+            "npm:@expo/ui@~56.0.18",
+            "npm:@expo/vector-icons@^15.1.1",
+            "npm:@react-native-async-storage/async-storage@^2.2.0",
+            "npm:@supabase/supabase-js@^2.108.2",
+            "npm:@types/react@~19.2.2",
+            "npm:eas-cli@^20.3.0",
+            "npm:expo-camera@~56.0.8",
+            "npm:expo-constants@~56.0.18",
+            "npm:expo-dev-client@^56.0.20",
+            "npm:expo-device@~56.0.4",
+            "npm:expo-font@~56.0.7",
+            "npm:expo-glass-effect@~56.0.4",
+            "npm:expo-image-picker@~56.0.18",
+            "npm:expo-image@~56.0.11",
+            "npm:expo-linking@~56.0.14",
+            "npm:expo-local-authentication@~56.0.4",
+            "npm:expo-location@~56.0.18",
+            "npm:expo-notifications@~56.0.18",
+            "npm:expo-print@~56.0.4",
+            "npm:expo-router@~56.2.11",
+            "npm:expo-secure-store@~56.0.4",
+            "npm:expo-sharing@~56.0.18",
+            "npm:expo-splash-screen@~56.0.10",
+            "npm:expo-status-bar@~56.0.4",
+            "npm:expo-symbols@~56.0.6",
+            "npm:expo-system-ui@~56.0.5",
+            "npm:expo-task-manager@~56.0.19",
+            "npm:expo-updates@~56.0.19",
+            "npm:expo-web-browser@~56.0.5",
+            "npm:expo@~56.0.12",
+            "npm:react-dom@19.2.3",
+            "npm:react-native-calendars@^1.1314.0",
+            "npm:react-native-gesture-handler@~2.31.1",
+            "npm:react-native-reanimated@4.3.1",
+            "npm:react-native-safe-area-context@5.7",
+            "npm:react-native-screens@4.25.2",
+            "npm:react-native-svg@15.15.4",
+            "npm:react-native-url-polyfill@3",
+            "npm:react-native-web@0.21",
+            "npm:react-native-webview@13.16.1",
+            "npm:react-native-worklets@0.8.3",
+            "npm:react-native@0.85.3",
+            "npm:react@19.2.3",
+            "npm:typescript@~6.0.3",
+            "npm:zustand@^5.0.14"
+          ]
+        }
+      },
+      "apps/nhs111-sandbox": {
+        "packageJson": {
+          "dependencies": [
+            "npm:concurrently@^7.2.1"
+          ]
+        }
+      },
+      "apps/web": {
+        "packageJson": {
+          "dependencies": [
+            "npm:@daily-co/daily-js@0.87",
+            "npm:@fullcalendar/core@^6.1.20",
+            "npm:@fullcalendar/daygrid@^6.1.20",
+            "npm:@fullcalendar/interaction@^6.1.20",
+            "npm:@fullcalendar/list@^6.1.20",
+            "npm:@fullcalendar/react@^6.1.20",
+            "npm:@fullcalendar/timegrid@^6.1.20",
+            "npm:@hookform/resolvers@^3.9.0",
+            "npm:@supabase/supabase-js@^2.49.0",
+            "npm:@tanstack/react-table@^8.21.0",
+            "npm:@tiptap/extension-color@^3.20.0",
+            "npm:@tiptap/extension-link@^3.20.0",
+            "npm:@tiptap/extension-table-cell@^3.20.0",
+            "npm:@tiptap/extension-table-header@^3.20.0",
+            "npm:@tiptap/extension-table-row@^3.20.0",
+            "npm:@tiptap/extension-table@^3.20.0",
+            "npm:@tiptap/extension-text-align@^3.20.0",
+            "npm:@tiptap/extension-text-style@^3.20.0",
+            "npm:@tiptap/extension-underline@^3.20.0",
+            "npm:@tiptap/pm@^3.20.0",
+            "npm:@tiptap/react@^3.20.0",
+            "npm:@tiptap/starter-kit@^3.20.0",
+            "npm:@types/react-dom@19",
+            "npm:@types/react@19",
+            "npm:@vitejs/plugin-react@^4.3.0",
+            "npm:barcode-detector@^3.2.1",
+            "npm:jsbarcode@^3.12.3",
+            "npm:mapbox-gl@^3.19.0",
+            "npm:react-dom@19",
+            "npm:react-hook-form@^7.54.0",
+            "npm:react-map-gl@^8.1.0",
+            "npm:react-router-dom@^7.1.0",
+            "npm:react@19",
+            "npm:typescript@^5.7.0",
+            "npm:vite@6",
+            "npm:zod@^3.24.0",
+            "npm:zustand@5"
+          ]
+        }
+      },
+      "packages/core": {
+        "packageJson": {
+          "dependencies": [
+            "npm:@supabase/supabase-js@^2.49.0",
+            "npm:typescript@^5.7.0",
+            "npm:zod@^3.24.0",
+            "npm:zustand@5"
+          ]
+        }
+      },
+      "packages/supabase-client": {
+        "packageJson": {
+          "dependencies": [
+            "npm:@supabase/supabase-js@^2.49.0",
+            "npm:typescript@^5.7.0"
+          ]
+        }
+      },
+      "packages/types": {
+        "packageJson": {
+          "dependencies": [
+            "npm:typescript@^5.7.0",
+            "npm:zod@^3.24.0"
+          ]
+        }
+      },
+      "packages/ui": {
+        "packageJson": {
+          "dependencies": [
+            "npm:@types/react@19",
+            "npm:react@19",
+            "npm:typescript@^5.7.0"
+          ]
+        }
+      },
+      "tooling/dmd-sync": {
+        "packageJson": {
+          "dependencies": [
+            "npm:@supabase/supabase-js@^2.49.0",
+            "npm:@types/adm-zip@~0.5.7",
+            "npm:@types/node@^22.10.0",
+            "npm:adm-zip@~0.5.16",
+            "npm:dotenv@^16.4.7",
+            "npm:saxes@6",
+            "npm:tsx@^4.19.2",
+            "npm:typescript@^5.7.0"
+          ]
+        }
+      }
+    }
+  }
+}
