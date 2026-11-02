@@ -5,8 +5,10 @@
 // (constructEventAsync with STRIPE_WEBHOOK_SECRET).
 //
 // Handled events (Phase 1):
-//   checkout.session.completed        → mark ps_payments succeeded
-//   checkout.session.expired          → mark canceled
+//   checkout.session.completed        → mark ps_payments succeeded and
+//                                       confirm the pending appointment
+//   checkout.session.expired          → mark canceled and cancel the
+//                                       unpaid appointment (frees the slot)
 //   payment_intent.payment_failed     → mark failed
 //   charge.refunded                   → mark refunded / partially_refunded
 // Handled events (Phase 2 — Connect):
@@ -62,6 +64,23 @@ async function onCheckoutCompleted(db: Db, session: Stripe.Checkout.Session) {
     : db.from('ps_payments').update(update).eq('stripe_checkout_session_id', session.id)
   const { error } = await q
   if (error) throw new Error(`ps_payments update failed: ${error.message}`)
+
+  // Paid booking: the patient has committed, so confirm the slot.
+  const appointmentId = await appointmentFor(db, session)
+  if (appointmentId) {
+    const { error: apptErr } = await db.from('ps_appointments')
+      .update({ status: 'confirmed' })
+      .eq('id', appointmentId)
+      .eq('status', 'pending')
+    if (apptErr) throw new Error(`appointment confirm failed: ${apptErr.message}`)
+  }
+}
+
+async function appointmentFor(db: Db, session: Stripe.Checkout.Session): Promise<string | null> {
+  if (session.metadata?.appointment_id) return session.metadata.appointment_id
+  const { data } = await db.from('ps_payments').select('appointment_id')
+    .eq('stripe_checkout_session_id', session.id).maybeSingle()
+  return (data?.appointment_id as string) ?? null
 }
 
 async function onCheckoutExpired(db: Db, session: Stripe.Checkout.Session) {
@@ -71,6 +90,17 @@ async function onCheckoutExpired(db: Db, session: Stripe.Checkout.Session) {
     : db.from('ps_payments').update({ status: 'canceled' }).eq('stripe_checkout_session_id', session.id).in('status', ['pending', 'processing'])
   const { error } = await q
   if (error) throw new Error(`ps_payments cancel failed: ${error.message}`)
+
+  // Unpaid booking: release the slot. Only a still-pending appointment is
+  // touched, so one the pharmacy confirmed by hand is left alone.
+  const appointmentId = await appointmentFor(db, session)
+  if (appointmentId) {
+    const { error: apptErr } = await db.from('ps_appointments')
+      .update({ status: 'cancelled' })
+      .eq('id', appointmentId)
+      .eq('status', 'pending')
+    if (apptErr) throw new Error(`appointment cancel failed: ${apptErr.message}`)
+  }
 }
 
 async function onPaymentFailed(db: Db, pi: Stripe.PaymentIntent) {
