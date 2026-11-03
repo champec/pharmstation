@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuthStore, useMessagingStore } from '@pharmstation/core'
 import { getUserClient } from '@pharmstation/supabase-client'
 import type { Patient, SmsInbound, SmsInboundDisposition } from '@pharmstation/types'
+import { ChatComposer, JumpToLatest, WithDayDividers, formatChatTime, useStickToBottom } from '../../components/chat/chat'
 
 type InboxTab = 'inbox' | 'requests' | 'blocked'
 
@@ -177,6 +178,8 @@ export function SmsInboxPage() {
 
   const patient = selected?.latest.patient
   const canReply = Boolean(smsSettings?.reply_number) && selectedControl?.status !== 'blocked'
+  const lastThreadKey = smsThread.length ? `${smsThread.length}:${smsThread[smsThread.length - 1].id}` : '0'
+  const { ref: streamRef, onScroll, showJump, scrollToBottom } = useStickToBottom<HTMLDivElement>(lastThreadKey, selectedPhone)
   const segmentCount = reply.length === 0 ? 0 : reply.length <= 160 ? 1 : Math.ceil(reply.length / 153)
 
   return (
@@ -266,51 +269,67 @@ export function SmsInboxPage() {
                 </div>
               </header>
 
-              <div className="sms-thread-body">
-                {patient ? (
-                  <div className="sms-patient-strip">
-                    <button onClick={() => navigate(`/patients/${patient.id}`)}>{patient.first_name} {patient.last_name}</button>
-                    <span>DOB {patient.dob ? new Date(patient.dob).toLocaleDateString('en-GB') : 'not recorded'}</span>
-                    <span>NHS {patient.nhs_number || 'not recorded'}</span>
-                    <span>{patient.phone || 'No phone recorded'}</span>
-                    <span>{patient.email || 'No email recorded'}</span>
-                    <span>{[patient.address_line_1, patient.address_line_2, patient.city, patient.postcode].filter(Boolean).join(', ') || 'No address recorded'}</span>
-                  </div>
-                ) : (
-                  <div className="sms-patient-linker">
-                    <input className="ps-input" value={patientSearch} onChange={(event) => setPatientSearch(event.target.value)} placeholder="Link this number to a patient" />
-                    {patientResults.length > 0 && <div className="sms-patient-results">
-                      {patientResults.map((result) => <button key={result.id} onClick={() => linkPatient(result)}>
-                        <strong>{result.first_name} {result.last_name}</strong><span>{result.phone || 'No phone'} · {result.dob || 'DOB unknown'}</span>
-                      </button>)}
-                    </div>}
-                  </div>
-                )}
-
-                <div className="sms-message-stream">
-                  {smsThread.map((message) => (
-                    <div key={`${message.direction}-${message.id}`} className={`sms-message ${message.direction}`}>
-                      <div>{message.body}</div>
-                      <span>{formatTime(message.timestamp)}{message.status ? ` · ${message.status}` : ''}</span>
-                    </div>
-                  ))}
+              {patient ? (
+                <div className="sms-patient-strip">
+                  <button onClick={() => navigate(`/patients/${patient.id}`)}>{patient.first_name} {patient.last_name}</button>
+                  <span>DOB {patient.dob ? new Date(patient.dob).toLocaleDateString('en-GB') : 'not recorded'}</span>
+                  <span>NHS {patient.nhs_number || 'not recorded'}</span>
+                  <span>{patient.phone || 'No phone recorded'}</span>
+                  <span>{patient.email || 'No email recorded'}</span>
+                  <span>{[patient.address_line_1, patient.address_line_2, patient.city, patient.postcode].filter(Boolean).join(', ') || 'No address recorded'}</span>
                 </div>
+              ) : (
+                <div className="sms-patient-linker">
+                  <input className="ps-input" value={patientSearch} onChange={(event) => setPatientSearch(event.target.value)} placeholder="Link this number to a patient" />
+                  {patientResults.length > 0 && <div className="sms-patient-results">
+                    {patientResults.map((result) => <button key={result.id} onClick={() => linkPatient(result)}>
+                      <strong>{result.first_name} {result.last_name}</strong><span>{result.phone || 'No phone'} · {result.dob || 'DOB unknown'}</span>
+                    </button>)}
+                  </div>}
+                </div>
+              )}
+
+              <div className="chat-stream-wrap">
+                <div className="chat-stream sms-thread-body" ref={streamRef} onScroll={onScroll}>
+                  {smsThread.length === 0 ? (
+                    <div className="chat-empty">No messages yet.</div>
+                  ) : (
+                    <WithDayDividers
+                      items={smsThread}
+                      getTime={(message) => message.timestamp}
+                      render={(message, index) => {
+                        const prev = smsThread[index - 1]
+                        const grouped = prev && prev.direction === message.direction &&
+                          new Date(message.timestamp).getTime() - new Date(prev.timestamp).getTime() < 5 * 60 * 1000
+                        return (
+                          <div className={`chat-msg ${message.direction === 'outbound' ? 'mine' : 'theirs'}${grouped ? ' grouped' : ''}`}>
+                            <div className="chat-bubble">{message.body}</div>
+                            <div className="chat-meta">
+                              <time dateTime={message.timestamp} title={new Date(message.timestamp).toLocaleString('en-GB')}>{formatChatTime(message.timestamp)}</time>
+                              {message.status && <span className={message.status === 'delivered' ? 'chat-read' : undefined}>{message.status}</span>}
+                            </div>
+                          </div>
+                        )
+                      }}
+                    />
+                  )}
+                </div>
+                <JumpToLatest show={showJump} onClick={() => scrollToBottom(true)} />
               </div>
 
-              <footer className="sms-reply-box">
-                {notice && <div className="sms-reply-notice">{notice}</div>}
-                {!smsSettings?.reply_number && <div className="sms-reply-warning">Assign a reply number in Messaging settings before responding.</div>}
-                <textarea
-                  className="ps-input" value={reply} onChange={(event) => setReply(event.target.value)}
-                  placeholder="Write a reply" rows={3} disabled={!canReply || sending}
-                />
-                <div>
-                  <span>{reply.length} characters · {segmentCount} SMS {segmentCount === 1 ? 'segment' : 'segments'}</span>
-                  <button className="ps-btn ps-btn-primary" onClick={handleReply} disabled={!canReply || !reply.trim() || sending}>
-                    {sending ? 'Sending...' : 'Send reply'}
-                  </button>
-                </div>
-              </footer>
+              <ChatComposer
+                value={reply}
+                onChange={setReply}
+                onSend={handleReply}
+                disabled={!canReply}
+                sending={sending}
+                placeholder={canReply ? 'Text message' : 'Replies are turned off for this conversation'}
+                before={<>
+                  {notice && <div className="chat-banner">{notice}</div>}
+                  {!smsSettings?.reply_number && <div className="chat-banner chat-banner-warn">Assign a reply number in Messaging settings before responding.</div>}
+                </>}
+                after={reply.length > 0 ? <span>{reply.length} characters · {segmentCount} SMS {segmentCount === 1 ? 'segment' : 'segments'}</span> : undefined}
+              />
             </>
           )}
         </main>

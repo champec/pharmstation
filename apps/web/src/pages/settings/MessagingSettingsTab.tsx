@@ -76,7 +76,7 @@ export function MessagingSettingsTab() {
       setSenderId(smsSettings.sender_id || '')
       setSignature(smsSettings.signature || '')
       setReplyForwardEmail(smsSettings.reply_forward_email || '')
-      setIsActive(smsSettings.is_active)
+      setIsActive(Boolean(smsSettings.is_active))
       setInboundFilterMode(smsSettings.inbound_filter_mode || 'open')
       setInboundRateLimitCount(smsSettings.inbound_rate_limit_count || 10)
       setInboundRateLimitMinutes(smsSettings.inbound_rate_limit_minutes || 10)
@@ -206,7 +206,7 @@ export function MessagingSettingsTab() {
           Text messages are sent through PharmStation's SMS gateway — no account or API key needed.
           Usage is metered per pharmacy and billed monthly.
         </p>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--ps-space-md)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 'var(--ps-space-sm) var(--ps-space-md)' }}>
           <div style={{
             width: 12, height: 12, borderRadius: '50%',
             background: smsSettings?.is_active ? 'var(--ps-success)' : 'var(--ps-warning)',
