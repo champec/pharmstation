@@ -19,7 +19,14 @@ export function UserLoginPage() {
   }, [])
 
   // Load saved staff emails from localStorage
-  const savedStaff = JSON.parse(localStorage.getItem('ps-saved-staff') || '[]') as string[]
+  // Recent staff for THIS pharmacy only (the old device-wide list showed people from other pharmacies)
+  const savedStaff = (() => {
+    try {
+      return JSON.parse(localStorage.getItem(`ps-saved-staff:${organisation?.id ?? ''}`) || '[]') as string[]
+    } catch {
+      return []
+    }
+  })()
 
   const handleStaffSelect = (staffEmail: string) => {
     // If already selected, clicking again just keeps the selection (cancel = don't submit)
