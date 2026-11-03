@@ -66,7 +66,9 @@
         {
           "faceIDPermission": "PharmStation uses Face ID to secure access to the controlled drugs register and patient data."
         }
-      ]
+      ],
+      "expo-image",
+      "expo-web-browser"
     ],
     "experiments": {
       "typedRoutes": true,
