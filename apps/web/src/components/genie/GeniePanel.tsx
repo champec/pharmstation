@@ -6,6 +6,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { useAuthStore, useChatStore } from '@pharmstation/core'
 import type { ChatMessage, AIModel } from '@pharmstation/types'
+import { JumpToLatest, useAutoGrow, useStickToBottom } from '../chat/chat'
+import { Markdown } from '../chat/Markdown'
 
 export function GeniePanel() {
   const {
@@ -38,7 +40,6 @@ export function GeniePanel() {
   const { organisation, userSession } = useAuthStore()
   const [inputValue, setInputValue] = useState('')
   const [selectedModelId, setSelectedModelId] = useState<string | null>(null)
-  const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
 
   const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
@@ -54,10 +55,13 @@ export function GeniePanel() {
     }
   }, [isOpen, organisation?.id])
 
-  // Scroll to bottom on new messages or streaming
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages, streamingContent])
+  // Keep the newest message in view by scrolling the message list itself, never the page.
+  // Follows streaming text only while the reader is at the bottom.
+  const { ref: messagesRef, onScroll, showJump, scrollToBottom } = useStickToBottom<HTMLDivElement>(
+    `${messages.length}:${streamingContent.length}:${isStreaming}`,
+    `${activeConversationId}:${showHistory}:${showSettings}`,
+  )
+  useAutoGrow(inputRef, inputValue, 140)
 
   // Focus input when panel opens
   useEffect(() => {
@@ -75,6 +79,11 @@ export function GeniePanel() {
       supabaseUrl,
       accessToken: userSession.access_token,
     })
+  }
+
+  const sendSuggestion = (text: string) => {
+    setInputValue('')
+    void sendText(text)
   }
 
   const handleSend = async () => {
@@ -209,7 +218,8 @@ export function GeniePanel() {
 
       {/* Messages area */}
       {!showHistory && !showSettings && (
-        <div className="genie-messages">
+        <div className="genie-messages-wrap">
+        <div className="genie-messages" ref={messagesRef} onScroll={onScroll}>
           {messages.length === 0 && !isStreaming && (
             <div className="genie-welcome">
               <div className="genie-welcome-icon">✨</div>
@@ -221,19 +231,19 @@ export function GeniePanel() {
               <div className="genie-suggestions">
                 <button
                   className="genie-suggestion"
-                  onClick={() => setInputValue('Show me today\'s CD register entries')}
+                  onClick={() => sendSuggestion('Show me today\'s CD register entries')}
                 >
                   📑 Today's CD entries
                 </button>
                 <button
                   className="genie-suggestion"
-                  onClick={() => setInputValue('Who was the RP yesterday?')}
+                  onClick={() => sendSuggestion('Who was the RP yesterday?')}
                 >
                   👤 Yesterday's RP
                 </button>
                 <button
                   className="genie-suggestion"
-                  onClick={() => setInputValue('Check balance for morphine')}
+                  onClick={() => sendSuggestion('Check balance for morphine')}
                 >
                   💊 Drug balance
                 </button>
@@ -251,7 +261,7 @@ export function GeniePanel() {
               <div className="genie-message-avatar">✨</div>
               <div className="genie-message-content">
                 {streamingContent ? (
-                  <div className="genie-message-text">{streamingContent}</div>
+                  <div className="genie-message-text"><Markdown text={streamingContent} /></div>
                 ) : (
                   <div className="genie-typing">
                     <span className="genie-typing-dot" />
@@ -274,7 +284,8 @@ export function GeniePanel() {
             </div>
           )}
 
-          <div ref={messagesEndRef} />
+        </div>
+        <JumpToLatest show={showJump} onClick={() => scrollToBottom(true)} />
         </div>
       )}
 
@@ -304,10 +315,11 @@ export function GeniePanel() {
           />
           <button
             className="genie-send-btn"
+            aria-label="Send"
             onClick={handleSend}
             disabled={!inputValue.trim() || isStreaming}
           >
-            ➤
+            <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path fill="currentColor" d="M3.4 20.4 21 12 3.4 3.6 3.4 10l12.6 2-12.6 2z" /></svg>
           </button>
         </div>
       </div>
@@ -327,7 +339,9 @@ function MessageBubble({ message, onRetry }: { message: ChatMessage; onRetry: ()
     <div className={`genie-message genie-message-${message.role} ${isError ? 'error' : ''}`}>
       {!isUser && <div className="genie-message-avatar">✨</div>}
       <div className="genie-message-content">
-        <div className="genie-message-text">{message.content}</div>
+        <div className="genie-message-text">
+          {isUser ? message.content : <Markdown text={message.content ?? ''} />}
+        </div>
         {message.tool_calls && (message.tool_calls as { id: string; name: string }[]).length > 0 && (
           <div className="genie-tool-calls">
             {(message.tool_calls as { id: string; name: string }[]).map((tc) => (
