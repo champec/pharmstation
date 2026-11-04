@@ -5,9 +5,10 @@
 // ============================================
 
 import { useState, useEffect } from 'react'
-import { useAuthStore, useScanStore } from '@pharmstation/core'
+import { useAuthStore, useScanStore, type ScanSupplyDetails } from '@pharmstation/core'
 import { getUserClient } from '@pharmstation/supabase-client'
 import type { ScanDrugItem, ScanQueueItem, CDDrug } from '@pharmstation/types'
+import { canApproveCdScan } from '@pharmstation/types'
 import { EditDrugModal } from './EditDrugModal'
 
 interface ScanReviewModalProps {
@@ -62,7 +63,10 @@ function formFamily(form: string): string {
 }
 
 export function ScanReviewModal({ isOpen, scanId, onClose }: ScanReviewModalProps) {
-  const { activeUser, userSession, organisation } = useAuthStore()
+  const { activeUser, userSession, organisation, membership, permissions } = useAuthStore()
+  // UK practice: only a pharmacist or pharmacy technician may turn a scan into
+  // a CD register line. The database enforces the same rule.
+  const canApprove = !!permissions?.cd_register_write && canApproveCdScan(membership?.role, activeUser?.gphc_number)
   const {
     activeScan, activeScanItems, activeScanLoading,
     loadScan, approveScanItem, rejectScanItem, editScanItem, refreshImageUrl, retryScan,
@@ -397,6 +401,8 @@ export function ScanReviewModal({ isOpen, scanId, onClose }: ScanReviewModalProp
                       item={item}
                       scan={activeScan}
                       userId={activeUser?.id ?? ''}
+                      canApprove={canApprove}
+                      canCreateRegister={!!permissions?.cd_register_write}
                       onApprove={approveScanItem}
                       onReject={rejectScanItem}
                       onEdit={editScanItem}
@@ -420,13 +426,16 @@ interface ScanItemCardProps {
   item: ScanDrugItem
   scan: ScanQueueItem
   userId: string
+  canApprove: boolean
+  canCreateRegister: boolean
   onApprove: (params: {
     item: ScanDrugItem
     drugId: string
     quantity: number
     scan: ScanQueueItem
     userId: string
-  }) => Promise<boolean>
+    supply?: ScanSupplyDetails
+  }) => Promise<{ ok: boolean; error?: string }>
   onReject: (itemId: string) => Promise<boolean>
   onEdit: (itemId: string, drugId: string, quantity: number) => Promise<boolean>
 }
@@ -479,11 +488,19 @@ function DocInput({
 // Individual Drug Item Card
 // ============================================
 
-function ScanItemCard({ item, scan, userId, onApprove, onReject, onEdit }: ScanItemCardProps) {
+function ScanItemCard({ item, scan, userId, canApprove, canCreateRegister, onApprove, onReject, onEdit }: ScanItemCardProps) {
   const [editModalOpen, setEditModalOpen] = useState(false)
   const [approving, setApproving] = useState(false)
   const [rejecting, setRejecting] = useState(false)
   const [confirmApprove, setConfirmApprove] = useState(false)
+  const [approveError, setApproveError] = useState<string | null>(null)
+  // Schedule 6 details for a supply, confirmed by the reviewer
+  const isSupply = scan.document_type !== 'invoice'
+  const [prescriptionDate, setPrescriptionDate] = useState('')
+  const [collectorType, setCollectorType] = useState<'' | 'patient' | 'representative' | 'hcp'>('')
+  const [collectorDetails, setCollectorDetails] = useState('')
+  const [idRequested, setIdRequested] = useState(false)
+  const [idProvided, setIdProvided] = useState(false)
 
   // Auto-selected brand info toggle
   const [showAutoSelectInfo, setShowAutoSelectInfo] = useState(false)
@@ -616,69 +633,23 @@ function ScanItemCard({ item, scan, userId, onApprove, onReject, onEdit }: ScanI
     setRegisterError(null)
 
     try {
-      // Fetch the drug details
-      const { data: drugData, error: drugError } = await getUserClient()
-        .from('cdr_drugs_unique')
-        .select('*')
-        .eq('id', effectiveDrugId)
-        .single()
-
-      if (drugError || !drugData) {
-        setRegisterError('Could not find the drug in the database.')
+      const balance = Number(openingBalance)
+      if (!Number.isFinite(balance) || balance < 0) {
+        setRegisterError('Enter an opening balance of 0 or more.')
         setCreatingRegister(false)
         return
       }
-
-      const drug = drugData as CDDrug
-      const balance = parseFloat(openingBalance) || 0
-
-      // Create subscribed register
-      const { error: subError } = await getUserClient()
-        .from('ps_subscribed_registers')
-        .insert({
-          organisation_id: scan.organisation_id,
-          drug_id: drug.id,
-          drug_brand: drug.drug_brand,
-          drug_form: drug.drug_form,
-          drug_strength: drug.drug_strength,
-          drug_class: drug.drug_class,
-          drug_type: drug.drug_type,
-          created_by: userId,
-        })
-
-      if (subError) {
-        if (subError.message.includes('duplicate') || subError.message.includes('unique')) {
-          // Already exists — that's fine
-        } else {
-          setRegisterError(subError.message)
-          setCreatingRegister(false)
-          return
-        }
-      }
-
-      // Create ledger
-      const { error: ledgerError } = await getUserClient()
-        .from('ps_register_ledgers')
-        .insert({
-          organisation_id: scan.organisation_id,
-          register_type: 'CD',
-          drug_id: drug.id,
-          drug_name: drug.drug_brand,
-          drug_form: drug.drug_form,
-          drug_strength: drug.drug_strength,
-          drug_class: drug.drug_class,
-          current_balance: balance,
-          created_by: userId,
-        })
-
-      if (ledgerError) {
-        if (ledgerError.message.includes('duplicate') || ledgerError.message.includes('unique')) {
-          // Already exists
-        } else {
-          setRegisterError(ledgerError.message)
-          setCreatingRegister(false)
-          return
-        }
+      // One transaction: list entry, ledger and a signed opening balance line.
+      const { error: createError } = await getUserClient().rpc('ps_create_cd_register', {
+        p_organisation_id: scan.organisation_id,
+        p_drug_id: effectiveDrugId,
+        p_opening_balance: balance,
+        p_reason: null,
+      })
+      if (createError) {
+        setRegisterError(createError.message)
+        setCreatingRegister(false)
+        return
       }
 
       setRegisterCreated(true)
@@ -698,15 +669,34 @@ function ScanItemCard({ item, scan, userId, onApprove, onReject, onEdit }: ScanI
     const drugId = effectiveDrugId
     if (!drugId) return
 
+    if (isSupply) {
+      if (!collectorType) { setApproveError('Choose who collected the medicine.'); return }
+      if (collectorType !== 'patient' && !collectorDetails.trim()) {
+        setApproveError('Add the name (and for a healthcare professional, their address or registration) of the person who collected.')
+        return
+      }
+    }
+
     setApproving(true)
+    setApproveError(null)
     try {
-      await onApprove({
+      const result = await onApprove({
         item,
         drugId,
         quantity: effectiveQuantity,
         scan,
         userId,
+        supply: isSupply
+          ? {
+              prescriptionDate: prescriptionDate || null,
+              collectorType: collectorType as 'patient' | 'representative' | 'hcp',
+              collectorDetails: collectorDetails.trim() || null,
+              wasIdRequested: idRequested,
+              wasIdProvided: idProvided,
+            }
+          : undefined,
       })
+      if (!result.ok) setApproveError(result.error ?? 'The entry could not be saved.')
     } finally {
       setApproving(false)
       setConfirmApprove(false)
@@ -921,7 +911,8 @@ function ScanItemCard({ item, scan, userId, onApprove, onReject, onEdit }: ScanI
               <button
                 className="ps-btn ps-btn-primary ps-btn-sm"
                 onClick={handleCreateRegister}
-                disabled={creatingRegister}
+                disabled={creatingRegister || !canCreateRegister}
+                title={canCreateRegister ? undefined : 'Your role cannot add CD registers'}
               >
                 {creatingRegister ? 'Creating...' : '📋 Create Register'}
               </button>
@@ -946,12 +937,49 @@ function ScanItemCard({ item, scan, userId, onApprove, onReject, onEdit }: ScanI
         </div>
       )}
 
+      {!isDone && !canApprove && (
+        <div className="scan-no-register-warning">
+          A pharmacist or pharmacy technician must review and approve this scan before it goes in the CD register.
+        </div>
+      )}
+
+      {!isDone && canApprove && confirmApprove && isSupply && (
+        <div className="scan-supply-details" style={{ display: 'grid', gap: 'var(--ps-space-sm)', margin: 'var(--ps-space-sm) 0' }}>
+          <strong>Check before approving (Schedule 6)</strong>
+          <label>
+            Prescription date{' '}
+            <input type="date" className="ps-input" value={prescriptionDate} onChange={(e) => setPrescriptionDate(e.target.value)} style={{ maxWidth: '180px' }} />
+          </label>
+          <label>
+            Collected by{' '}
+            <select className="ps-input" value={collectorType} onChange={(e) => setCollectorType(e.target.value as typeof collectorType)} style={{ maxWidth: '260px' }}>
+              <option value="">Choose…</option>
+              <option value="patient">Patient</option>
+              <option value="representative">Patient's representative</option>
+              <option value="hcp">Healthcare professional</option>
+            </select>
+          </label>
+          {collectorType && collectorType !== 'patient' && (
+            <input
+              className="ps-input"
+              placeholder={collectorType === 'hcp' ? 'Name and address or registration number' : 'Name of representative'}
+              value={collectorDetails}
+              onChange={(e) => setCollectorDetails(e.target.value)}
+            />
+          )}
+          <label><input type="checkbox" checked={idRequested} onChange={(e) => setIdRequested(e.target.checked)} /> ID requested</label>
+          <label><input type="checkbox" checked={idProvided} onChange={(e) => setIdProvided(e.target.checked)} /> ID provided</label>
+        </div>
+      )}
+
+      {approveError && <p className="scan-create-register-error">❌ {approveError}</p>}
+
       {/* Actions */}
       {!isDone && (
         <div className="scan-item-actions">
-          {confirmApprove ? (
+          {confirmApprove && canApprove ? (
             <div className="scan-confirm-approve">
-              <span>⚠️ This will create an <strong>irreversible</strong> CD register entry. Confirm?</span>
+              <span>⚠️ This will create an <strong>irreversible</strong> CD register entry, signed by you as the reviewer. Confirm?</span>
               <button
                 className="ps-btn ps-btn-primary"
                 onClick={handleApprove}
@@ -971,7 +999,7 @@ function ScanItemCard({ item, scan, userId, onApprove, onReject, onEdit }: ScanI
               <button
                 className="ps-btn ps-btn-primary"
                 onClick={handleApprove}
-                disabled={approving || !effectiveDrugId || registerExists === false}
+                disabled={approving || !canApprove || !effectiveDrugId || registerExists === false}
                 title={!effectiveDrugId ? 'Select a drug match first' : registerExists === false ? 'Create a register for this drug first' : ''}
               >
                 ✅ Approve

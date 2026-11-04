@@ -15,6 +15,7 @@ import type {
   BalanceCheckItem,
   BalanceCheckStatus,
 } from '@pharmstation/types'
+import { ukToday } from '@pharmstation/types'
 import { Modal } from '../Modal'
 
 // ============================================
@@ -277,7 +278,7 @@ export function BalanceCheckModal({ isOpen, onClose }: BalanceCheckModalProps) {
           p_ledger_id: ledger.id,
           p_register_type: 'CD',
           p_entry_type: 'balance_check',
-          p_date_of_transaction: new Date().toISOString().split('T')[0],
+          p_date_of_transaction: ukToday(),
           p_notes: balanceNote,
           p_source: 'manual',
           p_expected_lock_version: ledger.lock_version,
@@ -294,10 +295,15 @@ export function BalanceCheckModal({ isOpen, onClose }: BalanceCheckModalProps) {
           registerEntryId = (entry as { id: string }).id
         }
         if (entryErr) {
-          console.error('Failed to create balance check register entry:', entryErr)
+          // Don't mark the drug as checked if its register line didn't save.
+          setError(`Could not record the balance check in the register: ${entryErr.message}`)
+          setSavingItemId(null)
+          return
         }
       } catch (e) {
-        console.error('Failed to create balance check register entry:', e)
+        setError(`Could not record the balance check in the register: ${e instanceof Error ? e.message : String(e)}`)
+        setSavingItemId(null)
+        return
       }
     }
 

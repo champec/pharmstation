@@ -22,6 +22,7 @@ const TX_LABELS: Partial<Record<TransactionType, string>> = {
   transfer_in: 'Transfer in',
   transfer_out: 'Transfer out',
   balance_check: 'Balance check',
+  opening_balance: 'Opening balance',
 }
 
 export const CD_EXPORT_HEADERS = [

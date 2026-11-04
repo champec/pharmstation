@@ -10,6 +10,7 @@ import { createColumnHelper, type ColumnDef, type Row } from '@tanstack/react-ta
 import { getUserClient } from '@pharmstation/supabase-client'
 import { useAuthStore, useRegisterStore } from '@pharmstation/core'
 import type { RegisterEntry, RegisterLedger, CDDrug, KnownContact, EntryAnnotation } from '@pharmstation/types'
+import { ukToday } from '@pharmstation/types'
 import { RegisterTable, type RowMerge } from '../../components/table/RegisterTable'
 import { Drawer } from '../../components/Drawer'
 import { CDEntryForm } from '../../components/forms/CDEntryForm'
@@ -40,9 +41,16 @@ const columnHelper = createColumnHelper<RegisterEntry>()
 export function CDLedgerPage() {
   const { drugId } = useParams<{ drugId: string }>()
   const navigate = useNavigate()
-  const { organisation, activeUser } = useAuthStore()
+  const { organisation, activeUser, permissions } = useAuthStore()
   const { activeLedger, setActiveLedger, entries, setEntries, entriesLoading, setEntriesLoading } =
     useRegisterStore()
+  const canWrite = !!permissions?.cd_register_write
+  const canRead = !!permissions?.cd_register_read
+  // null = still looking, false = this drug isn't on the pharmacy's register yet
+  const [ledgerFound, setLedgerFound] = useState<boolean | null>(null)
+  const [openingBalance, setOpeningBalance] = useState('0')
+  const [creatingRegister, setCreatingRegister] = useState(false)
+  const [createRegisterError, setCreateRegisterError] = useState<string | null>(null)
 
   const [drug, setDrug] = useState<CDDrug | null>(null)
   const [drawerOpen, setDrawerOpen] = useState(false)
@@ -91,43 +99,51 @@ export function CDLedgerPage() {
     fetchDrug()
   }, [drugId])
 
-  // Fetch or create ledger for this drug
+  // Find this pharmacy's ledger for the drug. A ledger is only ever created
+  // through ps_create_cd_register (with a signed opening balance line), never
+  // silently by visiting the page.
   const loadLedger = useCallback(async () => {
-    if (!organisation || !drugId || !drug) return
+    if (!organisation || !drugId) return
 
-    // Try to find existing ledger
-    const { data: existingLedger } = await getUserClient()
+    const { data: existingLedger, error } = await getUserClient()
       .from('ps_register_ledgers')
       .select('*')
       .eq('organisation_id', organisation.id)
       .eq('register_type', 'CD')
       .eq('drug_id', drugId)
-      .single()
+      .maybeSingle()
 
-    if (existingLedger) {
+    if (existingLedger && !error) {
       setActiveLedger(existingLedger as RegisterLedger)
+      setLedgerFound(true)
+    } else {
+      setActiveLedger(null)
+      setLedgerFound(false)
+    }
+  }, [organisation, drugId, setActiveLedger])
+
+  const createRegister = async () => {
+    if (!organisation || !drugId) return
+    const balance = Number(openingBalance)
+    if (!Number.isFinite(balance) || balance < 0) {
+      setCreateRegisterError('Enter an opening balance of 0 or more.')
       return
     }
-
-    // Create new ledger for this drug
-    const { data: newLedger, error } = await getUserClient()
-      .from('ps_register_ledgers')
-      .insert({
-        organisation_id: organisation.id,
-        register_type: 'CD',
-        drug_id: drugId,
-        drug_name: drug.drug_brand,
-        drug_form: drug.drug_form,
-        drug_strength: drug.drug_strength,
-        drug_class: drug.drug_class,
-      })
-      .select()
-      .single()
-
-    if (newLedger && !error) {
-      setActiveLedger(newLedger as RegisterLedger)
+    setCreatingRegister(true)
+    setCreateRegisterError(null)
+    const { error } = await getUserClient().rpc('ps_create_cd_register', {
+      p_organisation_id: organisation.id,
+      p_drug_id: drugId,
+      p_opening_balance: balance,
+      p_reason: null,
+    })
+    setCreatingRegister(false)
+    if (error) {
+      setCreateRegisterError(error.message)
+      return
     }
-  }, [organisation, drugId, drug, setActiveLedger])
+    await loadLedger()
+  }
 
   useEffect(() => {
     loadLedger()
@@ -140,7 +156,7 @@ export function CDLedgerPage() {
 
     const { data } = await getUserClient()
       .from('ps_register_entries')
-      .select('*, annotations:ps_entry_annotations(*, created_by_profile:created_by(full_name))')
+      .select('*, entered_by_profile:entered_by(full_name), annotations:ps_entry_annotations(*, created_by_profile:created_by(full_name))')
       .eq('ledger_id', activeLedger.id)
       .order('entry_number', { ascending: true })
 
@@ -217,43 +233,51 @@ export function CDLedgerPage() {
 
     try {
       // Create session for audit trail
-      const { data: sessionData } = await getUserClient()
+      const { data: sessionData, error: sessionErr } = await getUserClient()
         .from('ps_balance_check_sessions')
         .insert({
           organisation_id: organisation.id,
           started_by: activeUser.id,
           status: 'completed',
           total_registers: 1,
-          completed_count: 1,
-          matched_count: status === 'matched' ? 1 : 0,
+          checked_count: 1,
           discrepancy_count: status === 'discrepancy' ? 1 : 0,
-          adjusted_count: status === 'adjusted' ? 1 : 0,
           notes: `Quick balance check — ${drug.drug_brand}`,
           completed_at: new Date().toISOString(),
+          completed_by: activeUser.id,
         })
         .select('id')
         .single()
 
-      const sessionId = sessionData?.id
+      if (sessionErr || !sessionData) {
+        setBcError(`Could not save the balance check: ${sessionErr?.message ?? 'unknown error'}`)
+        return
+      }
 
-      if (sessionId) {
-        await getUserClient()
-          .from('ps_balance_check_items')
-          .insert({
-            session_id: sessionId,
-            drug_id: drug.id,
-            drug_brand: drug.drug_brand,
-            drug_form: drug.drug_form,
-            drug_strength: drug.drug_strength,
-            drug_class: drug.drug_class,
-            expected_balance: expectedBalance,
-            actual_count: actualCount,
-            status,
-            notes: bcNotes || null,
-            checked_by: activeUser.id,
-            adjustment_amount: hasAdjustment ? adjustmentAmount : null,
-            adjustment_reason: hasAdjustment ? (bcAdjReason || null) : null,
-          })
+      const { error: itemErr } = await getUserClient()
+        .from('ps_balance_check_items')
+        .insert({
+          session_id: sessionData.id,
+          organisation_id: organisation.id,
+          ledger_id: activeLedger.id,
+          drug_id: drug.id,
+          drug_brand: drug.drug_brand,
+          drug_form: drug.drug_form,
+          drug_strength: drug.drug_strength,
+          drug_class: drug.drug_class,
+          expected_balance: expectedBalance,
+          actual_count: actualCount,
+          status,
+          notes: bcNotes || null,
+          checked_by: activeUser.id,
+          checked_at: new Date().toISOString(),
+          adjustment_amount: hasAdjustment ? adjustmentAmount : null,
+          adjustment_reason: hasAdjustment ? (bcAdjReason || null) : null,
+        })
+
+      if (itemErr) {
+        setBcError(`Could not save the balance check: ${itemErr.message}`)
+        return
       }
 
       // Create register entry
@@ -264,7 +288,7 @@ export function CDLedgerPage() {
         p_ledger_id: activeLedger.id,
         p_register_type: 'CD',
         p_entry_type: 'balance_check',
-        p_date_of_transaction: new Date().toISOString().split('T')[0],
+        p_date_of_transaction: ukToday(),
         p_notes: balanceNote,
         p_source: 'manual',
         p_expected_lock_version: activeLedger.lock_version,
@@ -334,6 +358,14 @@ export function CDLedgerPage() {
                 <span className="bc-entry-stamp-text">
                   {row.notes ?? 'Balance checked and verified'}
                 </span>
+              </div>
+            )
+          }
+          if (row.transaction_type === 'opening_balance') {
+            return (
+              <div className="cell-multiline">
+                <span className="cell-primary">{row.notes ?? 'Opening balance'}</span>
+                <span className="cell-secondary">Register opened</span>
               </div>
             )
           }
@@ -592,7 +624,7 @@ export function CDLedgerPage() {
   // Supplier field = IN, Patient field = OUT
   // All other fields stay locked until direction is determined
   // ============================================
-  const [provDate, setProvDate] = useState(new Date().toISOString().split('T')[0])
+  const [provDate, setProvDate] = useState(ukToday())
   const [provSupplier, setProvSupplier] = useState('')
   const [provInvoice, setProvInvoice] = useState('')
   const [provPatient, setProvPatient] = useState('')
@@ -810,7 +842,7 @@ export function CDLedgerPage() {
   }
 
   const resetProvisionRow = () => {
-    setProvDate(new Date().toISOString().split('T')[0])
+    setProvDate(ukToday())
     setProvSupplier('')
     setProvInvoice('')
     setProvPatient('')
@@ -1106,7 +1138,7 @@ export function CDLedgerPage() {
     )
   }
 
-  const provisionFooterRow = activeLedger ? (
+  const provisionFooterRow = activeLedger && canWrite ? (
     <tr className="inline-provision-row" onKeyDown={handleProvKeyDown}>
       <td>{/* # auto */}</td>
       <td>
@@ -1484,7 +1516,7 @@ export function CDLedgerPage() {
             <button
               className="ps-btn ps-btn-ghost"
               onClick={openBalanceCheck}
-              disabled={!activeLedger}
+              disabled={!activeLedger || !canWrite}
               title="Quick balance check for this register"
             >
               📋 Balance Check
@@ -1515,7 +1547,7 @@ export function CDLedgerPage() {
             <button
               className="ps-btn ps-btn-success"
               onClick={() => openDrawer('in')}
-              disabled={!activeLedger}
+              disabled={!activeLedger || !canWrite}
               title="Open full IN form"
             >
               📥 Full IN
@@ -1523,7 +1555,7 @@ export function CDLedgerPage() {
             <button
               className="ps-btn ps-btn-primary"
               onClick={() => openDrawer('out')}
-              disabled={!activeLedger}
+              disabled={!activeLedger || !canWrite}
               title="Open full OUT form"
             >
               📤 Full OUT
@@ -1534,6 +1566,52 @@ export function CDLedgerPage() {
 
       {exportError && (
         <div className="auth-error" style={{ marginBottom: 'var(--ps-space-md)' }}>{exportError}</div>
+      )}
+
+      {!canRead && (
+        <div className="auth-error" style={{ marginBottom: 'var(--ps-space-md)' }}>
+          Your role can't view the CD register. Ask the pharmacy owner to give you CD register access.
+        </div>
+      )}
+
+      {canRead && !canWrite && ledgerFound && (
+        <div className="ps-card" style={{ marginBottom: 'var(--ps-space-md)', padding: 'var(--ps-space-sm) var(--ps-space-md)', color: 'var(--ps-slate)' }}>
+          You can view this register but not make entries. Ask the pharmacy owner if you need write access.
+        </div>
+      )}
+
+      {canRead && ledgerFound === false && drug && (
+        <div className="ps-card" style={{ marginBottom: 'var(--ps-space-md)', padding: 'var(--ps-space-md)' }}>
+          <h3 style={{ marginTop: 0 }}>{drug.drug_brand} isn't on your CD register yet</h3>
+          {canWrite ? (
+            <>
+              <p style={{ color: 'var(--ps-slate)' }}>
+                Add it with the stock you hold now. The opening balance is written as the first, signed line of the register.
+              </p>
+              <div style={{ display: 'flex', gap: 'var(--ps-space-sm)', alignItems: 'center', flexWrap: 'wrap' }}>
+                <label htmlFor="cd-opening-balance">Opening balance</label>
+                <input
+                  id="cd-opening-balance"
+                  className="ps-input"
+                  type="number"
+                  min="0"
+                  step="any"
+                  value={openingBalance}
+                  onChange={(e) => setOpeningBalance(e.target.value)}
+                  style={{ maxWidth: '140px' }}
+                />
+                <button className="ps-btn ps-btn-primary" onClick={createRegister} disabled={creatingRegister}>
+                  {creatingRegister ? 'Adding…' : 'Add to CD register'}
+                </button>
+              </div>
+              {createRegisterError && (
+                <div className="auth-error" style={{ marginTop: 'var(--ps-space-sm)' }}>{createRegisterError}</div>
+              )}
+            </>
+          ) : (
+            <p style={{ color: 'var(--ps-slate)' }}>Ask a pharmacist or the pharmacy owner to add it.</p>
+          )}
+        </div>
       )}
 
       {/* Search bar + part supply filter */}

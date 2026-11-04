@@ -116,7 +116,7 @@ function DocumentScanScreen() {
     try {
       await addToScanQueue(organisation.id, userSession.access_token, image)
       setImage(null)
-      Alert.alert('Added to review queue', 'The document is processing and is visible on web and mobile.')
+      Alert.alert('Added to review queue', 'The document is processing. A pharmacist or pharmacy technician must check and approve it on the web before it goes in the CD register.')
     } catch (error) {
       Alert.alert('Upload failed', messageFrom(error))
     } finally { setBusy(false) }
@@ -221,7 +221,7 @@ function ScanDetail({ scan, onClose }: { scan: ScanQueueItem | null; onClose: ()
   return (
     <Modal visible={!!scan} animationType="slide" presentationStyle="fullScreen" onRequestClose={onClose}>
       <SafeAreaView style={styles.modal} edges={['top', 'bottom', 'left', 'right']}>
-        <View style={styles.modalHeader}><View style={styles.flex}><Text style={styles.heading}>Scan review</Text><Text style={styles.queueMeta}>View only on mobile · approve entries on web</Text></View><IconButton icon="close" label="Close" onPress={onClose} /></View>
+        <View style={styles.modalHeader}><View style={styles.flex}><Text style={styles.heading}>Scan review</Text><Text style={styles.queueMeta}>View only on mobile · a pharmacist or technician approves it on the web</Text></View><IconButton icon="close" label="Close" onPress={onClose} /></View>
         {loading ? <ActivityIndicator style={styles.loader} color={COLOR} /> : scan ? (
           <ScrollView style={styles.detailScroll} contentContainerStyle={styles.detailContent} showsVerticalScrollIndicator={false}>
             {imageUrl ? <Image source={{ uri: imageUrl }} style={styles.documentImage} resizeMode="contain" /> : null}

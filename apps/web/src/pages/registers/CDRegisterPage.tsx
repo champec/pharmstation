@@ -10,7 +10,9 @@ import { CDRegisterExportModal } from '../../components/registers/CDRegisterExpo
 
 export function CDRegisterPage() {
   const navigate = useNavigate()
-  const { organisation, activeUser } = useAuthStore()
+  const { organisation, permissions } = useAuthStore()
+  const canWrite = !!permissions?.cd_register_write
+  const canRead = !!permissions?.cd_register_read
   const { subscribedRegisters, setSubscribedRegisters, subscribedLoading, setSubscribedLoading } =
     useRegisterStore()
 
@@ -147,6 +149,7 @@ export function CDRegisterPage() {
             <button
               className="ps-btn ps-btn-ghost"
               onClick={() => setBalanceCheckOpen(true)}
+              disabled={!canWrite}
               title="Perform a CD balance check across all registers"
             >
               📋 Balance Check
@@ -175,6 +178,8 @@ export function CDRegisterPage() {
             <button
               className="ps-btn ps-btn-primary"
               onClick={() => { setAddModalInitialSearch(''); setAddModalOpen(true) }}
+              disabled={!canWrite}
+              title={canWrite ? undefined : 'Your role can view the CD register but not add to it'}
             >
               ＋ Add New Register
             </button>
@@ -188,6 +193,17 @@ export function CDRegisterPage() {
       />
 
       <CDRegisterExportModal isOpen={exportOpen} onClose={() => setExportOpen(false)} />
+
+      {!canRead && (
+        <div className="auth-error" style={{ marginBottom: 'var(--ps-space-md)' }}>
+          Your role can't view the CD register. Ask the pharmacy owner to give you CD register access.
+        </div>
+      )}
+      {canRead && !canWrite && (
+        <div className="ps-card" style={{ marginBottom: 'var(--ps-space-md)', padding: 'var(--ps-space-sm) var(--ps-space-md)', color: 'var(--ps-slate)' }}>
+          You can view the CD register but not make entries or add registers.
+        </div>
+      )}
 
       {/* Global search */}
       <div style={{ marginBottom: 'var(--ps-space-md)', maxWidth: '400px' }}>
@@ -213,6 +229,7 @@ export function CDRegisterPage() {
           <button
             className="ps-btn ps-btn-primary"
             onClick={() => { setAddModalInitialSearch(''); setAddModalOpen(true) }}
+            disabled={!canWrite}
           >
             ＋ Add Your First Register
           </button>
@@ -225,7 +242,7 @@ export function CDRegisterPage() {
               <p>
                 Looks like the register for <strong>"{globalSearch}"</strong> doesn't exist in your pharmacy yet.
               </p>
-              <button className="ps-btn ps-btn-primary" onClick={handleAddFromSearch}>
+              <button className="ps-btn ps-btn-primary" onClick={handleAddFromSearch} disabled={!canWrite}>
                 ＋ Add this register
               </button>
             </div>
@@ -467,49 +484,24 @@ function AddRegisterModal({ isOpen, onClose, initialSearch, onAdded }: AddRegist
     setSaving(true)
     setError(null)
 
-    const balance = parseFloat(openingBalance) || 0
-
-    // 1. Create the subscribed register
-    const { error: insertError } = await getUserClient()
-      .from('ps_subscribed_registers')
-      .insert({
-        organisation_id: organisation.id,
-        drug_id: selectedDrug.id,
-        drug_brand: selectedDrug.drug_brand,
-        drug_form: selectedDrug.drug_form,
-        drug_strength: selectedDrug.drug_strength,
-        drug_class: selectedDrug.drug_class,
-        drug_type: selectedDrug.drug_type,
-        created_by: activeUser.id,
-      })
-
-    if (insertError) {
-      if (insertError.message.includes('duplicate') || insertError.message.includes('unique')) {
-        setError('This register is already added to your pharmacy.')
-      } else {
-        setError(insertError.message)
-      }
+    const balance = Number(openingBalance)
+    if (!Number.isFinite(balance) || balance < 0) {
+      setError('Enter an opening balance of 0 or more.')
       setSaving(false)
       return
     }
 
-    // 2. Create the ledger with the opening balance
-    const { error: ledgerError } = await getUserClient()
-      .from('ps_register_ledgers')
-      .insert({
-        organisation_id: organisation.id,
-        register_type: 'CD',
-        drug_id: selectedDrug.id,
-        drug_name: selectedDrug.drug_brand,
-        drug_form: selectedDrug.drug_form,
-        drug_strength: selectedDrug.drug_strength,
-        drug_class: selectedDrug.drug_class,
-        current_balance: balance,
-        created_by: activeUser.id,
-      })
+    // One transaction: adds the drug to the list, creates its ledger and
+    // writes the opening balance as the first signed line of the register.
+    const { error: createError } = await getUserClient().rpc('ps_create_cd_register', {
+      p_organisation_id: organisation.id,
+      p_drug_id: selectedDrug.id,
+      p_opening_balance: balance,
+      p_reason: null,
+    })
 
-    if (ledgerError) {
-      setError(ledgerError.message)
+    if (createError) {
+      setError(createError.message)
       setSaving(false)
       return
     }
