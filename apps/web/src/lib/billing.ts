@@ -5,5 +5,16 @@
  */
 export const PLANS_ENFORCED = import.meta.env.VITE_ENFORCE_PLANS === 'true'
 
-/** Roles that can start, change or cancel the pharmacy's subscription. */
-export const BILLING_ROLES = new Set(['owner', 'manager'])
+/**
+ * Can this person change the plan, buy text credits or set up payouts?
+ * Needs a staff sign-in with the billing permission (owners by default, others
+ * only by override). The shared pharmacy login never can. The edge functions
+ * enforce the same rule (supabase/functions/_shared/org-billing-permission.ts);
+ * this only decides what the page shows.
+ */
+export function canManageBilling(
+  membership: unknown,
+  permissions: { billing?: boolean } | null | undefined,
+): boolean {
+  return !!membership && permissions?.billing === true
+}
