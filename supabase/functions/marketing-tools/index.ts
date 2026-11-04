@@ -51,6 +51,23 @@ type DirectoryRecipient = {
   email: string
 }
 
+/** Numbers that must not get marketing SMS: marketing suppressions plus anyone who texted STOP to this pharmacy. */
+async function blockedSmsDestinations(admin: ReturnType<typeof adminClient>, orgId: string, destinations: string[]) {
+  if (!destinations.length) return new Set<string>()
+  const [{ data: suppressed, error: suppressedError }, { data: optedOut, error: optedOutError }] = await Promise.all([
+    admin.from('ps_marketing_suppressions').select('destination_normalized').eq('org_id', orgId).eq('channel', 'sms').in('destination_normalized', destinations),
+    admin.from('ps_sms_opt_outs').select('phone_normalized').eq('org_id', orgId).in('phone_normalized', destinations),
+  ])
+  // Fail closed: never send marketing if we cannot check who opted out.
+  if (suppressedError || optedOutError) throw new Error('Could not check SMS opt-outs')
+  return new Set([...(suppressed || []).map((row) => row.destination_normalized), ...(optedOut || []).map((row) => row.phone_normalized)])
+}
+
+async function requireMarketingSender(admin: ReturnType<typeof adminClient>, userId: string, orgId: string) {
+  const { data } = await admin.from('ps_organisation_members').select('role').eq('organisation_id', orgId).eq('user_id', userId).eq('status', 'active').maybeSingle()
+  if (data?.role !== 'owner' && data?.role !== 'manager') throw new Error('Only owners and managers can send marketing messages')
+}
+
 function directoryExclusionTerms(raw: unknown) {
   return String(raw || '').split(',').map((term) => term.trim().toLowerCase()).filter(Boolean).slice(0, 20)
 }
@@ -351,8 +368,8 @@ async function sendMarketingReply(body: Record<string, unknown>, userId: string,
   const { data: contact } = await admin.from('ps_marketing_contacts').select('*').eq('org_id', orgId).eq('id', contactId).single()
   if (!contact?.sms_eligible) throw new Error('This contact does not have an eligible UK mobile number')
   if (contact.status !== 'active') throw new Error('This contact cannot receive SMS')
-  const { data: suppression } = await admin.from('ps_marketing_suppressions').select('id').eq('org_id', orgId).eq('channel', 'sms').eq('destination_normalized', contact.phone_normalized).maybeSingle()
-  if (suppression) throw new Error('This contact has opted out of SMS')
+  const blocked = await blockedSmsDestinations(admin, orgId, [contact.phone_normalized])
+  if (blocked.has(contact.phone_normalized)) throw new Error('This contact has opted out of SMS')
   const response = await fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/sms-works`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: authHeader }, body: JSON.stringify({ action: 'send_sms', org_id: orgId, phone_number: contact.phone_normalized, body: content, feature: 'marketing', reference: `marketing_chat:${contact.id}`, use_reply_number: true }) })
   const result = await response.json(); if (!response.ok || result.error) throw new Error(result.error || 'Reply failed')
   await admin.from('ps_marketing_contacts').update({ last_contacted_at: new Date().toISOString() }).eq('id', contactId)
@@ -471,8 +488,7 @@ async function sendSmsCampaign(body: Record<string, unknown>, userId: string, au
   if (!contacts?.length) throw new Error('No active contacts were selected')
 
   const destinations = contacts.map((contact) => normalisePhone(contact.phone_normalized || contact.phone_number))
-  const { data: suppressed } = await admin.from('ps_marketing_suppressions').select('destination_normalized').eq('org_id', orgId).eq('channel', 'sms').in('destination_normalized', destinations)
-  const blocked = new Set((suppressed || []).map((row) => row.destination_normalized))
+  const blocked = await blockedSmsDestinations(admin, orgId, destinations)
   const eligible = contacts.filter((contact) => !blocked.has(normalisePhone(contact.phone_normalized || contact.phone_number)))
   if (!eligible.length) throw new Error('Every selected contact is suppressed')
 
@@ -534,6 +550,7 @@ Deno.serve(async (req) => {
     if (body.action === 'reload_campaign') return json(await reloadCampaign(body))
     if (body.action === 'list_marketing_chats') return json(await listMarketingChats(body))
     if (body.action === 'get_marketing_thread') return json(await getMarketingThread(body))
+    if (['send_marketing_reply', 'prepare_email_campaign', 'send_sms_campaign'].includes(String(body.action))) await requireMarketingSender(adminClient(), user.id, orgId)
     if (body.action === 'send_marketing_reply') return json(await sendMarketingReply(body, user.id, authHeader))
     if (body.action === 'prepare_email_campaign') return json(await prepareEmailCampaign(body, user.id))
     if (body.action === 'mark_email_campaign') return json(await markEmailCampaign(body))

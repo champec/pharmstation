@@ -32,7 +32,7 @@ export function PrivacyNoticePage() {
             <p style={{ marginTop: 'var(--ps-space-sm)', color: 'var(--ps-slate)' }}>
               <strong>Data Protection Contact:</strong> Champe Chilufya (SIRO, IG Lead, Caldicott Guardian)
               <br />
-              <strong>Email:</strong> chronic2157@gmail.com
+              <strong>Email:</strong> <a href="mailto:privacy@pharmstation.co.uk">privacy@pharmstation.co.uk</a>
             </p>
           </section>
 
@@ -297,7 +297,7 @@ export function PrivacyNoticePage() {
             </p>
             <ul style={{ color: 'var(--ps-slate)', paddingLeft: 'var(--ps-space-lg)', margin: '0 0 var(--ps-space-md) 0' }}>
               <li><strong>Contact your pharmacy directly</strong> — they are the data controller for your patient records</li>
-              <li><strong>Contact PharmStation</strong> — for platform account queries: <strong>chronic2157@gmail.com</strong></li>
+              <li><strong>Contact PharmStation</strong> — for data protection requests: <strong>privacy@pharmstation.co.uk</strong>, or for help with your account: <strong>support@pharmstation.co.uk</strong></li>
             </ul>
             <p style={{ margin: 0, color: 'var(--ps-slate)' }}>
               You also have the right to lodge a complaint with the Information Commissioner's Office (ICO):
