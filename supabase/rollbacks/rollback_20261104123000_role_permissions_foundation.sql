@@ -1,4 +1,4 @@
--- Rollback for 20261104120000_role_permissions_foundation.sql
+-- Rollback for 20261104123000_role_permissions_foundation.sql
 begin;
 
 create or replace function public.ps_role_default_permission(p_role text, p_permission text)
