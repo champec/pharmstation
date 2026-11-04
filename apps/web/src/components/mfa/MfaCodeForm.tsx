@@ -25,7 +25,7 @@ export function MfaCodeForm() {
   return (
     <>
       <h1>Enter your code</h1>
-      <p className="subtitle">Open your authenticator app and type the 6-digit code for PharmStation.</p>
+      <p className="subtitle">Open the PharmStation app (My Account &gt; Security) or your authenticator app and type the 6-digit code.</p>
       {error && <div className="auth-error">{error}</div>}
       <form onSubmit={handleSubmit}>
         <div className="form-group">

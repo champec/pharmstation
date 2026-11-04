@@ -166,6 +166,38 @@ export async function verifyTotpCode(factorId: string, code: string) {
   if (error) throw new Error('That code didn\u2019t work. Check the time on your phone is right, then try the newest code.')
 }
 
+/** Turn on two-step sign-in using this phone as the authenticator.
+ *  Returns the new factor's secret so the app can keep it and make codes;
+ *  call verifyTotpCode with a code from that secret to finish. */
+export async function startPhoneTotpEnrollment(): Promise<{ factorId: string; secret: string; uri: string }> {
+  // Clear half-finished setups so they don't block a new one.
+  const { data: existing } = await userClient.auth.mfa.listFactors()
+  for (const f of existing?.all ?? []) {
+    if (f.factor_type === 'totp' && f.status !== 'verified') {
+      await userClient.auth.mfa.unenroll({ factorId: f.id })
+    }
+  }
+  const { data, error } = await userClient.auth.mfa.enroll({
+    factorType: 'totp',
+    issuer: 'PharmStation',
+    friendlyName: `PharmStation app ${new Date().toISOString().slice(0, 16)}`,
+  })
+  if (error) {
+    throw new Error(
+      /aal2|assurance/i.test(error.message)
+        ? 'Two-step sign-in is already on for this account. Scan the QR code from the website instead, or sign in again with your code first.'
+        : error.message,
+    )
+  }
+  return { factorId: data.id, secret: data.totp.secret, uri: data.totp.uri }
+}
+
+/** True if the account already has two-step sign-in turned on. */
+export async function hasVerifiedTotp(): Promise<boolean> {
+  const { data } = await userClient.auth.mfa.listFactors()
+  return (data?.totp ?? []).some((f) => f.status === 'verified')
+}
+
 /** Booked locums get access to the shift pharmacy around their shift. */
 export async function claimLocumShiftAccess(orgId: string): Promise<boolean> {
   const { data, error } = await userClient.rpc('ps_locum_claim_shift_access', { p_org_id: orgId })

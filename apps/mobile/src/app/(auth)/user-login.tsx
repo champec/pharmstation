@@ -1,11 +1,14 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Linking, Pressable, StyleSheet, Text, View } from 'react-native'
 import { useRouter } from 'expo-router'
 
 import { Button } from '@/components/ui/Button'
 import { Field } from '@/components/ui/Field'
 import { Screen } from '@/components/ui/Screen'
+import { loadOtpAccounts } from '@/lib/authenticator'
 import { FORGOT_PASSWORD_URL } from '@/lib/supabase'
+import { totp } from '@/lib/totp'
+import * as LocalAuthentication from 'expo-local-authentication'
 import { useAuthStore } from '@/stores/auth-store'
 import { palette } from '@/theme/palette'
 
@@ -17,6 +20,30 @@ export default function UserLoginScreen() {
   const verifyMfa = useAuthStore((s) => s.verifyMfa)
   const userLogout = useAuthStore((s) => s.userLogout)
   const [code, setCode] = useState('')
+  const [phoneCodes, setPhoneCodes] = useState(false)
+
+  useEffect(() => {
+    if (mfaPendingFactorId) loadOtpAccounts().then((a) => setPhoneCodes(a.length > 0))
+  }, [mfaPendingFactorId])
+
+  // Fill the code from the authenticator built into this app. The secret is
+  // the one this account enrolled, so ask the phone's lock first.
+  const fillFromPhone = async () => {
+    setError(null)
+    try {
+      const level = await LocalAuthentication.getEnrolledLevelAsync()
+      if (level !== LocalAuthentication.SecurityLevel.NONE) {
+        const res = await LocalAuthentication.authenticateAsync({ promptMessage: 'Fill your sign-in code' })
+        if (!res.success) return
+      }
+    } catch {
+      // No lock available: carry on, as the Security tab does.
+    }
+    const accounts = await loadOtpAccounts()
+    const typed = email.trim().toLowerCase()
+    const match = accounts.find((a) => typed && a.label.toLowerCase() === typed) ?? accounts.find((a) => a.issuer === 'PharmStation') ?? accounts[0]
+    if (match) setCode(totp(match.secret, Date.now(), match.digits, match.period))
+  }
 
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -50,7 +77,7 @@ export default function UserLoginScreen() {
           <Text style={styles.brand}>PharmStation</Text>
           <Text style={styles.title}>Enter your code</Text>
           <Text style={styles.subtitle}>
-            Open your authenticator app and type the 6-digit code for PharmStation.
+            Type the 6-digit code from your authenticator app, or fill it from this phone.
           </Text>
         </View>
         <View style={styles.form}>
@@ -64,6 +91,9 @@ export default function UserLoginScreen() {
             placeholder="123456"
           />
           {error ? <Text style={styles.error}>{error}</Text> : null}
+          {phoneCodes ? (
+            <Button label="Fill from this phone" variant="secondary" onPress={fillFromPhone} />
+          ) : null}
           <Button
             label="Verify"
             onPress={onVerify}
