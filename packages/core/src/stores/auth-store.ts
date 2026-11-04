@@ -18,6 +18,8 @@ import {
   fetchUserProfile,
   fetchOrgMembership,
   fetchLocumExtendedProfile,
+  getMfaStatus,
+  verifyTotpCode,
 } from '@pharmstation/supabase-client'
 
 export interface AuthState {
@@ -38,6 +40,12 @@ export interface AuthState {
   // null when the current user hasn't activated the locum role.
   locumProfile: LocumProfile | null
 
+  // Two-step sign-in. mfaPendingFactorId is set when the password was right
+  // but the account still needs its authenticator code. mfaSetupRequired is
+  // set for owners and managers who haven't added an authenticator app yet.
+  mfaPendingFactorId: string | null
+  mfaSetupRequired: boolean
+
   // Computed
   isFullyAuthenticated: boolean
   permissions: Permissions | null
@@ -52,6 +60,12 @@ export interface AuthState {
     opts?: { requireOrgMembership?: boolean }
   ) => Promise<void>
   userLogout: () => Promise<void>
+  /** Finish a sign-in that is waiting for an authenticator code. */
+  verifyUserMfa: (code: string) => Promise<void>
+  /** Give up on a sign-in that is waiting for an authenticator code. */
+  cancelUserMfa: () => Promise<void>
+  /** Re-check whether this account still has to add an authenticator app. */
+  refreshMfaSetup: () => Promise<void>
   switchUser: () => Promise<void>
   /** Re-read the user-layer session + profile + membership from the client.
    *  Used by portal flows (locum/patient/personal) after they sign in. */
@@ -75,6 +89,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   userLoading: true,
 
   locumProfile: null,
+
+  mfaPendingFactorId: null,
+  mfaSetupRequired: false,
 
   isFullyAuthenticated: false,
   permissions: null,
@@ -103,7 +120,19 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     try {
       // Check user session
       const { data: userData } = await getUserClient().auth.getSession()
+      let mfa: Awaited<ReturnType<typeof getMfaStatus>> | null = null
       if (userData.session) {
+        try {
+          mfa = await getMfaStatus()
+        } catch {
+          mfa = null
+        }
+      }
+      if (userData.session && mfa?.needsCode) {
+        // Password was entered but the authenticator code wasn't: the sign-in
+        // pages ask for it before anything else loads.
+        set({ mfaPendingFactorId: mfa.factorId })
+      } else if (userData.session) {
         const profile = await fetchUserProfile(userData.session.user.id)
         const org = get().organisation
         let membership: OrganisationMember | null = null
@@ -138,6 +167,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           isFullyAuthenticated: !!org && !!membership,
           permissions,
           locumProfile,
+          mfaSetupRequired: needsMfaSetup(membership, permissions, mfa?.hasFactor ?? false),
         })
       }
     } catch {
@@ -172,6 +202,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           isFullyAuthenticated: false,
           permissions: null,
           locumProfile: null,
+          mfaPendingFactorId: null,
+          mfaSetupRequired: false,
         })
       }
     })
@@ -232,6 +264,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       isFullyAuthenticated: false,
       permissions: null,
       locumProfile: null,
+      mfaPendingFactorId: null,
+      mfaSetupRequired: false,
     })
   },
 
@@ -243,7 +277,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   // operation; roles decide what they can see afterwards.
   // ============================================
   userLogin: async (email: string, password: string, opts?: { requireOrgMembership?: boolean }) => {
-    const requireOrgMembership = opts?.requireOrgMembership ?? true
     set({ userLoading: true })
     try {
       const { data, error } = await _userSignIn(email, password)
@@ -254,68 +287,49 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         throw new Error('Login returned no session. Please try again.')
       }
 
-      let profile
-      try {
-        profile = await fetchUserProfile(data.user.id)
-      } catch (fetchErr) {
-        await getUserClient().auth.signOut()
-        throw new Error(
-          fetchErr instanceof Error
-            ? `Failed to load profile: ${fetchErr.message}`
-            : 'No staff profile found for this account.'
-        )
+      // Accounts with two-step sign-in stop here until the code is entered.
+      const mfa = await getMfaStatus()
+      if (mfa.needsCode) {
+        pendingLogin = { email, opts }
+        set({ mfaPendingFactorId: mfa.factorId, userLoading: false })
+        return
       }
 
-      const org = get().organisation
-      let membership: OrganisationMember | null = null
-      let permissions: Permissions | null = null
-
-      if (org) {
-        try {
-          membership = await fetchOrgMembership(org.id, data.user.id)
-          if (membership) {
-            permissions = resolvePermissions(membership.role, membership.permissions)
-          }
-        } catch {
-          if (requireOrgMembership) {
-            await getUserClient().auth.signOut()
-            throw new Error('You are not a member of this pharmacy. Contact your manager.')
-          }
-          // Portal login on an org terminal by a non-member: allowed,
-          // but no membership ⇒ no org permissions.
-          membership = null
-        }
-      }
-
-      // Save email to recent staff list — only for actual staff at this org
-      if (membership) {
-        const savedStaff = JSON.parse(localStorage.getItem('ps-saved-staff') || '[]') as string[]
-        if (!savedStaff.includes(email)) {
-          savedStaff.unshift(email)
-          localStorage.setItem('ps-saved-staff', JSON.stringify(savedStaff.slice(0, 10)))
-        }
-      }
-
-      let locumProfile: LocumProfile | null = null
-      try {
-        locumProfile = await fetchLocumExtendedProfile(data.user.id)
-      } catch {
-        // Locum role not activated for this user
-      }
-
-      set({
-        userSession: data.session,
-        activeUser: profile,
-        membership,
-        isUserLoggedIn: true,
-        isFullyAuthenticated: !!org && !!membership,
-        permissions,
-        locumProfile,
-        userLoading: false,
-      })
+      await finishUserLogin(email, opts, mfa.hasFactor)
     } catch (err) {
       set({ userLoading: false })
       throw err
+    }
+  },
+
+  verifyUserMfa: async (code: string) => {
+    const factorId = get().mfaPendingFactorId
+    if (!factorId) throw new Error('Sign in again, then enter your code.')
+    await verifyTotpCode(factorId, code)
+    set({ userLoading: true, mfaPendingFactorId: null })
+    try {
+      const { data } = await getUserClient().auth.getUser()
+      const email = pendingLogin?.email ?? data.user?.email ?? ''
+      await finishUserLogin(email, pendingLogin?.opts, true)
+      pendingLogin = null
+    } catch (err) {
+      set({ userLoading: false })
+      throw err
+    }
+  },
+
+  cancelUserMfa: async () => {
+    pendingLogin = null
+    await _userSignOut()
+    set({ mfaPendingFactorId: null })
+  },
+
+  refreshMfaSetup: async () => {
+    try {
+      const mfa = await getMfaStatus()
+      set({ mfaSetupRequired: needsMfaSetup(get().membership, get().permissions, mfa.hasFactor) })
+    } catch {
+      // Leave as-is
     }
   },
 
@@ -332,6 +346,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       isFullyAuthenticated: false,
       permissions: null,
       locumProfile: null,
+      mfaPendingFactorId: null,
+      mfaSetupRequired: false,
     })
   },
 
@@ -348,6 +364,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       isFullyAuthenticated: false,
       permissions: null,
       locumProfile: null,
+      mfaPendingFactorId: null,
+      mfaSetupRequired: false,
     })
   },
 
@@ -428,3 +446,100 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
   },
 }))
+
+// ============================================
+// Shared tail of a staff/personal sign-in, run once the password (and the
+// authenticator code, if the account has one) are both done.
+// ============================================
+let pendingLogin: { email: string; opts?: { requireOrgMembership?: boolean } } | null = null
+
+/** Permissions the database only honours after two-step sign-in
+ *  (see supabase/migrations/20261104124500_two_step_sign_in.sql). */
+const MFA_PERMISSIONS = ['manage_users', 'org_settings', 'billing', 'approve_locums', 'view_audit'] as const
+
+/** Owners, managers and anyone with a sensitive permission must add an
+ *  authenticator app before using the pharmacy. */
+function needsMfaSetup(
+  membership: OrganisationMember | null,
+  permissions: Permissions | null,
+  hasFactor: boolean,
+): boolean {
+  if (hasFactor || !membership) return false
+  if (membership.role === 'owner' || membership.role === 'manager') return true
+  return MFA_PERMISSIONS.some((key) => permissions?.[key] === true)
+}
+
+async function finishUserLogin(
+  email: string,
+  opts: { requireOrgMembership?: boolean } | undefined,
+  hasFactor: boolean,
+) {
+  const { getState: get, setState: set } = useAuthStore
+  const requireOrgMembership = opts?.requireOrgMembership ?? true
+  const { data: sessionData } = await getUserClient().auth.getSession()
+  const session = sessionData.session
+  if (!session) throw new Error('Login returned no session. Please try again.')
+  const userId = session.user.id
+  const data = { session }
+
+  let profile
+  try {
+    profile = await fetchUserProfile(userId)
+  } catch (fetchErr) {
+    await getUserClient().auth.signOut()
+    throw new Error(
+      fetchErr instanceof Error
+        ? `Failed to load profile: ${fetchErr.message}`
+        : 'No staff profile found for this account.'
+    )
+  }
+
+  const org = get().organisation
+  let membership: OrganisationMember | null = null
+  let permissions: Permissions | null = null
+
+  if (org) {
+    try {
+      membership = await fetchOrgMembership(org.id, userId)
+      if (membership) {
+        permissions = resolvePermissions(membership.role, membership.permissions)
+      }
+    } catch {
+      if (requireOrgMembership) {
+        await getUserClient().auth.signOut()
+        throw new Error('You are not a member of this pharmacy. Contact your manager.')
+      }
+      // Portal login on an org terminal by a non-member: allowed,
+      // but no membership ⇒ no org permissions.
+      membership = null
+    }
+  }
+
+  // Save email to recent staff list — only for actual staff at this org
+  if (membership) {
+    const savedStaff = JSON.parse(localStorage.getItem('ps-saved-staff') || '[]') as string[]
+    if (!savedStaff.includes(email)) {
+      savedStaff.unshift(email)
+      localStorage.setItem('ps-saved-staff', JSON.stringify(savedStaff.slice(0, 10)))
+    }
+  }
+
+  let locumProfile: LocumProfile | null = null
+  try {
+    locumProfile = await fetchLocumExtendedProfile(userId)
+  } catch {
+    // Locum role not activated for this user
+  }
+
+  set({
+    userSession: data.session,
+    activeUser: profile,
+    membership,
+    isUserLoggedIn: true,
+    isFullyAuthenticated: !!org && !!membership,
+    permissions,
+    locumProfile,
+    userLoading: false,
+    mfaSetupRequired: needsMfaSetup(membership, permissions, hasFactor),
+  })
+}

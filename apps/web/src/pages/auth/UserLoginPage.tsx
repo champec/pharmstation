@@ -3,9 +3,10 @@ import { Link } from 'react-router-dom'
 import { useAuthStore } from '@pharmstation/core'
 import { orgNeedsOwner } from '@pharmstation/supabase-client'
 import { IDLE_SIGNOUT_FLAG } from '../../components/IdleLock'
+import { MfaCodeForm } from '../../components/mfa/MfaCodeForm'
 
 export function UserLoginPage() {
-  const { organisation, userLogin, orgLogout } = useAuthStore()
+  const { organisation, userLogin, orgLogout, mfaPendingFactorId } = useAuthStore()
   // Test credentials are prefilled in local dev only
   const [email, setEmail] = useState(import.meta.env.DEV ? 'testuser@pharmstation.dev' : '')
   const [password, setPassword] = useState(import.meta.env.DEV ? 'TestUser123!' : '')
@@ -62,6 +63,17 @@ export function UserLoginPage() {
     } finally {
       setLoading(false)
     }
+  }
+
+  if (mfaPendingFactorId) {
+    return (
+      <div className="auth-card">
+        <div className="logo">
+          Pharm<span>Station</span>
+        </div>
+        <MfaCodeForm />
+      </div>
+    )
   }
 
   return (

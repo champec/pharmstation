@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuthStore } from '@pharmstation/core'
+import { MfaCodeForm } from '../../components/mfa/MfaCodeForm'
 
 /**
  * Personal account sign-in — bypasses the organisation login entirely.
@@ -8,7 +9,7 @@ import { useAuthStore } from '@pharmstation/core'
  * decide what the account can see afterwards.
  */
 export function PersonalLoginPage() {
-  const { userLogin } = useAuthStore()
+  const { userLogin, mfaPendingFactorId } = useAuthStore()
   const navigate = useNavigate()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -23,7 +24,7 @@ export function PersonalLoginPage() {
       // Personal login never requires org membership — even on a browser
       // that has an org session (e.g. a pharmacy terminal).
       await userLogin(email, password, { requireOrgMembership: false })
-      navigate('/me', { replace: true })
+      if (useAuthStore.getState().isUserLoggedIn) navigate('/me', { replace: true })
     } catch (err: unknown) {
       const message =
         err instanceof Error
@@ -35,6 +36,17 @@ export function PersonalLoginPage() {
     } finally {
       setLoading(false)
     }
+  }
+
+  if (mfaPendingFactorId) {
+    return (
+      <div className="auth-card">
+        <div className="logo">
+          Pharm<span>Station</span>
+        </div>
+        <MfaCodeForm />
+      </div>
+    )
   }
 
   return (

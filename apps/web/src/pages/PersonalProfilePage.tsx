@@ -5,6 +5,7 @@ import { useAuthStore, useAlertStore } from '@pharmstation/core'
 import { LocumReviewAdminCard } from '../components/LocumReviewAdminCard'
 import { PlatformAdminCard } from '../components/PlatformAdminCard'
 import { ChangePasswordCard } from '../components/ChangePasswordCard'
+import { TwoStepCard } from '../components/mfa/TwoStepCard'
 
 interface LocumSummary {
   id: string
@@ -203,6 +204,7 @@ export function PersonalProfilePage() {
       </form>
 
       <ChangePasswordCard />
+      <TwoStepCard />
 
       {/* Workplace */}
       <div className="ps-card" style={{ marginBottom: '1.25rem' }}>
