@@ -65,7 +65,7 @@ export function CDRegisterExportModal({ isOpen, onClose }: Props) {
     for (let from = 0; ; from += PAGE) {
       const { data, error: eErr } = await client
         .from('ps_register_entries')
-        .select('*, annotations:ps_entry_annotations(*, created_by_profile:created_by(full_name))')
+        .select('*, entered_by_profile:entered_by(full_name), annotations:ps_entry_annotations(*, created_by_profile:created_by(full_name))')
         .eq('organisation_id', organisation.id)
         .in('register_type', ['CD', 'PRIVATE_CD'])
         .gte('date_of_transaction', start)

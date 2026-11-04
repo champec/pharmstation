@@ -10,6 +10,15 @@ import type {
   CDDrug,
 } from '@pharmstation/types'
 import { getUserClient } from '@pharmstation/supabase-client'
+import { ukToday } from '@pharmstation/types'
+
+export interface ScanSupplyDetails {
+  prescriptionDate: string | null
+  collectorType: 'patient' | 'representative' | 'hcp'
+  collectorDetails: string | null
+  wasIdRequested: boolean
+  wasIdProvided: boolean
+}
 
 export interface ScanState {
   // Queue
@@ -55,7 +64,9 @@ export interface ScanState {
     quantity: number
     scan: ScanQueueItem
     userId: string
-  }) => Promise<boolean>
+    /** Schedule 6 details the reviewer confirms for a supply (prescription). */
+    supply?: ScanSupplyDetails
+  }) => Promise<{ ok: boolean; error?: string }>
   rejectScanItem: (itemId: string) => Promise<boolean>
   editScanItem: (itemId: string, drugId: string, quantity: number) => Promise<boolean>
   retryScan: (params: {
@@ -308,7 +319,7 @@ export const useScanStore = create<ScanState>((set, get) => ({
   // ============================================
   // Approve a scan item — creates actual register entry
   // ============================================
-  approveScanItem: async ({ item, drugId, quantity, scan, userId }) => {
+  approveScanItem: async ({ item, drugId, quantity, scan, userId, supply }) => {
     try {
       // Determine transaction type from document type
       const isInvoice = scan.document_type === 'invoice'
@@ -326,56 +337,22 @@ export const useScanStore = create<ScanState>((set, get) => ({
 
       if (!drugData) throw new Error('Drug not found')
 
-      // Find existing ledger
-      let ledger: { id: string; lock_version: number; current_balance: number } | null = null
-      const { data: existingLedger } = await getUserClient()
+      // The drug must already be on the pharmacy's CD register. Registers are
+      // only created through ps_create_cd_register, which writes the signed
+      // opening balance line.
+      const { data: ledger } = await getUserClient()
         .from('ps_register_ledgers')
         .select('id, lock_version, current_balance')
         .eq('organisation_id', orgId)
         .eq('drug_id', drugId)
         .eq('register_type', 'CD')
-        .single()
+        .maybeSingle()
 
-      if (existingLedger) {
-        ledger = existingLedger
-      } else {
-        // Create new ledger
-        const { data: newLedger, error: ledgerError } = await getUserClient()
-          .from('ps_register_ledgers')
-          .insert({
-            organisation_id: orgId,
-            register_type: 'CD',
-            drug_id: drugId,
-            drug_name: (drugData as CDDrug).drug_brand,
-            drug_form: (drugData as CDDrug).drug_form,
-            drug_strength: (drugData as CDDrug).drug_strength,
-            drug_class: (drugData as CDDrug).drug_class,
-            current_balance: 0,
-            created_by: userId,
-          })
-          .select('id, lock_version, current_balance')
-          .single()
-
-        if (ledgerError || !newLedger) throw new Error(`Failed to create ledger: ${ledgerError?.message}`)
-        ledger = newLedger
-      }
-
-      // Also ensure subscribed register exists
-      await getUserClient()
-        .from('ps_subscribed_registers')
-        .upsert({
-          organisation_id: orgId,
-          drug_id: drugId,
-          drug_brand: (drugData as CDDrug).drug_brand,
-          drug_form: (drugData as CDDrug).drug_form,
-          drug_strength: (drugData as CDDrug).drug_strength,
-          drug_class: (drugData as CDDrug).drug_class,
-          drug_type: (drugData as CDDrug).drug_type,
-          created_by: userId,
-        }, { onConflict: 'organisation_id,drug_id', ignoreDuplicates: true })
+      if (!ledger) throw new Error(`Add ${(drugData as CDDrug).drug_brand} to your CD register before approving this entry.`)
+      if (!isInvoice && !supply) throw new Error('Confirm who collected the medicine and whether ID was checked.')
 
       // Create register entry via RPC
-      const today = new Date().toISOString().split('T')[0]
+      const today = ukToday()
       const entryDate = isInvoice
         ? (scan.invoice_date || today)
         : today
@@ -399,16 +376,18 @@ export const useScanStore = create<ScanState>((set, get) => ({
         p_prescriber_name: !isInvoice ? (scan.prescriber_name || null) : null,
         p_prescriber_address: !isInvoice ? (scan.prescriber_address || null) : null,
         p_prescriber_registration: !isInvoice ? (scan.prescriber_registration || null) : null,
-        p_prescription_date: null,
+        p_prescription_date: !isInvoice ? (supply?.prescriptionDate || null) : null,
         p_witness_name: null,
         p_witness_role: null,
         p_authorised_by: null,
-        p_was_id_requested: null,
-        p_was_id_provided: null,
+        p_was_id_requested: !isInvoice ? (supply?.wasIdRequested ?? null) : null,
+        p_was_id_provided: !isInvoice ? (supply?.wasIdProvided ?? null) : null,
+        p_collector_type: !isInvoice ? (supply?.collectorType ?? null) : null,
+        p_collector_details: !isInvoice ? (supply?.collectorDetails || null) : null,
         p_scan_image_path: scan.image_path,
       })
 
-      if (entryError) throw new Error(`Failed to create entry: ${entryError.message}`)
+      if (entryError) throw new Error(entryError.message)
 
       const entryId = (entry as { id: string })?.id ?? null
 
@@ -452,10 +431,10 @@ export const useScanStore = create<ScanState>((set, get) => ({
       // Reload scan
       await get().loadScan(scan.id)
 
-      return true
+      return { ok: true }
     } catch (err) {
       console.error('Failed to approve scan item:', err)
-      return false
+      return { ok: false, error: err instanceof Error ? err.message : String(err) }
     }
   },
 

@@ -11,6 +11,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { getUserClient } from '@pharmstation/supabase-client'
 import { useAuthStore, useRegisterStore } from '@pharmstation/core'
 import type { KnownContact, RegisterEntry } from '@pharmstation/types'
+import { ukToday } from '@pharmstation/types'
 import { addEntryAnnotation } from '../annotations/EntryAnnotationsPanel'
 import { CDEntryWarningModal } from '../registers/CDEntryWarningModal'
 import { getCDEntryWarnings, type CDEntryWarning } from '../../utils/cdEntryWarnings'
@@ -71,7 +72,7 @@ export function CDEntryForm({ direction, packLabel, onSuccess, onCancel }: CDEnt
   const defaultValues: CDEntryFormData = direction === 'in'
     ? {
         direction: 'in',
-        date_of_transaction: new Date().toISOString().split('T')[0],
+        date_of_transaction: ukToday(),
         supplier_name: lastUsedValues.supplier_name ?? '',
         supplier_address: '',
         invoice_number: '',
@@ -80,7 +81,7 @@ export function CDEntryForm({ direction, packLabel, onSuccess, onCancel }: CDEnt
       }
     : {
         direction: 'out',
-        date_of_transaction: new Date().toISOString().split('T')[0],
+        date_of_transaction: ukToday(),
         patient_name: '',
         patient_address: '',
         prescriber_name: lastUsedValues.prescriber_name ?? '',
