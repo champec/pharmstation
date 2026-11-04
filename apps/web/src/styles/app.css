@@ -365,6 +365,12 @@
 .booking-checkbox-option input, .booking-multiselect-options input { width: 18px; height: 18px; accent-color: var(--booking-green); }
 .booking-multiselect-options { display: flex; flex-wrap: wrap; gap: 8px; }
 .booking-form-error { padding: 13px 15px; border-left: 4px solid #b83c35; background: #fee9e7; color: #8f2f2a; font-size: 14px; }
+.booking-form-notice { padding: 13px 15px; border-left: 4px solid var(--booking-green); background: #e8f4ee; color: #1f4d36; font-size: 14px; }
+.booking-turnstile { min-height: 65px; }
+.booking-manage { text-align: center; }
+.booking-manage .booking-result-detail { width: 100%; }
+.booking-manage-confirm { display: grid; gap: 10px; width: 100%; }
+.booking-manage-actions { display: flex; justify-content: center; gap: 10px; flex-wrap: wrap; }
 .booking-confirm-form > footer { display: flex; justify-content: flex-end; gap: 10px; padding-top: 5px; }
 .booking-result { display: grid; width: min(660px, calc(100% - 36px)); min-height: calc(100vh - 72px); place-items: center; align-content: center; gap: 11px; margin: 0 auto; text-align: center; }
 .booking-result-mark { display: grid; width: 70px; height: 70px; place-items: center; margin-bottom: 8px; border-radius: 50%; background: var(--booking-green); color: #fff; font-size: 34px; }

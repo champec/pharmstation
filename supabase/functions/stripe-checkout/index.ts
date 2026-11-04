@@ -119,9 +119,16 @@ async function createCheckoutSession(body: Record<string, unknown>): Promise<Res
   // The caller is unauthenticated, so any linked appointment or patient
   // must already belong to this org.
   if (appointment_id) {
-    const { data } = await db.from('ps_appointments').select('id')
+    const { data } = await db.from('ps_appointments').select('id, status, service_id, hold_expires_at')
       .eq('id', appointment_id).eq('org_id', org_id).maybeSingle()
     if (!data) return json({ error: 'Appointment not found' }, 404)
+    // Only a booking still waiting for payment can be paid for.
+    if (data.status !== 'pending' || data.service_id !== service_id) {
+      return json({ error: 'This booking is no longer waiting for payment' }, 409)
+    }
+    if (data.hold_expires_at && new Date(data.hold_expires_at).getTime() < Date.now()) {
+      return json({ error: 'This booking has expired. Please book again.' }, 409)
+    }
   }
   if (patient_id) {
     const { data } = await db.from('ps_patients').select('id')

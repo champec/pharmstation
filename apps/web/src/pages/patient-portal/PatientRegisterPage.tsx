@@ -17,6 +17,7 @@ export function PatientRegisterPage() {
   const [orgs, setOrgs] = useState<Organisation[]>([])
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [sentTo, setSentTo] = useState<string | null>(null)
 
   useEffect(() => {
     getUserClient()
@@ -30,17 +31,18 @@ export function PatientRegisterPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (password !== confirmPw) { setError('Passwords do not match.'); return }
-    if (password.length < 6) { setError('Password must be at least 6 characters.'); return }
+    if (password.length < 8) { setError('Password must be at least 8 characters.'); return }
     if (!orgId) { setError('Please select your pharmacy.'); return }
     setLoading(true)
     setError('')
     try {
-      await register(email.trim(), password, {
+      const out = await register(email.trim(), password, {
         first_name: firstName.trim(),
         last_name: lastName.trim(),
         organisation_id: orgId,
       })
-      navigate('/patient/appointments')
+      if (out.needsConfirmation) setSentTo(email.trim())
+      else navigate('/patient/appointments')
     } catch (err: any) {
       setError(err.message || 'Registration failed.')
     }
@@ -58,6 +60,13 @@ export function PatientRegisterPage() {
 
         {error && <div className="auth-error" style={{ marginBottom: 'var(--ps-space-md)' }}>{error}</div>}
 
+        {sentTo ? (
+          <div style={{ textAlign: 'center' }}>
+            <p>We've sent a link to <strong>{sentTo}</strong>. Click it to confirm your email, then sign in.</p>
+            <p style={{ color: 'var(--ps-slate)', fontSize: 'var(--ps-font-sm)' }}>Any bookings you've already made with this email will appear in your account once it's confirmed.</p>
+            <Link to="/patient/login" className="ps-btn ps-btn-primary">Go to sign in</Link>
+          </div>
+        ) : (
         <form onSubmit={handleSubmit}>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--ps-space-md)' }}>
             <div className="form-group">
@@ -82,7 +91,7 @@ export function PatientRegisterPage() {
           </div>
           <div className="form-group">
             <label>Password *</label>
-            <input className="ps-input" type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Min 6 characters" />
+            <input className="ps-input" type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="At least 8 characters" />
           </div>
           <div className="form-group">
             <label>Confirm Password *</label>
@@ -97,6 +106,7 @@ export function PatientRegisterPage() {
             {loading ? 'Creating account…' : 'Create Account'}
           </button>
         </form>
+        )}
 
         <div style={{ textAlign: 'center', marginTop: 'var(--ps-space-lg)', fontSize: 'var(--ps-font-sm)', color: 'var(--ps-slate)' }}>
           Already have an account?{' '}

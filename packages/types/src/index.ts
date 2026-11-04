@@ -944,6 +944,8 @@ export interface Service {
   price_pence?: number | null
   /** ISO currency code, defaults to gbp */
   currency?: string
+  /** Delivered by video: booking it sets up a video consultation */
+  is_video?: boolean
 }
 
 // ============ Payments (Stripe) ============
@@ -1123,6 +1125,17 @@ export interface Appointment {
   booked_by_user_id: string | null
   created_at: string
   updated_at: string
+  /** Unpaid booking of a paid service: released automatically after this time */
+  hold_expires_at?: string | null
+  /** Secret for the patient's manage link — staff only, never show to other patients */
+  manage_token?: string
+  /** Why staff should check which patient record this booking belongs to */
+  patient_review_reason?: string | null
+  cancelled_at?: string | null
+  cancelled_by?: 'patient' | 'pharmacy' | 'system' | null
+  reminder_sent_at?: string | null
+  /** How it was booked: by staff, the public booking page, or the patient portal */
+  source?: 'staff' | 'public' | 'portal'
   // Joined
   patient?: Patient
   service?: Service | null

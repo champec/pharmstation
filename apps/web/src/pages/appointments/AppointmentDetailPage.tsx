@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useAppointmentStore } from '@pharmstation/core'
+import { getUserClient } from '@pharmstation/supabase-client'
 import type { AppointmentStatus } from '@pharmstation/types'
 import { Modal } from '../../components/Modal'
 
@@ -40,6 +41,21 @@ export function AppointmentDetailPage() {
     if (appt?.notes) setNotesValue(appt.notes)
   }, [appt?.notes])
 
+  const [paidPence, setPaidPence] = useState(0)
+  const [refundOnCancel, setRefundOnCancel] = useState(true)
+  const [busy, setBusy] = useState(false)
+  const [copied, setCopied] = useState(false)
+
+  useEffect(() => {
+    if (!id) return
+    getUserClient().from('ps_payments')
+      .select('amount_pence, refunded_pence')
+      .eq('appointment_id', id).in('status', ['succeeded', 'partially_refunded'])
+      .then(({ data }) => {
+        setPaidPence((data ?? []).reduce((t, p: any) => t + p.amount_pence - (p.refunded_pence ?? 0), 0))
+      })
+  }, [id, appt?.status])
+
   const handleStatusChange = async (newStatus: AppointmentStatus) => {
     if (!id) return
     try {
@@ -48,6 +64,38 @@ export function AppointmentDetailPage() {
     } catch (e: any) {
       alert(e.message)
     }
+  }
+
+  // Confirm / cancel go through the server so the patient gets a text and
+  // a paid booking can be refunded in the same step.
+  const staffSetStatus = async (status: 'confirmed' | 'cancelled') => {
+    if (!id) return
+    setBusy(true)
+    try {
+      const { data, error } = await getUserClient().functions.invoke('appointments', {
+        body: { action: 'staff_set_status', appointment_id: id, status, refund: status === 'cancelled' && paidPence > 0 && refundOnCancel },
+      })
+      let msg = data?.error as string | undefined
+      const ctx = (error as any)?.context
+      if (error && !msg && ctx && typeof ctx.json === 'function') {
+        try { msg = (await ctx.json())?.error } catch { /* ignore */ }
+      }
+      if (error || msg) throw new Error(msg || error?.message || 'Update failed')
+      if (data?.refund_error) alert(data.refund_error)
+      fetchAppointmentDetail(id)
+    } catch (e: any) {
+      alert(e.message)
+    }
+    setBusy(false)
+  }
+
+  const copyManageLink = async () => {
+    if (!appt?.manage_token) return
+    try {
+      await navigator.clipboard.writeText(`${window.location.origin}/booking/manage/${appt.manage_token}`)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    } catch { /* ignore */ }
   }
 
   const handleSaveNotes = async () => {
@@ -120,9 +168,32 @@ export function AppointmentDetailPage() {
           textTransform: 'uppercase',
           letterSpacing: '0.05em',
         }}>
-          {statusInfo.label}
+          {appt.status === 'pending' && appt.hold_expires_at ? 'Awaiting payment' : statusInfo.label}
         </span>
+        {appt.status === 'cancelled' && appt.cancelled_by && (
+          <span style={{ marginLeft: 'var(--ps-space-md)', color: 'var(--ps-slate)', fontSize: 'var(--ps-font-sm)' }}>
+            {appt.cancelled_by === 'patient' ? 'Cancelled by the patient' : appt.cancelled_by === 'system' ? 'Released automatically (not paid in time)' : 'Cancelled by the pharmacy'}
+            {appt.cancelled_at ? ` on ${new Date(appt.cancelled_at).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' })}` : ''}
+          </span>
+        )}
+        {paidPence > 0 && (
+          <span style={{ marginLeft: 'var(--ps-space-md)', color: 'var(--ps-slate)', fontSize: 'var(--ps-font-sm)' }}>
+            Paid online £{(paidPence / 100).toFixed(2)}
+          </span>
+        )}
       </div>
+
+      {appt.status === 'pending' && appt.hold_expires_at && (
+        <div className="ps-card" style={{ padding: 'var(--ps-space-md)', marginBottom: 'var(--ps-space-lg)', borderLeft: '4px solid #d97706' }}>
+          The patient is paying online. If they don't finish by {new Date(appt.hold_expires_at).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}, the booking is cancelled and the slot is released.
+        </div>
+      )}
+
+      {appt.patient_review_reason && (
+        <div className="ps-card" style={{ padding: 'var(--ps-space-md)', marginBottom: 'var(--ps-space-lg)', borderLeft: '4px solid var(--ps-error)' }}>
+          <strong>Check the patient record.</strong> {appt.patient_review_reason}
+        </div>
+      )}
 
       <div className="ps-split" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--ps-space-lg)' }}>
         {/* Patient info */}
@@ -240,8 +311,8 @@ export function AppointmentDetailPage() {
         </h3>
         <div style={{ display: 'flex', gap: 'var(--ps-space-sm)', flexWrap: 'wrap' }}>
           {appt.status === 'pending' && (
-            <button className="ps-btn ps-btn-primary" onClick={() => handleStatusChange('confirmed')}>
-              ✓ Confirm
+            <button className="ps-btn ps-btn-primary" onClick={() => staffSetStatus('confirmed')} disabled={busy}>
+              ✓ Confirm and text patient
             </button>
           )}
           {(appt.status === 'pending' || appt.status === 'confirmed') && (
@@ -267,6 +338,11 @@ export function AppointmentDetailPage() {
               ✕ Cancel Appointment
             </button>
           )}
+          {appt.manage_token && (appt.status === 'pending' || appt.status === 'confirmed') && (
+            <button className="ps-btn ps-btn-ghost" onClick={copyManageLink} title="A link the patient can use to view or cancel this booking">
+              {copied ? 'Link copied' : '🔗 Copy patient link'}
+            </button>
+          )}
         </div>
       </div>
 
@@ -274,15 +350,22 @@ export function AppointmentDetailPage() {
       <Modal isOpen={showCancelModal} onClose={() => setShowCancelModal(false)} title="Cancel Appointment" width="420px">
         <div>
           <p style={{ marginBottom: 'var(--ps-space-lg)' }}>
-            Are you sure you want to cancel this appointment? This action will free up the time slot.
+            Are you sure you want to cancel this appointment? This frees up the time slot and texts the patient.
           </p>
+          {paidPence > 0 && (
+            <label style={{ display: 'flex', gap: 'var(--ps-space-sm)', alignItems: 'center', marginBottom: 'var(--ps-space-lg)' }}>
+              <input type="checkbox" checked={refundOnCancel} onChange={(e) => setRefundOnCancel(e.target.checked)} />
+              Refund the £{(paidPence / 100).toFixed(2)} they paid
+            </label>
+          )}
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 'var(--ps-space-sm)' }}>
             <button className="ps-btn ps-btn-secondary" onClick={() => setShowCancelModal(false)}>Keep Appointment</button>
             <button
               className="ps-btn ps-btn-primary"
               style={{ background: 'var(--ps-error)' }}
+              disabled={busy}
               onClick={() => {
-                handleStatusChange('cancelled')
+                staffSetStatus('cancelled')
                 setShowCancelModal(false)
               }}
             >

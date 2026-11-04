@@ -20,7 +20,7 @@ export interface PatientState {
     first_name: string
     last_name: string
     organisation_id: string
-  }) => Promise<void>
+  }) => Promise<{ needsConfirmation: boolean }>
   logout: () => Promise<void>
 }
 
@@ -54,14 +54,14 @@ export const usePatientStore = create<PatientState>((set) => ({
   },
 
   register: async (email, password, metadata) => {
-    await patientSignUp(email, password, { ...metadata, account_type: 'patient' })
-    // After signup, auto-login
-    const data = await patientSignIn(email, password)
-    if (data.user) {
-      const profile = await fetchPatientProfile(data.user.id)
-      await useAuthStore.getState().refreshUserLayer()
-      set({ patient: profile as Patient, isLoggedIn: true, loading: false })
-    }
+    const signup = await patientSignUp(email, password, { ...metadata, account_type: 'patient' })
+    // Email confirmation is on: no session until the patient clicks the link.
+    // Their patient record is created and linked when they confirm.
+    if (!signup.session) return { needsConfirmation: true }
+    const profile = await fetchPatientProfile(signup.session.user.id)
+    await useAuthStore.getState().refreshUserLayer()
+    set({ patient: profile as Patient, isLoggedIn: true, loading: false })
+    return { needsConfirmation: false }
   },
 
   logout: async () => {
