@@ -423,6 +423,10 @@ export interface AuditLogEntry {
 }
 
 // --- Default Role Permissions ---
+// Mirrored in the database by ps_role_default_permission() (see
+// supabase/migrations/20261104120000_role_permissions_foundation.sql), which
+// RLS policies and functions use through ps_member_has_permission().
+// Change both together.
 
 export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, Permissions> = {
   owner: {
