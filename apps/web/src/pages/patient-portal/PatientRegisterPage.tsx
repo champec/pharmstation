@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { PublicSiteShell } from '../../components/public/PublicSiteShell'
 import { usePatientStore } from '@pharmstation/core'
-import { getUserClient } from '@pharmstation/supabase-client'
+import { getUserClient, passwordProblem } from '@pharmstation/supabase-client'
 import type { Organisation } from '@pharmstation/types'
 
 export function PatientRegisterPage() {
@@ -31,7 +31,8 @@ export function PatientRegisterPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (password !== confirmPw) { setError('Passwords do not match.'); return }
-    if (password.length < 8) { setError('Password must be at least 8 characters.'); return }
+    const pwProblem = passwordProblem(password)
+    if (pwProblem) { setError(`${pwProblem} in your password.`); return }
     if (!orgId) { setError('Please select your pharmacy.'); return }
     setLoading(true)
     setError('')
@@ -91,7 +92,7 @@ export function PatientRegisterPage() {
           </div>
           <div className="form-group">
             <label>Password *</label>
-            <input className="ps-input" type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="At least 8 characters" />
+            <input className="ps-input" type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="10+ characters, letters and numbers" />
           </div>
           <div className="form-group">
             <label>Confirm Password *</label>

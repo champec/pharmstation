@@ -7,6 +7,7 @@ import {
   previewInvite,
   acceptInvite,
   friendlyAuthError,
+  passwordProblem,
 } from '@pharmstation/supabase-client'
 import { ROLE_LABELS, type InvitePreview, type UserRole } from '@pharmstation/types'
 
@@ -59,7 +60,8 @@ export function JoinInvitePage() {
     if (mode === 'new') {
       if (!fullName.trim()) return setError('Enter your full name')
       if (gphcNumber && !/^\d{7}$/.test(gphcNumber)) return setError('A GPhC registration number is 7 digits')
-      if (password.length < 10) return setError('Use at least 10 characters for your password')
+      const pwProblem = passwordProblem(password)
+      if (pwProblem) return setError(`${pwProblem} in your password`)
     }
     setBusy(true)
     try {

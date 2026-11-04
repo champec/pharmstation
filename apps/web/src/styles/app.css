@@ -5851,6 +5851,12 @@
   margin-top: var(--ps-space-xs);
 }
 
+.auth-forgot-link {
+  text-align: right;
+  margin: calc(var(--ps-space-xs) * -1) 0 var(--ps-space-sm);
+  font-size: var(--ps-font-sm);
+}
+
 .auth-error {
   background: rgba(239, 68, 68, 0.1);
   color: var(--ps-error);

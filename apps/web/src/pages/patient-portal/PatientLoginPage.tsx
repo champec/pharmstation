@@ -47,6 +47,9 @@ export function PatientLoginPage() {
             <label>Password</label>
             <input className="ps-input" type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Enter your password" />
           </div>
+          <div className="auth-forgot-link">
+            <Link to="/forgot-password/patient">Forgot password?</Link>
+          </div>
           <button className="ps-btn ps-btn-primary" type="submit" disabled={loading || !email.trim() || !password} style={{ width: '100%', marginTop: 'var(--ps-space-md)' }}>
             {loading ? 'Signing in…' : 'Sign In'}
           </button>
