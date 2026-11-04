@@ -33,7 +33,7 @@ export function friendlyAuthError(err: unknown): string {
     return 'That email already has a PharmStation account. Sign in instead, or use a different email.'
   }
   if (/password/i.test(message) && /(weak|short|least|pwned|leaked)/i.test(message)) {
-    return 'Choose a stronger password: at least 8 characters, and not one that has appeared in a data breach.'
+    return 'Choose a stronger password: at least 10 characters with letters and numbers, and not one that has appeared in a data breach.'
   }
   if (/rate limit|too many/i.test(message)) {
     return 'Too many attempts. Wait a few minutes and try again.'

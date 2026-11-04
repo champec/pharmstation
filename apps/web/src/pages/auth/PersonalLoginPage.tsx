@@ -77,6 +77,9 @@ export function PersonalLoginPage() {
             required
           />
         </div>
+        <div className="auth-forgot-link">
+          <Link to="/forgot-password/me">Forgot password?</Link>
+        </div>
 
         <button
           type="submit"

@@ -115,6 +115,9 @@ export function UserLoginPage() {
             autoFocus={savedStaff.length > 0}
           />
         </div>
+        <div className="auth-forgot-link">
+          <Link to="/forgot-password/staff">Forgot password?</Link>
+        </div>
 
         <button
           type="submit"

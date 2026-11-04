@@ -6,6 +6,8 @@ import { DashboardLayout } from './layouts/DashboardLayout'
 import { LocumLayout } from './layouts/LocumLayout'
 import { OrgLoginPage } from './pages/auth/OrgLoginPage'
 import { UserLoginPage } from './pages/auth/UserLoginPage'
+import { ForgotPasswordPage } from './pages/auth/ForgotPasswordPage'
+import { ResetPasswordPage } from './pages/auth/ResetPasswordPage'
 import { PersonalLoginPage } from './pages/auth/PersonalLoginPage'
 import { PersonalProfilePage } from './pages/PersonalProfilePage'
 import { LocumApprovalsPage } from './pages/admin/LocumApprovalsPage'
@@ -270,6 +272,9 @@ export function App() {
           element={isOrgLoggedIn ? <OwnerSetupPage /> : <Navigate to="/login/org" replace />}
         />
         <Route path="/join/:token" element={<JoinInvitePage />} />
+        {/* Password reset: open whatever is signed in on this device */}
+        <Route path="/forgot-password/:kind?" element={<ForgotPasswordPage />} />
+        <Route path="/reset-password/:kind?" element={<ResetPasswordPage />} />
         {/* Personal (individual-tier) login — bypasses org entirely */}
         <Route
           path="/me/login"

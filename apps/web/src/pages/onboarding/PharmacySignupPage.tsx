@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
-import { getOrgClient, friendlyAuthError } from '@pharmstation/supabase-client'
+import { getOrgClient, friendlyAuthError, passwordProblem } from '@pharmstation/supabase-client'
 import { OwnerSetupForm } from './OwnerSetupForm'
 
 type Step = 'pharmacy' | 'confirm-email' | 'owner'
@@ -37,7 +37,8 @@ export function PharmacySignupPage() {
     if (!/^\d{7}$/.test(premises.trim())) return setError('The GPhC premises registration number is 7 digits. You can find it on the GPhC register.')
     if (!line1.trim() || !city.trim()) return setError('Enter the pharmacy’s address')
     if (!POSTCODE_RE.test(postcode.trim())) return setError('Enter a valid UK postcode')
-    if (password.length < 10) return setError('Use at least 10 characters for the pharmacy password')
+    const pwProblem = passwordProblem(password)
+    if (pwProblem) return setError(`${pwProblem} in the pharmacy password`)
     if (password !== confirm) return setError('The passwords don’t match')
     if (!agreed) return setError('Please confirm you’re authorised to register this pharmacy')
 

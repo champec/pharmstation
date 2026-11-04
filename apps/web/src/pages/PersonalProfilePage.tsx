@@ -4,6 +4,7 @@ import { getUserClient } from '@pharmstation/supabase-client'
 import { useAuthStore, useAlertStore } from '@pharmstation/core'
 import { LocumReviewAdminCard } from '../components/LocumReviewAdminCard'
 import { PlatformAdminCard } from '../components/PlatformAdminCard'
+import { ChangePasswordCard } from '../components/ChangePasswordCard'
 
 interface LocumSummary {
   id: string
@@ -200,6 +201,8 @@ export function PersonalProfilePage() {
           </div>
         </div>
       </form>
+
+      <ChangePasswordCard />
 
       {/* Workplace */}
       <div className="ps-card" style={{ marginBottom: '1.25rem' }}>
