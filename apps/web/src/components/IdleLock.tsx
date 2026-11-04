@@ -70,7 +70,7 @@ export function IdleLock() {
     } catch {
       // The notice on the sign-in page is a nicety only.
     }
-    await switchUser()
+    await switchUser('idle')
   }, [minutes, switchUser])
 
   useEffect(() => {

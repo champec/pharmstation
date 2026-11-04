@@ -7,6 +7,7 @@ import { AlertSettingsTab } from './settings/AlertSettingsTab'
 import { BillingSettingsTab } from './settings/BillingSettingsTab'
 import { TeamSettingsTab } from './settings/TeamSettingsTab'
 import { GeneralSettingsTab } from './settings/GeneralSettingsTab'
+import { SignInActivityCard } from '../components/account/SignInActivityCard'
 
 type Tab = 'general' | 'team' | 'ai' | 'messaging' | 'alerts' | 'nhs' | 'payments' | 'billing'
 
@@ -48,7 +49,12 @@ export function SettingsPage() {
 
       {tab === 'general' && <GeneralSettingsTab />}
 
-      {tab === 'team' && <TeamSettingsTab />}
+      {tab === 'team' && (
+        <>
+          <TeamSettingsTab />
+          <SignInActivityCard />
+        </>
+      )}
       {tab === 'messaging' && <MessagingSettingsTab />}
       {tab === 'alerts' && <AlertSettingsTab />}
       {tab === 'ai' && <AISettingsTab />}

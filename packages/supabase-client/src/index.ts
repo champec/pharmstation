@@ -343,3 +343,6 @@ export * from './team'
 
 // Two-step sign-in
 export * from './mfa'
+
+// Account self-service and sign-in activity
+export * from './account'

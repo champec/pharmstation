@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useAuthStore } from '@pharmstation/core'
-import { getUserClient, listTotpFactors, removeTotpFactor, type TotpFactor } from '@pharmstation/supabase-client'
+import { getUserClient, listTotpFactors, logAuthEvent, removeTotpFactor, type TotpFactor } from '@pharmstation/supabase-client'
 import { TotpSetup } from './TotpSetup'
 
 /** My profile: turn two-step sign-in on or off. */
@@ -25,6 +25,7 @@ export function TwoStepCard() {
     setError(null)
     try {
       await removeTotpFactor(id)
+      void logAuthEvent(membership?.organisation_id, 'two_step_off')
       load()
       await refreshMfaSetup()
     } catch (err) {
@@ -68,7 +69,7 @@ export function TwoStepCard() {
             ))}
           </>
         ) : (
-          <TotpSetup onDone={() => { load(); void refreshMfaSetup() }} />
+          <TotpSetup onDone={() => { load(); void refreshMfaSetup(); void logAuthEvent(membership?.organisation_id, 'two_step_on') }} />
         )}
       </div>
     </div>

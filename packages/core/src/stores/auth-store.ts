@@ -20,6 +20,7 @@ import {
   fetchLocumExtendedProfile,
   getMfaStatus,
   claimLocumShiftAccess,
+  logAuthEvent,
   verifyTotpCode,
 } from '@pharmstation/supabase-client'
 
@@ -67,7 +68,9 @@ export interface AuthState {
   cancelUserMfa: () => Promise<void>
   /** Re-check whether this account still has to add an authenticator app. */
   refreshMfaSetup: () => Promise<void>
-  switchUser: () => Promise<void>
+  /** Sign the person out, keeping the pharmacy. reason 'idle' records an
+   *  automatic sign-out in the pharmacy's sign-in activity. */
+  switchUser: (reason?: 'idle') => Promise<void>
   /** Re-read the user-layer session + profile + membership from the client.
    *  Used by portal flows (locum/patient/personal) after they sign in. */
   refreshUserLayer: () => Promise<void>
@@ -338,6 +341,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   // User Logout (org stays)
   // ============================================
   userLogout: async () => {
+    if (get().membership) await logAuthEvent(get().organisation?.id, 'sign_out')
     await _userSignOut()
     set({
       userSession: null,
@@ -355,7 +359,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   // ============================================
   // Switch User — same as logout, shows picker
   // ============================================
-  switchUser: async () => {
+  switchUser: async (reason?: 'idle') => {
+    if (get().membership) await logAuthEvent(get().organisation?.id, reason === 'idle' ? 'idle_sign_out' : 'sign_out')
     await _userSignOut()
     set({
       userSession: null,
@@ -542,6 +547,8 @@ async function finishUserLogin(
   } catch {
     // Locum role not activated for this user
   }
+
+  if (membership && org) void logAuthEvent(org.id, 'sign_in')
 
   set({
     userSession: data.session,

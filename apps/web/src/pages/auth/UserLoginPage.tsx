@@ -1,7 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuthStore } from '@pharmstation/core'
-import { orgNeedsOwner } from '@pharmstation/supabase-client'
+import { logAuthEvent, orgNeedsOwner } from '@pharmstation/supabase-client'
 import { IDLE_SIGNOUT_FLAG } from '../../components/IdleLock'
 import { MfaCodeForm } from '../../components/mfa/MfaCodeForm'
 
@@ -59,6 +59,7 @@ export function UserLoginPage() {
           : typeof err === 'object' && err !== null && 'message' in err
             ? String((err as { message: unknown }).message)
             : 'Login failed. Please try again.'
+      void logAuthEvent(organisation?.id, 'failed_sign_in', email)
       setError(message)
     } finally {
       setLoading(false)

@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import { useAuthStore } from '@pharmstation/core'
+import { logAuthEvent } from '@pharmstation/supabase-client'
 import { TotpSetup } from './TotpSetup'
 
 /** Owners and managers add an authenticator app before using the pharmacy. */
@@ -15,7 +16,13 @@ export function MfaSetupGate({ children }: { children: ReactNode }) {
           As {membership?.role === 'owner' ? 'an owner' : 'a manager'}, you can manage staff, settings and
           registers, so PharmStation needs two-step sign-in on your account. It takes about a minute.
         </p>
-        <TotpSetup onDone={() => void refreshMfaSetup()} startLabel="Set it up now" />
+        <TotpSetup
+          onDone={() => {
+            void logAuthEvent(membership?.organisation_id, 'two_step_on')
+            void refreshMfaSetup()
+          }}
+          startLabel="Set it up now"
+        />
         <p className="text-muted" style={{ marginTop: '1.25rem', fontSize: '0.8125rem' }}>
           Not you, or not now?{' '}
           <button type="button" className="ps-btn ps-btn-ghost ps-btn-sm" onClick={() => switchUser()}>
