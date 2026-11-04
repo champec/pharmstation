@@ -41,7 +41,7 @@ export const MODULES: MobileModule[] = [
         id: 'security',
         title: 'Security',
         icon: 'shield-checkmark-outline',
-        blurb: 'Biometric lock, PIN and active sessions',
+        blurb: 'Two-step sign-in codes',
       },
     ],
   },

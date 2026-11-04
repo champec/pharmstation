@@ -4,7 +4,7 @@ import { StyleSheet, Text, View } from 'react-native'
 import { useRouter } from 'expo-router'
 
 import { Button } from '@/components/ui/Button'
-import { TabPlaceholder } from '@/components/module/TabPlaceholder'
+import { SecurityTab } from '@/modules/screens/authenticator'
 import { useAuthStore } from '@/stores/auth-store'
 import { palette, radius } from '@/theme/palette'
 
@@ -72,17 +72,6 @@ function PharmaciesTab() {
         onPress={() => router.push('/(app)/connect-pharmacy')}
       />
     </View>
-  )
-}
-
-function SecurityTab() {
-  return (
-    <TabPlaceholder
-      icon="shield-checkmark-outline"
-      title="Security"
-      blurb="Biometric lock, quick-login PIN and active sessions."
-      color={palette.brand}
-    />
   )
 }
 

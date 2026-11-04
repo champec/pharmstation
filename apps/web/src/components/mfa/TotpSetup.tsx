@@ -53,11 +53,11 @@ export function TotpSetup({ onDone, startLabel = 'Set up two-step sign-in' }: { 
     <form onSubmit={confirm} className="totp-setup">
       <ol className="totp-steps">
         <li>
-          Install an authenticator app on your phone if you don&rsquo;t have one, such as Google Authenticator,
-          Microsoft Authenticator or 1Password.
+          On your phone, open the PharmStation app and go to My Account &gt; Security. Any authenticator app
+          works too, such as Google Authenticator, Microsoft Authenticator or 1Password.
         </li>
         <li>
-          In the app, add an account and scan this code.
+          Tap &ldquo;Scan a QR code&rdquo; (or add an account in your authenticator app) and scan this code.
           <div className="totp-qr">
             <img src={enrollment.qrCode} alt="QR code for your authenticator app" width={180} height={180} />
           </div>
