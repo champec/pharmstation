@@ -6,8 +6,12 @@
 -- carries access_expires_at; a pg_cron job revokes it once that passes.
 --
 -- Rules
---  - Only approved bookings on shifts that aren't cancelled, and only for
---    locums whose compliance review is approved.
+--  - Only approved bookings (or completed ones, so a locum who signed out
+--    can sign back in within the window) on shifts that aren't cancelled,
+--    and only for locums whose compliance review is approved. Never no_show.
+--  - Access ends within 5 minutes when the window passes, or when the
+--    booking is cancelled, rejected or marked no-show, the shift is
+--    cancelled, or the locum's compliance is no longer approved.
 --  - Never touches a permanent membership (access_expires_at is null): if a
 --    manager suspended or removed someone, a booking doesn't undo that.
 --  - Shift dates and times are UK local time; a shift ending at or before its
@@ -48,7 +52,7 @@ begin
   where lp.user_id = v_uid
     and lp.compliance_status = 'approved'
     and s.org_id = p_org_id
-    and b.status = 'approved'
+    and b.status in ('approved', 'completed')
     and coalesce(s.status, 'open') <> 'cancelled'
     and now() between ((s.date + s.start_time) at time zone 'Europe/London') - interval '1 hour'
                   and ((s.date + s.end_time + case when s.end_time <= s.start_time then interval '1 day' else interval '0' end) at time zone 'Europe/London') + interval '2 hours'
@@ -100,11 +104,23 @@ security definer
 set search_path = public
 as $$
   with expired as (
-    update ps_organisation_members
+    update ps_organisation_members m
        set status = 'revoked'
-     where access_expires_at is not null
-       and access_expires_at <= now()
-       and status = 'active'
+     where m.access_expires_at is not null
+       and m.status = 'active'
+       and (
+         m.access_expires_at <= now()
+         or not exists (
+           select 1
+           from ps_locum_bookings b
+           join ps_locum_shifts s on s.id = b.shift_id
+           join ps_locum_profiles lp on lp.id = b.locum_id
+           where b.id = m.shift_booking_id
+             and b.status in ('approved', 'completed')
+             and coalesce(s.status, 'open') <> 'cancelled'
+             and lp.compliance_status = 'approved'
+         )
+       )
     returning 1
   )
   select count(*)::integer from expired
