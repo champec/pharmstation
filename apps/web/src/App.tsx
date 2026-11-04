@@ -104,6 +104,7 @@ import { ManageBookingPage } from './pages/public/ManageBookingPage'
 import { PaymentResultPage } from './pages/public/PaymentResultPage'
 import { PaymentsPage } from './pages/payments/PaymentsPage'
 import { AboutPage } from './pages/public/AboutPage'
+import { ContactPage } from './pages/public/ContactPage'
 import { PublicPharmacyMapPage } from './pages/public/PublicPharmacyMapPage'
 import { PrivacyNoticePage } from './pages/public/PrivacyNoticePage'
 import { LandingPage } from './pages/public/LandingPage'
@@ -199,6 +200,7 @@ export function App() {
       <Route path="/shop" element={<ModernShopHomePage />} />
       <Route path="/shop/:orgSlug" element={<PublicShopOrgPage />} />
       <Route path="/about" element={<AboutPage />} />
+      <Route path="/contact" element={<ContactPage />} />
       <Route path="/privacy" element={<PrivacyNoticePage />} />
       <Route path="/resources" element={<ResourcesPage />} />
       <Route path="/resources/forms" element={<ServiceFormsPage />} />

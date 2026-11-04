@@ -14080,3 +14080,22 @@ textarea.form-input {
   .chat-composer-foot > span:first-child { display: none; }
   .chat-composer-input { font-size: 16px; }
 }
+
+/* Contact page and in-app help form */
+.contact-layout { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); gap: 24px; align-items: start; }
+.contact-form { display: grid; gap: 16px; }
+.contact-form .form-group { display: grid; gap: 6px; }
+.contact-form .ps-input { width: 100%; min-height: 44px; padding: 10px 12px; font-size: 15px; }
+.contact-form textarea.ps-input { resize: vertical; }
+.contact-form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.contact-optional { color: var(--landing-muted); font-weight: 400; }
+.contact-hint { color: var(--landing-muted); font-size: 13px; margin: 0; }
+.contact-honeypot { position: absolute; left: -10000px; width: 1px; height: 1px; overflow: hidden; }
+.contact-addresses { list-style: none; padding: 0; margin: 0 0 16px; display: grid; gap: 12px; }
+.contact-addresses li { display: grid; gap: 2px; }
+.contact-addresses a { font-weight: 700; color: var(--landing-blue); word-break: break-all; }
+.contact-addresses span { color: var(--landing-muted); font-size: 14px; }
+.contact-sent { display: grid; gap: 12px; justify-items: start; }
+@media (max-width: 860px) {
+  .contact-layout, .contact-form-row { grid-template-columns: 1fr; }
+}

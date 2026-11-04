@@ -24,12 +24,12 @@ function providerConfig(provider: Provider) {
   if (provider === 'microsoft') return {
     clientId: Deno.env.get('MICROSOFT_OAUTH_CLIENT_ID'), clientSecret: Deno.env.get('MICROSOFT_OAUTH_CLIENT_SECRET'),
     authorize: 'https://login.microsoftonline.com/common/oauth2/v2.0/authorize', token: 'https://login.microsoftonline.com/common/oauth2/v2.0/token',
-    scopes: ['openid', 'profile', 'email', 'offline_access', 'User.Read', 'Mail.Send', 'Mail.Read'],
+    scopes: ['openid', 'profile', 'email', 'offline_access', 'User.Read', 'Mail.Send'],
   }
   return {
     clientId: Deno.env.get('GOOGLE_OAUTH_CLIENT_ID'), clientSecret: Deno.env.get('GOOGLE_OAUTH_CLIENT_SECRET'),
     authorize: 'https://accounts.google.com/o/oauth2/v2/auth', token: 'https://oauth2.googleapis.com/token',
-    scopes: ['openid', 'profile', 'email', 'https://www.googleapis.com/auth/gmail.send', 'https://www.googleapis.com/auth/gmail.readonly'],
+    scopes: ['openid', 'profile', 'email', 'https://www.googleapis.com/auth/gmail.send'],
   }
 }
 

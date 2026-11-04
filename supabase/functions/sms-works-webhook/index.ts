@@ -214,10 +214,19 @@ async function handleInbound(admin: AdminClient, payload: Record<string, unknown
       opted_out_at: new Date().toISOString(),
     }, { onConflict: 'org_id,phone_normalized' })
     if (optErr) console.error('opt-out upsert error', optErr)
+    // Marketing sends check their own suppression list too, so STOP must reach it (PECR).
+    const { error: suppErr } = await admin.from('ps_marketing_suppressions').upsert({
+      org_id: orgId, channel: 'sms', destination_normalized: fromNorm, reason: 'recipient_opt_out', source: 'sms_keyword',
+    }, { onConflict: 'org_id,channel,destination_normalized' })
+    if (suppErr) console.error('marketing suppression upsert error', suppErr)
   } else if (OPT_IN_KEYWORDS.has(keyword)) {
     const { error: optErr } = await admin.from('ps_sms_opt_outs')
       .delete().eq('org_id', orgId).eq('phone_normalized', fromNorm)
     if (optErr) console.error('opt-in delete error', optErr)
+    // Only lift suppressions that came from a STOP text, never ones staff added.
+    const { error: suppErr } = await admin.from('ps_marketing_suppressions')
+      .delete().eq('org_id', orgId).eq('channel', 'sms').eq('destination_normalized', fromNorm).eq('source', 'sms_keyword')
+    if (suppErr) console.error('marketing suppression delete error', suppErr)
   }
 
   // Match only when exactly one patient owns this number. Shared family

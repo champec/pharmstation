@@ -48,7 +48,7 @@ export function PublicSiteFooter() {
         <Link to="/patient/login">Patient sign in</Link>
       </div>
       <small>
-        <Link to="/about">About</Link> · <Link to="/privacy">Privacy</Link> · <a href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>
+        <Link to="/about">About</Link> · <Link to="/contact">Contact</Link> · <Link to="/privacy">Privacy</Link> · <a href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>
         <br />© {new Date().getFullYear()} PharmStation
       </small>
     </footer>
