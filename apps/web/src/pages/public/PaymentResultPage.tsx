@@ -99,7 +99,7 @@ export function PaymentResultPage() {
           {payment.description ?? 'Your booking'} — <strong>£{(payment.amount_pence / 100).toFixed(2)}</strong>
         </p>
         <p>
-          Your appointment is confirmed and paid. Stripe has emailed you a receipt.
+          Your appointment is confirmed and paid. Stripe has emailed you a receipt, and if you gave a mobile number we have texted you a link to view, move or cancel the booking.
         </p>
       </>
     ))

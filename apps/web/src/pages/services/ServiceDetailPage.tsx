@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useServiceStore } from '@pharmstation/core'
+import { getUserClient } from '@pharmstation/supabase-client'
 import { Modal } from '../../components/Modal'
 
 export function ServiceDetailPage() {
@@ -33,6 +34,7 @@ export function ServiceDetailPage() {
   const [deleteFormId, setDeleteFormId] = useState<string | null>(null)
 
   // Pricing state
+  const [canTakePayments, setCanTakePayments] = useState<boolean | null>(null)
   const [priceInput, setPriceInput] = useState('')
   const [savingPrice, setSavingPrice] = useState(false)
 
@@ -41,6 +43,14 @@ export function ServiceDetailPage() {
   }, [serviceId, fetchServiceDetail])
 
   useEffect(() => { load() }, [load])
+
+  // Paid services are hidden from the public booking site until the
+  // pharmacy's Stripe account can take payments.
+  useEffect(() => {
+    if (!activeService?.org_id) return
+    getUserClient().rpc('ps_org_can_take_payments', { p_org_id: activeService.org_id })
+      .then(({ data }) => setCanTakePayments(data === true))
+  }, [activeService?.org_id])
 
   // Keep price input in sync when service loads
   useEffect(() => {
@@ -277,7 +287,15 @@ export function ServiceDetailPage() {
               Patients pay online (Stripe) when booking.
             </span>
           </div>
-        ) : (
+        ) : null}
+        {activeService.is_chargeable && canTakePayments === false ? (
+          <div className="auth-error" style={{ marginTop: 'var(--ps-space-md)' }}>
+            Patients can't book this service online yet: your pharmacy isn't set up to take card payments.{' '}
+            <a href="/settings" onClick={(e) => { e.preventDefault(); navigate('/settings') }}>Finish payment setup in Settings</a>{' '}
+            and it will appear on your booking page automatically.
+          </div>
+        ) : null}
+        {activeService.is_chargeable ? null : (
           <p style={{ margin: 0, color: 'var(--ps-slate)', fontSize: 'var(--ps-font-sm)' }}>
             This service is free — no payment is taken during booking.
           </p>

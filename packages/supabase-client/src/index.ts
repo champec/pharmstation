@@ -204,7 +204,10 @@ export async function patientSignUp(
   const { data, error } = await getPatientClient().auth.signUp({
     email,
     password,
-    options: { data: metadata },
+    options: {
+      data: metadata,
+      emailRedirectTo: typeof window !== 'undefined' ? `${window.location.origin}/patient/login?confirmed=1` : undefined,
+    },
   })
   if (error) throw error
   return data
@@ -220,13 +223,23 @@ export async function getPatientSession(): Promise<Session | null> {
   return data.session
 }
 
+/**
+ * The signed-in patient's record. A patient can be registered with more than
+ * one pharmacy (one ps_patients row each); the first one is their profile.
+ * Links any unlinked records with the same confirmed email first.
+ */
 export async function fetchPatientProfile(authUserId: string) {
-  const { data, error } = await getPatientClient()
+  const client = getPatientClient()
+  await client.rpc('ps_link_my_patient_account')
+  const { data, error } = await client
     .from('ps_patients')
     .select('*')
     .eq('auth_user_id', authUserId)
-    .single()
+    .order('created_at')
+    .limit(1)
+    .maybeSingle()
   if (error) throw error
+  if (!data) throw new Error('No patient record is linked to this account yet. If you have just signed up, please confirm your email first.')
   return data
 }
 

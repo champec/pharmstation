@@ -98,6 +98,7 @@ import { PublicBookingHomePage } from './pages/public/PublicBookingHomePage'
 import { PublicOrgPage } from './pages/public/PublicOrgPage'
 import { PublicServicePage } from './pages/public/PublicServicePage'
 import { PublicBookingConfirmPage } from './pages/public/PublicBookingConfirmPage'
+import { ManageBookingPage } from './pages/public/ManageBookingPage'
 import { PaymentResultPage } from './pages/public/PaymentResultPage'
 import { PaymentsPage } from './pages/payments/PaymentsPage'
 import { AboutPage } from './pages/public/AboutPage'
@@ -192,6 +193,7 @@ export function App() {
       <Route path="/book/:orgSlug/:serviceId" element={<PublicServicePage />} />
       <Route path="/book/:orgSlug/:serviceId/confirm" element={<PublicBookingConfirmPage />} />
       <Route path="/book/:orgSlug/payment-result" element={<PaymentResultPage />} />
+      <Route path="/booking/manage/:token" element={<ManageBookingPage />} />
       <Route path="/shop" element={<ModernShopHomePage />} />
       <Route path="/shop/:orgSlug" element={<PublicShopOrgPage />} />
       <Route path="/about" element={<AboutPage />} />

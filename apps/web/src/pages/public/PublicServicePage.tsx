@@ -5,6 +5,11 @@ import type { Organisation, Service, AppointmentSlot } from '@pharmstation/types
 import { orgSlugOrIdFilter } from '../../lib/orgSlugFilter'
 import { PublicFooter } from '../../components/public/PublicFooter'
 
+/** YYYY-MM-DD in the visitor's own time zone (UTC would show the wrong day around midnight in BST). */
+function localDay(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
 export function PublicServicePage() {
   const { orgSlug, serviceId } = useParams<{ orgSlug: string; serviceId: string }>()
   const navigate = useNavigate()
@@ -13,7 +18,7 @@ export function PublicServicePage() {
   const [slots, setSlots] = useState<AppointmentSlot[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().slice(0, 10))
+  const [selectedDate, setSelectedDate] = useState(localDay(new Date()))
   const [selectedSlot, setSelectedSlot] = useState<string | null>(null)
 
   useEffect(() => {
@@ -56,7 +61,7 @@ export function PublicServicePage() {
 
   const dateSlots = useMemo(() => {
     return slots.filter((s) => {
-      const slotDate = new Date(s.start_time).toISOString().slice(0, 10)
+      const slotDate = localDay(new Date(s.start_time))
       return slotDate === selectedDate && s.booked_count < s.max_bookings
     })
   }, [slots, selectedDate])
@@ -66,7 +71,7 @@ export function PublicServicePage() {
     const dates = new Set<string>()
     slots.forEach((s) => {
       if (s.booked_count < s.max_bookings) {
-        dates.add(new Date(s.start_time).toISOString().slice(0, 10))
+        dates.add(localDay(new Date(s.start_time)))
       }
     })
     return dates
@@ -93,7 +98,7 @@ export function PublicServicePage() {
           <aside className="booking-service-summary"><span className="booking-eyebrow">Your selection</span><h1>{service?.name}</h1><p>{service?.description}</p><dl><div><dt>Pharmacy</dt><dd>{org?.name}</dd></div><div><dt>Duration</dt><dd>{service?.duration_minutes} minutes</dd></div>{service?.is_chargeable && service.price_pence != null && service.price_pence > 0 && <div><dt>Price</dt><dd>£{(service.price_pence / 100).toFixed(2)} · paid online</dd></div>}</dl></aside>
           <section className="booking-slot-picker">
             <header><span className="booking-eyebrow">Step 2 of 3</span><h2>Choose your appointment</h2><p>Select a date, then choose one of the available times.</p></header>
-            <div className="booking-date-field"><label htmlFor="booking-date">Appointment date</label><input id="booking-date" type="date" value={selectedDate} min={new Date().toISOString().slice(0, 10)} onChange={(event) => { setSelectedDate(event.target.value); setSelectedSlot(null) }} /><small>{availableDates.size > 0 ? `${availableDates.size} date${availableDates.size === 1 ? '' : 's'} currently have availability` : 'No future availability is listed yet'}</small></div>
+            <div className="booking-date-field"><label htmlFor="booking-date">Appointment date</label><input id="booking-date" type="date" value={selectedDate} min={localDay(new Date())} onChange={(event) => { setSelectedDate(event.target.value); setSelectedSlot(null) }} /><small>{availableDates.size > 0 ? `${availableDates.size} date${availableDates.size === 1 ? '' : 's'} currently have availability` : 'No future availability is listed yet'}</small></div>
             <div className="booking-time-heading"><strong>Available times</strong><span>{dateSlots.length} {dateSlots.length === 1 ? 'time' : 'times'}</span></div>
             {dateSlots.length === 0 ? <div className="booking-slot-empty"><strong>No times on this date</strong><p>Try another date to see the pharmacy's available appointments.</p></div> : <div className="booking-slot-grid">{dateSlots.map((slot) => {
             const start = new Date(slot.start_time)

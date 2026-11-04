@@ -1,9 +1,20 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { getUserClient } from '@pharmstation/supabase-client'
 import type { Organisation, Service, AppointmentSlot, ServiceForm, ServiceFormField } from '@pharmstation/types'
 import { orgSlugOrIdFilter } from '../../lib/orgSlugFilter'
 import { PublicFooter } from '../../components/public/PublicFooter'
+import { Turnstile, turnstileEnabled } from '../../components/public/Turnstile'
+
+/** Dig the real message out of an edge function error response. */
+async function functionError(err: unknown, data: any): Promise<string | undefined> {
+  if (data?.error) return data.error as string
+  const ctx = (err as any)?.context
+  if (ctx && typeof ctx.json === 'function') {
+    try { return (await ctx.json())?.error } catch { /* ignore */ }
+  }
+  return undefined
+}
 
 export function PublicBookingConfirmPage() {
   const { orgSlug, serviceId } = useParams<{ orgSlug: string; serviceId: string }>()
@@ -31,6 +42,9 @@ export function PublicBookingConfirmPage() {
   // Service form answers
   const [formData, setFormData] = useState<Record<string, any>>({})
   const [notes, setNotes] = useState('')
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null)
+  const resetCaptcha = useRef<(() => void) | null>(null)
+  const [manageToken, setManageToken] = useState<string | null>(null)
 
   useEffect(() => {
     if (!orgSlug || !serviceId || !slotId) {
@@ -59,66 +73,56 @@ export function PublicBookingConfirmPage() {
 
   const handleSubmit = async () => {
     if (!firstName.trim() || !lastName.trim()) { setError('Name is required.'); return }
+    if (!phone.trim() && !email.trim()) { setError('Please give a mobile number or email so the pharmacy can reach you.'); return }
+    if (turnstileEnabled && !captchaToken) { setError('Please complete the security check.'); return }
     if (!org || !serviceId || !slotId) { setError('Something went wrong.'); return }
     setSubmitting(true)
     setError('')
     try {
       const client = getUserClient()
-      // 1. Find or create patient via SECURITY DEFINER RPC — works for
-      //    anonymous patients (no INSERT policy on ps_patients for anon) and
-      //    reuses the existing record when the NHS number is already known.
-      const { data: patientId, error: patientErr } = await client.rpc('ps_public_find_or_create_patient', {
-        p_org_id: org.id,
-        p_first_name: firstName.trim(),
-        p_last_name: lastName.trim(),
-        p_email: email.trim() || null,
-        p_phone: phone.trim() || null,
-        p_dob: dob || null,
-        p_nhs_number: nhsNumber.trim() || null,
-      })
-      if (patientErr || !patientId) throw new Error(patientErr?.message || 'Could not save your details.')
-
-      // 2. Create appointment (id generated client-side — anon role has no
-      //    SELECT policy on ps_appointments, so INSERT..RETURNING would fail)
-      const appointmentId = crypto.randomUUID()
-      const { error: apptErr } = await client
-        .from('ps_appointments')
-        .insert({
-          id: appointmentId,
+      // One server call does every check (pharmacy, service and slot belong
+      // together, capacity, rate limits, security check) and saves the
+      // booking. The browser can no longer write appointments directly.
+      const { data: booking, error: bookErr } = await client.functions.invoke('appointments', {
+        body: {
+          action: 'book',
           org_id: org.id,
-          patient_id: patientId,
           service_id: serviceId,
           slot_id: slotId,
+          first_name: firstName.trim(),
+          last_name: lastName.trim(),
+          email: email.trim() || null,
+          phone: phone.trim() || null,
+          dob: dob || null,
+          nhs_number: nhsNumber.trim() || null,
           form_id: form?.id || null,
           form_data: Object.keys(formData).length > 0 ? formData : null,
-          status: 'pending',
           notes: notes.trim() || null,
-        })
-      if (apptErr) throw apptErr
+          turnstile_token: captchaToken,
+        },
+      })
+      if (bookErr || !booking?.appointment_id) {
+        throw new Error((await functionError(bookErr, booking)) || 'Failed to create booking.')
+      }
+      setManageToken(booking.manage_token as string)
 
-      // 3. Chargeable service → redirect to Stripe Checkout
-      const chargeable = service?.is_chargeable && service.price_pence != null && service.price_pence > 0
-      if (chargeable) {
+      // Chargeable service → redirect to Stripe Checkout
+      if (booking.requires_payment) {
         const base = window.location.origin
         const { data: checkout, error: checkoutErr } = await client.functions.invoke('stripe-checkout', {
           body: {
             action: 'create_checkout_session',
             org_id: org.id,
             service_id: serviceId,
-            appointment_id: appointmentId,
-            patient_id: patientId,
+            appointment_id: booking.appointment_id,
+            patient_id: booking.patient_id,
             payer_email: email.trim() || null,
             success_url: `${base}/book/${orgSlug}/payment-result`,
             cancel_url: `${base}/book/${orgSlug}/payment-result?canceled=1`,
           },
         })
         if (checkoutErr || !checkout?.url) {
-          // Dig the real error out of the function's response body
-          let detail = checkout?.error as string | undefined
-          if (!detail && checkoutErr && typeof (checkoutErr as any).context?.json === 'function') {
-            try { detail = (await (checkoutErr as any).context.json())?.error } catch { /* ignore */ }
-          }
-          throw new Error(detail || 'Payment could not be started. Please try again.')
+          throw new Error((await functionError(checkoutErr, checkout)) || 'Payment could not be started. Please try again.')
         }
         window.location.href = checkout.url as string
         return
@@ -127,13 +131,14 @@ export function PublicBookingConfirmPage() {
       setSubmitted(true)
     } catch (e: any) {
       setError(e.message || 'Failed to create booking.')
+      resetCaptcha.current?.()
     }
     setSubmitting(false)
   }
 
   if (submitted) {
     return (
-      <div className="booking-public"><header className="booking-nav"><button type="button" className="booking-wordmark" onClick={() => navigate('/book')}>Pharm<span>Station</span><small>Book</small></button></header><main className="booking-result"><div className="booking-result-mark">✓</div><span className="booking-eyebrow">Appointment requested</span><h1>You're booked in.</h1><p>Your appointment for <strong>{service?.name}</strong> at <strong>{org?.name}</strong> has been created.</p>{slot && <div className="booking-result-detail"><span>Date and time</span><strong>{new Date(slot.start_time).toLocaleString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</strong></div>}<small>The pharmacy will confirm your appointment shortly.</small><button type="button" className="booking-primary-action" onClick={() => navigate('/book')}>Book another service</button></main><PublicFooter />
+      <div className="booking-public"><header className="booking-nav"><button type="button" className="booking-wordmark" onClick={() => navigate('/book')}>Pharm<span>Station</span><small>Book</small></button></header><main className="booking-result"><div className="booking-result-mark">✓</div><span className="booking-eyebrow">Appointment requested</span><h1>You're booked in.</h1><p>Your appointment for <strong>{service?.name}</strong> at <strong>{org?.name}</strong> has been created.</p>{slot && <div className="booking-result-detail"><span>Date and time</span><strong>{new Date(slot.start_time).toLocaleString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</strong></div>}<small>The pharmacy will confirm your appointment shortly.{phone.trim() ? ' We have sent a text with the details.' : ''}</small>{manageToken && <a className="booking-secondary-action" href={`/booking/manage/${manageToken}`}>View or cancel this booking</a>}<button type="button" className="booking-primary-action" onClick={() => navigate('/book')}>Book another service</button></main><PublicFooter />
       </div>
     )
   }
@@ -151,7 +156,7 @@ export function PublicBookingConfirmPage() {
         <div className="booking-confirm-layout">
           <aside className="booking-confirm-summary"><span className="booking-eyebrow">Appointment summary</span><h2>{service?.name}</h2><dl><div><dt>Pharmacy</dt><dd>{org?.name}</dd></div>{slot && <><div><dt>Date</dt><dd>{new Date(slot.start_time).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })}</dd></div><div><dt>Time</dt><dd>{new Date(slot.start_time).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })} – {new Date(slot.end_time).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}</dd></div></>}{service?.is_chargeable && service.price_pence != null && service.price_pence > 0 && <div><dt>Payment</dt><dd>£{(service.price_pence / 100).toFixed(2)} paid securely online to confirm your slot</dd></div>}</dl><p>Your details are sent securely to the pharmacy handling this appointment.</p></aside>
           <div className="booking-confirm-form">
-            <section><header><span>01</span><div><h2>Your details</h2><p>Fields marked * are required.</p></div></header><div className="booking-form-grid">
+            <section><header><span>01</span><div><h2>Your details</h2><p>Fields marked * are required. Give a mobile number to get your confirmation by text.</p></div></header><div className="booking-form-grid">
           <div className="form-group">
             <label>First Name *</label>
             <input className="ps-input" value={firstName} onChange={(e) => setFirstName(e.target.value)} />
@@ -161,11 +166,11 @@ export function PublicBookingConfirmPage() {
             <input className="ps-input" value={lastName} onChange={(e) => setLastName(e.target.value)} />
           </div>
           <div className="form-group">
-            <label>Email</label>
+            <label>Email{phone.trim() ? '' : ' *'}</label>
             <input className="ps-input" type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
           </div>
           <div className="form-group">
-            <label>Phone</label>
+            <label>Mobile{email.trim() ? '' : ' *'}</label>
             <input className="ps-input" value={phone} onChange={(e) => setPhone(e.target.value)} />
           </div>
           <div className="form-group">
@@ -190,8 +195,9 @@ export function PublicBookingConfirmPage() {
       )}
 
             <section><header><span>{form?.fields?.length ? '03' : '02'}</span><div><h2>Anything else?</h2><p>Optional information for the pharmacy team.</p></div></header><textarea className="ps-input" value={notes} onChange={(e) => setNotes(e.target.value)} rows={4} placeholder="Add a note for the pharmacy" /></section>
+            <Turnstile onToken={setCaptchaToken} resetRef={resetCaptcha} />
             {error && <div className="booking-form-error">{error}</div>}
-            <footer><button type="button" className="booking-secondary-action" onClick={() => navigate(-1)} disabled={submitting}>Cancel</button><button type="button" className="booking-primary-action" onClick={handleSubmit} disabled={submitting || !firstName.trim() || !lastName.trim()}>{submitting ? 'Booking…' : service?.is_chargeable && service.price_pence != null && service.price_pence > 0 ? 'Continue to secure payment →' : 'Confirm booking →'}</button></footer>
+            <footer><button type="button" className="booking-secondary-action" onClick={() => navigate(-1)} disabled={submitting}>Cancel</button><button type="button" className="booking-primary-action" onClick={handleSubmit} disabled={submitting || !firstName.trim() || !lastName.trim() || (!phone.trim() && !email.trim()) || (turnstileEnabled && !captchaToken)}>{submitting ? 'Booking…' : service?.is_chargeable && service.price_pence != null && service.price_pence > 0 ? 'Continue to secure payment →' : 'Confirm booking →'}</button></footer>
           </div>
         </div>
       </main>
