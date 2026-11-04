@@ -6,6 +6,19 @@
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.0'
 
+// ai_scan_use resolved in the database (role default + per-member override),
+// the same rule the row security on ps_ai_scan_queue / ps_ai_scan_items uses.
+async function canUseAiScan(
+  userClient: ReturnType<typeof createClient>,
+  organisationId: string,
+): Promise<boolean> {
+  const { data, error } = await userClient.rpc('ps_member_has_permission', {
+    p_organisation_id: organisationId,
+    p_permission: 'ai_scan_use',
+  })
+  return !error && data === true
+}
+
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -611,7 +624,7 @@ Deno.serve(async (req) => {
         })
       }
 
-      if (membership.permissions?.ai_scan_use === false) {
+      if (!(await canUseAiScan(userClient, organisation_id))) {
         return new Response(JSON.stringify({ error: 'AI scan permission not granted' }), {
           status: 403,
           headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
@@ -679,7 +692,7 @@ Deno.serve(async (req) => {
         .eq('status', 'active')
         .maybeSingle()
 
-      if (!processMembership || processMembership.permissions?.ai_scan_use === false) {
+      if (!processMembership || !(await canUseAiScan(userClient, organisation_id))) {
         return new Response(JSON.stringify({ error: 'AI scan permission not granted' }), {
           status: 403,
           headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
@@ -998,7 +1011,7 @@ Deno.serve(async (req) => {
       })
     }
 
-    if (membership.permissions?.ai_scan_use === false) {
+    if (!(await canUseAiScan(userClient, organisation_id))) {
       return new Response(JSON.stringify({ error: 'AI scan permission not granted' }), {
         status: 403,
         headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
