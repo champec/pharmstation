@@ -423,6 +423,10 @@ export interface AuditLogEntry {
 }
 
 // --- Default Role Permissions ---
+// Mirrored in the database by ps_role_default_permission() (see
+// supabase/migrations/20261104123000_role_permissions_foundation.sql), which
+// RLS policies and functions use through ps_member_has_permission().
+// Change both together.
 
 export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, Permissions> = {
   owner: {
@@ -431,7 +435,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, Permissions> = {
     cd_register_correct: false,
     rp_log_sign: true,
     rp_log_view: true,
-    patient_returns_write: false,
+    patient_returns_write: true,
     sop_upload: true,
     handover_all: true,
     manage_users: true,
@@ -455,7 +459,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, Permissions> = {
     cd_register_correct: false,
     rp_log_sign: false,
     rp_log_view: true,
-    patient_returns_write: false,
+    patient_returns_write: true,
     sop_upload: true,
     handover_all: true,
     manage_users: true,

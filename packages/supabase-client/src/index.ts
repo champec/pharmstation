@@ -239,6 +239,15 @@ export async function fetchUserProfile(userId: string) {
   return data
 }
 
+/** A locum with an approved booking at this pharmacy around now gets
+ *  temporary access (1 hour before the shift to 2 hours after). Returns
+ *  true when they now have an active membership. */
+export async function claimLocumShiftAccess(orgId: string): Promise<boolean> {
+  const { data, error } = await getUserClient().rpc('ps_locum_claim_shift_access', { p_org_id: orgId })
+  if (error) return false
+  return data === true
+}
+
 export async function fetchOrgMembership(orgId: string, userId: string) {
   const { data, error } = await getUserClient()
     .from('ps_organisation_members')
@@ -331,3 +340,9 @@ export async function fetchLocumExtendedProfile(userId: string) {
 
 // Pharmacy onboarding + team management
 export * from './team'
+
+// Two-step sign-in
+export * from './mfa'
+
+// Account self-service and sign-in activity
+export * from './account'

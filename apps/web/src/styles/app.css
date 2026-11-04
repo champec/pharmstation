@@ -5851,6 +5851,83 @@
   margin-top: var(--ps-space-xs);
 }
 
+.mfa-code-input {
+  font-size: 1.5rem;
+  letter-spacing: 0.3em;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.totp-steps {
+  padding-left: 1.25rem;
+  margin: 0 0 1rem;
+  display: grid;
+  gap: 0.75rem;
+  font-size: 0.875rem;
+}
+
+.totp-qr {
+  margin: 0.75rem 0;
+  padding: 0.5rem;
+  background: #fff;
+  display: inline-block;
+  border-radius: var(--ps-radius-md);
+  border: 1px solid var(--ps-border, #e2e8f0);
+}
+
+.totp-secret {
+  display: block;
+  margin-top: 0.5rem;
+  padding: 0.5rem;
+  word-break: break-all;
+  font-size: 0.8125rem;
+  background: var(--ps-off-white, #f8fafc);
+  border-radius: var(--ps-radius-md);
+}
+
+.signin-activity {
+  display: grid;
+  max-height: 420px;
+  overflow-y: auto;
+  font-size: var(--ps-font-sm);
+}
+
+.signin-activity-row {
+  display: grid;
+  grid-template-columns: 8.5rem minmax(8rem, 12rem) 1fr;
+  gap: 0.75rem;
+  padding: 0.45rem 0;
+  border-bottom: 1px solid var(--ps-border, #e2e8f0);
+}
+
+.signin-activity-row.is-problem .signin-activity-what {
+  color: var(--ps-error);
+  font-weight: 600;
+}
+
+.signin-activity-time {
+  color: var(--ps-slate);
+  font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 640px) {
+  .signin-activity-row {
+    grid-template-columns: 1fr;
+    gap: 0.1rem;
+  }
+}
+
+.ps-btn-danger {
+  background: var(--ps-error);
+  color: #fff;
+  border-color: var(--ps-error);
+}
+
+.mfa-setup-gate {
+  max-width: 560px;
+  margin: 2rem auto;
+}
+
 .auth-forgot-link {
   text-align: right;
   margin: calc(var(--ps-space-xs) * -1) 0 var(--ps-space-sm);

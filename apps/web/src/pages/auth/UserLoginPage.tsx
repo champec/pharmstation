@@ -1,16 +1,33 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuthStore } from '@pharmstation/core'
-import { orgNeedsOwner } from '@pharmstation/supabase-client'
+import { logAuthEvent, orgNeedsOwner } from '@pharmstation/supabase-client'
+import { IDLE_SIGNOUT_FLAG } from '../../components/IdleLock'
+import { MfaCodeForm } from '../../components/mfa/MfaCodeForm'
 
 export function UserLoginPage() {
-  const { organisation, userLogin, orgLogout } = useAuthStore()
+  const { organisation, userLogin, orgLogout, mfaPendingFactorId } = useAuthStore()
   // Test credentials are prefilled in local dev only
   const [email, setEmail] = useState(import.meta.env.DEV ? 'testuser@pharmstation.dev' : '')
   const [password, setPassword] = useState(import.meta.env.DEV ? 'TestUser123!' : '')
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [needsOwner, setNeedsOwner] = useState(false)
+  // Set by IdleLock when it signed the last person out for inactivity.
+  const [idleMinutes] = useState(() => {
+    try {
+      return sessionStorage.getItem(IDLE_SIGNOUT_FLAG)
+    } catch {
+      return null
+    }
+  })
+  useEffect(() => {
+    try {
+      sessionStorage.removeItem(IDLE_SIGNOUT_FLAG)
+    } catch {
+      // ignore
+    }
+  }, [])
 
   // A pharmacy that signed up but hasn't linked its owner yet (e.g. the
   // sign-up paused for email confirmation) has nobody who can sign in here.
@@ -42,10 +59,22 @@ export function UserLoginPage() {
           : typeof err === 'object' && err !== null && 'message' in err
             ? String((err as { message: unknown }).message)
             : 'Login failed. Please try again.'
+      void logAuthEvent(organisation?.id, 'failed_sign_in', email)
       setError(message)
     } finally {
       setLoading(false)
     }
+  }
+
+  if (mfaPendingFactorId) {
+    return (
+      <div className="auth-card">
+        <div className="logo">
+          Pharm<span>Station</span>
+        </div>
+        <MfaCodeForm />
+      </div>
+    )
   }
 
   return (
@@ -65,6 +94,11 @@ export function UserLoginPage() {
             Almost there: this pharmacy doesn&rsquo;t have an owner yet.{' '}
             <Link to="/setup/owner"><strong>Finish setting up</strong></Link>
           </span>
+        </div>
+      )}
+      {idleMinutes && !error && (
+        <div className="ps-alert ps-alert-info onboarding-notice">
+          You were signed out after {idleMinutes} minutes without activity. Sign in again to carry on.
         </div>
       )}
       {error && <div className="auth-error">{error}</div>}

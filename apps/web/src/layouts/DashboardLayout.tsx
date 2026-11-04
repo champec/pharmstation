@@ -7,6 +7,8 @@ import { RightPanel } from '../components/layout/RightPanel'
 import { GeniePanel } from '../components/genie/GeniePanel'
 import { useIsMobile } from '../hooks/useIsMobile'
 import { PlanGate } from '../components/billing/PlanGate'
+import { IdleLock } from '../components/IdleLock'
+import { MfaSetupGate } from '../components/mfa/MfaSetupGate'
 
 export function DashboardLayout() {
   const { sideNavMode, rightPanelOpen, mobileNavOpen, setMobileNavOpen } = useUIStore()
@@ -36,14 +38,17 @@ export function DashboardLayout() {
       <div className="dashboard-main" data-sidenav={sideNavMode}>
         <TopNav />
         <div className="dashboard-content">
-          <PlanGate>
-            <Outlet />
-          </PlanGate>
+          <MfaSetupGate>
+            <PlanGate>
+              <Outlet />
+            </PlanGate>
+          </MfaSetupGate>
         </div>
       </div>
 
       {rightPanelOpen && <RightPanel />}
       <GeniePanel />
+      <IdleLock />
     </div>
   )
 }

@@ -320,7 +320,7 @@ export function TopNav() {
           👤
         </button>
 
-        <button className="ps-btn ps-btn-ghost" onClick={switchUser} title="Switch user" aria-label="Switch user">
+        <button className="ps-btn ps-btn-ghost" onClick={() => switchUser()} title="Switch user" aria-label="Switch user">
           🔄<span className="top-nav-btn-text"> Switch</span>
         </button>
 

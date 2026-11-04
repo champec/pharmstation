@@ -6,6 +6,8 @@ import { MessagingSettingsTab } from './settings/MessagingSettingsTab'
 import { AlertSettingsTab } from './settings/AlertSettingsTab'
 import { BillingSettingsTab } from './settings/BillingSettingsTab'
 import { TeamSettingsTab } from './settings/TeamSettingsTab'
+import { GeneralSettingsTab } from './settings/GeneralSettingsTab'
+import { SignInActivityCard } from '../components/account/SignInActivityCard'
 
 type Tab = 'general' | 'team' | 'ai' | 'messaging' | 'alerts' | 'nhs' | 'payments' | 'billing'
 
@@ -45,15 +47,14 @@ export function SettingsPage() {
         ))}
       </div>
 
-      {tab === 'general' && (
-        <div className="ps-card" style={{ padding: 'var(--ps-space-lg)' }}>
-          <p style={{ color: 'var(--ps-slate)' }}>
-            Organisation settings and user management will be here. Your PharmStation plan is under Plan & billing.
-          </p>
-        </div>
-      )}
+      {tab === 'general' && <GeneralSettingsTab />}
 
-      {tab === 'team' && <TeamSettingsTab />}
+      {tab === 'team' && (
+        <>
+          <TeamSettingsTab />
+          <SignInActivityCard />
+        </>
+      )}
       {tab === 'messaging' && <MessagingSettingsTab />}
       {tab === 'alerts' && <AlertSettingsTab />}
       {tab === 'ai' && <AISettingsTab />}

@@ -6,6 +6,7 @@ import {
   listMembers,
   revokeInvite,
   updateMember,
+  resetMemberTwoStep,
   inviteLink,
 } from '@pharmstation/supabase-client'
 import {
@@ -117,6 +118,20 @@ export function TeamSettingsTab() {
       await load()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not update this member')
+    } finally {
+      setBusyId(null)
+    }
+  }
+
+  const resetTwoStep = async (m: TeamMember) => {
+    if (!window.confirm(`Reset two-step sign-in for ${m.full_name}? Use this if they've lost their phone. They'll sign in with just their password and${m.role === 'owner' || m.role === 'manager' ? ' be asked to' : ' can'} set up a new authenticator app.`)) return
+    setBusyId(m.member_id)
+    setError(null)
+    try {
+      await resetMemberTwoStep(m.member_id)
+      window.alert(`Two-step sign-in reset for ${m.full_name}.`)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not reset two-step sign-in')
     } finally {
       setBusyId(null)
     }
@@ -283,6 +298,13 @@ export function TeamSettingsTab() {
                     <button type="button" className="ps-btn ps-btn-secondary ps-btn-sm" disabled={busy}
                       onClick={() => change(m, { status: 'active' })}>
                       Reactivate
+                    </button>
+                  )}
+                  {editable && m.status === 'active' && (
+                    <button type="button" className="ps-btn ps-btn-ghost ps-btn-sm" disabled={busy}
+                      title="Use when someone has lost the phone with their authenticator app"
+                      onClick={() => resetTwoStep(m)}>
+                      Reset two-step
                     </button>
                   )}
                   {editable && m.status !== 'revoked' && (

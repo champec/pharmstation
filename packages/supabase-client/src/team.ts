@@ -107,6 +107,12 @@ export async function acceptInvite(token: string): Promise<{ organisation_id: st
 
 // ---------- Members ----------
 
+/** Remove a staff member's authenticator app (lost phone). Owners and
+ *  managers only; they set it up again at their next sign-in. */
+export async function resetMemberTwoStep(memberId: string): Promise<void> {
+  unwrap(await getUserClient().rpc('ps_org_reset_member_mfa', { p_member_id: memberId }))
+}
+
 export async function listMembers(orgId: string): Promise<TeamMember[]> {
   return (unwrap(await getUserClient().rpc('ps_org_list_members', { p_org_id: orgId })) ?? []) as TeamMember[]
 }

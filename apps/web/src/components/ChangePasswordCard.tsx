@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react'
-import { changeUserPassword, friendlyAuthError, passwordProblem } from '@pharmstation/supabase-client'
+import { changeUserPassword, friendlyAuthError, logAuthEvent, passwordProblem } from '@pharmstation/supabase-client'
+import { useAuthStore } from '@pharmstation/core'
 
 /** Change the signed-in person's password. Asks for the current one first. */
 export function ChangePasswordCard() {
@@ -19,6 +20,7 @@ export function ChangePasswordCard() {
     setSaving(true)
     try {
       await changeUserPassword(current, next)
+      void logAuthEvent(useAuthStore.getState().membership?.organisation_id, 'password_changed')
       setCurrent('')
       setNext('')
       setConfirm('')
