@@ -19,6 +19,7 @@ import {
   fetchOrgMembership,
   fetchLocumExtendedProfile,
   getMfaStatus,
+  claimLocumShiftAccess,
   verifyTotpCode,
 } from '@pharmstation/supabase-client'
 
@@ -505,9 +506,20 @@ async function finishUserLogin(
         permissions = resolvePermissions(membership.role, membership.permissions)
       }
     } catch {
+      // A booked locum gets access for their shift without being staff.
+      if (await claimLocumShiftAccess(org.id)) {
+        try {
+          membership = await fetchOrgMembership(org.id, userId)
+          if (membership) permissions = resolvePermissions(membership.role, membership.permissions)
+        } catch {
+          membership = null
+        }
+      }
+    }
+    if (!membership) {
       if (requireOrgMembership) {
         await getUserClient().auth.signOut()
-        throw new Error('You are not a member of this pharmacy. Contact your manager.')
+        throw new Error('You are not on the staff list for this pharmacy, and you have no approved locum shift here right now. Contact the pharmacy manager.')
       }
       // Portal login on an org terminal by a non-member: allowed,
       // but no membership ⇒ no org permissions.
