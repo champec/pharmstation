@@ -62,10 +62,15 @@ export function ShopOrdersPage() {
   })
 
   const handleStatus = async (order: ShopOrder, status: ShopOrderStatus) => {
-    if (status === 'cancelled' && !window.confirm(`Cancel order ${order.order_number}?`)) return
+    if (
+      status === 'cancelled'
+      && !window.confirm(`Cancel order ${order.order_number}? Its items go back into stock. A cancelled order can't be reopened.`)
+    ) return
     try {
       await updateOrderStatus(order.id, status)
-    } catch { /* error surfaced by store */ }
+    } catch (e: any) {
+      useShopStore.setState({ error: e?.message || 'Could not update the order' })
+    }
   }
 
   const openRunModal = (order: ShopOrder) => {
