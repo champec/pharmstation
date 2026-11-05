@@ -371,6 +371,9 @@
 .booking-manage .booking-result-detail { width: 100%; }
 .booking-manage-confirm { display: grid; gap: 10px; width: 100%; }
 .booking-manage-actions { display: flex; justify-content: center; gap: 10px; flex-wrap: wrap; }
+.booking-manage-slots { display: grid; grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); gap: 8px; }
+.booking-manage-slots button { padding: 10px 6px; border: 1px solid #c9d3cd; border-radius: 6px; background: #fff; font: inherit; cursor: pointer; }
+.booking-manage-slots button.selected { border-color: var(--booking-green); background: #e8f4ee; font-weight: 600; }
 .booking-confirm-form > footer { display: flex; justify-content: flex-end; gap: 10px; padding-top: 5px; }
 .booking-result { display: grid; width: min(660px, calc(100% - 36px)); min-height: calc(100vh - 72px); place-items: center; align-content: center; gap: 11px; margin: 0 auto; text-align: center; }
 .booking-result-mark { display: grid; width: 70px; height: 70px; place-items: center; margin-bottom: 8px; border-radius: 50%; background: var(--booking-green); color: #fff; font-size: 34px; }
