@@ -1,11 +1,10 @@
 import { create } from 'zustand'
 import type {
   DeliveryRound,
-  DeliveryRoundPatient,
-  DeliveryPatientStatus,
-  DeliveryLocationUpdate,
+  DeliveryMethod,
 } from '@pharmstation/types'
 import { getUserClient } from '@pharmstation/supabase-client'
+import { shouldSendLocation } from '../deliveries'
 
 const DRIVER_ROUND_SELECT = `
   *,
@@ -16,21 +15,34 @@ const DRIVER_ROUND_SELECT = `
   )
 `
 
+export interface CompleteDeliveryOptions {
+  deliveryMethod: DeliveryMethod
+  recipientName?: string
+  /** PNG data URL from the signature pad, or undefined when nobody signed. */
+  signatureData?: string
+  /** Optional photos of the hand-over or safe place. */
+  photos?: File[]
+}
+
 export interface DriverState {
   assignedRounds: DeliveryRound[]
+  openRounds: DeliveryRound[]
   activeRoute: DeliveryRound | null
   loading: boolean
+  saving: boolean
   error: string | null
   locationWatchId: number | null
 
   // Fetch
-  fetchAssignedRounds: (memberId: string) => Promise<void>
+  fetchAssignedRounds: (memberId: string, orgId?: string) => Promise<void>
   fetchRoundRoute: (roundId: string) => Promise<void>
 
   // Actions
+  claimRound: (roundId: string, memberId: string) => Promise<void>
   startRound: (roundId: string) => Promise<void>
-  updatePatientStatus: (roundPatientId: string, status: DeliveryPatientStatus, signatureData?: string, failureReason?: string) => Promise<void>
-  submitSignature: (roundPatientId: string, signatureBase64: string) => Promise<void>
+  completeDelivery: (stopId: string, options: CompleteDeliveryOptions) => Promise<void>
+  failDelivery: (stopId: string, reason: string) => Promise<void>
+  skipDelivery: (stopId: string, reason: string) => Promise<void>
   postLocationUpdate: (roundId: string, driverId: string, lat: number, lng: number) => Promise<void>
 
   // Location tracking
@@ -44,181 +56,220 @@ export interface DriverState {
   clearError: () => void
 }
 
-export const useDriverStore = create<DriverState>((set, get) => ({
-  assignedRounds: [],
-  activeRoute: null,
-  loading: false,
-  error: null,
-  locationWatchId: null,
+function sortStops(round: DeliveryRound): DeliveryRound {
+  if (round.patients) round.patients.sort((a, b) => a.delivery_order - b.delivery_order)
+  return round
+}
 
-  fetchAssignedRounds: async (memberId) => {
-    set({ loading: true, error: null })
-    try {
-      const { data, error } = await getUserClient()
-        .from('ps_delivery_rounds')
-        .select(DRIVER_ROUND_SELECT)
-        .eq('driver_id', memberId)
-        .in('status', ['draft', 'scheduled', 'in_progress'])
-        .order('scheduled_date', { ascending: true })
-      if (error) throw error
-      set({ assignedRounds: (data ?? []) as DeliveryRound[], loading: false })
-    } catch (e: any) {
-      set({ error: e.message, loading: false })
-    }
-  },
+let lastFix: { lat: number; lng: number; at: number } | null = null
 
-  fetchRoundRoute: async (roundId) => {
-    set({ loading: true, error: null })
-    try {
-      const { data, error } = await getUserClient()
-        .from('ps_delivery_rounds')
-        .select(DRIVER_ROUND_SELECT)
-        .eq('id', roundId)
-        .single()
-      if (error) throw error
-
-      // Sort patients by delivery_order
-      const round = data as DeliveryRound
-      if (round.patients) {
-        round.patients.sort((a, b) => a.delivery_order - b.delivery_order)
-      }
-
-      set({ activeRoute: round, loading: false })
-    } catch (e: any) {
-      set({ error: e.message, loading: false })
-    }
-  },
-
-  startRound: async (roundId) => {
-    const { error } = await getUserClient()
-      .from('ps_delivery_rounds')
-      .update({ status: 'in_progress', started_at: new Date().toISOString() })
-      .eq('id', roundId)
-    if (error) throw error
-    set((s) => ({
-      activeRoute: s.activeRoute?.id === roundId
-        ? { ...s.activeRoute, status: 'in_progress', started_at: new Date().toISOString() }
-        : s.activeRoute,
-      assignedRounds: s.assignedRounds.map((r) =>
-        r.id === roundId ? { ...r, status: 'in_progress' as any, started_at: new Date().toISOString() } : r
-      ),
-    }))
-  },
-
-  updatePatientStatus: async (roundPatientId, status, signatureData, failureReason) => {
-    const updates: any = { status }
-    if (status === 'delivered') updates.delivered_at = new Date().toISOString()
-    if (signatureData) updates.signature_data = signatureData
-    if (failureReason) updates.failure_reason = failureReason
-    if (status === 'failed') updates.status = 'pending_redelivery'
-
-    const { error } = await getUserClient()
+export const useDriverStore = create<DriverState>((set, get) => {
+  /** Update one stop and reload the route (the server may complete the round). */
+  const updateStop = async (stopId: string, updates: Record<string, unknown>) => {
+    const { data, error } = await getUserClient()
       .from('ps_delivery_round_patients')
       .update(updates)
-      .eq('id', roundPatientId)
+      .eq('id', stopId)
+      .select('id, round_id')
     if (error) throw error
+    if (!data?.length) throw new Error('This stop could not be updated. Is the round assigned to you and started?')
+    await get().fetchRoundRoute(data[0].round_id as string)
+  }
 
-    // Update local state
-    set((s) => {
-      if (!s.activeRoute?.patients) return s
-      const updatedPatients = s.activeRoute.patients.map((p) =>
-        p.id === roundPatientId ? { ...p, ...updates } : p
-      )
-      // Check if all patients resolved — auto-complete round
-      const allResolved = updatedPatients.every((p) =>
-        ['delivered', 'failed', 'skipped', 'pending_redelivery', 'moved_to_round', 'returned', 'cancelled'].includes(p.status)
-      )
-      return {
-        activeRoute: {
-          ...s.activeRoute,
-          patients: updatedPatients,
-          ...(allResolved ? { status: 'completed' as any, completed_at: new Date().toISOString() } : {}),
-        },
+  return {
+    assignedRounds: [],
+    openRounds: [],
+    activeRoute: null,
+    loading: false,
+    saving: false,
+    error: null,
+    locationWatchId: null,
+
+    fetchAssignedRounds: async (memberId, orgId) => {
+      set({ loading: true, error: null })
+      try {
+        const client = getUserClient()
+        const [assigned, open] = await Promise.all([
+          client
+            .from('ps_delivery_rounds')
+            .select(DRIVER_ROUND_SELECT)
+            .eq('driver_id', memberId)
+            .in('status', ['draft', 'scheduled', 'in_progress'])
+            .order('scheduled_date', { ascending: true }),
+          orgId
+            ? client
+                .from('ps_delivery_rounds')
+                .select(DRIVER_ROUND_SELECT)
+                .eq('organisation_id', orgId)
+                .is('driver_id', null)
+                .eq('status', 'scheduled')
+                .order('scheduled_date', { ascending: true })
+            : Promise.resolve({ data: [], error: null }),
+        ])
+        if (assigned.error) throw assigned.error
+        if (open.error) throw open.error
+        set({
+          assignedRounds: ((assigned.data ?? []) as DeliveryRound[]).map(sortStops),
+          openRounds: ((open.data ?? []) as DeliveryRound[]).map(sortStops),
+          loading: false,
+        })
+      } catch (e: any) {
+        set({ error: e.message, loading: false })
       }
-    })
+    },
 
-    // If all patients resolved, complete the round
-    const route = get().activeRoute
-    if (route?.patients) {
-      const allResolved = route.patients.every((p) =>
-        p.id === roundPatientId
-          ? ['delivered', 'failed', 'skipped', 'pending_redelivery'].includes(status)
-          : ['delivered', 'failed', 'skipped', 'pending_redelivery', 'moved_to_round', 'returned', 'cancelled'].includes(p.status)
-      )
-      if (allResolved) {
-        await getUserClient()
+    fetchRoundRoute: async (roundId) => {
+      set({ loading: true, error: null })
+      try {
+        const { data, error } = await getUserClient()
           .from('ps_delivery_rounds')
-          .update({ status: 'completed', completed_at: new Date().toISOString() })
-          .eq('id', route.id)
+          .select(DRIVER_ROUND_SELECT)
+          .eq('id', roundId)
+          .single()
+        if (error) throw error
+        set({ activeRoute: sortStops(data as DeliveryRound), loading: false })
+      } catch (e: any) {
+        set({ error: e.message, loading: false })
       }
-    }
-  },
+    },
 
-  submitSignature: async (roundPatientId, signatureBase64) => {
-    const { error } = await getUserClient()
-      .from('ps_delivery_round_patients')
-      .update({ signature_data: signatureBase64 })
-      .eq('id', roundPatientId)
-    if (error) throw error
-    set((s) => {
-      if (!s.activeRoute?.patients) return s
-      return {
-        activeRoute: {
-          ...s.activeRoute,
-          patients: s.activeRoute.patients.map((p) =>
-            p.id === roundPatientId ? { ...p, signature_data: signatureBase64 } : p
-          ),
+    claimRound: async (roundId, memberId) => {
+      const { data, error } = await getUserClient()
+        .from('ps_delivery_rounds')
+        .update({ driver_id: memberId })
+        .eq('id', roundId)
+        .is('driver_id', null)
+        .select('id')
+      if (error) throw error
+      if (!data?.length) throw new Error('Another driver has already taken this round.')
+      const round = get().openRounds.find((r) => r.id === roundId)
+      set((s) => ({
+        openRounds: s.openRounds.filter((r) => r.id !== roundId),
+        assignedRounds: round ? [...s.assignedRounds, { ...round, driver_id: memberId }] : s.assignedRounds,
+      }))
+    },
+
+    startRound: async (roundId) => {
+      const { data, error } = await getUserClient()
+        .from('ps_delivery_rounds')
+        .update({ status: 'in_progress' })
+        .eq('id', roundId)
+        .select('status, started_at')
+      if (error) throw error
+      if (!data?.length) throw new Error('This round could not be started. Is it assigned to you?')
+      const saved = data[0] as Pick<DeliveryRound, 'status' | 'started_at'>
+      set((s) => ({
+        activeRoute: s.activeRoute?.id === roundId ? { ...s.activeRoute, ...saved } : s.activeRoute,
+        assignedRounds: s.assignedRounds.map((r) => (r.id === roundId ? { ...r, ...saved } : r)),
+      }))
+    },
+
+    completeDelivery: async (stopId, options) => {
+      const route = get().activeRoute
+      if (!route) throw new Error('The delivery round is not loaded.')
+      set({ saving: true, error: null })
+      const client = getUserClient()
+      const uploaded: string[] = []
+      try {
+        for (const [index, file] of (options.photos ?? []).entries()) {
+          const ext = file.type === 'image/png' ? 'png' : file.type === 'image/webp' ? 'webp' : 'jpg'
+          const path = `${route.organisation_id}/${route.id}/${stopId}/${Date.now()}-${index}.${ext}`
+          const { error: upErr } = await client.storage
+            .from('delivery-evidence')
+            .upload(path, file, { contentType: file.type || 'image/jpeg', upsert: false })
+          if (upErr) throw upErr
+          uploaded.push(path)
+        }
+        await updateStop(stopId, {
+          status: 'delivered',
+          delivery_method: options.deliveryMethod,
+          delivery_recipient_name: options.recipientName?.trim() || null,
+          signature_data: options.signatureData ?? null,
+          proof_photo_paths: uploaded,
+        })
+        set({ saving: false })
+      } catch (e: any) {
+        if (uploaded.length) await client.storage.from('delivery-evidence').remove(uploaded)
+        set({ saving: false, error: e.message })
+        throw e
+      }
+    },
+
+    failDelivery: async (stopId, reason) => {
+      if (!reason.trim()) throw new Error('Choose a reason')
+      set({ saving: true, error: null })
+      try {
+        // Failed stops go straight to the redelivery queue.
+        await updateStop(stopId, { status: 'pending_redelivery', failure_reason: reason.trim() })
+      } finally {
+        set({ saving: false })
+      }
+    },
+
+    skipDelivery: async (stopId, reason) => {
+      if (!reason.trim()) throw new Error('Give a reason for skipping')
+      set({ saving: true, error: null })
+      try {
+        await updateStop(stopId, { status: 'skipped', failure_reason: reason.trim() })
+      } finally {
+        set({ saving: false })
+      }
+    },
+
+    postLocationUpdate: async (roundId, driverId, lat, lng) => {
+      const { error } = await getUserClient()
+        .from('ps_delivery_location_updates')
+        .insert({ round_id: roundId, driver_id: driverId, latitude: lat, longitude: lng })
+      if (error) console.error('Failed to post location update:', error)
+    },
+
+    startLocationTracking: (roundId, driverId) => {
+      if (typeof navigator === 'undefined' || !navigator.geolocation) return
+      if (get().locationWatchId !== null) return
+      lastFix = null
+      const watchId = navigator.geolocation.watchPosition(
+        (pos) => {
+          const fix = { lat: pos.coords.latitude, lng: pos.coords.longitude, at: Date.now() }
+          // Every 15 seconds or 50 metres, not every fix the browser gives.
+          if (!shouldSendLocation(lastFix, fix)) return
+          lastFix = fix
+          void get().postLocationUpdate(roundId, driverId, fix.lat, fix.lng)
         },
-      }
-    })
-  },
-
-  postLocationUpdate: async (roundId, driverId, lat, lng) => {
-    const { error } = await getUserClient()
-      .from('ps_delivery_location_updates')
-      .insert({
-        round_id: roundId,
-        driver_id: driverId,
-        latitude: lat,
-        longitude: lng,
-      })
-    if (error) console.error('Failed to post location update:', error)
-  },
-
-  startLocationTracking: (roundId, driverId) => {
-    if (!navigator.geolocation) return
-    const watchId = navigator.geolocation.watchPosition(
-      (pos) => {
-        get().postLocationUpdate(roundId, driverId, pos.coords.latitude, pos.coords.longitude)
-      },
-      (err) => console.error('Geolocation error:', err),
-      { enableHighAccuracy: true, maximumAge: 15000, timeout: 30000 }
-    )
-    set({ locationWatchId: watchId })
-  },
-
-  stopLocationTracking: () => {
-    const watchId = get().locationWatchId
-    if (watchId !== null) {
-      navigator.geolocation.clearWatch(watchId)
-      set({ locationWatchId: null })
-    }
-  },
-
-  subscribeToRoute: (roundId) => {
-    const channel = getUserClient()
-      .channel(`driver_route_${roundId}`)
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'ps_delivery_round_patients', filter: `round_id=eq.${roundId}` },
-        () => { get().fetchRoundRoute(roundId) }
+        (err) => console.error('Geolocation error:', err),
+        { enableHighAccuracy: true, maximumAge: 15000, timeout: 30000 },
       )
-      .subscribe()
+      set({ locationWatchId: watchId })
+    },
 
-    return () => {
-      getUserClient().removeChannel(channel)
-    }
-  },
+    stopLocationTracking: () => {
+      const watchId = get().locationWatchId
+      if (watchId !== null) {
+        navigator.geolocation.clearWatch(watchId)
+        set({ locationWatchId: null })
+      }
+      lastFix = null
+    },
 
-  clearError: () => set({ error: null }),
-}))
+    subscribeToRoute: (roundId) => {
+      const channel = getUserClient()
+        .channel(`driver_route_${roundId}`)
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'ps_delivery_round_patients', filter: `round_id=eq.${roundId}` },
+          () => { void get().fetchRoundRoute(roundId) },
+        )
+        .on(
+          'postgres_changes',
+          { event: 'UPDATE', schema: 'public', table: 'ps_delivery_rounds', filter: `id=eq.${roundId}` },
+          () => { void get().fetchRoundRoute(roundId) },
+        )
+        .subscribe()
+
+      return () => {
+        getUserClient().removeChannel(channel)
+      }
+    },
+
+    clearError: () => set({ error: null }),
+  }
+})

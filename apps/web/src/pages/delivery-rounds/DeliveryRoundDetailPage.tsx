@@ -141,21 +141,21 @@ export function DeliveryRoundDetailPage() {
   const handleStart = async () => {
     if (!id) return
     setSaving(true)
-    try { await startRound(id) } catch {}
+    try { await startRound(id) } catch (e: any) { setActionError(e.message) }
     setSaving(false)
   }
 
   const handleComplete = async () => {
     if (!id) return
     setSaving(true)
-    try { await completeRound(id) } catch {}
+    try { await completeRound(id) } catch (e: any) { setActionError(e.message) }
     setSaving(false)
   }
 
   const handleCancel = async () => {
     if (!id || !confirm('Cancel this delivery?')) return
     setSaving(true)
-    try { await cancelRound(id) } catch {}
+    try { await cancelRound(id) } catch (e: any) { setActionError(e.message) }
     setSaving(false)
   }
 
@@ -191,7 +191,11 @@ export function DeliveryRoundDetailPage() {
     setNotifying(true)
     try {
       const result = await sendRoundNotifications(id, organisation.id)
-      alert(`Notifications sent: ${result.sent} successful, ${result.failed} failed.`)
+      const extra = [
+        result.noPhone ? `${result.noPhone} with no mobile number` : '',
+        result.optedOut ? `${result.optedOut} opted out of texts` : '',
+      ].filter(Boolean).join(', ')
+      alert(`Texts sent: ${result.sent}. Failed: ${result.failed}.${extra ? ` Not sent: ${extra}.` : ''}`)
     } catch (e: any) {
       alert(`Failed to send notifications: ${e.message}`)
     }

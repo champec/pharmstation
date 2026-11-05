@@ -10,6 +10,7 @@ import type {
   PatientMedication,
 } from '@pharmstation/types'
 import { getUserClient } from '@pharmstation/supabase-client'
+import { buildDeliveryReminder, normalisePhone, REDELIVERABLE_STOP_STATUSES } from '../deliveries'
 
 // ── Helpers ──
 
@@ -91,7 +92,7 @@ export interface DeliveryRoundState {
   repeatRound: (roundId: string, orgId: string, createdBy: string) => Promise<DeliveryRound>
 
   // Notifications
-  sendRoundNotifications: (roundId: string, orgId: string, message?: string) => Promise<{ sent: number; failed: number }>
+  sendRoundNotifications: (roundId: string, orgId: string, message?: string) => Promise<{ sent: number; failed: number; noPhone: number; optedOut: number }>
 
   // Realtime
   subscribeToRound: (roundId: string) => () => void
@@ -160,23 +161,29 @@ export const useDeliveryRoundStore = create<DeliveryRoundState>((set, get) => ({
   },
 
   updateRound: async (id, updates) => {
-    const { error } = await getUserClient()
+    const { data, error } = await getUserClient()
       .from('ps_delivery_rounds')
       .update(updates)
       .eq('id', id)
+      .select()
     if (error) throw error
+    if (!data?.length) throw new Error('You do not have permission to change this delivery.')
+    // Use the row the server saved (it sets started_at / completed_at itself).
+    const saved = data[0] as DeliveryRound
     set((s) => ({
-      rounds: s.rounds.map((r) => (r.id === id ? { ...r, ...updates } : r)),
-      activeRound: s.activeRound?.id === id ? { ...s.activeRound, ...updates } : s.activeRound,
+      rounds: s.rounds.map((r) => (r.id === id ? { ...r, ...saved } : r)),
+      activeRound: s.activeRound?.id === id ? { ...s.activeRound, ...saved } : s.activeRound,
     }))
   },
 
   deleteRound: async (id) => {
-    const { error } = await getUserClient()
+    const { data, error } = await getUserClient()
       .from('ps_delivery_rounds')
       .delete()
       .eq('id', id)
+      .select('id')
     if (error) throw error
+    if (!data?.length) throw new Error('Only draft or cancelled deliveries can be deleted, by someone who manages deliveries.')
     set((s) => ({
       rounds: s.rounds.filter((r) => r.id !== id),
       activeRound: s.activeRound?.id === id ? null : s.activeRound,
@@ -193,11 +200,11 @@ export const useDeliveryRoundStore = create<DeliveryRoundState>((set, get) => ({
   },
 
   startRound: async (id) => {
-    await get().updateRound(id, { status: 'in_progress' as DeliveryRoundStatus, started_at: new Date().toISOString() })
+    await get().updateRound(id, { status: 'in_progress' as DeliveryRoundStatus })
   },
 
   completeRound: async (id) => {
-    await get().updateRound(id, { status: 'completed' as DeliveryRoundStatus, completed_at: new Date().toISOString() })
+    await get().updateRound(id, { status: 'completed' as DeliveryRoundStatus })
   },
 
   cancelRound: async (id) => {
@@ -245,11 +252,13 @@ export const useDeliveryRoundStore = create<DeliveryRoundState>((set, get) => ({
   },
 
   removePatientFromRound: async (roundPatientId) => {
-    const { error } = await getUserClient()
+    const { data, error } = await getUserClient()
       .from('ps_delivery_round_patients')
       .delete()
       .eq('id', roundPatientId)
+      .select('id')
     if (error) throw error
+    if (!data?.length) throw new Error('This patient can only be removed while the delivery is a draft or scheduled.')
 
     const activeRound = get().activeRound
     if (activeRound) {
@@ -330,7 +339,7 @@ export const useDeliveryRoundStore = create<DeliveryRoundState>((set, get) => ({
           round:ps_delivery_rounds(id, title, scheduled_date)
         `)
         .eq('organisation_id', orgId)
-        .eq('status', 'pending_redelivery')
+        .in('status', [...REDELIVERABLE_STOP_STATUSES])
         .order('updated_at', { ascending: false })
       if (error) throw error
       set({ redeliveryQueue: (data ?? []) as DeliveryRoundPatient[], loading: false })
@@ -339,84 +348,37 @@ export const useDeliveryRoundStore = create<DeliveryRoundState>((set, get) => ({
     }
   },
 
-  movePatientToRound: async (failedPatientId, targetRoundId, orgId) => {
-    // Get the failed patient record with meds
-    const { data: failedRp, error: fetchErr } = await getUserClient()
-      .from('ps_delivery_round_patients')
-      .select('*, medications:ps_delivery_patient_medications(*)')
-      .eq('id', failedPatientId)
-      .single()
-    if (fetchErr) throw fetchErr
-
-    // Get max delivery_order in target round
-    const { data: existingPatients } = await getUserClient()
-      .from('ps_delivery_round_patients')
-      .select('delivery_order')
-      .eq('round_id', targetRoundId)
-      .order('delivery_order', { ascending: false })
-      .limit(1)
-    const nextOrder = existingPatients && existingPatients.length > 0
-      ? (existingPatients[0] as any).delivery_order + 1
-      : 1
-
-    // Create new round patient in target round
-    const { data: newRp, error: insertErr } = await getUserClient()
-      .from('ps_delivery_round_patients')
-      .insert({
-        round_id: targetRoundId,
-        patient_id: failedRp.patient_id,
-        organisation_id: orgId,
-        delivery_order: nextOrder,
-        status: 'pending',
-        delivery_address_line_1: failedRp.delivery_address_line_1,
-        delivery_address_line_2: failedRp.delivery_address_line_2,
-        delivery_city: failedRp.delivery_city,
-        delivery_postcode: failedRp.delivery_postcode,
-        notes: failedRp.notes,
-        original_round_patient_id: failedPatientId,
-      })
-      .select()
-      .single()
-    if (insertErr) throw insertErr
-
-    // Copy medications to new round patient
-    const meds = (failedRp as any).medications ?? []
-    if (meds.length > 0) {
-      const medRows = meds.map((m: any) => ({
-        delivery_round_patient_id: newRp.id,
-        patient_medication_id: m.patient_medication_id,
-        quantity: m.quantity,
-      }))
-      await getUserClient().from('ps_delivery_patient_medications').insert(medRows)
-    }
-
-    // Update original failed patient status to moved_to_round
-    await getUserClient()
-      .from('ps_delivery_round_patients')
-      .update({ status: 'moved_to_round', moved_to_round_patient_id: newRp.id })
-      .eq('id', failedPatientId)
-
-    // Refresh redelivery queue
+  movePatientToRound: async (failedPatientId, targetRoundId) => {
+    // One database transaction: copies the stop and its medicines to the
+    // target round and marks the original as moved.
+    const { error } = await getUserClient().rpc('ps_delivery_move_stops', {
+      p_stop_ids: [failedPatientId],
+      p_target_round_id: targetRoundId,
+    })
+    if (error) throw error
     set((s) => ({
       redeliveryQueue: s.redeliveryQueue.filter((rp) => rp.id !== failedPatientId),
     }))
   },
 
-  createRedeliveryRound: async (orgId, createdBy, failedPatientIds) => {
-    // Create a new draft round
-    const round = await get().createRound({
-      organisation_id: orgId,
-      title: `Redelivery — ${new Date().toLocaleDateString('en-GB')}`,
-      status: 'draft',
-      created_by: createdBy,
+  createRedeliveryRound: async (orgId, _createdBy, failedPatientIds) => {
+    const { data: roundId, error } = await getUserClient().rpc('ps_delivery_move_stops', {
+      p_stop_ids: failedPatientIds,
+      p_target_round_id: null,
     })
-
-    // Move each failed patient into the new round
-    for (let i = 0; i < failedPatientIds.length; i++) {
-      await get().movePatientToRound(failedPatientIds[i], round.id, orgId)
-    }
-
-    return round
+    if (error) throw error
+    set((s) => ({
+      redeliveryQueue: s.redeliveryQueue.filter((rp) => !failedPatientIds.includes(rp.id)),
+    }))
+    const { data: round, error: fetchErr } = await getUserClient()
+      .from('ps_delivery_rounds')
+      .select(ROUND_SELECT)
+      .eq('id', roundId as string)
+      .eq('organisation_id', orgId)
+      .single()
+    if (fetchErr) throw fetchErr
+    set((s) => ({ rounds: [round as DeliveryRound, ...s.rounds] }))
+    return round as DeliveryRound
   },
 
   markReturned: async (roundPatientId) => {
@@ -510,7 +472,9 @@ export const useDeliveryRoundStore = create<DeliveryRoundState>((set, get) => ({
           delivery_city: rp.delivery_city,
           delivery_postcode: rp.delivery_postcode,
           notes: rp.notes,
-          include_all_active_meds: true,
+          // Keep the medicines chosen on this round; only fall back to "all
+          // active medicines" when the stop had none listed.
+          include_all_active_meds: (rp.medications ?? []).length === 0,
         })
         .select()
         .single()
@@ -524,7 +488,8 @@ export const useDeliveryRoundStore = create<DeliveryRoundState>((set, get) => ({
           patient_medication_id: m.patient_medication_id,
           default_quantity: m.quantity,
         }))
-        await getUserClient().from('ps_delivery_round_template_medications').insert(tmRows)
+        const { error: tmErr } = await getUserClient().from('ps_delivery_round_template_medications').insert(tmRows)
+        if (tmErr) throw tmErr
       }
     }
 
@@ -685,38 +650,52 @@ export const useDeliveryRoundStore = create<DeliveryRoundState>((set, get) => ({
   // ── Notifications (provider-aware: SMS Works / NHS Notify) ──
 
   sendRoundNotifications: async (roundId, orgId, message) => {
-    // Fetch round with patients to get phone numbers
-    const { data: round, error: fetchErr } = await getUserClient()
+    const client = getUserClient()
+    const { data: round, error: fetchErr } = await client
       .from('ps_delivery_rounds')
       .select(`
-        id, title, scheduled_date, time_window,
+        id, title, scheduled_date, scheduled_time_start, scheduled_time_end,
         patients:ps_delivery_round_patients(
+          status,
           patient:ps_patients(id, first_name, last_name, phone)
         )
       `)
       .eq('id', roundId)
       .single()
+    if (fetchErr || !round) throw new Error(fetchErr?.message || 'Failed to load round for notifications')
 
-    if (fetchErr || !round) throw new Error('Failed to load round for notifications')
+    // Respect anyone who texted STOP (fail closed if we can't check).
+    const { data: optOutRows, error: optErr } = await client
+      .from('ps_sms_opt_outs')
+      .select('phone_normalized')
+      .eq('org_id', orgId)
+    if (optErr) throw new Error(`Could not check SMS opt-outs: ${optErr.message}`)
+    const optOuts = new Set((optOutRows ?? []).map((o: any) => o.phone_normalized as string))
 
-    const patients = (round.patients as any[]) || []
-    let sent = 0
-    let failed = 0
-
-    // Route through the messaging store's provider-aware notify seam
-    // (SMS Works for most pharmacies; NHS Notify for NHS-affiliated orgs).
     const { useMessagingStore } = await import('./messaging-store')
     const notify = useMessagingStore.getState().notify
 
-    for (const rp of patients) {
-      const patient = (rp as any).patient
-      if (!patient?.phone) { failed++; continue }
+    let sent = 0
+    let failed = 0
+    let noPhone = 0
+    let optedOut = 0
+    const texted = new Set<string>()
 
-      const dateStr = round.scheduled_date
-        ? new Date(round.scheduled_date).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })
-        : 'soon'
+    for (const rp of (round.patients as any[]) || []) {
+      if (rp.status !== 'pending') continue
+      const patient = rp.patient
+      const phone = normalisePhone(patient?.phone)
+      if (!phone) { noPhone++; continue }
+      if (optOuts.has(phone)) { optedOut++; continue }
+      if (texted.has(phone)) continue
+      texted.add(phone)
 
-      const body = message || `Hello ${patient.first_name}, your pharmacy will be delivering your medication ${dateStr}.${round.time_window ? ` Expected time: ${round.time_window}.` : ''} If you have any questions, please contact the pharmacy.`
+      const body = message || buildDeliveryReminder({
+        firstName: patient.first_name,
+        scheduledDate: round.scheduled_date,
+        timeStart: round.scheduled_time_start,
+        timeEnd: round.scheduled_time_end,
+      })
 
       try {
         await notify({
@@ -734,7 +713,7 @@ export const useDeliveryRoundStore = create<DeliveryRoundState>((set, get) => ({
       }
     }
 
-    return { sent, failed }
+    return { sent, failed, noPhone, optedOut }
   },
 
   // ── Realtime ──

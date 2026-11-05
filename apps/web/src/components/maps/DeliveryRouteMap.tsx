@@ -117,7 +117,7 @@ export function DeliveryRouteMap({ patients, roundId, driverId, height = 400, sh
         .select('latitude, longitude')
         .eq('round_id', roundId)
         .eq('driver_id', driverId)
-        .order('created_at', { ascending: false })
+        .order('recorded_at', { ascending: false })
         .limit(1)
         .maybeSingle()
       if (data) setDriverLocation({ lat: data.latitude, lng: data.longitude })

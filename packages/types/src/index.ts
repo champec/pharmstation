@@ -2048,7 +2048,6 @@ export interface DeliveryRound {
   template_id: string | null
   care_home_batch_id?: string | null
   notes: string | null
-  time_window: string | null
   created_by: string
   started_at: string | null
   completed_at: string | null
