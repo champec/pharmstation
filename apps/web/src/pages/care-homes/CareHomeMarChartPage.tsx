@@ -38,6 +38,14 @@ export function CareHomeMarChartPage() {
   }, [organisation?.id, organisation?.organisation_type, linkId, cycleId, fetchLinks, selectLink, fetchMarEntries])
 
   useEffect(() => {
+    // Scopes the care-home print styles in app.css to this page only.
+    document.body.setAttribute('data-print-mode', 'care-home')
+    return () => {
+      document.body.removeAttribute('data-print-mode')
+    }
+  }, [])
+
+  useEffect(() => {
     if (!selectedDate && dates[0]) setSelectedDate(dates[0])
   }, [dates, selectedDate])
 
