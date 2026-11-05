@@ -266,7 +266,9 @@ function CodeCard({ account, now, onLongPress }: { account: OtpAccount; now: num
     <Pressable onLongPress={onLongPress} style={styles.codeCard} accessibilityLabel={`${account.issuer} code ${code.split('').join(' ')}`}>
       <View style={styles.flex}>
         <Text style={styles.codeIssuer}>{account.issuer}</Text>
-        <Text style={styles.codeLabel} numberOfLines={1}>{account.label}</Text>
+        <Text style={styles.codeLabel} numberOfLines={1}>
+          {account.label} · added {new Date(account.addedAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
+        </Text>
         <Text style={[styles.code, secondsLeft <= 5 && styles.codeEnding]}>{spaced}</Text>
       </View>
       <View style={styles.timer}>
