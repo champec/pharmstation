@@ -10,6 +10,7 @@ import { useAuthStore } from '@/stores/auth-store'
 import { palette } from '@/theme/palette'
 import { registerForPush, type PushPayload } from '@/lib/push'
 import { useCommsStore } from '@/stores/comms-store'
+import { UpdateBanner } from '@/components/UpdateBanner'
 
 export default function RootLayout() {
   const initialize = useAuthStore((s) => s.initialize)
@@ -37,6 +38,7 @@ export default function RootLayout() {
             <Stack.Screen name="(app)" />
           </Stack>
         )}
+        <UpdateBanner />
       </SafeAreaProvider>
     </GestureHandlerRootView>
   )
