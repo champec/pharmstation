@@ -46,6 +46,22 @@ interface LocalField {
   options: string[] | null
   is_required: boolean
   column_width: string
+  /** Number fields: safe range, flagged when a reading falls outside it */
+  range_min: string
+  range_max: string
+  range_unit: string
+}
+
+function rangeOf(options: unknown): { min: string; max: string; unit: string } {
+  if (options && !Array.isArray(options) && typeof options === 'object') {
+    const o = options as Record<string, unknown>
+    return {
+      min: typeof o.min === 'number' ? String(o.min) : '',
+      max: typeof o.max === 'number' ? String(o.max) : '',
+      unit: typeof o.unit === 'string' ? o.unit : '',
+    }
+  }
+  return { min: '', max: '', unit: '' }
 }
 
 let _nextKey = 1
@@ -110,6 +126,9 @@ export function LogBuilderPage() {
           options: Array.isArray(f.options) ? f.options as string[] : null,
           is_required: f.is_required,
           column_width: f.column_width || '',
+          range_min: rangeOf(f.options).min,
+          range_max: rangeOf(f.options).max,
+          range_unit: rangeOf(f.options).unit,
         }))
       )
     }
@@ -136,6 +155,9 @@ export function LogBuilderPage() {
         options: type === 'select' || type === 'multiselect' ? ['Option 1', 'Option 2'] : null,
         is_required: false,
         column_width: '',
+        range_min: '',
+        range_max: '',
+        range_unit: '',
       },
     ])
   }
@@ -194,7 +216,16 @@ export function LogBuilderPage() {
           label: f.label,
           field_key: f.field_key,
           field_type: f.field_type,
-          options: f.options as any,
+          options:
+            f.field_type === 'number'
+              ? (f.range_min.trim() || f.range_max.trim()
+                  ? {
+                      ...(f.range_min.trim() ? { min: Number(f.range_min) } : {}),
+                      ...(f.range_max.trim() ? { max: Number(f.range_max) } : {}),
+                      ...(f.range_unit.trim() ? { unit: f.range_unit.trim() } : {}),
+                    }
+                  : null)
+              : (f.options as any),
           is_required: f.is_required,
           column_width: f.column_width || null,
           display_order: i,
@@ -463,6 +494,19 @@ export function LogBuilderPage() {
                         Required
                       </label>
                     </div>
+
+                    {f.field_type === 'number' && (
+                      <div style={{ marginTop: 'var(--ps-space-sm)' }}>
+                        <label style={{ fontSize: 'var(--ps-font-xs)', color: 'var(--ps-slate)' }}>
+                          Safe range (optional). Readings outside it are flagged and need an action note.
+                        </label>
+                        <div style={{ display: 'flex', gap: 'var(--ps-space-sm)', marginTop: 4 }}>
+                          <input className="ps-input" type="number" placeholder="Min" value={f.range_min} onChange={(e) => updateField(f._key, { range_min: e.target.value })} style={{ width: 90 }} aria-label="Minimum" />
+                          <input className="ps-input" type="number" placeholder="Max" value={f.range_max} onChange={(e) => updateField(f._key, { range_max: e.target.value })} style={{ width: 90 }} aria-label="Maximum" />
+                          <input className="ps-input" placeholder="Unit, e.g. °C" value={f.range_unit} onChange={(e) => updateField(f._key, { range_unit: e.target.value })} style={{ width: 120 }} aria-label="Unit" />
+                        </div>
+                      </div>
+                    )}
 
                     {/* Options editor for select/multiselect */}
                     {(f.field_type === 'select' || f.field_type === 'multiselect') && (

@@ -1,9 +1,8 @@
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useAuthStore, useLogStore } from '@pharmstation/core'
-import type { LogField, LogEntry, LogCategory, FieldType } from '@pharmstation/types'
+import type { LogField, LogEntry } from '@pharmstation/types'
 import { Drawer } from '../../components/Drawer'
-import { CanvasField } from '../../components/forms/CanvasField'
 import {
   downloadCsv,
   fmtDate as fmtExportDate,
@@ -14,378 +13,186 @@ import {
   signatureImg,
   type ExportCell,
 } from '../../utils/registerExport'
-
-/* ---- Constants ---- */
-
-const CATEGORY_CONFIG: Record<LogCategory, { label: string; emoji: string; color: string }> = {
-  fridge: { label: 'Fridge', emoji: '🌡️', color: 'var(--ps-electric-cyan)' },
-  cleaning: { label: 'Cleaning', emoji: '🧹', color: '#22c55e' },
-  cd: { label: 'CD', emoji: '💊', color: '#a855f7' },
-  visitor: { label: 'Visitor', emoji: '👤', color: '#f59e0b' },
-  date_check: { label: 'Date Check', emoji: '📅', color: '#f97316' },
-  custom: { label: 'Custom', emoji: '📋', color: 'var(--ps-slate)' },
-}
-
-const DAY_ABBR = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+import { LogEntryForm } from './LogEntryForm'
+import { Celebration, EntryHistoryModal, StreakBadge, VoidEntryModal, useCelebration } from './LogBits'
+import {
+  addDays,
+  categoryOf,
+  cheer,
+  computeStreak,
+  dataFields,
+  dateList,
+  displayValue,
+  entryHasWarning,
+  formatDay,
+  formatTime,
+  isOutOfRange,
+  isRequiredOn,
+  isScheduled,
+  relativeDay,
+  scheduleLabel,
+  ukDate,
+} from './logUtils'
 
 type DateRange = '7d' | '30d' | 'custom'
 
-function formatDate(d: string): string {
-  const dt = new Date(d + 'T00:00:00')
-  return dt.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })
-}
-
-function toISODate(d: Date): string {
-  return d.toISOString().slice(0, 10)
-}
-
-function getDateRange(range: DateRange, customStart?: string, customEnd?: string): { start: string; end: string } {
-  const today = new Date()
+function rangeFor(range: DateRange, today: string, customStart?: string, customEnd?: string) {
   if (range === 'custom' && customStart && customEnd) {
-    return { start: customStart, end: customEnd }
+    return customStart <= customEnd ? { start: customStart, end: customEnd } : { start: customEnd, end: customStart }
   }
-  const days = range === '30d' ? 30 : 7
-  const start = new Date(today)
-  start.setDate(start.getDate() - days + 1)
-  return { start: toISODate(start), end: toISODate(today) }
+  return { start: addDays(today, range === '30d' ? -29 : -6), end: today }
 }
 
-function generateDateList(start: string, end: string): string[] {
-  const dates: string[] = []
-  const d = new Date(start + 'T00:00:00')
-  const endD = new Date(end + 'T00:00:00')
-  while (d <= endD) {
-    dates.push(toISODate(d))
-    d.setDate(d.getDate() + 1)
-  }
-  return dates.reverse() // most recent first
-}
-
-/* ---- Dynamic Field Renderer ---- */
-
-function FieldInput({
-  field,
-  value,
-  onChange,
-  disabled,
-}: {
-  field: LogField
-  value: unknown
-  onChange: (val: unknown) => void
-  disabled?: boolean
-}) {
-  const strVal = (value ?? '') as string
-  const numVal = value as number | undefined
-
-  switch (field.field_type as FieldType) {
-    case 'text':
-      return (
-        <input
-          className="ps-input"
-          value={strVal}
-          onChange={(e) => onChange(e.target.value)}
-          disabled={disabled}
-          placeholder={field.label}
-          style={{ fontSize: 'var(--ps-font-sm)' }}
-        />
-      )
-    case 'number':
-      return (
-        <input
-          className="ps-input"
-          type="number"
-          value={numVal ?? ''}
-          onChange={(e) => onChange(e.target.value === '' ? null : Number(e.target.value))}
-          disabled={disabled}
-          placeholder={field.label}
-          style={{ fontSize: 'var(--ps-font-sm)', width: field.column_width || '100px' }}
-        />
-      )
-    case 'boolean':
-      return (
-        <label style={{ display: 'flex', alignItems: 'center', gap: '4px', cursor: disabled ? 'default' : 'pointer' }}>
-          <input
-            type="checkbox"
-            checked={!!value}
-            onChange={(e) => onChange(e.target.checked)}
-            disabled={disabled}
-          />
-          <span style={{ fontSize: 'var(--ps-font-sm)' }}>{value ? 'Yes' : 'No'}</span>
-        </label>
-      )
-    case 'select': {
-      const options = Array.isArray(field.options) ? field.options : []
-      return (
-        <select
-          className="ps-input"
-          value={strVal}
-          onChange={(e) => onChange(e.target.value)}
-          disabled={disabled}
-          style={{ fontSize: 'var(--ps-font-sm)' }}
-        >
-          <option value="">— Select —</option>
-          {options.map((opt: string) => (
-            <option key={opt} value={opt}>{opt}</option>
-          ))}
-        </select>
-      )
-    }
-    case 'multiselect': {
-      const options = Array.isArray(field.options) ? field.options : []
-      const selected = Array.isArray(value) ? value : []
-      return (
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
-          {options.map((opt: string) => (
-            <label key={opt} style={{ display: 'flex', alignItems: 'center', gap: '2px', fontSize: 'var(--ps-font-xs)', cursor: disabled ? 'default' : 'pointer' }}>
-              <input
-                type="checkbox"
-                checked={selected.includes(opt)}
-                disabled={disabled}
-                onChange={(e) => {
-                  if (e.target.checked) onChange([...selected, opt])
-                  else onChange(selected.filter((s: string) => s !== opt))
-                }}
-              />
-              {opt}
-            </label>
-          ))}
-        </div>
-      )
-    }
-    case 'date':
-      return (
-        <input
-          className="ps-input"
-          type="datetime-local"
-          value={strVal}
-          onChange={(e) => onChange(e.target.value)}
-          disabled={disabled}
-          style={{ fontSize: 'var(--ps-font-sm)' }}
-        />
-      )
-    case 'textarea':
-      return (
-        <textarea
-          className="ps-input"
-          value={strVal}
-          onChange={(e) => onChange(e.target.value)}
-          disabled={disabled}
-          rows={2}
-          placeholder={field.label}
-          style={{ fontSize: 'var(--ps-font-sm)', resize: 'vertical' }}
-        />
-      )
-    case 'signature':
-    case 'canvas':
-      return (
-        <CanvasField
-          value={strVal || undefined}
-          onChange={(b64) => onChange(b64)}
-          disabled={disabled}
-          width={300}
-          height={120}
-        />
-      )
-    default:
-      return (
-        <input
-          className="ps-input"
-          value={strVal}
-          onChange={(e) => onChange(e.target.value)}
-          disabled={disabled}
-          style={{ fontSize: 'var(--ps-font-sm)' }}
-        />
-      )
-  }
-}
-
-/* ---- Main Component ---- */
+type EditorState =
+  | { mode: 'new'; date: string }
+  | { mode: 'edit'; entry: LogEntry }
+  | null
 
 export function LogViewPage() {
   const { subscriptionId } = useParams<{ subscriptionId: string }>()
   const navigate = useNavigate()
   const { organisation, activeUser } = useAuthStore()
   const {
-    subscriptions,
-    activeTemplate,
-    activeFields,
-    entries,
-    loading,
-    error,
-    fetchSubscriptions,
-    fetchTemplateDetail,
-    fetchEntries,
-    createEntry,
-    updateEntry,
-    clearError,
+    subscriptions, activeTemplate, activeFields, entries, loading, error,
+    fetchSubscriptions, fetchTemplateDetail, fetchEntries, saveEntry, clearError,
   } = useLogStore()
+  const { celebration, celebrate, dismiss } = useCelebration()
 
+  const today = ukDate()
   const [dateRange, setDateRange] = useState<DateRange>('7d')
   const [customStart, setCustomStart] = useState('')
   const [customEnd, setCustomEnd] = useState('')
-  const [showAddDrawer, setShowAddDrawer] = useState(false)
-  const [formData, setFormData] = useState<Record<string, unknown>>({})
-  const [savingEntryId, setSavingEntryId] = useState<string | null>(null)
-  const [editingEntryData, setEditingEntryData] = useState<Record<string, Record<string, unknown>>>({})
-  const [inlineEditingDate, setInlineEditingDate] = useState<string | null>(null)
-  const [inlineData, setInlineData] = useState<Record<string, unknown>>({})
-  const [savingInline, setSavingInline] = useState(false)
+  const [editor, setEditor] = useState<EditorState>(null)
+  const [saving, setSaving] = useState(false)
+  const [saveError, setSaveError] = useState<string | null>(null)
+  const [historyEntry, setHistoryEntry] = useState<LogEntry | null>(null)
+  const [voidTarget, setVoidTarget] = useState<LogEntry | null>(null)
+  const [showRemoved, setShowRemoved] = useState(false)
+  const [exportError, setExportError] = useState<string | null>(null)
 
   const subscription = subscriptions.find((s) => s.id === subscriptionId)
 
-  const load = useCallback(() => {
+  useEffect(() => {
     if (organisation?.id) fetchSubscriptions(organisation.id)
   }, [organisation?.id, fetchSubscriptions])
 
-  useEffect(() => { load() }, [load])
-
   useEffect(() => {
-    if (subscription?.template_id) {
-      fetchTemplateDetail(subscription.template_id)
-    }
+    if (subscription?.template_id) fetchTemplateDetail(subscription.template_id)
   }, [subscription?.template_id, fetchTemplateDetail])
 
-  const range = useMemo(() => getDateRange(dateRange, customStart, customEnd), [dateRange, customStart, customEnd])
+  const range = useMemo(() => rangeFor(dateRange, today, customStart, customEnd), [dateRange, today, customStart, customEnd])
 
+  // Load a wider window than shown so the streak is right.
+  const loadStart = useMemo(() => (range.start < addDays(today, -60) ? range.start : addDays(today, -60)), [range.start, today])
   useEffect(() => {
-    if (subscriptionId) {
-      fetchEntries(subscriptionId, range)
-    }
-  }, [subscriptionId, range, fetchEntries])
+    if (subscriptionId) fetchEntries(subscriptionId, { start: loadStart, end: range.end > today ? range.end : today })
+  }, [subscriptionId, loadStart, range.end, today, fetchEntries])
 
-  const isSporadic = activeTemplate?.schedule_type === 'sporadic'
-  const isDaily = activeTemplate?.schedule_type === 'daily' || activeTemplate?.schedule_type === 'custom_days'
-  const requiredDays = activeTemplate?.required_days || []
-  const todayStr = toISODate(new Date())
+  const template = activeTemplate && subscription && activeTemplate.id === subscription.template_id ? activeTemplate : null
+  const fields = useMemo(() => (template ? dataFields(activeFields) : []), [template, activeFields])
+  const scheduled = isScheduled(template)
+  const cat = categoryOf(template)
+  const logTitle = subscription?.custom_title || template?.title || 'Log'
 
-  // Build entry map by date for daily view
+  const liveEntries = useMemo(() => entries.filter((e) => !e.voided_at), [entries])
   const entryByDate = useMemo(() => {
     const map: Record<string, LogEntry> = {}
-    for (const e of entries) {
-      map[e.entry_date] = e
-    }
+    for (const e of [...liveEntries].sort((a, b) => a.created_at.localeCompare(b.created_at))) map[e.entry_date] = e
     return map
-  }, [entries])
+  }, [liveEntries])
+  const loggedDates = useMemo(() => new Set(liveEntries.map((e) => e.entry_date)), [liveEntries])
 
-  const dates = useMemo(() => generateDateList(range.start, range.end), [range])
+  const dates = useMemo(() => dateList(range.start, range.end > today ? today : range.end), [range, today])
+  const inRange = (e: LogEntry) => e.entry_date >= range.start && e.entry_date <= range.end
 
-  const cat = activeTemplate?.category || 'custom'
-  const catConfig = CATEGORY_CONFIG[cat as LogCategory] || CATEGORY_CONFIG.custom
-
-  /* ---- Sporadic: Add Entry ---- */
-  const handleAddEntry = async () => {
-    if (!subscriptionId || !organisation?.id || !activeUser?.id) return
-    setSavingEntryId('new')
-    try {
-      await createEntry({
-        subscription_id: subscriptionId,
-        org_id: organisation.id,
-        entry_date: todayStr,
-        data: formData,
-        entered_by_user_id: activeUser.id,
-      })
-      setShowAddDrawer(false)
-      setFormData({})
-    } catch {
-      // error in store
-    } finally {
-      setSavingEntryId(null)
+  const stats = useMemo(() => {
+    const requiredDates = dates.filter((d) => isRequiredOn(template, d) && d !== today)
+    const logged = requiredDates.filter((d) => loggedDates.has(d)).length
+    const warnings = liveEntries.filter((e) => inRange(e) && entryHasWarning(fields, e)).length
+    return {
+      streak: computeStreak(template, loggedDates, today, 60),
+      required: requiredDates.length,
+      logged,
+      missed: requiredDates.length - logged,
+      warnings,
+      count: liveEntries.filter(inRange).length,
     }
-  }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dates, template, loggedDates, liveEntries, fields, today, range])
 
-  /* ---- Daily: Inline create/update ---- */
-  const handleInlineSave = async (date: string) => {
-    if (!subscriptionId || !organisation?.id || !activeUser?.id) return
-    setSavingInline(true)
+  const todayDue = scheduled && isRequiredOn(template, today) && !entryByDate[today]
+
+  /* ---- Save ---- */
+  const handleSubmit = async (data: Record<string, unknown>, reason: string | null) => {
+    if (!subscriptionId || !editor) return
+    setSaving(true)
+    setSaveError(null)
     try {
-      const existing = entryByDate[date]
-      if (existing) {
-        await updateEntry(existing.id, inlineData)
+      if (editor.mode === 'edit') {
+        await saveEntry({ subscriptionId, data, replacesId: editor.entry.id, editReason: reason })
+        celebrate('Change saved', 'The original is kept in the history.', '✏️')
       } else {
-        await createEntry({
-          subscription_id: subscriptionId,
-          org_id: organisation.id,
-          entry_date: date,
-          data: inlineData,
-          entered_by_user_id: activeUser.id,
-        })
+        await saveEntry({ subscriptionId, entryDate: editor.date, data })
+        const late = editor.date !== today
+        celebrate(cheer(), late ? `Logged for ${formatDay(editor.date)} (marked as a late entry).` : `${logTitle} saved.`, cat.emoji)
       }
-      setInlineEditingDate(null)
-      setInlineData({})
-      // Refresh entries
-      fetchEntries(subscriptionId, range)
-    } catch {
-      // error in store
+      setEditor(null)
+    } catch (e) {
+      setSaveError(e instanceof Error ? e.message : 'Could not save')
     } finally {
-      setSavingInline(false)
+      setSaving(false)
     }
   }
 
-  const startInlineEdit = (date: string) => {
-    const existing = entryByDate[date]
-    setInlineEditingDate(date)
-    setInlineData(existing?.data ? { ...existing.data } : {})
-  }
+  const openNew = (date: string) => { setSaveError(null); setEditor({ mode: 'new', date }) }
+  const openEdit = (entry: LogEntry) => { setSaveError(null); setEditor({ mode: 'edit', entry }) }
 
-  /* ---- Export (print / PDF and CSV) for the selected date range ---- */
-  const [exportError, setExportError] = useState<string | null>(null)
-  const logTitle = subscription?.custom_title || activeTemplate?.title || 'Log'
-  const dataFields = useMemo(
-    () =>
-      [...activeFields]
-        .filter((f) => f.field_type !== 'heading' && f.field_type !== 'info')
-        .sort((a, b) => a.display_order - b.display_order),
-    [activeFields],
-  )
-
-  /** Rows oldest first; daily logs include required days with no entry as "Not recorded". */
-  const exportEntries = useMemo(() => {
-    const sorted = [...entries].sort((a, b) =>
+  /* ---- Export (print / PDF and CSV) for the selected dates ---- */
+  const exportRows = useMemo(() => {
+    const sorted = liveEntries.filter(inRange).sort((a, b) =>
       a.entry_date === b.entry_date ? a.created_at.localeCompare(b.created_at) : a.entry_date.localeCompare(b.entry_date),
     )
-    if (!isDaily) return sorted.map((entry) => ({ date: entry.entry_date, entry }))
+    if (!scheduled) return sorted.map((entry) => ({ date: entry.entry_date, entry }))
     const out: { date: string; entry: LogEntry | null }[] = []
     for (const date of [...dates].reverse()) {
-      const dayEntries = sorted.filter((e) => e.entry_date === date)
-      if (dayEntries.length > 0) {
-        for (const entry of dayEntries) out.push({ date, entry })
-        continue
-      }
-      const dow = new Date(date + 'T00:00:00').getDay()
-      const required = activeTemplate?.schedule_type === 'daily' || requiredDays.includes(dow)
-      if (required && date <= todayStr) out.push({ date, entry: null })
+      const e = entryByDate[date]
+      if (e) out.push({ date, entry: e })
+      else if (isRequiredOn(template, date) && date < today) out.push({ date, entry: null })
     }
     return out
-  }, [entries, isDaily, dates, activeTemplate?.schedule_type, requiredDays, todayStr])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [liveEntries, scheduled, dates, entryByDate, template, today, range])
 
   const exportValue = (field: LogField, value: unknown): string => {
     if (value === null || value === undefined || value === '') return ''
     if (field.field_type === 'signature' || field.field_type === 'canvas') return 'Signed'
-    if (field.field_type === 'boolean') return value ? 'Yes' : 'No'
     if (field.field_type === 'date') return fmtExportDate(String(value))
-    if (Array.isArray(value)) return value.join(', ')
-    return String(value)
+    const v = displayValue(field, value)
+    return isOutOfRange(field, value) ? `${v} (OUT OF RANGE)` : v
+  }
+
+  const recordedBy = (entry: LogEntry) => {
+    const late = entry.entry_date !== ukDate(new Date(entry.created_at)) ? ' (late entry)' : ''
+    const changed = entry.supersedes_id ? `\nChanged: ${entry.edit_reason ?? ''}` : ''
+    return `${entry.entered_by_profile?.full_name ?? ''}\n${fmtDateTime(entry.created_at)}${late}${changed}`.trim()
   }
 
   const handleLogPrint = () => {
     setExportError(null)
     const htmlCells: Record<string, string> = {}
-    const rows: ExportCell[][] = exportEntries.map(({ date, entry }, i) => {
-      if (!entry) return [fmtExportDate(date), ...dataFields.map((_, c) => (c === 0 ? 'Not recorded' : '')), '']
+    const rows: ExportCell[][] = exportRows.map(({ date, entry }, i) => {
+      if (!entry) return [fmtExportDate(date), ...fields.map((_, c) => (c === 0 ? 'Not recorded' : '')), '']
       return [
         fmtExportDate(date),
-        ...dataFields.map((f, c) => {
+        ...fields.map((f, c) => {
           const v = entry.data?.[f.field_key]
           if (f.field_type === 'signature' || f.field_type === 'canvas') {
             const img = signatureImg(typeof v === 'string' ? v : null)
-            if (img) {
-              htmlCells[`${i}:${c + 1}`] = img
-              return ''
-            }
+            if (img) { htmlCells[`${i}:${c + 1}`] = img; return '' }
           }
           return exportValue(f, v)
         }),
-        `${entry.entered_by_profile?.full_name ?? ''}\n${fmtDateTime(entry.created_at)}`.trim(),
+        recordedBy(entry),
       ]
     })
     const opened = openPrintReport({
@@ -394,253 +201,181 @@ export function LogViewPage() {
       organisationDetail: organisationDetail(organisation),
       periodLabel: `${fmtExportDate(range.start)} to ${fmtExportDate(range.end)}`,
       generatedBy: activeUser?.full_name,
-      orientation: dataFields.length > 6 ? 'landscape' : 'portrait',
-      sections: [
-        {
-          heading: `${catConfig.label} log`,
-          subheading: activeTemplate?.description || undefined,
-          headers: ['Date', ...dataFields.map((f) => f.label), 'Recorded by'],
-          rows,
-          htmlCells,
-          emptyMessage: 'No entries in this period.',
-        },
-      ],
+      orientation: fields.length > 5 ? 'landscape' : 'portrait',
+      notes: scheduled ? [`${stats.logged} of ${stats.required} required days logged in this period.`] : undefined,
+      sections: [{
+        heading: `${cat.label} log`,
+        subheading: template?.description || undefined,
+        headers: ['Date', ...fields.map((f) => f.label), 'Recorded by'],
+        rows,
+        htmlCells,
+        emptyMessage: 'No entries in this period.',
+      }],
     })
     if (!opened) setExportError('Your browser blocked the print window. Allow pop-ups for PharmStation and try again.')
   }
 
   const handleLogCsv = () => {
-    const headers = ['Date', ...dataFields.map((f) => f.label), 'Recorded by', 'Recorded at']
-    const rows: ExportCell[][] = exportEntries.map(({ date, entry }) =>
+    const headers = ['Date', ...fields.map((f) => f.label), 'Recorded by', 'Recorded at', 'Change reason']
+    const rows: ExportCell[][] = exportRows.map(({ date, entry }) =>
       entry
-        ? [
-            fmtExportDate(date),
-            ...dataFields.map((f) => exportValue(f, entry.data?.[f.field_key])),
-            entry.entered_by_profile?.full_name ?? '',
-            fmtDateTime(entry.created_at),
-          ]
-        : [fmtExportDate(date), ...dataFields.map((_, c) => (c === 0 ? 'Not recorded' : '')), '', ''],
+        ? [fmtExportDate(date), ...fields.map((f) => exportValue(f, entry.data?.[f.field_key])), entry.entered_by_profile?.full_name ?? '', fmtDateTime(entry.created_at), entry.edit_reason ?? '']
+        : [fmtExportDate(date), ...fields.map((_, c) => (c === 0 ? 'Not recorded' : '')), '', '', ''],
     )
     downloadCsv(safeFilename(organisation?.name, logTitle, range.start, 'to', range.end), headers, rows)
   }
 
+  const entryMeta = (entry: LogEntry) => (
+    <div className="log-meta">
+      <span>{entry.entered_by_profile?.full_name ?? 'Unknown'} · {formatTime(entry.created_at)}</span>
+      {entry.entry_date !== ukDate(new Date(entry.created_at)) && <span className="ps-badge ps-badge-amber" title={`Entered ${formatDay(ukDate(new Date(entry.created_at)))}`}>Late entry</span>}
+      {entry.supersedes_id && (
+        <button className="log-link" onClick={() => setHistoryEntry(entry)} title={entry.edit_reason ?? ''}>Edited · history</button>
+      )}
+    </div>
+  )
+
+  const sporadicEntries = entries.filter((e) => inRange(e) && (showRemoved || !e.voided_at))
+  const removedCount = entries.filter((e) => inRange(e) && e.voided_at).length
+
   return (
-    <div>
-      {/* Header */}
+    <div className="logs-page" style={{ ['--cat' as string]: cat.color, ['--cat-tint' as string]: cat.tint }}>
       <div className="page-header">
         <div className="breadcrumbs">
           <a href="/" onClick={(e) => { e.preventDefault(); navigate('/') }}>Dashboard</a>
           <span className="separator">/</span>
           <a href="/logs" onClick={(e) => { e.preventDefault(); navigate('/logs') }}>Logs</a>
           <span className="separator">/</span>
-          <span>{subscription?.custom_title || activeTemplate?.title || 'Log'}</span>
+          <span>{logTitle}</span>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--ps-space-md)' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--ps-space-sm)' }}>
-            <h1 style={{ margin: 0 }}>
-              {catConfig.emoji} {subscription?.custom_title || activeTemplate?.title || 'Log'}
-            </h1>
-            <span
-              className="ps-badge"
-              style={{ background: catConfig.color, color: '#fff', fontSize: 'var(--ps-font-xs)' }}
-            >
-              {catConfig.label}
-            </span>
-            <span className="ps-badge ps-badge-blue" style={{ fontSize: 'var(--ps-font-xs)' }}>
-              {activeTemplate?.schedule_type || ''}
-            </span>
+        <div className="logs-header">
+          <div className="log-view-title">
+            <span className="log-card-emoji" aria-hidden>{cat.emoji}</span>
+            <div>
+              <h1>{logTitle}</h1>
+              <p className="log-muted">{scheduleLabel(template?.schedule_type, template?.required_days)}{template?.description ? ` · ${template.description}` : ''}</p>
+            </div>
           </div>
-          <div style={{ display: 'flex', gap: 'var(--ps-space-sm)', flexWrap: 'wrap' }}>
-            <button
-              className="ps-btn ps-btn-secondary"
-              onClick={() => navigate('/logs')}
-            >
-              ← Back to Logs
-            </button>
-            {isSporadic && (
-              <button className="ps-btn ps-btn-primary" onClick={() => { setFormData({}); setShowAddDrawer(true) }}>
-                + Add Entry
-              </button>
+          <div className="logs-header-actions">
+            {!scheduled && template && (
+              <button className="ps-btn ps-btn-primary" onClick={() => openNew(today)}>+ {cat.cta}</button>
             )}
-            <button
-              className="ps-btn ps-btn-secondary"
-              onClick={handleLogPrint}
-              disabled={loading || !activeTemplate}
-              title="Print or save the selected dates as a PDF"
-            >
-              🖨️ Print / PDF
-            </button>
-            <button
-              className="ps-btn ps-btn-secondary"
-              onClick={handleLogCsv}
-              disabled={loading || !activeTemplate}
-              title="Download the selected dates as a CSV spreadsheet"
-            >
-              ⬇ CSV
-            </button>
-            <button
-              className="ps-btn ps-btn-secondary"
-              onClick={() => navigate(`/logs/${subscriptionId}/settings`)}
-            >
-              ⚙️ Settings
-            </button>
+            <button className="ps-btn ps-btn-secondary" onClick={handleLogPrint} disabled={!template}>🖨️ Print / PDF</button>
+            <button className="ps-btn ps-btn-secondary" onClick={handleLogCsv} disabled={!template}>⬇ CSV</button>
+            <button className="ps-btn ps-btn-ghost" onClick={() => navigate(`/logs/${subscriptionId}/settings`)} aria-label="Settings">⚙️</button>
           </div>
         </div>
       </div>
 
-      {/* Error */}
       {error && (
         <div className="auth-error" style={{ marginBottom: 'var(--ps-space-md)' }}>
           {error}
           <button className="ps-btn ps-btn-ghost ps-btn-sm" onClick={clearError} style={{ marginLeft: 'var(--ps-space-sm)' }}>Dismiss</button>
         </div>
       )}
+      {exportError && <div className="auth-error" style={{ marginBottom: 'var(--ps-space-md)' }}>{exportError}</div>}
 
-      {exportError && (
-        <div className="auth-error" style={{ marginBottom: 'var(--ps-space-md)' }}>{exportError}</div>
+      {/* Today call to action */}
+      {todayDue && (
+        <section className="log-today-banner">
+          <div>
+            <strong>Today's entry isn't in yet.</strong>
+            <span className="log-muted"> It takes about 20 seconds.</span>
+          </div>
+          <button className="ps-btn ps-btn-primary log-cta" onClick={() => openNew(today)}>{cat.cta}</button>
+        </section>
+      )}
+      {scheduled && !todayDue && entryByDate[today] && (
+        <section className="log-today-banner is-done">
+          <div><strong>✓ Today is logged.</strong> <span className="log-muted">Thanks, {entryByDate[today].entered_by_profile?.full_name?.split(' ')[0] ?? 'team'}.</span></div>
+          <StreakBadge streak={stats.streak} />
+        </section>
       )}
 
-      {/* Date range selector (sets what is shown and exported) */}
-      {activeTemplate && (
-        <div style={{ display: 'flex', gap: 'var(--ps-space-sm)', alignItems: 'center', marginBottom: 'var(--ps-space-lg)', flexWrap: 'wrap' }}>
+      {/* Stats */}
+      {template && (
+        <div className="log-stats">
+          {scheduled ? (
+            <>
+              <div className="log-stat"><span className="log-stat-num">{stats.required ? Math.round((stats.logged / stats.required) * 100) : 100}%</span><span>days logged</span></div>
+              <div className="log-stat"><span className="log-stat-num">{stats.streak}</span><span>day streak 🔥</span></div>
+              <div className={`log-stat${stats.missed ? ' is-warn' : ''}`}><span className="log-stat-num">{stats.missed}</span><span>missed days</span></div>
+            </>
+          ) : (
+            <div className="log-stat"><span className="log-stat-num">{stats.count}</span><span>entries</span></div>
+          )}
+          <div className={`log-stat${stats.warnings ? ' is-bad' : ''}`}><span className="log-stat-num">{stats.warnings}</span><span>out of range</span></div>
+        </div>
+      )}
+
+      {/* Date range */}
+      {template && (
+        <div className="log-range-bar">
           {(['7d', '30d', 'custom'] as DateRange[]).map((r) => (
-            <button
-              key={r}
-              className={`ps-btn ps-btn-sm ${dateRange === r ? 'ps-btn-primary' : 'ps-btn-secondary'}`}
-              onClick={() => setDateRange(r)}
-            >
-              {r === '7d' ? 'Last 7 days' : r === '30d' ? 'Last 30 days' : 'Custom'}
+            <button key={r} className={`log-chip${dateRange === r ? ' is-on' : ''}`} onClick={() => setDateRange(r)}>
+              {r === '7d' ? 'Last 7 days' : r === '30d' ? 'Last 30 days' : 'Pick dates'}
             </button>
           ))}
           {dateRange === 'custom' && (
             <>
-              <input
-                className="ps-input"
-                type="date"
-                value={customStart}
-                onChange={(e) => setCustomStart(e.target.value)}
-                style={{ width: 160 }}
-              />
-              <span style={{ color: 'var(--ps-slate)' }}>to</span>
-              <input
-                className="ps-input"
-                type="date"
-                value={customEnd}
-                onChange={(e) => setCustomEnd(e.target.value)}
-                style={{ width: 160 }}
-              />
+              <input className="ps-input" type="date" value={customStart} max={today} onChange={(e) => setCustomStart(e.target.value)} aria-label="From" />
+              <span className="log-muted">to</span>
+              <input className="ps-input" type="date" value={customEnd} max={today} onChange={(e) => setCustomEnd(e.target.value)} aria-label="To" />
             </>
           )}
         </div>
       )}
 
-      {/* Loading */}
-      {loading && entries.length === 0 && (
-        <div className="ps-card" style={{ padding: 'var(--ps-space-lg)', opacity: 0.5 }}>
-          <div style={{ height: 20, background: 'var(--ps-off-white)', borderRadius: 'var(--ps-radius-md)', width: '40%' }} />
-        </div>
-      )}
+      {loading && !template && <div className="log-card log-card-skeleton" />}
 
-      {/* ===== DAILY / CUSTOM_DAYS: Spreadsheet Grid ===== */}
-      {isDaily && activeFields.length > 0 && (
-        <div className="ps-card" style={{ padding: 0, overflow: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 'var(--ps-font-sm)' }}>
+      {/* Scheduled logs: one row per day */}
+      {scheduled && fields.length > 0 && (
+        <div className="ps-card log-table-wrap">
+          <table className="log-table">
             <thead>
-              <tr style={{ background: 'var(--ps-off-white)' }}>
-                <th style={{ padding: 'var(--ps-space-sm) var(--ps-space-md)', textAlign: 'left', fontWeight: 600, borderBottom: '2px solid var(--ps-border)', whiteSpace: 'nowrap' }}>
-                  Date
-                </th>
-                {activeFields.map((f) => (
-                  <th
-                    key={f.id}
-                    style={{
-                      padding: 'var(--ps-space-sm) var(--ps-space-md)',
-                      textAlign: 'left',
-                      fontWeight: 600,
-                      borderBottom: '2px solid var(--ps-border)',
-                      width: f.column_width || 'auto',
-                      whiteSpace: 'nowrap',
-                    }}
-                  >
-                    {f.label}
-                    {f.is_required && <span style={{ color: '#ef4444' }}> *</span>}
-                  </th>
-                ))}
-                <th style={{ padding: 'var(--ps-space-sm) var(--ps-space-md)', textAlign: 'left', fontWeight: 600, borderBottom: '2px solid var(--ps-border)', whiteSpace: 'nowrap' }}>
-                  Entered By
-                </th>
-                <th style={{ padding: 'var(--ps-space-sm) var(--ps-space-md)', borderBottom: '2px solid var(--ps-border)', width: 80 }} />
+              <tr>
+                <th>Day</th>
+                {fields.map((f) => <th key={f.id}>{f.label}</th>)}
+                <th>Recorded</th>
+                <th aria-label="Actions" />
               </tr>
             </thead>
             <tbody>
               {dates.map((date) => {
-                const dayOfWeek = new Date(date + 'T00:00:00').getDay()
-                const isRequired = activeTemplate?.schedule_type === 'daily' || requiredDays.includes(dayOfWeek)
+                const required = isRequiredOn(template, date)
                 const entry = entryByDate[date]
-                const isToday = date === todayStr
-                const isEditing = inlineEditingDate === date
-                const isMissing = isRequired && !entry && !isEditing
-
-                let rowBg = 'transparent'
-                if (isToday) rowBg = '#f0f9ff'
-                else if (!isRequired) rowBg = '#f8f8f8'
-                else if (isMissing) rowBg = '#fff7ed'
-
+                const isToday = date === today
+                const missing = required && !entry && !isToday
                 return (
-                  <tr key={date} style={{ background: rowBg, borderBottom: '1px solid var(--ps-border)' }}>
-                    <td style={{ padding: 'var(--ps-space-sm) var(--ps-space-md)', whiteSpace: 'nowrap', fontWeight: isToday ? 600 : 400, color: !isRequired ? 'var(--ps-slate)' : 'var(--ps-midnight)' }}>
-                      {formatDate(date)}
-                      {isToday && <span className="ps-badge ps-badge-blue" style={{ marginLeft: 4, fontSize: '10px' }}>Today</span>}
-                      {!isRequired && <span style={{ fontSize: 'var(--ps-font-xs)', color: 'var(--ps-slate)', marginLeft: 4 }}>(off)</span>}
+                  <tr key={date} className={`${isToday ? 'is-today' : ''}${!required ? ' is-off' : ''}${missing ? ' is-missing' : ''}`}>
+                    <td className="log-day">
+                      {relativeDay(date, today)}
+                      {!required && <span className="log-muted"> · closed</span>}
                     </td>
-                    {activeFields.map((f) => (
-                      <td key={f.id} style={{ padding: 'var(--ps-space-xs) var(--ps-space-md)' }}>
-                        {isEditing ? (
-                          <FieldInput
-                            field={f}
-                            value={inlineData[f.field_key]}
-                            onChange={(val) => setInlineData((prev) => ({ ...prev, [f.field_key]: val }))}
-                          />
-                        ) : (
-                          <span style={{ color: !isRequired ? 'var(--ps-slate)' : 'var(--ps-midnight)', fontSize: 'var(--ps-font-sm)' }}>
-                            {renderValue(entry?.data?.[f.field_key], f.field_type)}
-                          </span>
-                        )}
-                      </td>
-                    ))}
-                    <td style={{ padding: 'var(--ps-space-sm) var(--ps-space-md)', fontSize: 'var(--ps-font-xs)', color: 'var(--ps-slate)' }}>
-                      {entry?.entered_by_profile?.full_name || '—'}
+                    {fields.map((f) => {
+                      const v = entry?.data?.[f.field_key]
+                      const out = isOutOfRange(f, v)
+                      return (
+                        <td key={f.id} className={out ? 'log-out' : ''}>
+                          {entry ? (f.field_type === 'canvas' || f.field_type === 'signature' ? (v ? '✍️ Signed' : '—') : displayValue(f, v)) : ''}
+                          {out && <span className="log-out-flag" title="Out of range"> ⚠</span>}
+                        </td>
+                      )
+                    })}
+                    <td>
+                      {entry ? entryMeta(entry) : missing ? <span className="log-missed">Missed</span> : isToday && required ? <span className="log-status due">Due</span> : ''}
                     </td>
-                    <td style={{ padding: 'var(--ps-space-xs) var(--ps-space-md)', textAlign: 'right' }}>
-                      {isEditing ? (
-                        <div style={{ display: 'flex', gap: '4px', justifyContent: 'flex-end' }}>
-                          <button
-                            className="ps-btn ps-btn-success ps-btn-sm"
-                            onClick={() => handleInlineSave(date)}
-                            disabled={savingInline}
-                            style={{ fontSize: 'var(--ps-font-xs)' }}
-                          >
-                            {savingInline ? '…' : '✓'}
-                          </button>
-                          <button
-                            className="ps-btn ps-btn-ghost ps-btn-sm"
-                            onClick={() => { setInlineEditingDate(null); setInlineData({}) }}
-                            style={{ fontSize: 'var(--ps-font-xs)' }}
-                          >
-                            ✕
-                          </button>
-                        </div>
-                      ) : (
-                        isRequired && (
-                          <button
-                            className="ps-btn ps-btn-ghost ps-btn-sm"
-                            onClick={() => startInlineEdit(date)}
-                            style={{ fontSize: 'var(--ps-font-xs)' }}
-                          >
-                            {entry ? '✏️' : '+ Add'}
-                          </button>
-                        )
-                      )}
+                    <td className="log-row-actions">
+                      {entry ? (
+                        <>
+                          <button className="ps-btn ps-btn-ghost ps-btn-sm" onClick={() => openEdit(entry)}>Edit</button>
+                          <button className="ps-btn ps-btn-ghost ps-btn-sm" onClick={() => setHistoryEntry(entry)} aria-label="History">🕘</button>
+                        </>
+                      ) : required ? (
+                        <button className={`ps-btn ps-btn-sm ${isToday ? 'ps-btn-primary' : 'ps-btn-secondary'}`} onClick={() => openNew(date)}>
+                          {isToday ? 'Log now' : 'Add late entry'}
+                        </button>
+                      ) : null}
                     </td>
                   </tr>
                 )
@@ -650,104 +385,83 @@ export function LogViewPage() {
         </div>
       )}
 
-      {/* ===== SPORADIC: Entry List ===== */}
-      {isSporadic && (
+      {/* As-needed logs: a feed of entries */}
+      {!scheduled && template && (
         <>
-          {entries.length === 0 && !loading && (
-            <div className="ps-card" style={{ padding: 'var(--ps-space-2xl)', textAlign: 'center' }}>
-              <div style={{ fontSize: '48px', marginBottom: 'var(--ps-space-md)' }}>📝</div>
-              <h3 style={{ color: 'var(--ps-midnight)', marginBottom: 'var(--ps-space-sm)' }}>No entries yet</h3>
-              <p style={{ color: 'var(--ps-slate)', marginBottom: 'var(--ps-space-lg)' }}>
-                Add your first entry to get started.
-              </p>
-              <button className="ps-btn ps-btn-primary" onClick={() => { setFormData({}); setShowAddDrawer(true) }}>
-                + Add Entry
-              </button>
+          {sporadicEntries.length === 0 && !loading && (
+            <div className="ps-card logs-empty">
+              <div className="logs-empty-emoji">{cat.emoji}</div>
+              <h2>No entries in these dates</h2>
+              <p className="log-muted">Add one now, or pick a wider date range.</p>
+              <button className="ps-btn ps-btn-primary" onClick={() => openNew(today)}>+ {cat.cta}</button>
             </div>
           )}
-
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--ps-space-md)' }}>
-            {entries.map((entry) => (
-              <div key={entry.id} className="ps-card" style={{ padding: 'var(--ps-space-lg)' }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 'var(--ps-space-sm)' }}>
-                  <span style={{ fontWeight: 600, color: 'var(--ps-midnight)', fontSize: 'var(--ps-font-sm)' }}>
-                    {formatDate(entry.entry_date)}
-                  </span>
-                  <span style={{ fontSize: 'var(--ps-font-xs)', color: 'var(--ps-slate)' }}>
-                    by {entry.entered_by_profile?.full_name || 'Unknown'}
-                  </span>
-                </div>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 'var(--ps-space-sm)' }}>
-                  {activeFields.map((f) => {
+          <div className="log-feed">
+            {sporadicEntries.map((entry) => (
+              <article key={entry.id} className={`ps-card log-feed-item${entry.voided_at ? ' is-void' : ''}${entryHasWarning(fields, entry) ? ' is-warn' : ''}`}>
+                <header>
+                  <strong>{relativeDay(entry.entry_date, today)}</strong>
+                  {entryMeta(entry)}
+                  {!entry.voided_at && (
+                    <div className="log-row-actions">
+                      <button className="ps-btn ps-btn-ghost ps-btn-sm" onClick={() => openEdit(entry)}>Edit</button>
+                      <button className="ps-btn ps-btn-ghost ps-btn-sm" onClick={() => setHistoryEntry(entry)} aria-label="History">🕘</button>
+                      <button className="ps-btn ps-btn-ghost ps-btn-sm" onClick={() => setVoidTarget(entry)} aria-label="Remove">🗑</button>
+                    </div>
+                  )}
+                </header>
+                {entry.voided_at && <div className="log-void-note">Removed: {entry.void_reason}</div>}
+                <dl className="log-feed-values">
+                  {fields.map((f) => {
                     const val = entry.data?.[f.field_key]
                     return (
                       <div key={f.id}>
-                        <div style={{ fontSize: 'var(--ps-font-xs)', color: 'var(--ps-slate)', marginBottom: 2 }}>{f.label}</div>
-                        <div style={{ fontSize: 'var(--ps-font-sm)', color: 'var(--ps-midnight)' }}>
-                          {f.field_type === 'canvas' || f.field_type === 'signature' ? (
-                            val ? <img src={val as string} alt={f.label} style={{ maxWidth: 200, height: 60, objectFit: 'contain', border: '1px solid var(--ps-border)', borderRadius: 'var(--ps-radius-md)' }} /> : '—'
-                          ) : (
-                            renderValue(val, f.field_type) || '—'
-                          )}
-                        </div>
+                        <dt>{f.label}</dt>
+                        <dd className={isOutOfRange(f, val) ? 'log-out' : ''}>
+                          {f.field_type === 'canvas' || f.field_type === 'signature'
+                            ? (val ? <img src={val as string} alt={`${f.label}`} className="log-sig" /> : '—')
+                            : displayValue(f, val)}
+                        </dd>
                       </div>
                     )
                   })}
-                </div>
-              </div>
+                </dl>
+              </article>
             ))}
           </div>
+          {removedCount > 0 && (
+            <button className="log-link" style={{ marginTop: 'var(--ps-space-md)' }} onClick={() => setShowRemoved((v) => !v)}>
+              {showRemoved ? 'Hide removed entries' : `Show ${removedCount} removed ${removedCount === 1 ? 'entry' : 'entries'}`}
+            </button>
+          )}
         </>
       )}
 
-      {/* ===== Sporadic Add Entry Drawer ===== */}
       <Drawer
-        isOpen={showAddDrawer}
-        onClose={() => setShowAddDrawer(false)}
-        title="Add Entry"
+        isOpen={!!editor}
+        onClose={() => setEditor(null)}
+        title={editor?.mode === 'edit' ? `Edit entry` : `${cat.emoji} ${logTitle}`}
+        width="520px"
       >
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--ps-space-md)' }}>
-          {activeFields.map((f) => (
-            <div key={f.id} className="form-group">
-              <label style={{ fontWeight: 500 }}>
-                {f.label}
-                {f.is_required && <span style={{ color: '#ef4444' }}> *</span>}
-              </label>
-              <FieldInput
-                field={f}
-                value={formData[f.field_key]}
-                onChange={(val) => setFormData((prev) => ({ ...prev, [f.field_key]: val }))}
-              />
-            </div>
-          ))}
-
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 'var(--ps-space-sm)', marginTop: 'var(--ps-space-lg)' }}>
-            <button
-              className="ps-btn ps-btn-secondary"
-              onClick={() => setShowAddDrawer(false)}
-              disabled={savingEntryId === 'new'}
-            >
-              Cancel
-            </button>
-            <button
-              className="ps-btn ps-btn-primary"
-              onClick={handleAddEntry}
-              disabled={savingEntryId === 'new'}
-            >
-              {savingEntryId === 'new' ? 'Saving…' : 'Save Entry'}
-            </button>
-          </div>
-        </div>
+        {editor && (
+          <LogEntryForm
+            key={editor.mode === 'edit' ? editor.entry.id : editor.date}
+            fields={fields}
+            entry={editor.mode === 'edit' ? editor.entry : null}
+            date={scheduled ? (editor.mode === 'edit' ? editor.entry.entry_date : editor.date) : undefined}
+            userName={activeUser?.full_name}
+            saving={saving}
+            error={saveError}
+            submitLabel={editor.mode === 'new' && editor.date !== today ? 'Save late entry' : undefined}
+            onSubmit={handleSubmit}
+            onCancel={() => setEditor(null)}
+          />
+        )}
       </Drawer>
+
+      <EntryHistoryModal entry={historyEntry} fields={fields} onClose={() => setHistoryEntry(null)} />
+      <VoidEntryModal entry={voidTarget} onClose={() => setVoidTarget(null)} onDone={() => { setVoidTarget(null); celebrate('Entry removed', 'It stays in the history with your reason.', '🗑') }} />
+      <Celebration state={celebration} onDismiss={dismiss} />
     </div>
   )
-}
-
-/* ---- Helpers ---- */
-
-function renderValue(val: unknown, fieldType: string): string {
-  if (val === null || val === undefined || val === '') return '—'
-  if (fieldType === 'boolean') return val ? 'Yes' : 'No'
-  if (Array.isArray(val)) return val.join(', ')
-  return String(val)
 }
