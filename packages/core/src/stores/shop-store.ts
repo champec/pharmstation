@@ -63,6 +63,9 @@ export interface ShopState {
   deleteProduct: (productId: string) => Promise<void>
   fetchOrders: (orgId: string) => Promise<void>
   updateOrderStatus: (orderId: string, status: ShopOrderStatus, orgNotes?: string) => Promise<void>
+  /** Pharmacist approves or rejects an order with P medicines / consultation answers.
+   *  Rejecting needs notes, cancels the order and returns its stock. */
+  reviewOrder: (orderId: string, approve: boolean, notes?: string) => Promise<void>
   /** Add a (delivery) order to a delivery round — existing round or a brand-new one.
    *  Guest orders get a ps_patients record created from the order details. */
   addOrderToDeliveryRound: (order: ShopOrder, opts: {
@@ -228,6 +231,23 @@ export const useShopStore = create<ShopState>((set, get) => ({
       .select('*, items:ps_shop_order_items(*), responses:ps_shop_questionnaire_responses(*)')
       .single()
     if (error) throw error
+    set({ orders: get().orders.map((o) => (o.id === orderId ? (data as ShopOrder) : o)) })
+  },
+
+  reviewOrder: async (orderId, approve, notes) => {
+    const client = getUserClient()
+    const { error } = await client.rpc('ps_shop_review_order', {
+      p_order_id: orderId,
+      p_approve: approve,
+      p_notes: notes ?? null,
+    })
+    if (error) throw error
+    const { data, error: fErr } = await client
+      .from('ps_shop_orders')
+      .select('*, items:ps_shop_order_items(*), responses:ps_shop_questionnaire_responses(*)')
+      .eq('id', orderId)
+      .single()
+    if (fErr) throw fErr
     set({ orders: get().orders.map((o) => (o.id === orderId ? (data as ShopOrder) : o)) })
   },
 

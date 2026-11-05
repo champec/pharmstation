@@ -2648,6 +2648,11 @@ export interface ShopCategory {
   created_at: string
 }
 
+export type ShopMedicineClass = 'general' | 'gsl' | 'p'
+
+/** not_required: no medicine checks; pending: waiting for a pharmacist. */
+export type ShopReviewStatus = 'not_required' | 'pending' | 'approved' | 'rejected'
+
 export interface ShopProduct {
   id: string
   org_id: string
@@ -2662,6 +2667,10 @@ export interface ShopProduct {
   requires_availability_check: boolean
   requires_consultation: boolean
   questionnaire_id: string | null
+  /** general = not a medicine; p = pharmacy medicine (needs questionnaire + pharmacist approval). */
+  medicine_class: ShopMedicineClass
+  /** Optional cap on how many of this product one order can contain. */
+  max_per_order: number | null
   created_at: string
   updated_at: string
   // Joined
@@ -2738,6 +2747,13 @@ export interface ShopOrder {
   org_notes: string | null
   delivery_round_id: string | null
   delivery_round_patient_id: string | null
+  review_status: ShopReviewStatus
+  reviewed_by: string | null
+  reviewed_by_name: string | null
+  reviewed_by_gphc: string | null
+  reviewed_at: string | null
+  review_notes: string | null
+  stock_restored_at: string | null
   created_at: string
   updated_at: string
   // Joined

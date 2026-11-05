@@ -14,6 +14,9 @@ import { PublicFooter } from '../../components/public/PublicFooter'
 import { usePageTitle } from '../../seo/RouteMeta'
 
 const formatPrice = (pence: number) => `£${(pence / 100).toFixed(2)}`
+/** Most of one product a customer can put in the basket: stock, capped by the pharmacy's per-order limit. */
+const maxQty = (p: { stock_quantity: number; max_per_order?: number | null }) =>
+  p.max_per_order ? Math.min(p.stock_quantity, p.max_per_order) : p.stock_quantity
 
 export function PublicShopOrgPage() {
   const navigate = useNavigate()
@@ -218,7 +221,7 @@ export function PublicShopOrgPage() {
             const out = p.stock_quantity === 0
             return (
               <article key={p.id} className="patient-shop-store-product">
-                <div className="patient-shop-store-product-media">{p.image_url ? <img src={p.image_url} alt={p.name} /> : <span className="modern-shop-product-placeholder">Product image</span>}{p.questionnaire && <b>Consultation</b>}</div>
+                <div className="patient-shop-store-product-media">{p.image_url ? <img src={p.image_url} alt={p.name} /> : <span className="modern-shop-product-placeholder">Product image</span>}{p.medicine_class === 'p' ? <b>Pharmacy medicine</b> : p.questionnaire && <b>Consultation</b>}</div>
                 <div className="patient-shop-store-product-copy">
                   <small>{p.category?.name || 'Pharmacy product'}</small>
                   <h3>{p.name}</h3>
@@ -230,7 +233,7 @@ export function PublicShopOrgPage() {
                       <span className="patient-shop-out">Out of stock</span>
                     ) : inCart ? (
                       <div className="patient-shop-quantity">
-                        <button type="button" onClick={() => updateCartQuantity(p.id, inCart.quantity - 1)}>−</button><span>{inCart.quantity}</span><button type="button" onClick={() => addProductToCart(p)} disabled={inCart.quantity >= p.stock_quantity}>+</button>
+                        <button type="button" onClick={() => updateCartQuantity(p.id, inCart.quantity - 1)}>−</button><span>{inCart.quantity}</span><button type="button" onClick={() => addProductToCart(p)} disabled={inCart.quantity >= maxQty(p)}>+</button>
                       </div>
                     ) : (
                       <button type="button" onClick={() => addProductToCart(p)}>Add to basket</button>
@@ -273,7 +276,7 @@ export function PublicShopOrgPage() {
                       <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                         <button onClick={() => updateCartQuantity(c.product.id, c.quantity - 1)} style={{ width: 26, height: 26, borderRadius: 8, border: '1px solid #e2e8f0', background: 'white', cursor: 'pointer' }}>−</button>
                         <span style={{ fontWeight: 700, minWidth: 18, textAlign: 'center' }}>{c.quantity}</span>
-                        <button onClick={() => addToCart(c.product)} disabled={c.quantity >= c.product.stock_quantity} style={{ width: 26, height: 26, borderRadius: 8, border: '1px solid #e2e8f0', background: 'white', cursor: 'pointer', opacity: c.quantity >= c.product.stock_quantity ? 0.4 : 1 }}>+</button>
+                        <button onClick={() => addToCart(c.product)} disabled={c.quantity >= maxQty(c.product)} style={{ width: 26, height: 26, borderRadius: 8, border: '1px solid #e2e8f0', background: 'white', cursor: 'pointer', opacity: c.quantity >= maxQty(c.product) ? 0.4 : 1 }}>+</button>
                       </div>
                       <strong style={{ minWidth: 60, textAlign: 'right', fontSize: 14 }}>{formatPrice(c.product.price_pence * c.quantity)}</strong>
                       <button onClick={() => removeFromCart(c.product.id)} style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#94a3b8' }}>🗑️</button>
