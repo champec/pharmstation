@@ -14,6 +14,8 @@ import type {
   ShopCartItem,
   ShopPlaceOrderResult,
   ShopFulfilmentMethod,
+  ShopOrderPaymentMethod,
+  ShopPaymentMethods,
   ShopQuestionnaire,
   ShopQuestionnaireAnswer,
   DeliveryRound,
@@ -34,6 +36,8 @@ export interface ShopFrontOrg {
   free_delivery_threshold_pence: number | null
   collection_enabled: boolean
   distance_km: number | null
+  /** What the customer can choose at checkout (card only once the pharmacy's Stripe account is ready). */
+  payment_options: ShopPaymentMethods
 }
 
 export interface ShopState {
@@ -66,6 +70,11 @@ export interface ShopState {
   /** Pharmacist approves or rejects an order with P medicines / consultation answers.
    *  Rejecting needs notes, cancels the order and returns its stock. */
   reviewOrder: (orderId: string, approve: boolean, notes?: string) => Promise<void>
+  /** Cancel (or, with rejectNotes, pharmacist-reject) an order that was paid by card,
+   *  refunding the customer. Returns a warning if the refund needs doing by hand. */
+  cancelPaidOrder: (orderId: string, rejectNotes?: string) => Promise<string | null>
+  /** Can this pharmacy take card payments yet (Stripe payouts set up)? */
+  fetchCardReady: (orgId: string) => Promise<boolean>
   /** Add a (delivery) order to a delivery round — existing round or a brand-new one.
    *  Guest orders get a ps_patients record created from the order details. */
   addOrderToDeliveryRound: (order: ShopOrder, opts: {
@@ -97,7 +106,10 @@ export interface ShopState {
     guestPhone?: string
     customerNotes?: string
     responses?: { product_id: string; questionnaire_id: string; answers: ShopQuestionnaireAnswer[] }[]
+    paymentMethod?: ShopOrderPaymentMethod
   }) => Promise<ShopPlaceOrderResult>
+  /** Open Stripe Checkout for a card order; returns the URL to send the customer to. */
+  startShopCheckout: (params: { orderId: string; successUrl: string; cancelUrl: string }) => Promise<string>
 
   clearError: () => void
 }
@@ -249,6 +261,32 @@ export const useShopStore = create<ShopState>((set, get) => ({
       .single()
     if (fErr) throw fErr
     set({ orders: get().orders.map((o) => (o.id === orderId ? (data as ShopOrder) : o)) })
+  },
+
+  cancelPaidOrder: async (orderId, rejectNotes) => {
+    const client = getUserClient()
+    const { data, error } = await client.functions.invoke('stripe-checkout', {
+      body: { action: 'cancel_shop_order', order_id: orderId, ...(rejectNotes !== undefined ? { reject_notes: rejectNotes } : {}) },
+    })
+    if (error) {
+      let msg = error.message
+      try { msg = (await (error as any).context?.json())?.error || msg } catch { /* keep message */ }
+      throw new Error(msg)
+    }
+    if (data?.error) throw new Error(data.error)
+    const { data: fresh } = await client
+      .from('ps_shop_orders')
+      .select('*, items:ps_shop_order_items(*), responses:ps_shop_questionnaire_responses(*)')
+      .eq('id', orderId)
+      .single()
+    if (fresh) set({ orders: get().orders.map((o) => (o.id === orderId ? (fresh as ShopOrder) : o)) })
+    return (data?.refund_error as string | undefined) ?? null
+  },
+
+  fetchCardReady: async (orgId) => {
+    const { data, error } = await getUserClient().rpc('ps_shop_card_ready', { p_org_id: orgId })
+    if (error) return false
+    return data === true
   },
 
   addOrderToDeliveryRound: async (order, opts) => {
@@ -470,10 +508,24 @@ export const useShopStore = create<ShopState>((set, get) => ({
       p_guest_phone: params.guestPhone ?? null,
       p_customer_notes: params.customerNotes ?? null,
       p_responses: params.responses?.length ? params.responses : null,
+      p_payment_method: params.paymentMethod ?? 'in_store',
     })
     if (error) throw error
     get().clearCart()
     return data as ShopPlaceOrderResult
+  },
+
+  startShopCheckout: async ({ orderId, successUrl, cancelUrl }) => {
+    const { data, error } = await getUserClient().functions.invoke('stripe-checkout', {
+      body: { action: 'create_shop_checkout', order_id: orderId, success_url: successUrl, cancel_url: cancelUrl },
+    })
+    if (error) {
+      let msg = error.message
+      try { msg = (await (error as any).context?.json())?.error || msg } catch { /* keep message */ }
+      throw new Error(msg)
+    }
+    if (!data?.url) throw new Error(data?.error || 'Could not open card payment')
+    return data.url as string
   },
 
   clearError: () => set({ error: null }),
