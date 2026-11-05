@@ -13,8 +13,8 @@
 --       (1 hour before start to 2 hours after end, UK time, overnight aware;
 --       same window as ps_locum_claim_shift_access). Signing out completes the
 --       booking and the shift.
---  1.4  sop-pdfs storage is scoped to the owning pharmacy (and to locums with
---       a booking there), instead of every signed-in user.
+--  1.4  sop-pdfs storage and locum SOP policies: handled by the SOP module
+--       migration 20261105160000_sop_production_readiness.sql (PR #36).
 --  1.5  Pharmacies that can approve locums can open a locum's documents once
 --       that locum has applied to one of their shifts.
 --  1.6  Pharmacy confirm / reject / cancel / no-show are single transactions
@@ -670,88 +670,15 @@ drop policy if exists org_managers_read_payments on public.ps_locum_payments;
 create policy org_managers_read_payments on public.ps_locum_payments for select to authenticated
   using (ps_can_manage_locums(org_id));
 
--- Locum SOPs: pharmacy manages with approve_locums; locums read SOPs of
--- pharmacies they have applied to.
-drop policy if exists authenticated_read_active_sops on public.ps_locum_sop_documents;
-drop policy if exists org_members_crud_sop_documents on public.ps_locum_sop_documents;
-drop policy if exists locum_read_booked_org_sops on public.ps_locum_sop_documents;
-drop policy if exists org_members_read_sop_documents on public.ps_locum_sop_documents;
-drop policy if exists org_managers_manage_sop_documents on public.ps_locum_sop_documents;
-create policy locum_read_booked_org_sops on public.ps_locum_sop_documents for select to authenticated
-  using (is_active and ps_locum_has_booking_at(ps_get_my_locum_id(), org_id));
-create policy org_members_read_sop_documents on public.ps_locum_sop_documents for select to authenticated
-  using (org_id in (select ps_get_user_org_ids()));
-create policy org_managers_manage_sop_documents on public.ps_locum_sop_documents for all to authenticated
-  using (ps_can_manage_locums(org_id)) with check (ps_can_manage_locums(org_id));
-
--- Sign-offs: locum records their own, for an SOP they can see; no edits or deletes.
-drop policy if exists locum_crud_own_signoffs on public.ps_locum_sop_signoffs;
-drop policy if exists locum_read_own_signoffs on public.ps_locum_sop_signoffs;
-drop policy if exists locum_insert_own_signoffs on public.ps_locum_sop_signoffs;
-create policy locum_read_own_signoffs on public.ps_locum_sop_signoffs for select to authenticated
-  using (locum_id = ps_get_my_locum_id());
-create policy locum_insert_own_signoffs on public.ps_locum_sop_signoffs for insert to authenticated
-  with check (
-    locum_id = ps_get_my_locum_id()
-    and exists (select 1 from ps_locum_sop_documents d
-                where d.id = sop_id and d.is_active
-                  and ps_locum_has_booking_at(ps_get_my_locum_id(), d.org_id))
-  );
+-- Locum SOP documents, sign-offs and the sop-pdfs bucket are owned by the SOP
+-- module migration (20261105160000_sop_production_readiness.sql), which
+-- applies the same rules (approve_locums can manage locum SOPs; locums read
+-- SOPs of pharmacies they applied to). Not touched here so the two can't
+-- overwrite each other.
 
 -- ---------------------------------------------------------------------------
 -- Storage
 -- ---------------------------------------------------------------------------
-
--- 1.4 sop-pdfs. Two path layouts share this bucket:
---   <org_id>/...                 locum SOPs (ShiftSOPsPage)
---   <ps_sop_documents.id>/...    SOP library (sop-store)
-create or replace function public.ps_sop_pdf_org(p_name text)
-returns uuid language sql stable security definer set search_path = public as $$
-  select coalesce(
-    (select o.id from ps_organisations o where o.id::text = split_part(p_name, '/', 1)),
-    (select d.org_id from ps_sop_documents d where d.id::text = split_part(p_name, '/', 1))
-  )
-$$;
-revoke all on function public.ps_sop_pdf_org(text) from public, anon;
-grant execute on function public.ps_sop_pdf_org(text) to authenticated, service_role;
-
-drop policy if exists sop_pdfs_select_authenticated on storage.objects;
-drop policy if exists sop_pdfs_insert_authenticated on storage.objects;
-drop policy if exists sop_pdfs_update_authenticated on storage.objects;
-drop policy if exists sop_pdfs_delete_authenticated on storage.objects;
-drop policy if exists sop_pdfs_select_scoped on storage.objects;
-drop policy if exists sop_pdfs_insert_scoped on storage.objects;
-drop policy if exists sop_pdfs_update_scoped on storage.objects;
-drop policy if exists sop_pdfs_delete_scoped on storage.objects;
-
-create policy sop_pdfs_select_scoped on storage.objects for select to authenticated
-  using (bucket_id = 'sop-pdfs' and (
-    public.ps_sop_pdf_org(name) in (select public.ps_get_user_org_ids())
-    or public.ps_locum_has_booking_at(public.ps_get_my_locum_id(), public.ps_sop_pdf_org(name))
-  ));
--- Writers: pharmacy owners, managers and pharmacists (same roles that may
--- edit the SOP library), or anyone with approve_locums for locum SOPs.
-create or replace function public.ps_can_write_sop_pdf(p_name text)
-returns boolean language sql stable security definer set search_path = public as $$
-  select exists (
-    select 1 from ps_organisation_members m
-    where m.organisation_id = ps_sop_pdf_org(p_name)
-      and m.user_id = auth.uid() and m.status = 'active'
-      and m.access_expires_at is null
-      and (m.role in ('owner', 'manager', 'pharmacist')
-           or ps_member_has_permission(m.organisation_id, 'approve_locums'))
-  )
-$$;
-revoke all on function public.ps_can_write_sop_pdf(text) from public, anon;
-grant execute on function public.ps_can_write_sop_pdf(text) to authenticated, service_role;
-
-create policy sop_pdfs_insert_scoped on storage.objects for insert to authenticated
-  with check (bucket_id = 'sop-pdfs' and public.ps_can_write_sop_pdf(name));
-create policy sop_pdfs_update_scoped on storage.objects for update to authenticated
-  using (bucket_id = 'sop-pdfs' and public.ps_can_write_sop_pdf(name))
-  with check (bucket_id = 'sop-pdfs' and public.ps_can_write_sop_pdf(name));
-create policy sop_pdfs_delete_scoped on storage.objects for delete to authenticated
-  using (bucket_id = 'sop-pdfs' and public.ps_can_write_sop_pdf(name));
 
 -- 1.5 locum-documents: pharmacies with approve_locums where the locum applied.
 drop policy if exists locum_documents_select_org_managers on storage.objects;

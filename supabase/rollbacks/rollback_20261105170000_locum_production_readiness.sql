@@ -87,25 +87,7 @@ create policy org_members_read_payment_weeks on public.ps_locum_payment_weeks fo
 drop policy if exists org_managers_read_payments on public.ps_locum_payments;
 create policy org_members_read_payments on public.ps_locum_payments for select using (org_id in (select ps_get_user_org_ids()));
 
--- SOPs and sign-offs
-drop policy if exists locum_read_booked_org_sops on public.ps_locum_sop_documents;
-drop policy if exists org_members_read_sop_documents on public.ps_locum_sop_documents;
-drop policy if exists org_managers_manage_sop_documents on public.ps_locum_sop_documents;
-create policy authenticated_read_active_sops on public.ps_locum_sop_documents for select using (auth.role() = 'authenticated' and is_active = true);
-create policy org_members_crud_sop_documents on public.ps_locum_sop_documents for all using (org_id in (select ps_get_user_org_ids())) with check (org_id in (select ps_get_user_org_ids()));
-drop policy if exists locum_read_own_signoffs on public.ps_locum_sop_signoffs;
-drop policy if exists locum_insert_own_signoffs on public.ps_locum_sop_signoffs;
-create policy locum_crud_own_signoffs on public.ps_locum_sop_signoffs for all using (locum_id = ps_get_my_locum_id()) with check (locum_id = ps_get_my_locum_id());
-
 -- Storage
-drop policy if exists sop_pdfs_select_scoped on storage.objects;
-drop policy if exists sop_pdfs_insert_scoped on storage.objects;
-drop policy if exists sop_pdfs_update_scoped on storage.objects;
-drop policy if exists sop_pdfs_delete_scoped on storage.objects;
-create policy sop_pdfs_select_authenticated on storage.objects for select to authenticated using (bucket_id = 'sop-pdfs');
-create policy sop_pdfs_insert_authenticated on storage.objects for insert to authenticated with check (bucket_id = 'sop-pdfs');
-create policy sop_pdfs_update_authenticated on storage.objects for update to authenticated using (bucket_id = 'sop-pdfs');
-create policy sop_pdfs_delete_authenticated on storage.objects for delete to authenticated using (bucket_id = 'sop-pdfs');
 drop policy if exists locum_documents_select_org_managers on storage.objects;
 
 -- New functions
@@ -115,8 +97,6 @@ drop function if exists public.ps_org_mark_booking(uuid, text);
 drop function if exists public.ps_org_shift_locums(uuid, uuid[]);
 drop function if exists public.ps_locum_sign_in(uuid);
 drop function if exists public.ps_locum_sign_out(uuid);
-drop function if exists public.ps_can_write_sop_pdf(text);
-drop function if exists public.ps_sop_pdf_org(text);
 drop function if exists public.ps_org_can_view_locum_user(text);
 drop function if exists public.ps_org_can_view_locum(uuid);
 -- ps_locum_book_shift uses these three, so they stay:
