@@ -95,39 +95,48 @@ export function RPCertificatePage() {
     if (!el) return
     const printWindow = window.open('', '_blank')
     if (!printWindow) return
+    const landscape = orientation === 'landscape'
+    // Size the notice in millimetres to exactly one A4 page (minus 10mm margins and a small
+    // safety gap). The old 100vh height is only treated as "one page" by Chrome; Firefox and
+    // Safari could spill a sliver of the border onto a second sheet.
+    const pageW = landscape ? 297 : 210
+    const pageH = landscape ? 210 : 297
+    const margin = 10
+    const cardW = pageW - margin * 2
+    const cardH = pageH - margin * 2 - 4
     printWindow.document.write(`
       <!DOCTYPE html>
       <html>
       <head>
-        <title>RP Certificate — ${name}</title>
+        <title>RP Certificate — ${name.replace(/[<>&"]/g, '')}</title>
         <style>
           * { margin: 0; padding: 0; box-sizing: border-box; }
-          body {
-            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+          @page { size: A4 ${orientation}; margin: ${margin}mm; }
+          html, body { width: ${cardW}mm; height: ${cardH}mm; overflow: hidden; }
+          body { font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; }
+          .rp-cert-card {
+            max-width: none !important;
+            width: ${cardW}mm !important;
+            height: ${cardH}mm !important;
+            display: flex !important;
+            flex-direction: column !important;
+            align-items: center !important;
+            justify-content: center !important;
+            padding: ${landscape ? '8mm 14mm' : '12mm 10mm'} !important;
+            border-radius: 0 !important;
+            border: 3px solid #257BB4 !important;
+            margin: 0 !important;
+            background: #fff !important;
+            break-inside: avoid;
+            page-break-inside: avoid;
+            overflow: hidden;
           }
-          @page {
-            size: A4 ${orientation};
-            margin: ${orientation === 'landscape' ? '5mm 10mm' : '10mm 15mm'};
-          }
+          .rp-cert-card h1 { font-size: ${landscape ? '42px' : '36px'} !important; }
+          .rp-cert-card .rp-cert-name { font-size: ${landscape ? '40px' : '34px'} !important; }
+          .rp-cert-card .rp-cert-reg { font-size: ${landscape ? '22px' : '20px'} !important; }
+          .rp-cert-card p { font-size: ${landscape ? '17px' : '16px'} !important; }
           @media print {
             body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-            .rp-cert-card {
-              max-width: none !important;
-              width: 100% !important;
-              height: 100vh !important;
-              display: flex !important;
-              flex-direction: column !important;
-              align-items: center !important;
-              justify-content: center !important;
-              padding: ${orientation === 'landscape' ? '24px 48px' : '40px 32px'} !important;
-              border-radius: 0 !important;
-              border: 3px solid #257BB4 !important;
-              margin: 0 !important;
-            }
-            .rp-cert-card h1 { font-size: ${orientation === 'landscape' ? '42px' : '36px'} !important; }
-            .rp-cert-card .rp-cert-name { font-size: ${orientation === 'landscape' ? '40px' : '34px'} !important; }
-            .rp-cert-card .rp-cert-reg { font-size: ${orientation === 'landscape' ? '22px' : '20px'} !important; }
-            .rp-cert-card p { font-size: ${orientation === 'landscape' ? '17px' : '16px'} !important; }
           }
         </style>
       </head>
@@ -135,9 +144,26 @@ export function RPCertificatePage() {
       </html>
     `)
     printWindow.document.close()
-    printWindow.focus()
-    printWindow.print()
-    printWindow.close()
+
+    // Print once the QR code has loaded (or failed), so it isn't blank on the page.
+    let printed = false
+    const doPrint = () => {
+      if (printed) return
+      printed = true
+      printWindow.focus()
+      printWindow.print()
+      printWindow.close()
+    }
+    const images = Array.from(printWindow.document.images)
+    const pending = images.filter((img) => !img.complete)
+    if (pending.length === 0) {
+      doPrint()
+    } else {
+      let left = pending.length
+      const done = () => { left -= 1; if (left <= 0) doPrint() }
+      pending.forEach((img) => { img.onload = done; img.onerror = done })
+      window.setTimeout(doPrint, 2500)
+    }
   }
 
   const showCertificate = name.trim() && /^\d{7}$/.test(gphcNumber) && lookupState !== 'searching'

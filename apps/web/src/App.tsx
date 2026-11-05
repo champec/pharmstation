@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { Routes, Route, Navigate, useParams } from 'react-router-dom'
 import { useAuthStore } from '@pharmstation/core'
 import { AuthLayout } from './layouts/AuthLayout'
@@ -174,8 +174,12 @@ export function App() {
     initialize()
   }, [initialize])
 
-  // Show loading while restoring sessions
-  if (orgLoading || userLoading) {
+  // Show the loading screen only while sessions are first restored. orgLogin/userLogin also
+  // set the loading flags; showing this screen then unmounted the sign-in page mid-login, so a
+  // failed sign-in (e.g. "not a member of this pharmacy") reset the form and its error vanished.
+  const restored = useRef(false)
+  if (!orgLoading && !userLoading) restored.current = true
+  if (!restored.current && (orgLoading || userLoading)) {
     return (
       <div className="loading-screen">
         <div className="loading-spinner" />
