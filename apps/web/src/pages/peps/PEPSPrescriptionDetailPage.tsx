@@ -11,19 +11,22 @@ const EVENT_LABELS: Record<PepsEvent['event_type'], string> = {
   sent_to_spine: 'Sent to spine',
   directed: 'Directed to pharmacy',
   downloaded: 'Downloaded',
+  claimed: 'Claimed from spine',
   released: 'Released to spine',
   transferred: 'Transferred',
   dispensed: 'Dispensed',
   cancelled: 'Cancelled',
+  printed: 'Document printed',
+  cd_evidence_attached: 'Controlled drug evidence attached',
 }
 
 export function PEPSPrescriptionDetailPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
-  const { organisation, activeUser } = useAuthStore()
+  const { organisation } = useAuthStore()
   const {
     activePrescription: rx, activeItems, activeEvents, loading, error,
-    fetchPrescription, dispense, release, transfer, downloadFromSpine, searchPharmacies,
+    fetchPrescription, dispense, release, transfer, downloadFromSpine, searchPharmacies, logEvent,
   } = usePepsStore()
 
   const [busy, setBusy] = useState(false)
@@ -50,7 +53,8 @@ export function PEPSPrescriptionDetailPage() {
 
   const orgId = organisation?.id
   const heldByMe = rx.status === 'held' && rx.assigned_org_id === orgId
-  const downloadable = rx.status === 'available' && (rx.assigned_org_id === null || rx.assigned_org_id === orgId)
+  // Only prescriptions sent to this pharmacy can be downloaded here. Open-spine ones are claimed from the queue.
+  const downloadable = rx.status === 'available' && !!orgId && rx.assigned_org_id === orgId
   const canPrintDocument = !!orgId && rx.assigned_org_id === orgId && (rx.status === 'held' || rx.status === 'dispensed')
   const controlledDrugDeclared = activeEvents.some(
     (ev) => ev.event_type === 'created' && Boolean((ev.metadata as Record<string, unknown> | null)?.controlled_drug_declared),
@@ -59,11 +63,11 @@ export function PEPSPrescriptionDetailPage() {
 
   const formatEventLabel = (ev: PepsEvent): string => {
     const metadata = (ev.metadata as Record<string, unknown> | null) ?? {}
-    if (ev.event_type === 'downloaded' && metadata.document_print) {
+    if (ev.event_type === 'printed' || (ev.event_type === 'downloaded' && metadata.document_print)) {
       const mode = String(metadata.print_mode ?? '').toUpperCase()
       return mode === 'COPY' ? 'Document printed (COPY)' : 'Document printed (ORIGINAL)'
     }
-    if (ev.event_type === 'downloaded' && metadata.controlled_drug_evidence) {
+    if (ev.event_type === 'cd_evidence_attached' || (ev.event_type === 'downloaded' && metadata.controlled_drug_evidence)) {
       return 'Controlled drug evidence attached'
     }
     return EVENT_LABELS[ev.event_type] ?? ev.event_type
@@ -114,33 +118,25 @@ export function PEPSPrescriptionDetailPage() {
         if (!controlledDispenseEvidence) {
           throw new Error('Attach a scan/photo of the physical controlled-drug prescription before dispensing.')
         }
-          if (controlledDispenseEvidence.size > 2 * 1024 * 1024) {
-            throw new Error('Evidence file is too large. Please attach an image/PDF smaller than 2MB.')
-          }
-          const safeName = controlledDispenseEvidence.name.replace(/[^a-zA-Z0-9._-]/g, '_')
-          const evidencePath = `peps/${rx.id}/controlled-drug/${Date.now()}-${safeName}`
-          const { error: uploadError } = await getUserClient()
-            .storage
-            .from('scan-images')
-            .upload(evidencePath, controlledDispenseEvidence, { upsert: false })
-          if (uploadError) throw new Error(`Could not upload evidence: ${uploadError.message}`)
-        const { data: auth } = await getUserClient().auth.getUser()
-        await getUserClient().from('ps_peps_events').insert({
-          prescription_id: rx.id,
-          event_type: 'downloaded',
-          from_org_id: organisation?.id ?? null,
-          to_org_id: organisation?.id ?? null,
-          actor_user_id: auth.user?.id ?? activeUser?.id ?? null,
-          metadata: {
-            controlled_drug_evidence: true,
-            attachment_name: controlledDispenseEvidence.name,
-            attachment_type: controlledDispenseEvidence.type,
-            attachment_size: controlledDispenseEvidence.size,
-              attachment_storage_bucket: 'scan-images',
-              attachment_storage_path: evidencePath,
-            legal_acknowledged: true,
-            recorded_at: new Date().toISOString(),
-          },
+        if (controlledDispenseEvidence.size > 2 * 1024 * 1024) {
+          throw new Error('Evidence file is too large. Please attach an image/PDF smaller than 2MB.')
+        }
+        const safeName = controlledDispenseEvidence.name.replace(/[^a-zA-Z0-9._-]/g, '_')
+        const evidencePath = `peps/${rx.id}/controlled-drug/${Date.now()}-${safeName}`
+        const { error: uploadError } = await getUserClient()
+          .storage
+          .from('scan-images')
+          .upload(evidencePath, controlledDispenseEvidence, { upsert: false })
+        if (uploadError) throw new Error(`Could not upload evidence: ${uploadError.message}`)
+        await logEvent(rx.id, 'cd_evidence_attached', {
+          controlled_drug_evidence: true,
+          attachment_name: controlledDispenseEvidence.name,
+          attachment_type: controlledDispenseEvidence.type,
+          attachment_size: controlledDispenseEvidence.size,
+          attachment_storage_bucket: 'scan-images',
+          attachment_storage_path: evidencePath,
+          legal_acknowledged: true,
+          recorded_at: new Date().toISOString(),
         })
       }
       await dispense(rx.id)

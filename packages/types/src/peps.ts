@@ -130,10 +130,16 @@ export type PepsEventType =
   | 'sent_to_spine'
   | 'directed'
   | 'downloaded'
+  | 'claimed'
   | 'released'
   | 'transferred'
   | 'dispensed'
   | 'cancelled'
+  | 'printed'
+  | 'cd_evidence_attached'
+
+// Events the app may record through ps_peps_log_event (all others are server-only)
+export type PepsLoggableEventType = 'created' | 'sent_to_spine' | 'directed' | 'printed' | 'cd_evidence_attached'
 
 export interface PepsEvent {
   id: string

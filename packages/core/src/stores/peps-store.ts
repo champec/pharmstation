@@ -7,6 +7,7 @@ import type {
   PepsEvent,
   PepsSpineResult,
   PepsDmdResult,
+  PepsLoggableEventType,
   Patient,
 } from '@pharmstation/types'
 import { getUserClient } from '@pharmstation/supabase-client'
@@ -72,7 +73,9 @@ export interface PepsState {
   fetchMyPrescriptions: () => Promise<void>
   fetchAvailableForOrg: (orgId: string) => Promise<PepsPrescription[]>
   downloadFromSpine: (orgId: string, ids?: string[]) => Promise<PepsPrescription[]>
+  claimByReference: (orgId: string, ref: string, check: string) => Promise<PepsPrescription | null>
   spineSearch: (query: string) => Promise<PepsSpineResult[]>
+  logEvent: (prescriptionId: string, eventType: PepsLoggableEventType, metadata?: Record<string, unknown>) => Promise<void>
 
   // Detail + actions
   fetchPrescription: (id: string) => Promise<void>
@@ -283,13 +286,8 @@ export const usePepsStore = create<PepsState>((set, get) => ({
       if (itemsError) throw itemsError
     }
 
-    // Audit event: created + routed
-    await getUserClient().from('ps_peps_events').insert({
-      prescription_id: rx.id,
-      event_type: input.assigned_org_id ? 'directed' : 'sent_to_spine',
-      to_org_id: input.assigned_org_id,
-      actor_user_id: uid,
-    })
+    // Audit event: routed (written server-side; the RPC checks we wrote it)
+    await get().logEvent(rx.id, input.assigned_org_id ? 'directed' : 'sent_to_spine')
 
     return rx
   },
@@ -333,12 +331,13 @@ export const usePepsStore = create<PepsState>((set, get) => ({
   },
 
   fetchAvailableForOrg: async (orgId) => {
-    // Prescriptions this pharmacy can fetch: open spine OR directed to them, not yet downloaded.
+    // Prescriptions sent directly to this pharmacy and not yet downloaded.
+    // Open-spine prescriptions are not listable: claim them with claimByReference.
     const { data, error } = await getUserClient()
       .from('ps_peps_prescriptions')
       .select('*, items:ps_peps_prescription_items(*)')
       .eq('status', 'available')
-      .or(`assigned_org_id.is.null,assigned_org_id.eq.${orgId}`)
+      .eq('assigned_org_id', orgId)
       .order('prescription_date', { ascending: false })
     if (error) throw error
     return (data ?? []) as PepsPrescription[]
@@ -354,6 +353,30 @@ export const usePepsStore = create<PepsState>((set, get) => ({
     const downloaded = (data ?? []) as PepsPrescription[]
     await get().fetchQueue(orgId)
     return downloaded
+  },
+
+  claimByReference: async (orgId, ref, check) => {
+    set({ error: null })
+    const { data, error } = await getUserClient().rpc('ps_peps_claim', {
+      p_org_id: orgId,
+      p_ref: ref.trim(),
+      p_check: check.trim(),
+    })
+    if (error) throw error
+    const rx = (Array.isArray(data) ? data[0] : data) as PepsPrescription | null
+    // The RPC returns an all-null row when nothing matched.
+    if (!rx?.id) return null
+    await get().fetchQueue(orgId)
+    return rx
+  },
+
+  logEvent: async (prescriptionId, eventType, metadata = {}) => {
+    const { error } = await getUserClient().rpc('ps_peps_log_event', {
+      p_id: prescriptionId,
+      p_event_type: eventType,
+      p_metadata: metadata,
+    })
+    if (error) throw error
   },
 
   spineSearch: async (query) => {
