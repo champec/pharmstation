@@ -111,6 +111,7 @@ import { PublicPharmacyMapPage } from './pages/public/PublicPharmacyMapPage'
 import { PrivacyNoticePage } from './pages/public/PrivacyNoticePage'
 import { LandingPage } from './pages/public/LandingPage'
 import { ModernShopHomePage } from './pages/public/ModernShopHomePage'
+import { ShopPaymentResultPage } from './pages/public/ShopPaymentResultPage'
 import { PublicShopOrgPage } from './pages/public/PublicShopOrgPage'
 import { ShopProductsPage } from './pages/shop/ShopProductsPage'
 import { ShopOrdersPage } from './pages/shop/ShopOrdersPage'
@@ -205,6 +206,7 @@ export function App() {
       <Route path="/booking/manage/:token" element={<ManageBookingPage />} />
       <Route path="/shop" element={<ModernShopHomePage />} />
       <Route path="/shop/:orgSlug" element={<PublicShopOrgPage />} />
+      <Route path="/shop/:orgSlug/payment-result" element={<ShopPaymentResultPage />} />
       <Route path="/about" element={<AboutPage />} />
       <Route path="/contact" element={<ContactPage />} />
       <Route path="/privacy" element={<PrivacyNoticePage />} />

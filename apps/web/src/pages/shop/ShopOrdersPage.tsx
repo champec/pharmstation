@@ -36,7 +36,7 @@ const NEXT_ACTIONS: Record<ShopOrderStatus, ShopOrderStatus[]> = {
 export function ShopOrdersPage() {
   const navigate = useNavigate()
   const { organisation, activeUser } = useAuthStore()
-  const { orders, loading, error, fetchOrders, updateOrderStatus, reviewOrder, addOrderToDeliveryRound, clearError } = useShopStore()
+  const { orders, loading, error, fetchOrders, updateOrderStatus, reviewOrder, cancelPaidOrder, addOrderToDeliveryRound, clearError } = useShopStore()
   const { rounds, fetchRounds } = useDeliveryRoundStore()
   const [statusFilter, setStatusFilter] = useState<'active' | 'all' | ShopOrderStatus>('active')
   const [expandedId, setExpandedId] = useState<string | null>(null)
@@ -64,9 +64,14 @@ export function ShopOrdersPage() {
   const handleStatus = async (order: ShopOrder, status: ShopOrderStatus) => {
     if (
       status === 'cancelled'
-      && !window.confirm(`Cancel order ${order.order_number}? Its items go back into stock. A cancelled order can't be reopened.`)
+      && !window.confirm(`Cancel order ${order.order_number}? Its items go back into stock${order.payment_status === 'paid' ? ' and the customer is refunded in full' : ''}. A cancelled order can't be reopened.`)
     ) return
     try {
+      if (status === 'cancelled' && order.payment_status === 'paid') {
+        const warning = await cancelPaidOrder(order.id)
+        if (warning) useShopStore.setState({ error: warning })
+        return
+      }
       await updateOrderStatus(order.id, status)
     } catch (e: any) {
       useShopStore.setState({ error: e?.message || 'Could not update the order' })
@@ -80,13 +85,18 @@ export function ShopOrdersPage() {
       notes = window.prompt(`Approve ${order.order_number}? Add a note for the record (optional):`, '')
       if (notes === null) return
     } else {
-      notes = window.prompt(`Reject ${order.order_number}? The order is cancelled and its stock goes back. Reason (required, kept on record):`, '')
+      notes = window.prompt(`Reject ${order.order_number}? The order is cancelled and its stock goes back${order.payment_status === 'paid' ? ', and the customer is refunded in full' : ''}. Reason (required, kept on record):`, '')
       if (notes === null) return
       if (!notes.trim()) { useShopStore.setState({ error: 'Please give a reason for rejecting the order' }); return }
     }
     setReviewingId(order.id)
     try {
-      await reviewOrder(order.id, approve, notes.trim() || undefined)
+      if (!approve && order.payment_status === 'paid') {
+        const warning = await cancelPaidOrder(order.id, notes.trim())
+        if (warning) useShopStore.setState({ error: warning })
+      } else {
+        await reviewOrder(order.id, approve, notes.trim() || undefined)
+      }
     } catch (e: any) {
       useShopStore.setState({ error: e?.message || 'Could not save the pharmacist check' })
     } finally {
@@ -186,6 +196,15 @@ export function ShopOrdersPage() {
               >
                 <strong style={{ fontFamily: 'monospace' }}>{o.order_number}</strong>
                 <span className="ps-badge" style={{ background: meta.bg, color: meta.color }}>{meta.label}</span>
+                {o.payment_status === 'awaiting_payment' && o.status !== 'cancelled' && (
+                  <span className="ps-badge" style={{ background: '#f1f5f9', color: '#475569' }}>💳 Waiting for card payment</span>
+                )}
+                {o.payment_status === 'paid' && (
+                  <span className="ps-badge" style={{ background: '#dcfce7', color: '#166534' }}>💳 Paid by card</span>
+                )}
+                {(o.payment_status === 'refunded' || o.payment_status === 'partially_refunded') && (
+                  <span className="ps-badge" style={{ background: '#e0f2fe', color: '#075985' }}>💳 {o.payment_status === 'refunded' ? 'Refunded' : 'Part refunded'}</span>
+                )}
                 {o.review_status === 'pending' && o.status !== 'cancelled' && (
                   <span className="ps-badge" style={{ background: '#fef3c7', color: '#92400e' }}>💊 Needs pharmacist check</span>
                 )}
@@ -243,7 +262,7 @@ export function ShopOrdersPage() {
                           🚚 On a delivery run — view →
                         </button>
                       ) : (
-                        !['completed', 'cancelled'].includes(o.status) && !['pending', 'rejected'].includes(o.review_status) && (
+                        !['completed', 'cancelled'].includes(o.status) && !['pending', 'rejected'].includes(o.review_status) && o.payment_status !== 'awaiting_payment' && (
                           <button className="ps-btn ps-btn-secondary" onClick={() => openRunModal(o)}>
                             🚚 Add to delivery run
                           </button>
@@ -307,6 +326,7 @@ export function ShopOrdersPage() {
                         .filter((s) => !(s === 'out_for_delivery' && o.fulfilment_method !== 'delivery'))
                         .filter((s) => !(s === 'collected' && o.fulfilment_method !== 'collection'))
                         .filter((s) => s === 'cancelled' || !['pending', 'rejected'].includes(o.review_status))
+                        .filter((s) => s === 'cancelled' || o.payment_status !== 'awaiting_payment')
                         .map((s) => (
                           <button
                             key={s}
