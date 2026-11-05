@@ -1,6 +1,21 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { getUserClient } from '@pharmstation/supabase-client'
-import { useAuthStore } from '@pharmstation/core'
+import { useAuthStore, canManageSOPs } from '@pharmstation/core'
+
+const MAX_FILE_BYTES = 20 * 1024 * 1024
+const ALLOWED_TYPES = ['application/pdf', 'image/jpeg', 'image/png']
+
+function checkFile(file: File): string | null {
+  if (!ALLOWED_TYPES.includes(file.type)) return 'Please choose a PDF, JPEG or PNG file.'
+  if (file.size > MAX_FILE_BYTES) return 'That file is over 20 MB.'
+  return null
+}
+
+function storagePathFor(orgId: string, title: string, file: File): string {
+  const slug = title.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 40) || 'sop'
+  const ext = (file.name.split('.').pop() ?? 'pdf').toLowerCase().replace(/[^a-z0-9]/g, '') || 'pdf'
+  return `${orgId}/${slug}/${Date.now()}.${ext}`
+}
 
 interface SopDoc {
   id: string
@@ -23,8 +38,12 @@ interface Signoff {
 }
 
 export function ShiftSOPsPage() {
-  const { organisation, activeUser } = useAuthStore()
+  const { organisation, activeUser, membership } = useAuthStore()
   const orgId = organisation?.id
+  const isManager = canManageSOPs(membership)
+  const newVersionInput = useRef<HTMLInputElement>(null)
+  const [newVersionFor, setNewVersionFor] = useState<SopDoc | null>(null)
+  const [uploadingVersion, setUploadingVersion] = useState<string | null>(null)
   const [sops, setSops] = useState<SopDoc[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -91,6 +110,10 @@ export function ShiftSOPsPage() {
 
   async function addSop() {
     if (!title.trim() || !orgId) return
+    if (!selectedFile) { setError('Choose the SOP file to upload.'); return }
+    const fileProblem = checkFile(selectedFile)
+    if (fileProblem) { setError(fileProblem); return }
+    setError(null)
     setSaving(true)
     setUploadProgress('Saving…')
     try {
@@ -98,9 +121,7 @@ export function ShiftSOPsPage() {
 
       if (selectedFile) {
         setUploadProgress('Uploading file…')
-        const slug = title.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 40)
-        const ext = selectedFile.name.split('.').pop() ?? 'pdf'
-        const path = `${orgId}/${slug}/${Date.now()}.${ext}`
+        const path = storagePathFor(orgId, title, selectedFile)
         const { error: upErr } = await getUserClient()
           .storage.from('sop-pdfs')
           .upload(path, selectedFile, { upsert: false })
@@ -125,7 +146,7 @@ export function ShiftSOPsPage() {
       setShowAddForm(false)
       await load()
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to create SOP')
+      setError((err as { message?: string })?.message ?? 'Failed to create SOP')
     } finally {
       setSaving(false)
       setUploadProgress(null)
@@ -149,8 +170,47 @@ export function ShiftSOPsPage() {
   }
 
   async function toggleActive(sop: SopDoc) {
-    await getUserClient().from('ps_locum_sop_documents').update({ is_active: !sop.is_active, updated_at: new Date().toISOString() }).eq('id', sop.id)
+    setError(null)
+    const { data, error: uErr } = await getUserClient()
+      .from('ps_locum_sop_documents')
+      .update({ is_active: !sop.is_active })
+      .eq('id', sop.id)
+      .select('id')
+    if (uErr || !data?.length) { setError(uErr?.message ?? 'You do not have permission to change this SOP.'); return }
     setSops((prev) => prev.map((s) => s.id === sop.id ? { ...s, is_active: !s.is_active } : s))
+  }
+
+  // Upload a new version: the database bumps the version number and keeps the
+  // old file on record, and locums are asked to sign again.
+  async function uploadNewVersion(sop: SopDoc, file: File) {
+    if (!orgId) return
+    const fileProblem = checkFile(file)
+    if (fileProblem) { setError(fileProblem); return }
+    if (!confirm(`Upload this file as version ${sop.version + 1} of "${sop.title}"? Locums will need to read and sign it again. The old version and its sign-offs are kept.`)) return
+    setError(null)
+    setUploadingVersion(sop.id)
+    try {
+      const path = storagePathFor(orgId, sop.title, file)
+      const { error: upErr } = await getUserClient().storage.from('sop-pdfs').upload(path, file, { upsert: false })
+      if (upErr) throw upErr
+      const { data, error: uErr } = await getUserClient()
+        .from('ps_locum_sop_documents')
+        .update({ file_url: path })
+        .eq('id', sop.id)
+        .select('*')
+        .single()
+      if (uErr) {
+        await getUserClient().storage.from('sop-pdfs').remove([path])
+        throw uErr
+      }
+      setSops((prev) => prev.map((s) => (s.id === sop.id ? (data as SopDoc) : s)))
+      setSignoffMap((prev) => { const next = { ...prev }; delete next[sop.id]; return next })
+      if (expandedId === sop.id) setExpandedId(null)
+    } catch (err) {
+      setError((err as { message?: string })?.message ?? 'Failed to upload the new version')
+    } finally {
+      setUploadingVersion(null)
+    }
   }
 
   return (
@@ -162,13 +222,28 @@ export function ShiftSOPsPage() {
         </div>
         <div style={{ display: 'flex', gap: '0.5rem' }}>
           <button className="ps-btn ps-btn-ghost ps-btn-sm" onClick={load} disabled={loading}>Refresh</button>
-          <button className="ps-btn ps-btn-primary ps-btn-sm" onClick={() => setShowAddForm((v) => !v)}>
-            {showAddForm ? 'Cancel' : '+ Add SOP'}
-          </button>
+          {isManager && (
+            <button className="ps-btn ps-btn-primary ps-btn-sm" onClick={() => setShowAddForm((v) => !v)}>
+              {showAddForm ? 'Cancel' : '+ Add SOP'}
+            </button>
+          )}
         </div>
       </div>
 
       {error && <div className="ps-alert ps-alert-error" style={{ marginBottom: '1rem' }}>{error}</div>}
+
+      <input
+        ref={newVersionInput}
+        type="file"
+        accept="application/pdf,image/jpeg,image/png"
+        style={{ display: 'none' }}
+        onChange={(e) => {
+          const file = e.target.files?.[0]
+          e.target.value = ''
+          if (file && newVersionFor) uploadNewVersion(newVersionFor, file)
+          setNewVersionFor(null)
+        }}
+      />
 
       {showAddForm && (
         <div className="ps-card" style={{ marginBottom: '1.5rem' }}>
@@ -180,7 +255,7 @@ export function ShiftSOPsPage() {
                 <input className="form-input" type="text" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Controlled Drug Handling SOP" />
               </div>
               <div className="form-group">
-                  <label className="form-label">PDF / Document File</label>
+                  <label className="form-label">PDF / Document File <span className="required">*</span></label>
                   <input
                     className="form-input"
                     type="file"
@@ -199,7 +274,7 @@ export function ShiftSOPsPage() {
               Required — locums must sign before their first shift
             </label>
             <div style={{ marginTop: '1rem' }}>
-              <button className="ps-btn ps-btn-primary" onClick={addSop} disabled={saving || !title.trim()}>
+              <button className="ps-btn ps-btn-primary" onClick={addSop} disabled={saving || !title.trim() || !selectedFile}>
                 {saving ? 'Saving…' : 'Add SOP'}
               </button>
             </div>
@@ -244,12 +319,23 @@ export function ShiftSOPsPage() {
                       {loadingUrl === sop.id ? '…' : 'View'}
                     </a>
                   )}
-                  <button
-                    className="ps-btn ps-btn-ghost ps-btn-xs"
-                    onClick={(e) => { e.stopPropagation(); toggleActive(sop) }}
-                  >
-                    {sop.is_active ? 'Deactivate' : 'Activate'}
-                  </button>
+                  {isManager && (
+                    <button
+                      className="ps-btn ps-btn-ghost ps-btn-xs"
+                      disabled={uploadingVersion === sop.id}
+                      onClick={(e) => { e.stopPropagation(); setNewVersionFor(sop); newVersionInput.current?.click() }}
+                    >
+                      {uploadingVersion === sop.id ? 'Uploading…' : 'New version'}
+                    </button>
+                  )}
+                  {isManager && (
+                    <button
+                      className="ps-btn ps-btn-ghost ps-btn-xs"
+                      onClick={(e) => { e.stopPropagation(); toggleActive(sop) }}
+                    >
+                      {sop.is_active ? 'Deactivate' : 'Activate'}
+                    </button>
+                  )}
                   <span style={{ fontSize: '0.75rem', color: 'var(--ps-slate)' }}>{expandedId === sop.id ? '▲' : '▼'}</span>
                 </div>
               </div>

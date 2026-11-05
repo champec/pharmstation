@@ -1,13 +1,17 @@
 import { create } from 'zustand'
 import type {
   SOPDocument,
+  SOPDocumentVersion,
   SOPNode,
   SOPAssignment,
   SOPCompletion,
   OrganisationMember,
   SOPMemberProgress,
 } from '@pharmstation/types'
+import { resolvePermissions } from '@pharmstation/types'
 import { getUserClient } from '@pharmstation/supabase-client'
+
+const SOP_BUCKET = 'sop-pdfs'
 
 // ============================================================
 // Helpers
@@ -56,6 +60,87 @@ export function flattenNodeTree(nodes: SOPNode[]): SOPNode[] {
   return result
 }
 
+/**
+ * Can this staff member build, publish and assign SOPs? Mirrors
+ * ps_is_sop_manager() in the database, which is what actually enforces it:
+ * owners, managers and pharmacists, or anyone given the sop_upload permission.
+ */
+export function canManageSOPs(member: Pick<OrganisationMember, 'role' | 'permissions' | 'status'> | null | undefined): boolean {
+  if (!member || member.status !== 'active') return false
+  if (['owner', 'manager', 'pharmacist'].includes(member.role)) return true
+  return !!resolvePermissions(member.role, member.permissions ?? {}).sop_upload
+}
+
+/**
+ * The sign-off that counts for a staff member: the one for the current version
+ * if there is one, otherwise their newest. (A member who has signed several
+ * versions has several rows; picking any row at random gave wrong statuses.)
+ */
+export function pickCompletion(
+  completions: SOPCompletion[],
+  documentId: string,
+  memberId: string | null | undefined,
+  currentVersion: number | null | undefined,
+): SOPCompletion | null {
+  if (!memberId) return null
+  const mine = completions.filter((c) => c.document_id === documentId && c.member_id === memberId)
+  if (mine.length === 0) return null
+  return (
+    mine.find((c) => c.document_version === currentVersion) ??
+    mine.reduce((a, b) => (b.document_version > a.document_version ? b : a))
+  )
+}
+
+/** Turn a frozen version's sections into SOPNode rows the reader can show. */
+function versionNodes(v: SOPDocumentVersion): SOPNode[] {
+  return (v.nodes ?? []).map((n) => ({
+    ...n,
+    document_id: v.document_id,
+    created_at: v.published_at,
+    updated_at: v.published_at,
+  }))
+}
+
+/** Every file path a frozen version of this SOP still points at (these must be kept). */
+async function pathsKeptByVersions(docId: string): Promise<Set<string>> {
+  const { data } = await getUserClient()
+    .from('ps_sop_document_versions')
+    .select('nodes')
+    .eq('document_id', docId)
+  const keep = new Set<string>()
+  for (const v of (data ?? []) as { nodes: SOPDocumentVersion['nodes'] }[]) {
+    for (const n of v.nodes ?? []) if (n.pdf_storage_path) keep.add(n.pdf_storage_path)
+  }
+  return keep
+}
+
+/** Remove uploaded files nothing points at any more. Best effort: a failure leaves an orphan file, nothing worse. */
+async function removeUnusedFiles(docId: string, paths: (string | null | undefined)[], stillUsed: string[] = []) {
+  const candidates = [...new Set(paths.filter((p): p is string => !!p))]
+  if (candidates.length === 0) return
+  const keep = await pathsKeptByVersions(docId)
+  for (const p of stillUsed) keep.add(p)
+  const remove = candidates.filter((p) => !keep.has(p))
+  if (remove.length) await getUserClient().storage.from(SOP_BUCKET).remove(remove)
+}
+
+/** List every file under a folder of the sop-pdfs bucket (two levels: <doc>/<node>/<file>). */
+async function listFolderFiles(folder: string): Promise<string[]> {
+  const storage = getUserClient().storage.from(SOP_BUCKET)
+  const { data: top } = await storage.list(folder, { limit: 1000 })
+  const out: string[] = []
+  for (const entry of top ?? []) {
+    const path = `${folder}/${entry.name}`
+    if (entry.id) {
+      out.push(path)
+    } else {
+      const { data: inner } = await storage.list(path, { limit: 1000 })
+      for (const f of inner ?? []) if (f.id) out.push(`${path}/${f.name}`)
+    }
+  }
+  return out
+}
+
 // ============================================================
 // Store
 // ============================================================
@@ -64,6 +149,8 @@ export interface SOPState {
   // Data
   documents: SOPDocument[]
   activeDocument: SOPDocument | null
+  /** The frozen published copy staff read (null for a never-published SOP). */
+  activeVersion: SOPDocumentVersion | null
   activeNodes: SOPNode[]        // flat list for the active document
   activeNodeTree: SOPNode[]     // tree version
   selectedNodeId: string | null
@@ -77,9 +164,11 @@ export interface SOPState {
   // --- Document actions ---
   fetchDocuments: (orgId: string) => Promise<void>
   fetchDocument: (docId: string) => Promise<void>
+  /** Load an SOP for staff to read: the frozen copy of its current published version. */
+  fetchDocumentForReading: (docId: string) => Promise<void>
   createDocument: (data: { org_id: string; title: string; description?: string; created_by?: string }) => Promise<SOPDocument>
   updateDocument: (docId: string, updates: Partial<SOPDocument>) => Promise<void>
-  publishDocument: (docId: string) => Promise<void>
+  publishDocument: (docId: string) => Promise<boolean>
   archiveDocument: (docId: string) => Promise<void>
   deleteDocument: (docId: string) => Promise<void>
 
@@ -93,6 +182,8 @@ export interface SOPState {
 
   // --- PDF upload ---
   uploadNodePDF: (nodeId: string, docId: string, file: File) => Promise<string>
+  /** All sign-offs for an SOP, every version, with names, for the inspection export. */
+  fetchSignOffHistory: (docId: string) => Promise<SOPCompletion[]>
   getNodePDFUrl: (path: string) => Promise<string>
 
   // --- Assignments ---
@@ -113,9 +204,19 @@ export interface SOPState {
   clearError: () => void
 }
 
-export const useSOPStore = create<SOPState>((set, get) => ({
+export const useSOPStore = create<SOPState>((set, get) => {
+  /** Mirror the database: changing a published SOP's sections leaves unpublished changes. */
+  const markChanged = () =>
+    set((s) =>
+      s.activeDocument?.published_at && !s.activeDocument.has_unpublished_changes
+        ? { activeDocument: { ...s.activeDocument, has_unpublished_changes: true } }
+        : {},
+    )
+
+  return {
   documents: [],
   activeDocument: null,
+  activeVersion: null,
   activeNodes: [],
   activeNodeTree: [],
   selectedNodeId: null,
@@ -157,8 +258,52 @@ export const useSOPStore = create<SOPState>((set, get) => ({
       const tree = buildNodeTree(nodes)
       set({
         activeDocument: docRes.data as SOPDocument,
+        activeVersion: null,
         activeNodes: nodes,
         activeNodeTree: tree,
+        loading: false,
+      })
+    } catch (e: any) {
+      set({ error: e.message, loading: false })
+    }
+  },
+
+  fetchDocumentForReading: async (docId) => {
+    set({ loading: true, error: null, activeVersion: null })
+    try {
+      const client = getUserClient()
+      const { data: doc, error: docErr } = await client.from('ps_sop_documents').select('*').eq('id', docId).single()
+      if (docErr) throw docErr
+      const document = doc as SOPDocument
+      const { data: ver, error: verErr } = await client
+        .from('ps_sop_document_versions')
+        .select('*')
+        .eq('document_id', docId)
+        .eq('version', document.version)
+        .maybeSingle()
+      // If the frozen-versions table isn't there yet, fall back to the live sections.
+      const frozen = verErr ? null : ver
+
+      let nodes: SOPNode[]
+      if (frozen) {
+        nodes = versionNodes(frozen as SOPDocumentVersion)
+      } else {
+        // Never published (a manager previewing a draft): show the live sections.
+        const { data: live, error: liveErr } = await client
+          .from('ps_sop_nodes')
+          .select('*')
+          .eq('document_id', docId)
+          .order('sort_order')
+        if (liveErr) throw liveErr
+        nodes = live as SOPNode[]
+      }
+      set({
+        activeDocument: frozen
+          ? { ...document, title: (frozen as SOPDocumentVersion).title, description: (frozen as SOPDocumentVersion).description }
+          : document,
+        activeVersion: (frozen as SOPDocumentVersion) ?? null,
+        activeNodes: nodes,
+        activeNodeTree: buildNodeTree(nodes),
         loading: false,
       })
     } catch (e: any) {
@@ -191,44 +336,29 @@ export const useSOPStore = create<SOPState>((set, get) => ({
         documents: s.documents.map((d) => (d.id === docId ? { ...d, ...updates } : d)),
         activeDocument: s.activeDocument?.id === docId ? { ...s.activeDocument, ...updates } : s.activeDocument,
       }))
+      if ('title' in updates || 'description' in updates) markChanged()
     } catch (e: any) {
       set({ error: e.message, saving: false })
     }
   },
 
   publishDocument: async (docId) => {
-    set({ saving: true })
+    set({ saving: true, error: null })
     try {
-      // Bump version and set published
-      const { data: current } = await getUserClient()
-        .from('ps_sop_documents')
-        .select('version, status')
-        .eq('id', docId)
-        .single()
-
-      const newVersion = (current?.version ?? 1) + (current?.status === 'published' ? 1 : 0)
-      const { error } = await getUserClient()
-        .from('ps_sop_documents')
-        .update({
-          status: 'published',
-          version: newVersion,
-          published_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', docId)
+      // The database freezes a copy of the SOP, works out the version and tells
+      // assigned staff to re-read when it is a new version.
+      const { data, error } = await getUserClient().rpc('ps_sop_publish', { p_document_id: docId })
       if (error) throw error
+      const published = data as SOPDocument
       set((s) => ({
         saving: false,
-        documents: s.documents.map((d) =>
-          d.id === docId ? { ...d, status: 'published', version: newVersion } : d
-        ),
-        activeDocument:
-          s.activeDocument?.id === docId
-            ? { ...s.activeDocument, status: 'published', version: newVersion }
-            : s.activeDocument,
+        documents: s.documents.map((d) => (d.id === docId ? { ...d, ...published } : d)),
+        activeDocument: s.activeDocument?.id === docId ? { ...s.activeDocument, ...published } : s.activeDocument,
       }))
+      return true
     } catch (e: any) {
       set({ error: e.message, saving: false })
+      return false
     }
   },
 
@@ -237,9 +367,18 @@ export const useSOPStore = create<SOPState>((set, get) => ({
   },
 
   deleteDocument: async (docId) => {
-    const { error } = await getUserClient().from('ps_sop_documents').delete().eq('id', docId)
+    // The database refuses when anyone has signed it (archive instead).
+    const { data, error } = await getUserClient().from('ps_sop_documents').delete().eq('id', docId).select('id')
     if (error) throw error
+    if (!data || data.length === 0) throw new Error('This SOP could not be deleted. You may not have permission.')
     set((s) => ({ documents: s.documents.filter((d) => d.id !== docId) }))
+    // Clean up its uploaded files (best effort).
+    try {
+      const files = await listFolderFiles(docId)
+      if (files.length) await getUserClient().storage.from(SOP_BUCKET).remove(files)
+    } catch {
+      /* orphaned files are harmless */
+    }
   },
 
   // ── Nodes ──────────────────────────────────────────────────
@@ -265,6 +404,7 @@ export const useSOPStore = create<SOPState>((set, get) => ({
     const created = node as SOPNode
     const updated = [...get().activeNodes, created]
     set({ activeNodes: updated, activeNodeTree: buildNodeTree(updated), selectedNodeId: created.id })
+    markChanged()
     return created
   },
 
@@ -278,6 +418,7 @@ export const useSOPStore = create<SOPState>((set, get) => ({
       if (error) throw error
       const updated = get().activeNodes.map((n) => (n.id === nodeId ? { ...n, ...updates } : n))
       set({ saving: false, activeNodes: updated, activeNodeTree: buildNodeTree(updated) })
+      markChanged()
     } catch (e: any) {
       set({ error: e.message, saving: false })
     }
@@ -295,11 +436,21 @@ export const useSOPStore = create<SOPState>((set, get) => ({
     }
     collect(nodeId)
     const updated = allNodes.filter((n) => !toDelete.has(n.id))
+    const docId = allNodes.find((n) => n.id === nodeId)?.document_id
+    if (docId) {
+      // Files of deleted sections, unless a published version still shows them.
+      removeUnusedFiles(
+        docId,
+        allNodes.filter((n) => toDelete.has(n.id)).map((n) => n.pdf_storage_path),
+        updated.map((n) => n.pdf_storage_path).filter((p): p is string => !!p),
+      ).catch(() => {})
+    }
     set({
       activeNodes: updated,
       activeNodeTree: buildNodeTree(updated),
       selectedNodeId: get().selectedNodeId && toDelete.has(get().selectedNodeId!) ? null : get().selectedNodeId,
     })
+    markChanged()
   },
 
   moveNode: async (nodeId, newParentId, newOrder) => {
@@ -312,6 +463,7 @@ export const useSOPStore = create<SOPState>((set, get) => ({
       n.id === nodeId ? { ...n, parent_id: newParentId, sort_order: newOrder } : n
     )
     set({ activeNodes: updated, activeNodeTree: buildNodeTree(updated) })
+    markChanged()
   },
 
   setSelectedNode: (nodeId) => set({ selectedNodeId: nodeId }),
@@ -319,18 +471,36 @@ export const useSOPStore = create<SOPState>((set, get) => ({
   // ── PDF uploads ────────────────────────────────────────────
 
   uploadNodePDF: async (nodeId, docId, file) => {
-    const path = `${docId}/${nodeId}/${Date.now()}_${file.name}`
-    const { error } = await getUserClient().storage.from('sop-pdfs').upload(path, file, {
-      upsert: true,
+    if (file.type && file.type !== 'application/pdf') throw new Error('Please choose a PDF file.')
+    if (file.size > 20 * 1024 * 1024) throw new Error('That file is over 20 MB.')
+    const previous = get().activeNodes.find((n) => n.id === nodeId)?.pdf_storage_path ?? null
+    const safeName = file.name.replace(/[^A-Za-z0-9._-]+/g, '_').slice(-80)
+    const path = `${docId}/${nodeId}/${Date.now()}_${safeName}`
+    const { error } = await getUserClient().storage.from(SOP_BUCKET).upload(path, file, {
+      upsert: false,
+      contentType: 'application/pdf',
     })
     if (error) throw error
     await get().updateNode(nodeId, { content_type: 'pdf', pdf_storage_path: path })
+    if (get().error) throw new Error(get().error!)
+    // The replaced file, unless a published version still shows it.
+    if (previous && previous !== path) removeUnusedFiles(docId, [previous], [path]).catch(() => {})
     return path
   },
 
   getNodePDFUrl: async (path) => {
-    const { data } = await getUserClient().storage.from('sop-pdfs').createSignedUrl(path, 3600)
+    const { data } = await getUserClient().storage.from(SOP_BUCKET).createSignedUrl(path, 3600)
     return data?.signedUrl ?? ''
+  },
+
+  fetchSignOffHistory: async (docId) => {
+    const { data, error } = await getUserClient()
+      .from('ps_sop_completions')
+      .select('*')
+      .eq('document_id', docId)
+      .order('completed_at', { ascending: false })
+    if (error) throw error
+    return data as SOPCompletion[]
   },
 
   // ── Assignments ────────────────────────────────────────────
@@ -365,7 +535,10 @@ export const useSOPStore = create<SOPState>((set, get) => ({
       .is('member_id', null)
     const { data, error } = await getUserClient()
       .from('ps_sop_assignments')
-      .upsert({ document_id: docId, org_id: orgId, member_id: memberId, assigned_by: assignedBy })
+      .upsert(
+        { document_id: docId, org_id: orgId, member_id: memberId, assigned_by: assignedBy },
+        { onConflict: 'document_id,member_id' },
+      )
       .select()
       .single()
     if (error) throw error
@@ -393,31 +566,27 @@ export const useSOPStore = create<SOPState>((set, get) => ({
       .select('*')
       .eq('document_id', docId)
       .eq('org_id', orgId)
+      .order('document_version', { ascending: false })
     if (error) throw error
     set({ completions: data as SOPCompletion[] })
   },
 
   markComplete: async (docId, version, memberId, orgId) => {
-    const { data, error } = await getUserClient()
+    // Sign-offs are permanent: the database sets the time and signer, and only
+    // accepts the current published version.
+    const client = getUserClient()
+    const { error } = await client
       .from('ps_sop_completions')
-      .upsert({ document_id: docId, document_version: version, member_id: memberId, org_id: orgId })
-      .select()
-      .single()
-    if (error) throw error
-    const comp = data as SOPCompletion
-    set((s) => ({
-      completions: [
-        ...s.completions.filter((c) => !(c.document_id === docId && c.member_id === memberId)),
-        comp,
-      ],
-    }))
+      .insert({ document_id: docId, document_version: version, member_id: memberId, org_id: orgId })
+    if (error && error.code !== '23505') throw error // 23505: already signed this version
+    await get().fetchCompletions(docId, orgId)
   },
 
   fetchMemberProgress: async (docId, orgId) => {
     set({ loading: true })
     try {
       const client = getUserClient()
-      const [membersRes, completionsRes, docRes] = await Promise.all([
+      const [membersRes, completionsRes, docRes, assignRes] = await Promise.all([
         client
           .from('ps_organisation_members')
           .select('*, user_profile:ps_user_profiles(*)')
@@ -425,16 +594,26 @@ export const useSOPStore = create<SOPState>((set, get) => ({
           .eq('status', 'active'),
         client.from('ps_sop_completions').select('*').eq('document_id', docId).eq('org_id', orgId),
         client.from('ps_sop_documents').select('version').eq('id', docId).single(),
+        client.from('ps_sop_assignments').select('*').eq('document_id', docId),
       ])
       if (membersRes.error) throw membersRes.error
       if (completionsRes.error) throw completionsRes.error
       if (docRes.error) throw docRes.error
+      if (assignRes.error) throw assignRes.error
 
       const currentVersion = docRes.data.version as number
       const completions = completionsRes.data as SOPCompletion[]
+      const assignments = assignRes.data as SOPAssignment[]
+      const assignedToAll = assignments.some((a) => a.member_id === null)
+      const assignedIds = new Set(assignments.map((a) => a.member_id))
 
-      const progress: SOPMemberProgress[] = (membersRes.data as OrganisationMember[]).map((m) => {
-        const comp = completions.find((c) => c.member_id === m.id) ?? null
+      // Only the people it was assigned to (everyone when assigned to all).
+      const members = (membersRes.data as OrganisationMember[]).filter(
+        (m) => assignedToAll || assignedIds.has(m.id),
+      )
+
+      const progress: SOPMemberProgress[] = members.map((m) => {
+        const comp = pickCompletion(completions, docId, m.id, currentVersion)
         return {
           member: m,
           completion: comp,
@@ -442,7 +621,7 @@ export const useSOPStore = create<SOPState>((set, get) => ({
         }
       })
 
-      set({ memberProgress: progress, loading: false })
+      set({ memberProgress: progress, assignments, loading: false })
     } catch (e: any) {
       set({ error: e.message, loading: false })
     }
@@ -483,11 +662,9 @@ export const useSOPStore = create<SOPState>((set, get) => ({
         .eq('member_id', memberId)
       if (compErr) throw compErr
 
-      const compMap = new Map((completions ?? []).map((c: SOPCompletion) => [c.document_id, c]))
-
       const enriched = (docs as SOPDocument[]).map((d) => ({
         ...d,
-        my_completion: compMap.get(d.id) ?? null,
+        my_completion: pickCompletion((completions ?? []) as SOPCompletion[], d.id, memberId, d.version),
       }))
 
       set({ documents: enriched, loading: false })
@@ -497,4 +674,5 @@ export const useSOPStore = create<SOPState>((set, get) => ({
   },
 
   clearError: () => set({ error: null }),
-}))
+  }
+})

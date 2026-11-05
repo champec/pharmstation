@@ -132,7 +132,7 @@ export function LocumSOPsPage() {
       ])
       setConfirmed((prev) => ({ ...prev, [sop.id]: false }))
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Sign failed')
+      setError((err as { message?: string })?.message ?? 'Sign failed')
     } finally {
       setSigning(null)
     }

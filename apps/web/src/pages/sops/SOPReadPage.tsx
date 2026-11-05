@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { useAuthStore, useSOPStore } from '@pharmstation/core'
+import { useAuthStore, useSOPStore, pickCompletion } from '@pharmstation/core'
 import type { SOPNode } from '@pharmstation/types'
 import { RichTextEditor } from '../../components/sop/RichTextEditor'
 
@@ -89,12 +89,14 @@ export function SOPReadPage() {
 
   const {
     activeDocument,
+    activeVersion,
     activeNodes,
     activeNodeTree,
     selectedNodeId,
     completions,
     loading,
-    fetchDocument,
+    error,
+    fetchDocumentForReading,
     fetchCompletions,
     markComplete,
     getNodePDFUrl,
@@ -104,10 +106,11 @@ export function SOPReadPage() {
   const [pdfUrl, setPdfUrl] = useState<string | null>(null)
   const [pdfLoading, setPdfLoading] = useState(false)
   const [marking, setMarking] = useState(false)
+  const [markError, setMarkError] = useState<string | null>(null)
 
   useEffect(() => {
-    if (docId) fetchDocument(docId)
-  }, [docId, fetchDocument])
+    if (docId) fetchDocumentForReading(docId)
+  }, [docId, fetchDocumentForReading])
 
   useEffect(() => {
     if (docId && organisation?.id) fetchCompletions(docId, organisation.id)
@@ -125,28 +128,34 @@ export function SOPReadPage() {
         setPdfLoading(false)
       })
     }
-  }, [selectedNodeId])
+  }, [selectedNodeId, selectedNode?.pdf_storage_path])
 
   // Auto-select first node
   useEffect(() => {
-    if (activeNodeTree.length > 0 && !selectedNodeId) {
+    // Also when the selection is left over from another SOP (or the editor's live sections).
+    if (activeNodeTree.length > 0 && !activeNodes.some((n) => n.id === selectedNodeId)) {
       // Find first node with content
       const first = activeNodes.find((n) => n.content_type !== 'none') ?? activeNodes[0]
       if (first) setSelectedNode(first.id)
     }
-  }, [activeNodeTree.length])
+  }, [activeNodeTree.length, activeNodes, selectedNodeId])
 
-  const myCompletion = completions.find(
-    (c) => c.document_id === docId && c.member_id === membership?.id
-  )
+  const myCompletion = docId
+    ? pickCompletion(completions, docId, membership?.id, activeDocument?.version)
+    : null
   const isCurrentVersion = !!myCompletion && myCompletion.document_version === activeDocument?.version
-  const needsReread = myCompletion && !isCurrentVersion
+  const needsReread = !!myCompletion && !isCurrentVersion
+  // Only the current published (frozen) version can be signed.
+  const canSign = activeDocument?.status === 'published' && !!activeVersion && !isCurrentVersion
 
   const handleMarkComplete = async () => {
     if (!docId || !membership?.id || !organisation?.id || !activeDocument) return
     setMarking(true)
+    setMarkError(null)
     try {
       await markComplete(docId, activeDocument.version, membership.id, organisation.id)
+    } catch (e: any) {
+      setMarkError(e?.message ?? 'Could not save your sign-off')
     } finally {
       setMarking(false)
     }
@@ -209,7 +218,12 @@ export function SOPReadPage() {
                 ✓ Completed {new Date(myCompletion!.completed_at).toLocaleDateString()}
               </span>
             )}
-            {!isCurrentVersion && (
+            {!activeVersion && activeDocument && (
+              <span style={{ fontSize: 12, color: 'var(--ps-text-muted)' }}>
+                Preview: not published yet, so it can't be signed
+              </span>
+            )}
+            {canSign && (
               <button
                 className="ps-btn ps-btn-primary"
                 onClick={handleMarkComplete}
@@ -222,6 +236,9 @@ export function SOPReadPage() {
         </div>
         {doc?.description && (
           <p style={{ margin: '4px 0 0', fontSize: 13, color: 'var(--ps-text-muted)' }}>{doc.description}</p>
+        )}
+        {(markError || error) && (
+          <div className="ps-alert ps-alert-error" style={{ marginTop: 8 }}>{markError || error}</div>
         )}
       </div>
 
@@ -324,7 +341,7 @@ export function SOPReadPage() {
                     {flatNodes[currentIdx + 1].title} →
                   </button>
                 ) : (
-                  !isCurrentVersion && (
+                  canSign && (
                     <button
                       className="ps-btn ps-btn-primary"
                       onClick={handleMarkComplete}
