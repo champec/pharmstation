@@ -21,17 +21,22 @@
 //                 body: { token } | { appointment_id } (+ Authorization)
 //   staff_set_status — staff confirm/cancel with patient text and optional
 //                 refund. body: { appointment_id, status, refund?, notify? }
+//   available_slots / reschedule — patient moves their own booking (same
+//                 notice rule as a free cancellation). body: { token | appointment_id, slot_id? }
+//   staff_slots / staff_reschedule — staff move a booking.
+//   run_jobs    — pg_cron (x-internal-secret): reminder texts, video rooms.
 // ============================================
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.0'
+import { ensureVideoConsult } from '../_shared/video-rooms.ts'
 import {
-  holdMinutes, loadBooking, paidPaymentFor, pounds, refundBookingPayment, rulesFrom, textPatient,
+  appUrl, formatWhen, holdMinutes, loadBooking, paidPaymentFor, pounds, refundBookingPayment, rulesFrom, textPatient,
   type BookingView,
 } from '../_shared/appointment-helpers.ts'
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-internal-secret',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 }
 
@@ -184,7 +189,10 @@ function cancelTerms(b: BookingView, paidPence: number) {
   const active = b.status === 'pending' || b.status === 'confirmed'
   const canCancel = active && rules.patient_can_cancel && hoursBefore > 0
   const refundDue = canCancel && paidPence > 0 && hoursBefore >= rules.refund_cutoff_hours
-  return { rules, hoursBefore, canCancel, refundDue }
+  // Moving is allowed while a free cancellation would be (same notice rule),
+  // and never while an unpaid hold is running.
+  const canMove = canCancel && !b.hold_expires_at && hoursBefore >= rules.refund_cutoff_hours
+  return { rules, hoursBefore, canCancel, refundDue, canMove }
 }
 
 async function manageGet(req: Request, body: Record<string, unknown>) {
@@ -209,9 +217,88 @@ async function manageGet(req: Request, body: Record<string, unknown>) {
       paid_pence: paidPence,
     },
     can_cancel: t.canCancel,
+    can_move: t.canMove,
     refund_on_cancel: t.refundDue,
     refund_cutoff_hours: t.rules.refund_cutoff_hours,
+    video: await videoFor(db, b),
   })
+}
+
+/** The video link and code, once the room exists (made with the reminder). */
+async function videoFor(db: Db, b: BookingView) {
+  if (!b.is_video || b.status !== 'confirmed') return null
+  const { data } = await db.from('ps_video_consultations')
+    .select('id, patient_access_code')
+    .eq('appointment_id', b.id).not('status', 'in', '(completed,cancelled)')
+    .order('created_at', { ascending: false }).limit(1).maybeSingle()
+  return data ? { consultation_id: data.id, access_code: data.patient_access_code } : null
+}
+
+// ------------------------------------------------------------
+// available_slots / reschedule — patient moves their own booking
+// ------------------------------------------------------------
+async function openSlots(db: Db, b: BookingView) {
+  const { data } = await db.from('ps_appointment_slots')
+    .select('id, start_time, end_time, max_bookings, booked_count')
+    .eq('org_id', b.org_id).eq('service_id', b.service_id ?? '')
+    .eq('is_active', true)
+    .gt('start_time', new Date(Date.now() + 30 * 60_000).toISOString())
+    .lte('start_time', new Date(Date.now() + 90 * 86_400_000).toISOString())
+    .order('start_time').limit(300)
+  return (data ?? [])
+    .filter((s) => s.booked_count < s.max_bookings && s.id !== b.slot_id)
+    .map((s) => ({ id: s.id, start_time: s.start_time, end_time: s.end_time }))
+}
+
+async function availableSlots(req: Request, body: Record<string, unknown>) {
+  const b = await bookingForPatient(req, body)
+  const db = admin()
+  const t = cancelTerms(b, 0)
+  if (!t.canMove) throw new PublicError('This booking can no longer be moved online. Please contact the pharmacy.')
+  return json({ slots: await openSlots(db, b) })
+}
+
+async function moveBooking(db: Db, b: BookingView, slotId: string) {
+  const { data: slot } = await db.from('ps_appointment_slots')
+    .select('id, org_id, service_id, start_time, is_active')
+    .eq('id', slotId).maybeSingle()
+  if (!slot || slot.org_id !== b.org_id || slot.service_id !== b.service_id || !slot.is_active) {
+    throw new PublicError('That time is not available for this service.')
+  }
+  if (new Date(slot.start_time).getTime() <= Date.now()) throw new PublicError('That time has already passed.')
+  let q = db.from('ps_appointments').update({ slot_id: slotId })
+    .eq('id', b.id).in('status', ['pending', 'confirmed'])
+  q = b.slot_id ? q.eq('slot_id', b.slot_id) : q.is('slot_id', null)
+  const { data: moved, error } = await q.select('id')
+  if (error) {
+    if (error.code === 'P0001') throw new PublicError(error.message)
+    throw new PublicError('Sorry, the booking could not be moved. Please try again.', 500)
+  }
+  if (!moved?.length) throw new PublicError('This booking has already changed. Please refresh.')
+  // The video room is tied to the old time: cancel it so a new one is made.
+  await db.from('ps_video_consultations').update({ status: 'cancelled' })
+    .eq('appointment_id', b.id).eq('status', 'scheduled')
+  const after = await loadBooking(db, { id: b.id })
+  if (after) await textPatient(db, after, 'moved')
+  return after
+}
+
+async function reschedule(req: Request, body: Record<string, unknown>) {
+  const b = await bookingForPatient(req, body)
+  if (typeof body.slot_id !== 'string' || !UUID.test(body.slot_id)) throw new PublicError('Pick a new time.')
+  const t = cancelTerms(b, 0)
+  if (!t.canMove) throw new PublicError('This booking can no longer be moved online. Please contact the pharmacy.')
+  const db = admin()
+  const after = await moveBooking(db, b, body.slot_id)
+  await db.rpc('ps_fanout_notification', {
+    p_org_id: b.org_id,
+    p_event_type: 'appointment',
+    p_title: 'Booking moved by patient',
+    p_body: `${b.patient_first_name ?? 'A patient'} moved ${b.service_name} to ${after?.start_time ? formatWhen(after.start_time) : 'a new time'}`,
+    p_link: `/appointments/${b.id}`,
+    p_metadata: { appointment_id: b.id },
+  })
+  return json({ moved: true, start_time: after?.start_time, end_time: after?.end_time })
 }
 
 async function cancel(req: Request, body: Record<string, unknown>) {
@@ -322,6 +409,92 @@ async function staffSetStatus(req: Request, body: Record<string, unknown>) {
   return json({ ok: true, refunded_pence: refunded, refund_error: refundError, texted })
 }
 
+async function staffBooking(req: Request, body: Record<string, unknown>) {
+  const uid = await callerId(req)
+  if (!uid) throw new PublicError('Please sign in.', 401)
+  if (typeof body.appointment_id !== 'string' || !UUID.test(body.appointment_id)) throw new PublicError('Missing appointment_id')
+  const db = admin()
+  const b = await loadBooking(db, { id: body.appointment_id })
+  if (!b || !(await isOrgMember(uid, b.org_id))) throw new PublicError('Appointment not found', 404)
+  return { db, b }
+}
+
+async function staffSlots(req: Request, body: Record<string, unknown>) {
+  const { db, b } = await staffBooking(req, body)
+  return json({ slots: await openSlots(db, b) })
+}
+
+async function staffReschedule(req: Request, body: Record<string, unknown>) {
+  const { db, b } = await staffBooking(req, body)
+  if (typeof body.slot_id !== 'string' || !UUID.test(body.slot_id)) throw new PublicError('Pick a new time.')
+  if (b.status !== 'pending' && b.status !== 'confirmed') throw new PublicError('Only an upcoming booking can be moved.')
+  const after = await moveBooking(db, b, body.slot_id)
+  return json({ moved: true, start_time: after?.start_time })
+}
+
+// ------------------------------------------------------------
+// run_jobs — called by pg_cron every 15 minutes (ps_run_appointment_jobs).
+// Sends reminder texts, setting up the video room first for video services.
+// ------------------------------------------------------------
+async function runJobs(req: Request) {
+  const db = admin()
+  const { data: secret } = await db.from('ps_internal_secrets').select('value')
+    .eq('key', 'appointments_cron_secret').maybeSingle()
+  const given = req.headers.get('x-internal-secret') ?? ''
+  if (!secret?.value || given.length !== secret.value.length || given !== secret.value) {
+    throw new PublicError('Forbidden', 403)
+  }
+
+  const horizon = new Date(Date.now() + 49 * 3_600_000).toISOString()
+  const { data: due } = await db.from('ps_appointments')
+    .select('id, created_at, slot:ps_appointment_slots!inner(start_time)')
+    .eq('status', 'confirmed').is('reminder_sent_at', null)
+    .gt('slot.start_time', new Date().toISOString())
+    .lte('slot.start_time', horizon)
+    .limit(500)
+
+  let sent = 0
+  let skipped = 0
+  for (const row of due ?? []) {
+    // deno-lint-ignore no-explicit-any
+    const start = new Date((row as any).slot.start_time).getTime()
+    const b = await loadBooking(db, { id: row.id })
+    if (!b) continue
+    const rules = rulesFrom(b.org_settings)
+    const hoursLeft = (start - Date.now()) / 3_600_000
+    if (rules.reminder_hours <= 0 || hoursLeft > rules.reminder_hours) continue
+    // Booked within the last few hours of the appointment: no reminder.
+    if (start - new Date(row.created_at).getTime() < 3 * 3_600_000) {
+      await db.from('ps_appointments').update({ reminder_sent_at: new Date().toISOString() }).eq('id', b.id)
+      skipped++
+      continue
+    }
+
+    let extra = ''
+    if (b.is_video && b.start_time) {
+      try {
+        const v = await ensureVideoConsult(db, {
+          id: b.id, org_id: b.org_id, patient_id: b.patient_id,
+          patient_name: b.patient_first_name ?? 'Patient', patient_phone: b.patient_phone, start_time: b.start_time,
+        })
+        extra = `Video call: ${appUrl()}/consult/${v.id} code ${v.patient_access_code}.`
+      } catch (e) {
+        console.error('video room setup failed', b.id, e)
+        await db.rpc('ps_fanout_notification', {
+          p_org_id: b.org_id, p_event_type: 'appointment',
+          p_title: 'Video room could not be set up',
+          p_body: `Set up the video call for ${b.patient_first_name ?? 'a patient'} (${b.service_name}) by hand.`,
+          p_link: `/appointments/${b.id}`, p_metadata: { appointment_id: b.id },
+        })
+      }
+    }
+    await textPatient(db, b, 'reminder', extra)
+    await db.from('ps_appointments').update({ reminder_sent_at: new Date().toISOString() }).eq('id', b.id)
+    sent++
+  }
+  return json({ reminders_sent: sent, skipped })
+}
+
 // ------------------------------------------------------------
 // Router
 // ------------------------------------------------------------
@@ -342,6 +515,11 @@ Deno.serve(async (req: Request) => {
       case 'manage_get': return await manageGet(req, body)
       case 'cancel': return await cancel(req, body)
       case 'staff_set_status': return await staffSetStatus(req, body)
+      case 'available_slots': return await availableSlots(req, body)
+      case 'reschedule': return await reschedule(req, body)
+      case 'staff_slots': return await staffSlots(req, body)
+      case 'staff_reschedule': return await staffReschedule(req, body)
+      case 'run_jobs': return await runJobs(req)
       default: return json({ error: `Unknown action: ${body.action}` }, 400)
     }
   } catch (e) {

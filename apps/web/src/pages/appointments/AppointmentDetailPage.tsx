@@ -89,6 +89,67 @@ export function AppointmentDetailPage() {
     setBusy(false)
   }
 
+  // Move to another time
+  const [moveSlots, setMoveSlots] = useState<{ id: string; start_time: string; end_time: string }[] | null>(null)
+  const [moveTo, setMoveTo] = useState('')
+  const callFn = async (body: Record<string, unknown>) => {
+    const { data, error } = await getUserClient().functions.invoke('appointments', { body })
+    let msg = data?.error as string | undefined
+    const ctx = (error as any)?.context
+    if (error && !msg && ctx && typeof ctx.json === 'function') {
+      try { msg = (await ctx.json())?.error } catch { /* ignore */ }
+    }
+    if (error || msg) throw new Error(msg || error?.message || 'Request failed')
+    return data
+  }
+  const openMove = async () => {
+    try {
+      const out = await callFn({ action: 'staff_slots', appointment_id: id })
+      setMoveSlots(out.slots)
+      setMoveTo('')
+    } catch (e: any) { alert(e.message) }
+  }
+  const doMove = async () => {
+    if (!moveTo || !id) return
+    setBusy(true)
+    try {
+      await callFn({ action: 'staff_reschedule', appointment_id: id, slot_id: moveTo })
+      setMoveSlots(null)
+      fetchAppointmentDetail(id)
+    } catch (e: any) { alert(e.message) }
+    setBusy(false)
+  }
+
+  // Video call linked to this appointment
+  const [video, setVideo] = useState<{ id: string; status: string } | null>(null)
+  useEffect(() => {
+    if (!id) return
+    getUserClient().from('ps_video_consultations').select('id, status')
+      .eq('appointment_id', id).not('status', 'in', '(completed,cancelled)')
+      .order('created_at', { ascending: false }).limit(1).maybeSingle()
+      .then(({ data }) => setVideo(data as any))
+  }, [id, appt?.slot_id])
+  const setUpVideo = async () => {
+    if (!appt) return
+    setBusy(true)
+    try {
+      const { data, error } = await getUserClient().functions.invoke('daily-video', {
+        body: {
+          action: 'create_room',
+          org_id: appt.org_id,
+          patient_id: appt.patient_id,
+          patient_name: appt.patient ? `${appt.patient.first_name} ${appt.patient.last_name}` : 'Patient',
+          patient_phone: appt.patient?.phone ?? null,
+          appointment_id: appt.id,
+          scheduled_for: appt.slot?.start_time ?? new Date().toISOString(),
+        },
+      })
+      if (error || data?.error) throw new Error(data?.error || error?.message)
+      navigate(`/video/${data.consultation.id}`)
+    } catch (e: any) { alert(e.message || 'Could not set up the video call') }
+    setBusy(false)
+  }
+
   const copyManageLink = async () => {
     if (!appt?.manage_token) return
     try {
@@ -338,6 +399,15 @@ export function AppointmentDetailPage() {
               ✕ Cancel Appointment
             </button>
           )}
+          {(appt.status === 'pending' || appt.status === 'confirmed') && !appt.hold_expires_at && (
+            <button className="ps-btn ps-btn-secondary" onClick={openMove} disabled={busy}>↔ Move</button>
+          )}
+          {video && (
+            <button className="ps-btn ps-btn-primary" onClick={() => navigate(`/video/${video.id}`)}>🎥 Open video call</button>
+          )}
+          {!video && appt.service?.is_video && (appt.status === 'pending' || appt.status === 'confirmed') && (
+            <button className="ps-btn ps-btn-secondary" onClick={setUpVideo} disabled={busy}>🎥 Set up video call</button>
+          )}
           {appt.manage_token && (appt.status === 'pending' || appt.status === 'confirmed') && (
             <button className="ps-btn ps-btn-ghost" onClick={copyManageLink} title="A link the patient can use to view or cancel this booking">
               {copied ? 'Link copied' : '🔗 Copy patient link'}
@@ -345,6 +415,31 @@ export function AppointmentDetailPage() {
           )}
         </div>
       </div>
+
+      <Modal isOpen={!!moveSlots} onClose={() => setMoveSlots(null)} title="Move appointment" width="460px">
+        <div>
+          {moveSlots && moveSlots.length === 0 ? (
+            <p>There are no free slots for this service in the next 90 days. Add slots first.</p>
+          ) : (
+            <div className="form-group">
+              <label>New time</label>
+              <select className="ps-input" value={moveTo} onChange={(e) => setMoveTo(e.target.value)}>
+                <option value="">Choose a slot…</option>
+                {(moveSlots ?? []).map((sl) => (
+                  <option key={sl.id} value={sl.id}>
+                    {new Date(sl.start_time).toLocaleString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+          <p style={{ color: 'var(--ps-slate)', fontSize: 'var(--ps-font-sm)' }}>The patient is texted the new time.</p>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 'var(--ps-space-sm)' }}>
+            <button className="ps-btn ps-btn-secondary" onClick={() => setMoveSlots(null)}>Cancel</button>
+            <button className="ps-btn ps-btn-primary" onClick={doMove} disabled={busy || !moveTo}>Move</button>
+          </div>
+        </div>
+      </Modal>
 
       {/* Cancel confirmation modal */}
       <Modal isOpen={showCancelModal} onClose={() => setShowCancelModal(false)} title="Cancel Appointment" width="420px">

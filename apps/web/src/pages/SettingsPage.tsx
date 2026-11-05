@@ -7,15 +7,16 @@ import { AlertSettingsTab } from './settings/AlertSettingsTab'
 import { BillingSettingsTab } from './settings/BillingSettingsTab'
 import { TeamSettingsTab } from './settings/TeamSettingsTab'
 import { GeneralSettingsTab } from './settings/GeneralSettingsTab'
+import { AppointmentSettingsTab } from './settings/AppointmentSettingsTab'
 import { SignInActivityCard } from '../components/account/SignInActivityCard'
 
-type Tab = 'general' | 'team' | 'ai' | 'messaging' | 'alerts' | 'nhs' | 'payments' | 'billing'
+type Tab = 'general' | 'team' | 'ai' | 'messaging' | 'alerts' | 'appointments' | 'nhs' | 'payments' | 'billing'
 
 export function SettingsPage() {
   const [searchParams] = useSearchParams()
   const [tab, setTab] = useState<Tab>(() => {
     const t = searchParams.get('tab')
-    if (t === 'team' || t === 'ai' || t === 'nhs' || t === 'messaging' || t === 'alerts' || t === 'payments' || t === 'billing') return t
+    if (t === 'team' || t === 'appointments' || t === 'ai' || t === 'nhs' || t === 'messaging' || t === 'alerts' || t === 'payments' || t === 'billing') return t
     return 'general'
   })
 
@@ -33,6 +34,7 @@ export function SettingsPage() {
           { key: 'ai' as Tab, label: '✨ AI' },
           { key: 'messaging' as Tab, label: '📨 Messaging' },
           { key: 'alerts' as Tab, label: '🔔 Alerts' },
+          { key: 'appointments' as Tab, label: '📅 Bookings' },
           { key: 'nhs' as Tab, label: '🏥 NHS' },
           { key: 'payments' as Tab, label: '💳 Payments' },
           { key: 'billing' as Tab, label: '⭐ Plan & billing' },
@@ -57,6 +59,7 @@ export function SettingsPage() {
       )}
       {tab === 'messaging' && <MessagingSettingsTab />}
       {tab === 'alerts' && <AlertSettingsTab />}
+      {tab === 'appointments' && <AppointmentSettingsTab />}
       {tab === 'ai' && <AISettingsTab />}
       {tab === 'nhs' && <NHSSettingsTab />}
       {tab === 'payments' && <PaymentsSettingsTab />}
