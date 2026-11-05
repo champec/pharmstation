@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { useAuthStore, useServiceStore, useNHSStore, useOutcomeStore } from '@pharmstation/core'
+import { useAuthStore, useServiceStore, useNHSStore } from '@pharmstation/core'
 import type { GPSearchResult } from '@pharmstation/core'
 import { getUserClient } from '@pharmstation/supabase-client'
 import type { Patient, ServiceForm, ServiceFormField } from '@pharmstation/types'
@@ -129,7 +129,7 @@ export function ServiceDeliveryPage() {
     fetchServiceDetail,
     fetchFormFields,
     activeFields,
-    createDelivery,
+    completeDelivery,
     clearError,
   } = useServiceStore()
 
@@ -168,12 +168,14 @@ export function ServiceDeliveryPage() {
   /* ---- Medications state (shown when form outcome = MEDICINE_SUPPLIED) ---- */
   const [medications, setMedications] = useState<PrescribedMedication[]>([])
   const [showMedModal, setShowMedModal] = useState(false)
-  const { saveOutcome } = useOutcomeStore()
 
   /* ---- Submission ---- */
   const [submitting, setSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [completed, setCompleted] = useState(false)
+  // Idempotency key for this delivery: a retry after a network error reuses
+  // it, so the server never saves the same consultation twice.
+  const clientRef = useRef<string>(crypto.randomUUID())
 
   // Load service detail
   const load = useCallback(() => {
@@ -192,6 +194,7 @@ export function ServiceDeliveryPage() {
     setStep('patient')
     setCompleted(false)
     setSubmitError(null)
+    clientRef.current = crypto.randomUUID()
   }, [serviceId])
 
   // Auto-select default form when forms load
@@ -378,18 +381,6 @@ export function ServiceDeliveryPage() {
     setSubmitting(true)
     setSubmitError(null)
     try {
-      const delivery = await createDelivery({
-        org_id: organisation.id,
-        service_id: serviceId,
-        patient_id: selectedPatient?.id || undefined,
-        form_id: selectedForm?.id || undefined,
-        form_data: formData,
-        delivered_by: activeUser?.id || undefined,
-        notes,
-        status: 'completed',
-        completed_at: new Date().toISOString(),
-      })
-
       // Derive outcome_type from form data OUTCOME field
       const outcomeField = formData.OUTCOME as string | undefined
       let outcomeType: 'prescription' | 'referral' | 'advice' | 'no_treatment' = 'advice'
@@ -397,32 +388,30 @@ export function ServiceDeliveryPage() {
         outcomeType = 'prescription'
       } else if (outcomeField === 'REFERRAL_TO_GP' || outcomeField === 'REFERRAL_TO_ED') {
         outcomeType = 'referral'
-      } else if (outcomeField === 'ADVICE_ONLY') {
-        outcomeType = 'advice'
-      } else if (outcomeField === 'OTHER') {
-        outcomeType = 'advice'
       }
 
-      // Save delivery outcome with medications if any
+      // Delivery, outcome and medicines are saved together in one transaction.
       const filteredMeds = medications.filter((m) => m.drug_name.trim())
-      await saveOutcome({
-        delivery_id: delivery.id,
-        org_id: organisation.id,
-        outcome_type: outcomeType,
-        created_by: activeUser?.id || null,
-        medications: filteredMeds.length > 0
-          ? filteredMeds.map((m, i) => ({
-              drug_id: m.drug?.id || null,
-              drug_name: m.drug_name,
-              drug_form: m.drug_form,
-              drug_strength: m.drug_strength,
-              dose: m.dose || null,
-              quantity: m.quantity,
-              unit: m.unit || null,
-              is_controlled_drug: m.is_controlled_drug,
-              sort_order: i,
-            }))
-          : undefined,
+      await completeDelivery({
+        orgId: organisation.id,
+        serviceId,
+        clientRef: clientRef.current,
+        patientId: selectedPatient?.id || null,
+        formId: selectedForm?.id || null,
+        formData,
+        notes,
+        outcome: { outcome_type: outcomeType },
+        medications: filteredMeds.map((m, i) => ({
+          drug_id: m.drug?.id || null,
+          drug_name: m.drug_name,
+          drug_form: m.drug_form,
+          drug_strength: m.drug_strength,
+          dose: m.dose || null,
+          quantity: m.quantity,
+          unit: m.unit || null,
+          is_controlled_drug: m.is_controlled_drug,
+          sort_order: i,
+        })),
       })
 
       setCompleted(true)
@@ -458,6 +447,7 @@ export function ServiceDeliveryPage() {
               setFormData({})
               setNotes('')
               setCompleted(false)
+              clientRef.current = crypto.randomUUID()
               setPatientSearch('')
               setPdsResult(null)
               setNhsNumberInput('')

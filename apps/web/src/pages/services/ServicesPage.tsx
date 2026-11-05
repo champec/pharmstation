@@ -6,7 +6,8 @@ import { Modal } from '../../components/Modal'
 
 export function ServicesPage() {
   const navigate = useNavigate()
-  const { organisation } = useAuthStore()
+  const { organisation, permissions } = useAuthStore()
+  const canManage = !!permissions?.services_manage
   const {
     services,
     loading,
@@ -87,12 +88,14 @@ export function ServicesPage() {
             >
               📚 Browse Library
             </button>
-            <button
-              className="ps-btn ps-btn-primary"
-              onClick={() => { resetForm(); setShowCreateModal(true) }}
-            >
-              + New Service
-            </button>
+            {canManage && (
+              <button
+                className="ps-btn ps-btn-primary"
+                onClick={() => { resetForm(); setShowCreateModal(true) }}
+              >
+                + New Service
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -132,9 +135,11 @@ export function ServicesPage() {
             <button className="ps-btn ps-btn-secondary" onClick={() => navigate('/services/library')}>
               📚 Browse Library
             </button>
-            <button className="ps-btn ps-btn-primary" onClick={() => { resetForm(); setShowCreateModal(true) }}>
-              + New Service
-            </button>
+            {canManage && (
+              <button className="ps-btn ps-btn-primary" onClick={() => { resetForm(); setShowCreateModal(true) }}>
+                + New Service
+              </button>
+            )}
           </div>
         </div>
       )}

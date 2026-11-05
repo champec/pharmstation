@@ -16,7 +16,8 @@ const CATEGORY_ORDER = ['nhs_advanced_service', 'vaccination', 'screening', 'con
 
 export function ServiceLibraryPage() {
   const navigate = useNavigate()
-  const { organisation } = useAuthStore()
+  const { organisation, permissions } = useAuthStore()
+  const canManage = !!permissions?.services_manage
   const {
     libraryItems,
     services,
@@ -25,7 +26,7 @@ export function ServiceLibraryPage() {
     fetchLibrary,
     fetchServices,
     subscribeToLibraryService,
-    deleteService,
+    archiveService,
     clearError,
   } = useServiceStore()
 
@@ -83,10 +84,10 @@ export function ServiceLibraryPage() {
     if (!organisation?.id) return
     const svc = services.find((s) => s.library_service_id === libraryItemId)
     if (!svc) return
-    if (!window.confirm(`Remove "${svc.name}" from your services? This won't delete past deliveries.`)) return
+    if (!window.confirm(`Remove "${svc.name}" from your services? Records already made for it are kept in Service History.`)) return
     setSubscribeError(null)
     try {
-      await deleteService(svc.id)
+      await archiveService(svc.id)
       // Refresh services list so the button updates
       await fetchServices(organisation.id)
     } catch (e: any) {
@@ -189,16 +190,16 @@ export function ServiceLibraryPage() {
                     {alreadyAdded ? (
                       <div style={{ display: 'flex', gap: 'var(--ps-space-xs)', alignItems: 'center' }}>
                         <span className="ps-badge ps-badge-green">✓ Added</span>
-                        <button
+                        {canManage && <button
                           className="ps-btn ps-btn-ghost ps-btn-sm"
                           style={{ color: 'var(--ps-error)', fontSize: '0.75rem' }}
                           onClick={() => handleUnsubscribe(item.id)}
                           title="Remove from my services"
                         >
                           ✕ Remove
-                        </button>
+                        </button>}
                       </div>
-                    ) : (
+                    ) : canManage ? (
                       <button
                         className="ps-btn ps-btn-primary ps-btn-sm"
                         onClick={() => handleSubscribe(item.id)}
@@ -206,7 +207,7 @@ export function ServiceLibraryPage() {
                       >
                         {isSubscribing ? 'Adding…' : '+ Add to My Services'}
                       </button>
-                    )}
+                    ) : null}
                   </div>
                 </div>
               )

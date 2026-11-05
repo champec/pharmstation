@@ -27,3 +27,17 @@ psql ... -d cd_test -f supabase/tests/cd_register_part_c_test.sql 2>&1 | grep -E
 ```
 
 16 checks, all PASS. Part C refuses to run before the foundation function is in place.
+
+## Services (clinical service records)
+
+Fresh database each run:
+
+```bash
+createdb -h <socket> -p <port> -U postgres svc_test
+psql ... -d svc_test -f supabase/tests/services_test_setup.sql
+psql ... -d svc_test -f supabase/migrations/20261105160000_services_records_protection.sql
+psql ... -d svc_test -t -f supabase/tests/services_records_protection_test.sql | grep -E 'PASS|FAIL'
+```
+
+37 checks, all PASS (5 Nov 2026). The rollback file also applies cleanly and the
+migration re-applies after it.
