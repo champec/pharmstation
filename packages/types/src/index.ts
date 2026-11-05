@@ -1220,7 +1220,29 @@ export interface LogEntry {
   data: Record<string, unknown>
   entered_by_user_id: string
   created_at: string
+  /** First version of this entry; every edit of it shares the same root_id */
+  root_id: string
+  supersedes_id: string | null
+  superseded_at: string | null
+  edit_reason: string | null
+  voided_at: string | null
+  voided_by: string | null
+  void_reason: string | null
   entered_by_profile?: UserProfile
+}
+
+/** A period when the signed-in Responsible Pharmacist was away from the pharmacy */
+export interface RpAbsence {
+  id: string
+  organisation_id: string
+  /** The original RP record (normal entry) this absence belongs to */
+  rp_entry_id: string
+  absent_from: string
+  returned_at: string | null
+  reason: string | null
+  recorded_by: string
+  returned_recorded_by: string | null
+  created_at: string
 }
 
 // ============================================
