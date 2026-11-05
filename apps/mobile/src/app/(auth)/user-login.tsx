@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/Button'
 import { Field } from '@/components/ui/Field'
 import { Screen } from '@/components/ui/Screen'
 import { BrandLogo } from '@/components/BrandLogo'
-import { loadOtpAccounts } from '@/lib/authenticator'
+import { candidatesFor, keepOnly, loadOtpAccounts } from '@/lib/authenticator'
 import {
   biometricEmail,
   biometricLabel,
@@ -36,23 +36,38 @@ export default function UserLoginScreen() {
     if (mfaPendingFactorId) loadOtpAccounts().then((a) => setPhoneCodes(a.length > 0))
   }, [mfaPendingFactorId])
 
-  // Fill the code from the authenticator built into this app. The secret is
-  // the one this account enrolled, so ask the phone's lock first.
-  const fillFromPhone = async () => {
+  // Sign in with the authenticator built into this app: unlock with the
+  // phone's lock, then try this phone's saved codes for the account (newest
+  // first) until one is accepted, so a stale entry from an earlier setup
+  // can't block sign-in.
+  const useCodeFromPhone = async () => {
     setError(null)
     try {
       const level = await LocalAuthentication.getEnrolledLevelAsync()
       if (level !== LocalAuthentication.SecurityLevel.NONE) {
-        const res = await LocalAuthentication.authenticateAsync({ promptMessage: 'Fill your sign-in code' })
+        const res = await LocalAuthentication.authenticateAsync({ promptMessage: 'Use your sign-in code' })
         if (!res.success) return
       }
     } catch {
       // No lock available: carry on, as the Security tab does.
     }
-    const accounts = await loadOtpAccounts()
-    const typed = email.trim().toLowerCase()
-    const match = accounts.find((a) => typed && a.label.toLowerCase() === typed) ?? accounts.find((a) => a.issuer === 'PharmStation') ?? accounts[0]
-    if (match) setCode(totp(match.secret, Date.now(), match.digits, match.period))
+    const signedInAs = useAuthStore.getState().userSession?.user?.email ?? email
+    const candidates = candidatesFor(await loadOtpAccounts(), signedInAs).slice(0, 4)
+    for (const a of candidates) {
+      try {
+        await verifyMfa(totp(a.secret, Date.now(), a.digits, a.period))
+        await keepOnly(a)
+        await finishSignIn()
+        return
+      } catch {
+        // Try the next saved code.
+      }
+    }
+    useAuthStore.setState({ error: null })
+    setError(
+      'The code saved on this phone doesn’t match this account any more, probably because two-step sign-in was set up again since. ' +
+        'Use the code from the app you set it up with most recently, or ask the pharmacy owner to reset your two-step sign-in, then set it up again.',
+    )
   }
 
   const [email, setEmail] = useState('')
@@ -160,7 +175,7 @@ export default function UserLoginScreen() {
           <BrandLogo size={36} wordmark="row" />
           <Text style={styles.title}>Enter your code</Text>
           <Text style={styles.subtitle}>
-            Type the 6-digit code from your authenticator app, or fill it from this phone.
+            This account has two-step sign-in, so every new sign-in needs a code as well as your password. If this phone holds your code, tap “Use the code on this phone”. Otherwise type the 6-digit code from your authenticator app.
           </Text>
         </View>
         <View style={styles.form}>
@@ -175,7 +190,7 @@ export default function UserLoginScreen() {
           />
           {error ? <Text style={styles.error}>{error}</Text> : null}
           {phoneCodes ? (
-            <Button label="Fill from this phone" variant="secondary" onPress={fillFromPhone} />
+            <Button label="Use the code on this phone" variant="secondary" onPress={useCodeFromPhone} loading={busy} />
           ) : null}
           <Button
             label="Verify"
