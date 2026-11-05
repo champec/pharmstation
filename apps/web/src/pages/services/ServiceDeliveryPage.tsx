@@ -191,6 +191,7 @@ export function ServiceDeliveryPage() {
   const [submitting, setSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [completed, setCompleted] = useState(false)
+  const [completedId, setCompletedId] = useState<string | null>(null)
   // Idempotency key for this delivery: a retry after a network error reuses
   // it, so the server never saves the same consultation twice.
   const clientRef = useRef<string>(crypto.randomUUID())
@@ -575,7 +576,7 @@ export function ServiceDeliveryPage() {
 
       // Delivery, outcome and medicines are saved together in one transaction.
       const filteredMeds = medications.filter((m) => m.drug_name.trim())
-      await completeDelivery({
+      const saved = await completeDelivery({
         orgId: organisation.id,
         serviceId,
         clientRef: clientRef.current,
@@ -598,6 +599,7 @@ export function ServiceDeliveryPage() {
         })),
       })
 
+      setCompletedId(saved.id)
       setCompleted(true)
       setDraftId(null)
     } catch (e: any) {
@@ -644,6 +646,11 @@ export function ServiceDeliveryPage() {
             }}>
               Deliver Again
             </button>
+            {completedId && (
+              <button className="ps-btn ps-btn-secondary" onClick={() => navigate(`/services/deliveries/${completedId}`)}>
+                View / print record
+              </button>
+            )}
             <button className="ps-btn ps-btn-secondary" onClick={() => navigate('/services')}>
               Back to Services
             </button>

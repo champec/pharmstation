@@ -14179,3 +14179,30 @@ textarea.form-input {
 @media (max-width: 860px) {
   .contact-layout, .contact-form-row { grid-template-columns: 1fr; }
 }
+
+/* Services: printable consultation record (ServiceRecordView) */
+@media print {
+  body[data-print-mode="service-record"] .top-nav,
+  body[data-print-mode="service-record"] .side-nav,
+  body[data-print-mode="service-record"] .genie-panel,
+  body[data-print-mode="service-record"] .page-header,
+  body[data-print-mode="service-record"] .no-print {
+    display: none !important;
+  }
+
+  body[data-print-mode="service-record"] .dashboard-main,
+  body[data-print-mode="service-record"] .dashboard-content {
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  body[data-print-mode="service-record"] .service-record-document {
+    border: none !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+  }
+
+  body[data-print-mode="service-record"] .service-record-document tr {
+    page-break-inside: avoid;
+  }
+}

@@ -33,6 +33,8 @@
 --      the form version.
 --   7. Staff may keep drafts (status 'draft'): only the author can edit or
 --      delete their own draft.
+--   8. Patients can no longer read raw delivery rows (staff notes included)
+--      through patients_read_own_deliveries; the portal never used it.
 --
 -- Service-role / postgres sessions (auth.uid() is null) are not blocked by the
 -- record locks, so deleting a whole organisation still works.
@@ -204,8 +206,12 @@ create policy deliveries_draft_delete on public.ps_service_deliveries
   using (status = 'draft' and delivered_by = auth.uid()
          and org_id in (select public.ps_get_user_org_ids()));
 -- Completing a delivery: ps_complete_service_delivery. Changing a completed
--- one: ps_amend_service_delivery. patients_read_own_deliveries is unchanged
--- here (reviewed in phase 3).
+-- one: ps_amend_service_delivery.
+--
+-- Patients could read their own raw delivery rows, including staff notes.
+-- Nothing in the patient portal uses it; drop it until a patient-safe
+-- summary exists.
+drop policy if exists patients_read_own_deliveries on public.ps_service_deliveries;
 
 -- 8. Record locks ------------------------------------------------------------
 create or replace function public.ps_service_deliveries_guard()

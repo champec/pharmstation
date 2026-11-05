@@ -39,5 +39,5 @@ psql ... -d svc_test -f supabase/migrations/20261105160000_services_records_prot
 psql ... -d svc_test -t -f supabase/tests/services_records_protection_test.sql | grep -E 'PASS|FAIL'
 ```
 
-37 checks, all PASS (5 Nov 2026). The rollback file also applies cleanly and the
+38 checks, all PASS (5 Nov 2026). The rollback file also applies cleanly and the
 migration re-applies after it.

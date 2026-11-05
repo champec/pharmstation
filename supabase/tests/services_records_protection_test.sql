@@ -148,3 +148,5 @@ select pg_temp.check('a service with records cannot be hard-deleted even by the 
 select pg_temp.check('deleting a whole pharmacy still works (service role)',
   pg_temp.touched($$delete from ps_organisations where id='10000000-0000-0000-0000-000000000001'$$) = 1);
 select pg_temp.check('and its records go with it', (select count(*) from ps_service_deliveries) = 0);
+select pg_temp.check('patients_read_own_deliveries is gone',
+  not exists (select 1 from pg_policy where polname = 'patients_read_own_deliveries'));

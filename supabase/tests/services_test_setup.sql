@@ -35,3 +35,4 @@ create policy patients_org on ps_patients for all using (organisation_id in (sel
 grant usage on schema public to anon, authenticated, service_role;
 grant all on all tables in schema public to authenticated, service_role;
 alter default privileges in schema public grant all on tables to authenticated, service_role;
+create policy patients_read_own_deliveries on ps_service_deliveries for select using (patient_id in (select id from ps_patients where auth_user_id = auth.uid()));

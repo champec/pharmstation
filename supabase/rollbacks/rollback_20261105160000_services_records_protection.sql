@@ -64,6 +64,10 @@ create policy org_members_crud_deliveries on public.ps_service_deliveries
   using (org_id in (select public.ps_get_user_org_ids()))
   with check (org_id in (select public.ps_get_user_org_ids()));
 
+create policy patients_read_own_deliveries on public.ps_service_deliveries
+  for select to public
+  using (patient_id in (select ps_patients.id from public.ps_patients where ps_patients.auth_user_id = auth.uid()));
+
 drop function if exists public.ps_member_has_services_permission(uuid, text);
 
 commit;
