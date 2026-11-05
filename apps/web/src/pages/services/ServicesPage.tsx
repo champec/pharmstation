@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuthStore, useServiceStore } from '@pharmstation/core'
+import { NHS_SERVICES_ENABLED } from '../../lib/features'
 import type { Service } from '@pharmstation/types'
 import { Modal } from '../../components/Modal'
 
@@ -240,8 +241,10 @@ export function ServicesPage() {
 
 function ServiceCard({ service, onClick }: { service: Service; onClick: () => void }) {
   const navigate = useNavigate()
-  const { membership } = useAuthStore()
-  const isAdmin = membership?.role === 'owner' || membership?.role === 'manager'
+  const { permissions } = useAuthStore()
+  // Owners, managers and pharmacists by default (services_manage)
+  const isAdmin = !!permissions?.services_manage
+  const nhsLocked = service.is_nhs_service && !NHS_SERVICES_ENABLED
 
   return (
     <div
@@ -300,15 +303,19 @@ function ServiceCard({ service, onClick }: { service: Service; onClick: () => vo
           <span className="ps-badge ps-badge-amber">🌐 Public</span>
         )}
         <div style={{ marginLeft: 'auto', display: 'flex', gap: 'var(--ps-space-xs)' }}>
-          <button
-            className="ps-btn ps-btn-success ps-btn-sm"
-            onClick={(e) => {
-              e.stopPropagation()
-              navigate(`/services/${service.id}/deliver`)
-            }}
-          >
-            ▶ Deliver
-          </button>
+          {nhsLocked ? (
+            <span className="ps-badge" title="NHS services can be recorded once PharmStation has NHS approval">Coming soon</span>
+          ) : (
+            <button
+              className="ps-btn ps-btn-success ps-btn-sm"
+              onClick={(e) => {
+                e.stopPropagation()
+                navigate(`/services/${service.id}/deliver`)
+              }}
+            >
+              ▶ Deliver
+            </button>
+          )}
           {isAdmin && (
             <button
               className="ps-btn ps-btn-secondary ps-btn-sm"

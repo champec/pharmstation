@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuthStore, useServiceStore } from '@pharmstation/core'
 import type { ServiceLibraryItem } from '@pharmstation/types'
+import { NHS_SERVICES_ENABLED } from '../../lib/features'
 
 const CATEGORY_LABELS: Record<string, string> = {
   nhs_advanced_service: '🏥 NHS Advanced Services',
@@ -199,6 +200,8 @@ export function ServiceLibraryPage() {
                           ✕ Remove
                         </button>}
                       </div>
+                    ) : item.is_nhs_service && !NHS_SERVICES_ENABLED ? (
+                      <span className="ps-badge" title="NHS services can be added once PharmStation has NHS approval">Coming soon</span>
                     ) : canManage ? (
                       <button
                         className="ps-btn ps-btn-primary ps-btn-sm"

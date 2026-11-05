@@ -6,6 +6,7 @@ import { getUserClient } from '@pharmstation/supabase-client'
 import type { Patient, ServiceForm, ServiceFormField } from '@pharmstation/types'
 import { MedicationPrescriber, createEmptyMedication, type PrescribedMedication } from '../../components/outcomes/MedicationPrescriber'
 import { ServicePrescribingField } from '../../components/forms/ServicePrescribingField'
+import { NHS_SERVICES_ENABLED } from '../../lib/features'
 
 /* ---- Human-readable labels for NHS field option codes ---- */
 const NHS_OPTION_LABELS: Record<string, string> = {
@@ -100,6 +101,21 @@ interface PatientOption {
 
 const LAYOUT_FIELD_TYPES = new Set(['heading', 'info'])
 
+/** Characters that break a PostgREST or() filter; names never need them. */
+function cleanSearch(query: string): string {
+  return query.replace(/[,()"\\%*:]/g, ' ').replace(/\s+/g, ' ').trim()
+}
+
+interface DraftSummary {
+  id: string
+  patient_id: string | null
+  form_id: string | null
+  form_data: Record<string, unknown>
+  notes: string
+  updated_at: string | null
+  created_at: string
+}
+
 function hasFieldValue(field: ServiceFormField, value: unknown): boolean {
   if (LAYOUT_FIELD_TYPES.has(field.field_type)) return true
   if (field.field_type === 'table') {
@@ -159,6 +175,8 @@ export function ServiceDeliveryPage() {
   const gpDropdownRef = useRef<HTMLDivElement>(null)
 
   const isNhsService = activeService?.is_nhs_service === true
+  // NHS services stay "coming soon" until NHS approval (lib/features.ts).
+  const nhsLocked = isNhsService && !NHS_SERVICES_ENABLED
 
   /* ---- Form state ---- */
   const [selectedForm, setSelectedForm] = useState<ServiceForm | null>(null)
@@ -176,6 +194,17 @@ export function ServiceDeliveryPage() {
   // Idempotency key for this delivery: a retry after a network error reuses
   // it, so the server never saves the same consultation twice.
   const clientRef = useRef<string>(crypto.randomUUID())
+
+  /* ---- Drafts (autosaved, only visible to their author) ---- */
+  const [draftId, setDraftId] = useState<string | null>(null)
+  const [draftSavedAt, setDraftSavedAt] = useState<Date | null>(null)
+  const [draftError, setDraftError] = useState<string | null>(null)
+  const [myDrafts, setMyDrafts] = useState<DraftSummary[]>([])
+  const draftSaving = useRef(false)
+  // Mirrors draftId so submit sees a draft created by an autosave in flight.
+  const draftIdRef = useRef<string | null>(null)
+  useEffect(() => { draftIdRef.current = draftId }, [draftId])
+  const [preparingPatient, setPreparingPatient] = useState(false)
 
   // Load service detail
   const load = useCallback(() => {
@@ -195,7 +224,26 @@ export function ServiceDeliveryPage() {
     setCompleted(false)
     setSubmitError(null)
     clientRef.current = crypto.randomUUID()
+    setDraftId(null)
+    setDraftSavedAt(null)
   }, [serviceId])
+
+  /* ---- Load this person's unfinished drafts for this service ---- */
+  const loadMyDrafts = useCallback(async () => {
+    if (!organisation?.id || !serviceId || !activeUser?.id) return
+    const { data } = await getUserClient()
+      .from('ps_service_deliveries')
+      .select('id, patient_id, form_id, form_data, notes, updated_at, created_at')
+      .eq('org_id', organisation.id)
+      .eq('service_id', serviceId)
+      .eq('status', 'draft')
+      .eq('delivered_by', activeUser.id)
+      .order('created_at', { ascending: false })
+      .limit(10)
+    setMyDrafts((data as DraftSummary[]) || [])
+  }, [organisation?.id, serviceId, activeUser?.id])
+
+  useEffect(() => { loadMyDrafts() }, [loadMyDrafts])
 
   // Auto-select default form when forms load
   useEffect(() => {
@@ -229,7 +277,8 @@ export function ServiceDeliveryPage() {
 
   /* ---- Patient search ---- */
   const searchPatients = useCallback(async (query: string) => {
-    if (!organisation?.id || query.trim().length < 2) {
+    const q = cleanSearch(query)
+    if (!organisation?.id || q.length < 2) {
       setPatientResults([])
       return
     }
@@ -239,7 +288,7 @@ export function ServiceDeliveryPage() {
         .from('ps_patients')
         .select('id, first_name, last_name, nhs_number, dob, phone')
         .eq('organisation_id', organisation.id)
-        .or(`first_name.ilike.%${query}%,last_name.ilike.%${query}%,nhs_number.ilike.%${query}%,phone.ilike.%${query}%`)
+        .or(`first_name.ilike.%${q}%,last_name.ilike.%${q}%,nhs_number.ilike.%${q.replace(/\s/g, '')}%,phone.ilike.%${q.replace(/\s/g, '')}%`)
         .limit(10)
       setPatientResults((data as PatientOption[]) || [])
     } catch {
@@ -375,12 +424,146 @@ export function ServiceDeliveryPage() {
 
   const canSubmit = (selectedPatient || skipPatient) && requiredFieldsMissing.length === 0
 
+  /* ---- Patients found by NHS number get a local record ---- */
+  // A PDS lookup gives a patient with no local id. Link the record to an
+  // existing patient with that NHS number, or create one, so the delivery is
+  // never saved without a patient.
+  const ensurePatientRecord = useCallback(async (): Promise<PatientOption | null> => {
+    if (!selectedPatient || selectedPatient.id || !organisation?.id) return selectedPatient
+    const client = getUserClient()
+    const nhs = selectedPatient.nhs_number?.replace(/\s/g, '') || null
+    if (nhs) {
+      const { data: existing, error: findErr } = await client
+        .from('ps_patients')
+        .select('id, first_name, last_name, nhs_number, dob, phone')
+        .eq('organisation_id', organisation.id)
+        .eq('nhs_number', nhs)
+        .limit(1)
+        .maybeSingle()
+      if (findErr) throw findErr
+      if (existing) {
+        setSelectedPatient(existing as PatientOption)
+        return existing as PatientOption
+      }
+    }
+    const { data: created, error: createErr } = await client
+      .from('ps_patients')
+      .insert({
+        organisation_id: organisation.id,
+        first_name: selectedPatient.first_name || 'Unknown',
+        last_name: selectedPatient.last_name || 'Unknown',
+        nhs_number: nhs,
+        dob: selectedPatient.dob || null,
+        postcode: pdsResult?.address?.postalCode || null,
+      })
+      .select('id, first_name, last_name, nhs_number, dob, phone')
+      .single()
+    if (createErr) throw createErr
+    setSelectedPatient(created as PatientOption)
+    return created as PatientOption
+  }, [selectedPatient, organisation?.id, pdsResult])
+
+  const goToForm = async () => {
+    setSubmitError(null)
+    setPreparingPatient(true)
+    try {
+      await ensurePatientRecord()
+      setStep('form')
+    } catch (e: any) {
+      setSubmitError(`The patient record could not be saved: ${e.message}`)
+    }
+    setPreparingPatient(false)
+  }
+
+  /* ---- Draft autosave ---- */
+  const saveDraft = useCallback(async () => {
+    if (!organisation?.id || !serviceId || completed || draftSaving.current) return
+    if (selectedPatient && !selectedPatient.id) return // patient not saved yet
+    draftSaving.current = true
+    try {
+      const row = {
+        patient_id: selectedPatient?.id || null,
+        form_id: selectedForm?.id || null,
+        form_data: formData,
+        notes,
+      }
+      const client = getUserClient()
+      const existingDraft = draftIdRef.current
+      if (existingDraft) {
+        const { error } = await client.from('ps_service_deliveries').update(row).eq('id', existingDraft).eq('status', 'draft')
+        if (error) throw error
+      } else {
+        const { data, error } = await client
+          .from('ps_service_deliveries')
+          .insert({ ...row, org_id: organisation.id, service_id: serviceId, status: 'draft' })
+          .select('id')
+          .single()
+        if (error) throw error
+        draftIdRef.current = (data as { id: string }).id
+        setDraftId(draftIdRef.current)
+      }
+      setDraftSavedAt(new Date())
+      setDraftError(null)
+    } catch (e: any) {
+      setDraftError(e.message || 'Draft not saved')
+    } finally {
+      draftSaving.current = false
+    }
+  }, [organisation?.id, serviceId, completed, selectedPatient, selectedForm, formData, notes])
+
+  // Save a draft a few seconds after the last change on the form/review steps.
+  const hasContent = Object.keys(formData).length > 0 || notes.trim().length > 0
+  useEffect(() => {
+    if (step === 'patient' || completed || submitting || !hasContent) return
+    const timer = setTimeout(() => { saveDraft() }, 3000)
+    return () => clearTimeout(timer)
+  }, [formData, notes, selectedForm?.id, step, completed, submitting, hasContent, saveDraft])
+
+  const resumeDraft = async (draft: DraftSummary) => {
+    setSubmitError(null)
+    let patient: PatientOption | null = null
+    if (draft.patient_id) {
+      const { data } = await getUserClient()
+        .from('ps_patients')
+        .select('id, first_name, last_name, nhs_number, dob, phone')
+        .eq('id', draft.patient_id)
+        .maybeSingle()
+      patient = (data as PatientOption) || null
+    }
+    const form = activeForms.find((f) => f.id === draft.form_id) || null
+    if (form) setSelectedForm(form)
+    setSelectedPatient(patient)
+    setSkipPatient(!patient)
+    // Applied after the form's fields load, so template defaults don't win.
+    setTimeout(() => setFormData(draft.form_data || {}), 0)
+    setNotes(draft.notes || '')
+    setDraftId(draft.id)
+    setMyDrafts((d) => d.filter((x) => x.id !== draft.id))
+    setStep('form')
+  }
+
+  const discardDraft = async (id: string) => {
+    if (!window.confirm('Discard this unfinished draft? This cannot be undone.')) return
+    const { error } = await getUserClient().from('ps_service_deliveries').delete().eq('id', id).eq('status', 'draft')
+    if (error) {
+      setSubmitError(error.message)
+      return
+    }
+    setMyDrafts((d) => d.filter((x) => x.id !== id))
+  }
+
   /* ---- Submit ---- */
   const handleSubmit = async () => {
     if (!organisation?.id || !serviceId) return
     setSubmitting(true)
     setSubmitError(null)
     try {
+      const patient = await ensurePatientRecord()
+      // Let an autosave that is mid-flight finish, so its draft is completed
+      // rather than left behind.
+      for (let i = 0; i < 50 && draftSaving.current; i++) {
+        await new Promise((r) => setTimeout(r, 100))
+      }
       // Derive outcome_type from form data OUTCOME field
       const outcomeField = formData.OUTCOME as string | undefined
       let outcomeType: 'prescription' | 'referral' | 'advice' | 'no_treatment' = 'advice'
@@ -396,8 +579,9 @@ export function ServiceDeliveryPage() {
         orgId: organisation.id,
         serviceId,
         clientRef: clientRef.current,
-        patientId: selectedPatient?.id || null,
+        patientId: patient?.id || null,
         formId: selectedForm?.id || null,
+        draftId: draftIdRef.current,
         formData,
         notes,
         outcome: { outcome_type: outcomeType },
@@ -415,6 +599,7 @@ export function ServiceDeliveryPage() {
       })
 
       setCompleted(true)
+      setDraftId(null)
     } catch (e: any) {
       setSubmitError(e.message)
     }
@@ -448,6 +633,8 @@ export function ServiceDeliveryPage() {
               setNotes('')
               setCompleted(false)
               clientRef.current = crypto.randomUUID()
+              setDraftId(null)
+              setDraftSavedAt(null)
               setPatientSearch('')
               setPdsResult(null)
               setNhsNumberInput('')
@@ -525,8 +712,10 @@ export function ServiceDeliveryPage() {
               }}
               onClick={() => {
                 if (s === 'patient') setStep('patient')
-                if (s === 'form' && (selectedPatient || skipPatient)) setStep('form')
-                if (s === 'review' && (selectedPatient || skipPatient)) setStep('review')
+                if (s !== 'patient' && (selectedPatient || skipPatient)) {
+                  if (step === 'patient') goToForm()
+                  else setStep(s)
+                }
               }}
             >
               {i + 1}. {s === 'patient' ? 'Patient' : s === 'form' ? 'Fill Form' : 'Review & Complete'}
@@ -535,8 +724,45 @@ export function ServiceDeliveryPage() {
         })}
       </div>
 
+      {nhsLocked && (
+        <div className="ps-card" style={{ padding: 'var(--ps-space-xl)', textAlign: 'center' }}>
+          <h2 style={{ color: 'var(--ps-midnight)', marginBottom: 'var(--ps-space-sm)' }}>NHS services are coming soon</h2>
+          <p style={{ color: 'var(--ps-slate)', margin: 0 }}>
+            {activeService?.name} can't be recorded or claimed in PharmStation yet. Private and custom services work as normal.
+          </p>
+        </div>
+      )}
+
+      {/* Unfinished drafts */}
+      {!nhsLocked && step === 'patient' && myDrafts.length > 0 && (
+        <div className="ps-card" style={{ padding: 'var(--ps-space-md)', marginBottom: 'var(--ps-space-md)', borderColor: 'var(--ps-warning)' }}>
+          <strong>You have {myDrafts.length === 1 ? 'an unfinished draft' : `${myDrafts.length} unfinished drafts`} for this service</strong>
+          {myDrafts.map((d) => (
+            <div key={d.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--ps-space-sm)', marginTop: 'var(--ps-space-sm)' }}>
+              <span style={{ fontSize: 'var(--ps-font-sm)', color: 'var(--ps-slate)' }}>
+                Started {new Date(d.created_at).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                {d.updated_at ? `, last saved ${new Date(d.updated_at).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}` : ''}
+              </span>
+              <span style={{ display: 'flex', gap: 'var(--ps-space-xs)' }}>
+                <button className="ps-btn ps-btn-primary ps-btn-sm" onClick={() => resumeDraft(d)}>Resume</button>
+                <button className="ps-btn ps-btn-ghost ps-btn-sm" onClick={() => discardDraft(d.id)}>Discard</button>
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Draft status */}
+      {!nhsLocked && step !== 'patient' && (draftSavedAt || draftError) && (
+        <div style={{ fontSize: 'var(--ps-font-xs)', color: draftError ? 'var(--ps-error)' : 'var(--ps-slate)', marginBottom: 'var(--ps-space-sm)', textAlign: 'right' }}>
+          {draftError
+            ? `Draft not saved: ${draftError}`
+            : `Draft saved at ${draftSavedAt!.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}`}
+        </div>
+      )}
+
       {/* ===== STEP 1: Patient ===== */}
-      {step === 'patient' && (
+      {!nhsLocked && step === 'patient' && (
         <div className="ps-card" style={{ padding: 'var(--ps-space-lg)' }}>
           <h2 style={{ fontSize: 'var(--ps-font-lg)', fontWeight: 600, color: 'var(--ps-midnight)', marginBottom: 'var(--ps-space-md)' }}>
             👤 Select Patient
@@ -726,17 +952,17 @@ export function ServiceDeliveryPage() {
           <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 'var(--ps-space-lg)' }}>
             <button
               className="ps-btn ps-btn-primary"
-              disabled={!selectedPatient && !skipPatient}
-              onClick={() => setStep('form')}
+              disabled={(!selectedPatient && !skipPatient) || preparingPatient}
+              onClick={goToForm}
             >
-              Next: Fill Form →
+              {preparingPatient ? 'Saving patient…' : 'Next: Fill Form →'}
             </button>
           </div>
         </div>
       )}
 
       {/* ===== STEP 2: Fill Form ===== */}
-      {step === 'form' && (
+      {!nhsLocked && step === 'form' && (
         <div className="ps-card" style={{ padding: 'var(--ps-space-lg)' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 'var(--ps-space-lg)' }}>
             <h2 style={{ fontSize: 'var(--ps-font-lg)', fontWeight: 600, color: 'var(--ps-midnight)', margin: 0 }}>
@@ -1048,7 +1274,7 @@ export function ServiceDeliveryPage() {
       )}
 
       {/* ===== STEP 3: Review & Complete ===== */}
-      {step === 'review' && (
+      {!nhsLocked && step === 'review' && (
         <div className="ps-card" style={{ padding: 'var(--ps-space-lg)' }}>
           <h2 style={{ fontSize: 'var(--ps-font-lg)', fontWeight: 600, color: 'var(--ps-midnight)', marginBottom: 'var(--ps-space-lg)' }}>
             ✅ Review & Complete
