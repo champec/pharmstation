@@ -432,7 +432,7 @@ export interface AuditLogEntry {
 // RLS policies and functions use through ps_member_has_permission().
 // Change both together. Exception: services_manage / services_amend are
 // mirrored in ps_member_has_services_permission() (see
-// supabase/migrations/20261105160000_services_records_protection.sql).
+// supabase/migrations/20261105160200_services_records_protection.sql).
 
 export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, Permissions> = {
   owner: {

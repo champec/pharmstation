@@ -35,7 +35,7 @@ Fresh database each run:
 ```bash
 createdb -h <socket> -p <port> -U postgres svc_test
 psql ... -d svc_test -f supabase/tests/services_test_setup.sql
-psql ... -d svc_test -f supabase/migrations/20261105160000_services_records_protection.sql
+psql ... -d svc_test -f supabase/migrations/20261105160200_services_records_protection.sql
 psql ... -d svc_test -t -f supabase/tests/services_records_protection_test.sql | grep -E 'PASS|FAIL'
 ```
 

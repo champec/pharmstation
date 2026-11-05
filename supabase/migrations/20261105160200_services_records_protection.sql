@@ -39,7 +39,7 @@
 -- Service-role / postgres sessions (auth.uid() is null) are not blocked by the
 -- record locks, so deleting a whole organisation still works.
 --
--- Rollback: supabase/rollbacks/rollback_20261105160000_services_records_protection.sql
+-- Rollback: supabase/rollbacks/rollback_20261105160200_services_records_protection.sql
 
 begin;
 

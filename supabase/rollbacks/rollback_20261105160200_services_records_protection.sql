@@ -1,4 +1,4 @@
--- Rollback for 20261105160000_services_records_protection.sql
+-- Rollback for 20261105160200_services_records_protection.sql
 --
 -- Restores the old open policies and cascading foreign keys. The new columns
 -- (archived_at, client_ref, form_version, form_snapshot, updated_at,

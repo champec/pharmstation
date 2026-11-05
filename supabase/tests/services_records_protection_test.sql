@@ -1,4 +1,4 @@
--- Tests for 20261105160000_services_records_protection.sql.
+-- Tests for 20261105160200_services_records_protection.sql.
 -- Run after services_test_setup.sql and the migration. Prints PASS/FAIL lines.
 -- Each check is its own statement: a check that reads rows changed inside the
 -- same statement would not see them (statement snapshot).
