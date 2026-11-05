@@ -10,8 +10,9 @@
 // header (`x-internal-secret`) against the NOTIFICATION_DISPATCH_SECRET edge
 // secret, which matches the value seeded into ps_internal_secrets.
 //
-// Job: for the given notification_id, find every recipient receipt still
-// marked sms_status = 'pending' (i.e. the org has SMS alerts enabled for
+// Job: for the given notification_id, push to staff phones that have the
+// app installed (when the org has the "Mobile app" channel on), then find
+// every recipient receipt still marked sms_status = 'pending' (i.e. the org has SMS alerts enabled for
 // this event type AND the staff member opted in with a phone number), send
 // them a text via the org's SMS Works account, and update each receipt's
 // dispatch status. Usage is recorded on the SAME ps_sms_usage_monthly ledger
@@ -137,16 +138,122 @@ function estimateSegments(content: string): { segments: number; credits: number 
 }
 
 // ============================================
+// Mobile push (Expo push service → FCM / APNs)
+// ============================================
+
+const EXPO_PUSH_URL = 'https://exp.host/--/api/v2/push/send'
+
+type PushNotification = {
+  id: string
+  org_id: string
+  event_type: string
+  title: string
+  body: string | null
+  metadata: Record<string, unknown> | null
+}
+
+/** Send a push to every registered phone of each recipient, when the org has
+ *  the "Mobile app" channel on for this event type. Never throws: a push
+ *  failure must not stop the SMS side. */
+async function sendPushes(admin: AdminClient, notification: PushNotification) {
+  try {
+    const { data: orgSettings } = await admin
+      .from('ps_org_alert_settings')
+      .select('settings')
+      .eq('org_id', notification.org_id)
+      .maybeSingle()
+    const channels = (orgSettings?.settings as Record<string, Record<string, boolean>> | null)?.[notification.event_type]
+    if (!channels?.mobile) return { pushed: 0 }
+
+    const { data: receipts } = await admin
+      .from('ps_notification_receipts')
+      .select('user_id')
+      .eq('notification_id', notification.id)
+    const userIds = [...new Set((receipts ?? []).map((r) => r.user_id as string))]
+    if (userIds.length === 0) return { pushed: 0 }
+
+    // People can switch phone alerts off for themselves.
+    const { data: prefs } = await admin
+      .from('ps_user_notification_preferences')
+      .select('user_id, mobile_enabled')
+      .in('user_id', userIds)
+    const optedOut = new Set((prefs ?? []).filter((p) => p.mobile_enabled === false).map((p) => p.user_id))
+
+    const { data: tokens } = await admin
+      .from('ps_mobile_push_tokens')
+      .select('id, user_id, expo_push_token, failure_count')
+      .in('user_id', userIds.filter((u) => !optedOut.has(u)))
+      .eq('enabled', true)
+    if (!tokens || tokens.length === 0) return { pushed: 0 }
+
+    const meta = notification.metadata ?? {}
+    const data: Record<string, string> = { notification_id: notification.id, event_type: notification.event_type }
+    if (typeof meta.thread_id === 'string') data.thread_id = meta.thread_id
+    if (typeof meta.from_number === 'string') data.from_number = meta.from_number
+
+    let pushed = 0
+    for (let i = 0; i < tokens.length; i += 100) {
+      const chunk = tokens.slice(i, i + 100)
+      const res = await fetch(EXPO_PUSH_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify(chunk.map((t) => ({
+          to: t.expo_push_token,
+          title: notification.title,
+          body: notification.body ?? undefined,
+          data,
+          sound: 'default',
+          priority: 'high',
+          channelId: 'default',
+        }))),
+      })
+      const json = await res.json().catch(() => ({})) as { data?: { status: string; message?: string; details?: { error?: string } }[] }
+      const tickets = Array.isArray(json.data) ? json.data : []
+      const now = new Date().toISOString()
+      for (let j = 0; j < chunk.length; j++) {
+        const t = chunk[j]
+        const ticket = tickets[j]
+        if (ticket?.status === 'ok') {
+          pushed++
+          await admin.from('ps_mobile_push_tokens')
+            .update({ last_success_at: now, failure_count: 0, last_error: null })
+            .eq('id', t.id)
+        } else {
+          const err = ticket?.details?.error ?? ticket?.message ?? `HTTP ${res.status}`
+          // The app was uninstalled or the token is dead: stop sending to it.
+          const dead = err === 'DeviceNotRegistered' || (t.failure_count ?? 0) + 1 >= 10
+          await admin.from('ps_mobile_push_tokens')
+            .update({ last_failure_at: now, last_error: String(err).slice(0, 300), failure_count: (t.failure_count ?? 0) + 1, ...(dead ? { enabled: false } : {}) })
+            .eq('id', t.id)
+        }
+      }
+    }
+    return { pushed }
+  } catch (e) {
+    console.error('push failed', e)
+    return { pushed: 0 }
+  }
+}
+
+// ============================================
 // Core
 // ============================================
 
 async function dispatch(admin: AdminClient, notificationId: string) {
   const { data: notification, error: nErr } = await admin
     .from('ps_notifications')
-    .select('id, org_id, event_type, title, body')
+    .select('id, org_id, event_type, title, body, metadata')
     .eq('id', notificationId)
     .single()
   if (nErr || !notification) throw new Error('Notification not found')
+
+  const { pushed } = await sendPushes(admin, notification as PushNotification)
+  const sms = await dispatchSms(admin, notification as PushNotification)
+  return { ...sms, pushed }
+}
+
+async function dispatchSms(admin: AdminClient, notification: PushNotification) {
+  const notificationId = notification.id
 
   const { data: pendingReceipts, error: rErr } = await admin
     .from('ps_notification_receipts')

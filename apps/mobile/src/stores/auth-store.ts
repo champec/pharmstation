@@ -35,6 +35,7 @@ import {
   userSignIn,
   userSignOut,
 } from '@/lib/supabase'
+import { unregisterPush } from '@/lib/push'
 
 export interface AuthState {
   // --- User layer (primary) ---
@@ -234,6 +235,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   userLogout: async () => {
     set({ busy: true })
     try {
+      await unregisterPush()
       await orgSignOut().catch(() => {})
       await userSignOut()
     } finally {

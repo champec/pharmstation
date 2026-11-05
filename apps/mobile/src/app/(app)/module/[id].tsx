@@ -5,6 +5,6 @@ import { useLocalSearchParams } from 'expo-router'
 import { ModuleHost } from '@/components/module/ModuleHost'
 
 export default function ModuleScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>()
-  return <ModuleHost moduleId={id} />
+  const { id, tab } = useLocalSearchParams<{ id: string; tab?: string }>()
+  return <ModuleHost key={`${id}:${tab ?? ''}`} moduleId={id} initialTab={tab} />
 }

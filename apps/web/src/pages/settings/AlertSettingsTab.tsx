@@ -9,8 +9,8 @@ import type { AlertChannelConfig } from '@pharmstation/types'
 // system, patient message) the manager picks which channels are "on":
 // web (this dashboard's bell — always available), SMS (comes out of the
 // org's SMS Works allowance, requires a staff member to also opt in with a
-// phone number under their own profile), and mobile/desktop (stored now so
-// the toggle is ready the moment those apps ship).
+// phone number under their own profile), mobile (push to the Expo app via
+// notifications-dispatch) and desktop (stored now, ships later).
 //
 // New features fold in automatically: they just need a new key in the
 // settings jsonb (defaulting to { web: true, sms/mobile/desktop: false })
@@ -23,7 +23,7 @@ const hintStyle: React.CSSProperties = { color: 'var(--ps-slate)', margin: '0 0 
 const CHANNELS: { key: keyof AlertChannelConfig; label: string; comingSoon?: boolean }[] = [
   { key: 'web', label: '🖥️ Web dashboard' },
   { key: 'sms', label: '📱 Text message (SMS)' },
-  { key: 'mobile', label: '📲 Mobile app', comingSoon: true },
+  { key: 'mobile', label: '📲 Mobile app' },
   { key: 'desktop', label: '💻 Desktop app', comingSoon: true },
 ]
 
@@ -90,8 +90,8 @@ export function AlertSettingsTab() {
           Choose which channels are switched on for each kind of alert. <strong>Web</strong> shows up in the
           bell at the top of the dashboard for every signed-in team member. <strong>SMS</strong> also requires the
           individual staff member to opt in and add their phone number under their own profile — and it uses the
-          pharmacy's SMS allowance. Mobile app and desktop app notifications are coming soon; the toggle is here
-          ready for when they ship.
+          pharmacy's SMS allowance. <strong>Mobile app</strong> sends a free push notification to staff who are signed in
+          to the PharmStation app on their phone. Desktop app notifications are coming soon.
         </p>
 
         {!canManage && (

@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "398162650332",
+    "project_id": "pharmstation-41dda",
+    "storage_bucket": "pharmstation-41dda.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:398162650332:android:c23d6832034280cd440019",
+        "android_client_info": {
+          "package_name": "com.pharmstation.mobile"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBOfLZwDY3nQNNVtgax6NDxBZfGRnyho-w"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

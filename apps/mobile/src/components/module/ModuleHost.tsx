@@ -29,9 +29,11 @@ import { palette, radius } from '@/theme/palette'
 
 interface Props {
   moduleId: string
+  /** Tab to open first, e.g. from a push notification. */
+  initialTab?: string
 }
 
-export function ModuleHost({ moduleId }: Props) {
+export function ModuleHost({ moduleId, initialTab }: Props) {
   const router = useRouter()
   const ctx = useModuleContext()
   const module = findModule(moduleId)
@@ -47,8 +49,9 @@ export function ModuleHost({ moduleId }: Props) {
 
   // Default to the first launchable tab so we never open onto a locked screen.
   const firstLaunchable = items.find((t) => !t.locked) ?? items[0]
+  const requested = items.find((t) => t.id === initialTab && !t.locked)
   const [activeId, setActiveId] = useState<string | undefined>(
-    firstLaunchable?.id,
+    (requested ?? firstLaunchable)?.id,
   )
   const [lockedNotice, setLockedNotice] = useState<string | null>(null)
 
