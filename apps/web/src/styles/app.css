@@ -3398,33 +3398,39 @@
   }
 }
 
+/* Care-home MAR and prescription documents. Scoped to a print mode set by
+   those pages, so printing anywhere else in the app is not blanked out. */
+@page care-home {
+  size: A4 landscape;
+  margin: 12mm;
+}
+
 @media print {
-  @page {
-    size: A4 landscape;
-    margin: 12mm;
+  body[data-print-mode="care-home"] {
+    page: care-home;
   }
 
-  body * {
+  body[data-print-mode="care-home"] * {
     visibility: hidden;
   }
 
-  .care-home-mar-print-area,
-  .care-home-mar-print-area *,
-  .care-home-mar-document,
-  .care-home-mar-document *,
-  .care-home-prescription-document,
-  .care-home-prescription-document * {
+  body[data-print-mode="care-home"] .care-home-mar-print-area,
+  body[data-print-mode="care-home"] .care-home-mar-print-area *,
+  body[data-print-mode="care-home"] .care-home-mar-document,
+  body[data-print-mode="care-home"] .care-home-mar-document *,
+  body[data-print-mode="care-home"] .care-home-prescription-document,
+  body[data-print-mode="care-home"] .care-home-prescription-document * {
     visibility: visible;
   }
 
-  .care-home-mar-print-area {
+  body[data-print-mode="care-home"] .care-home-mar-print-area {
     position: absolute;
     inset: 0;
     width: 100%;
     color: #000;
   }
 
-  .care-home-mar-chart-page .care-home-mar-document {
+  body[data-print-mode="care-home"] .care-home-mar-chart-page .care-home-mar-document {
     position: absolute;
     inset: 0;
     width: 100%;
@@ -3432,7 +3438,7 @@
     color: #000;
   }
 
-  .care-home-prescription-page .care-home-prescription-document {
+  body[data-print-mode="care-home"] .care-home-prescription-page .care-home-prescription-document {
     position: absolute;
     inset: 0;
     width: 100%;
@@ -3441,13 +3447,13 @@
     border: 0;
   }
 
-  .care-home-prescription-document th,
-  .care-home-prescription-document td {
+  body[data-print-mode="care-home"] .care-home-prescription-document th,
+  body[data-print-mode="care-home"] .care-home-prescription-document td {
     color: #000;
     border-color: #000;
   }
 
-  .care-home-mar-document header {
+  body[data-print-mode="care-home"] .care-home-mar-document header {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 8mm;
@@ -3455,26 +3461,26 @@
     border-bottom: 2px solid #000;
   }
 
-  .care-home-mar-document header strong,
-  .care-home-mar-document header span,
-  .care-home-mar-document td small {
+  body[data-print-mode="care-home"] .care-home-mar-document header strong,
+  body[data-print-mode="care-home"] .care-home-mar-document header span,
+  body[data-print-mode="care-home"] .care-home-mar-document td small {
     display: block;
   }
 
-  .care-home-mar-document header span,
-  .care-home-mar-document td small {
+  body[data-print-mode="care-home"] .care-home-mar-document header span,
+  body[data-print-mode="care-home"] .care-home-mar-document td small {
     margin-top: 2px;
     font-size: 8pt;
   }
 
-  .care-home-mar-document table {
+  body[data-print-mode="care-home"] .care-home-mar-document table {
     width: 100%;
     margin-top: 5mm;
     border-collapse: collapse;
   }
 
-  .care-home-mar-document th,
-  .care-home-mar-document td {
+  body[data-print-mode="care-home"] .care-home-mar-document th,
+  body[data-print-mode="care-home"] .care-home-mar-document td {
     padding: 2.5mm;
     text-align: left;
     border: 1px solid #000;

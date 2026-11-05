@@ -1220,7 +1220,29 @@ export interface LogEntry {
   data: Record<string, unknown>
   entered_by_user_id: string
   created_at: string
+  /** First version of this entry; every edit of it shares the same root_id */
+  root_id: string
+  supersedes_id: string | null
+  superseded_at: string | null
+  edit_reason: string | null
+  voided_at: string | null
+  voided_by: string | null
+  void_reason: string | null
   entered_by_profile?: UserProfile
+}
+
+/** A period when the signed-in Responsible Pharmacist was away from the pharmacy */
+export interface RpAbsence {
+  id: string
+  organisation_id: string
+  /** The original RP record (normal entry) this absence belongs to */
+  rp_entry_id: string
+  absent_from: string
+  returned_at: string | null
+  reason: string | null
+  recorded_by: string
+  returned_recorded_by: string | null
+  created_at: string
 }
 
 // ============================================
@@ -1502,6 +1524,8 @@ export interface SOPDocument {
   created_by: string | null
   updated_by: string | null
   published_at: string | null
+  /** Sections changed since the last publish; staff still read the last published copy. */
+  has_unpublished_changes?: boolean
   created_at: string
   updated_at: string
   // Joined
@@ -1542,9 +1566,25 @@ export interface SOPCompletion {
   id: string
   document_id: string
   document_version: number
-  member_id: string
+  /** null once the staff member has been removed from the pharmacy */
+  member_id: string | null
   org_id: string
   completed_at: string
+  user_id?: string | null
+  signer_name?: string | null
+}
+
+/** Frozen copy of an SOP made each time it is published (ps_sop_document_versions). */
+export interface SOPDocumentVersion {
+  id: string
+  document_id: string
+  org_id: string
+  version: number
+  title: string
+  description: string | null
+  nodes: Pick<SOPNode, 'id' | 'parent_id' | 'title' | 'content_type' | 'rich_content' | 'pdf_storage_path' | 'sort_order'>[]
+  published_at: string
+  published_by: string | null
 }
 
 // Rich view used in the progress page

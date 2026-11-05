@@ -106,6 +106,10 @@ export function PublicShopOrgPage() {
     return org.delivery_fee_pence
   }, [org, fulfilment, cartSubtotal])
 
+  // Mirrors ps_shop_normalise_uk_phone on the server, for early feedback.
+  const phoneDigits = guestPhone.replace(/[\s\-().]/g, '').replace(/^(\+44|0044)/, '0').replace(/^00?0/, '0')
+  const phoneInvalid = guestPhone.trim() !== '' && !/^0[1-9]\d{8,9}$/.test(phoneDigits)
+
   const handlePlaceOrder = async () => {
     if (!org) return
     setPlacing(true); setCheckoutError(null)
@@ -281,7 +285,7 @@ export function PublicShopOrgPage() {
                     <span>Subtotal</span><span>{formatPrice(cartSubtotal)}</span>
                   </div>
                   <button
-                    onClick={() => { setCheckoutOpen(true); setCheckoutError(null) }}
+                    onClick={() => { setCheckoutOpen(true); setCheckoutError(null); if (org && !org.collection_enabled && org.delivery_enabled) setFulfilment('delivery') }}
                     style={{ width: '100%', background: '#0077B6', color: 'white', border: 'none', borderRadius: 10, padding: '13px 0', fontSize: 15, fontWeight: 700, cursor: 'pointer' }}
                   >
                     Checkout →
@@ -311,13 +315,15 @@ export function PublicShopOrgPage() {
 
             {/* Fulfilment */}
             <div className="modern-store-fulfilment" style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
-              <button
-                className={fulfilment === 'collection' ? 'selected' : ''}
-                onClick={() => setFulfilment('collection')}
-                style={{ flex: 1, border: fulfilment === 'collection' ? '2px solid #0077B6' : '1px solid #e2e8f0', background: fulfilment === 'collection' ? '#e0f2fe' : 'white', borderRadius: 10, padding: '12px 8px', fontWeight: 700, cursor: 'pointer', color: '#0f172a' }}
-              >
-                🏪 Collection
-              </button>
+              {org.collection_enabled && (
+                <button
+                  className={fulfilment === 'collection' ? 'selected' : ''}
+                  onClick={() => setFulfilment('collection')}
+                  style={{ flex: 1, border: fulfilment === 'collection' ? '2px solid #0077B6' : '1px solid #e2e8f0', background: fulfilment === 'collection' ? '#e0f2fe' : 'white', borderRadius: 10, padding: '12px 8px', fontWeight: 700, cursor: 'pointer', color: '#0f172a' }}
+                >
+                  🏪 Collection
+                </button>
+              )}
               {org.delivery_enabled && (
                 <button
                   className={fulfilment === 'delivery' ? 'selected' : ''}
@@ -337,7 +343,8 @@ export function PublicShopOrgPage() {
               </label>
               <label style={{ fontSize: 13, fontWeight: 600, color: '#334155' }}>
                 Phone number *
-                <input value={guestPhone} onChange={(e) => setGuestPhone(e.target.value)} placeholder="07…" style={{ width: '100%', border: '1px solid #e2e8f0', borderRadius: 8, padding: '10px 12px', fontSize: 14, marginTop: 4, boxSizing: 'border-box' }} />
+                <input type="tel" inputMode="tel" autoComplete="tel" value={guestPhone} onChange={(e) => setGuestPhone(e.target.value)} placeholder="07…" aria-invalid={phoneInvalid} style={{ width: '100%', border: `1px solid ${phoneInvalid ? '#f87171' : '#e2e8f0'}`, borderRadius: 8, padding: '10px 12px', fontSize: 14, marginTop: 4, boxSizing: 'border-box' }} />
+                {phoneInvalid && <span style={{ display: 'block', marginTop: 4, color: '#b91c1c', fontSize: 12, fontWeight: 500 }}>Please enter a UK phone number, like 07700 900123.</span>}
               </label>
               <p style={{ margin: 0, color: '#94a3b8', fontSize: 12 }}>
                 Signed in as a patient? Your order links to your account automatically — name and phone are still used for this order's contact details.
@@ -447,7 +454,7 @@ export function PublicShopOrgPage() {
 
             <button
               onClick={handlePlaceOrder}
-              disabled={placing || !guestName.trim() || !guestPhone.trim() || (fulfilment === 'delivery' && (!addr1.trim() || !addrPostcode.trim())) || missingRequiredAnswers}
+              disabled={placing || !guestName.trim() || !guestPhone.trim() || phoneInvalid || (fulfilment === 'delivery' && (!addr1.trim() || !addrPostcode.trim())) || missingRequiredAnswers}
               style={{ width: '100%', marginTop: 16, background: '#0077B6', color: 'white', border: 'none', borderRadius: 10, padding: '14px 0', fontSize: 15, fontWeight: 700, cursor: 'pointer', opacity: placing ? 0.6 : 1 }}
             >
               {placing ? 'Placing order…' : missingRequiredAnswers ? 'Answer the questions above to continue' : 'Place order'}

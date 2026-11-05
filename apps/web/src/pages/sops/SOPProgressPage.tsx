@@ -1,11 +1,27 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { useAuthStore, useSOPStore } from '@pharmstation/core'
+import { useAuthStore, useSOPStore, canManageSOPs } from '@pharmstation/core'
+import type { SOPCompletion } from '@pharmstation/types'
+
+const ukDateTime = (iso: string) =>
+  new Date(iso).toLocaleString('en-GB', { timeZone: 'Europe/London', dateStyle: 'medium', timeStyle: 'short' })
+
+function csvCell(value: string | number | null | undefined): string {
+  let v = value == null ? '' : String(value)
+  if (/^[=+\-@\t\r]/.test(v)) v = `'${v}` // stop spreadsheet formulas
+  return /[",\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v
+}
 
 export function SOPProgressPage() {
   const { docId } = useParams<{ docId: string }>()
   const navigate = useNavigate()
-  const { organisation } = useAuthStore()
+  const { organisation, membership } = useAuthStore()
+
+  // Only SOP managers can assign and see everyone's progress; staff go to the read view.
+  const isManager = canManageSOPs(membership)
+  useEffect(() => {
+    if (membership && !isManager && docId) navigate(`/sops/${docId}/read`, { replace: true })
+  }, [membership, isManager, docId, navigate])
 
   const {
     activeDocument,
@@ -14,8 +30,15 @@ export function SOPProgressPage() {
     error,
     fetchDocument,
     fetchMemberProgress,
+    fetchSignOffHistory,
     clearError,
   } = useSOPStore()
+
+  const [history, setHistory] = useState<SOPCompletion[]>([])
+
+  useEffect(() => {
+    if (docId) fetchSignOffHistory(docId).then(setHistory).catch(() => setHistory([]))
+  }, [docId, fetchSignOffHistory])
 
   useEffect(() => {
     if (docId) fetchDocument(docId)
@@ -34,6 +57,35 @@ export function SOPProgressPage() {
   const total = memberProgress.length
 
   const pct = total > 0 ? Math.round((completed.length / total) * 100) : 0
+
+  // Names for sign-offs: the stored signer name, or the member's current profile.
+  const memberNames = new Map(memberProgress.map((p) => [p.member.id, p.member.user_profile?.full_name ?? null]))
+  const memberRoles = new Map(memberProgress.map((p) => [p.member.id, p.member.role as string]))
+  const signerName = (c: SOPCompletion) =>
+    c.signer_name || (c.member_id ? memberNames.get(c.member_id) : null) || (c.member_id ? 'Unknown' : 'Former staff member')
+
+  const exportCsv = () => {
+    if (!doc) return
+    const rows = [
+      ['SOP', 'Version signed', 'Current version', 'Signed by', 'Role', 'Signed at (UK time)'],
+      ...history.map((c) => [
+        doc.title,
+        c.document_version,
+        currentVersion,
+        signerName(c),
+        (c.member_id && memberRoles.get(c.member_id)) || '',
+        ukDateTime(c.completed_at),
+      ]),
+    ]
+    const csv = rows.map((r) => r.map(csvCell).join(',')).join('\r\n')
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `${doc.title.replace(/[^A-Za-z0-9]+/g, '-').toLowerCase()}-sign-offs.csv`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
 
   const getStatusBadge = (p: (typeof memberProgress)[0]) => {
     if (p.is_current_version) return { label: '✓ Completed', color: 'var(--ps-success)', bg: 'var(--ps-success)20' }
@@ -67,14 +119,22 @@ export function SOPProgressPage() {
                     fontWeight: 600,
                   }}
                 >
-                  {doc.status === 'published' ? 'Published' : 'Draft'}
+                  {doc.status === 'published' ? 'Published' : doc.status === 'archived' ? 'Archived' : 'Draft'}
                 </span>
               </p>
             )}
           </div>
-          <button className="ps-btn ps-btn-secondary" onClick={() => navigate(`/sops/${docId}/edit`)}>
-            ← Back to Editor
-          </button>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }} className="no-print">
+            <button className="ps-btn ps-btn-secondary" onClick={exportCsv} disabled={!doc || history.length === 0}>
+              ⬇ Export sign-offs (CSV)
+            </button>
+            <button className="ps-btn ps-btn-secondary" onClick={() => window.print()}>
+              🖨 Print
+            </button>
+            <button className="ps-btn ps-btn-secondary" onClick={() => navigate(`/sops/${docId}/edit`)}>
+              ← Back to Editor
+            </button>
+          </div>
         </div>
       </div>
 
@@ -145,9 +205,9 @@ export function SOPProgressPage() {
           {memberProgress.length === 0 ? (
             <div className="ps-empty-state">
               <div style={{ fontSize: 40 }}>👥</div>
-              <h3>No active members found</h3>
+              <h3>Not assigned to anyone yet</h3>
               <p style={{ color: 'var(--ps-text-muted)' }}>
-                Make sure this SOP is assigned to staff via the <strong>Assign</strong> page.
+                Assign this SOP to staff on the <strong>Assign</strong> page to track who has read it.
               </p>
               <button className="ps-btn ps-btn-secondary" onClick={() => navigate(`/sops/${docId}/assign`)}>
                 Go to Assign
@@ -235,9 +295,7 @@ export function SOPProgressPage() {
                           {p.completion ? `v${p.completion.document_version}` : '—'}
                         </td>
                         <td style={{ padding: '12px 16px', fontSize: 13, color: 'var(--ps-text-muted)' }}>
-                          {p.completion
-                            ? new Date(p.completion.completed_at).toLocaleString()
-                            : '—'}
+                          {p.completion ? ukDateTime(p.completion.completed_at) : '—'}
                         </td>
                       </tr>
                     )
@@ -246,6 +304,41 @@ export function SOPProgressPage() {
               </table>
             </div>
           )}
+
+          {/* Full sign-off record, every version, including staff who have left */}
+          <div className="ps-card" style={{ marginTop: 24, overflow: 'hidden' }}>
+            <h3 style={{ margin: '0 0 4px', fontSize: 15 }}>Sign-off record (all versions)</h3>
+            <p style={{ margin: '0 0 12px', fontSize: 12, color: 'var(--ps-text-muted)' }}>
+              Sign-offs can't be edited or deleted. Each one is for the exact text published as that version.
+            </p>
+            {history.length === 0 ? (
+              <div style={{ fontSize: 13, color: 'var(--ps-text-muted)' }}>No one has signed this SOP yet.</div>
+            ) : (
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                  <thead>
+                    <tr style={{ borderBottom: '2px solid var(--ps-border)', textAlign: 'left' }}>
+                      <th style={{ padding: '8px 12px' }}>Signed by</th>
+                      <th style={{ padding: '8px 12px' }}>Version</th>
+                      <th style={{ padding: '8px 12px' }}>Signed at</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {history.map((c) => (
+                      <tr key={c.id} style={{ borderBottom: '1px solid var(--ps-border)' }}>
+                        <td style={{ padding: '8px 12px' }}>{signerName(c)}</td>
+                        <td style={{ padding: '8px 12px' }}>
+                          v{c.document_version}
+                          {c.document_version === currentVersion ? ' (current)' : ''}
+                        </td>
+                        <td style={{ padding: '8px 12px' }}>{ukDateTime(c.completed_at)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
         </>
       )}
     </div>

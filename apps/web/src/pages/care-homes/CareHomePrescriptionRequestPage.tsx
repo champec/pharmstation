@@ -36,6 +36,14 @@ export function CareHomePrescriptionRequestPage() {
     if (requestId) void fetchGpRequest(requestId)
   }, [requestId, fetchGpRequest])
 
+  useEffect(() => {
+    // Scopes the care-home print styles in app.css to this page only.
+    document.body.setAttribute('data-print-mode', 'care-home')
+    return () => {
+      document.body.removeAttribute('data-print-mode')
+    }
+  }, [])
+
   if (loading && !request) return <div className="care-home-loading">Loading GP request...</div>
   if (!request || request.id !== requestId) return <div className="care-home-inline-empty">GP request not found.</div>
 

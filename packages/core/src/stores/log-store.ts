@@ -12,6 +12,8 @@ export interface LogState {
   templates: LogTemplate[]
   subscriptions: LogSubscription[]
   entries: LogEntry[]
+  /** Current entries across every log of the pharmacy (for the Logs home page) */
+  orgEntries: LogEntry[]
   activeTemplate: LogTemplate | null
   activeFields: LogField[]
   activeSubscription: LogSubscription | null
@@ -24,18 +26,34 @@ export interface LogState {
   fetchTemplateDetail: (templateId: string) => Promise<void>
   fetchEntries: (subscriptionId: string, dateRange?: { start: string; end: string }) => Promise<void>
   subscribeToLibrary: (orgId: string, templateId: string) => Promise<LogSubscription>
-  createEntry: (entry: Partial<LogEntry>) => Promise<LogEntry>
-  updateEntry: (entryId: string, data: Record<string, unknown>) => Promise<void>
+  fetchOrgEntries: (orgId: string, dateRange: { start: string; end: string }) => Promise<void>
+  /** Save a new entry, or a new version of one (replacesId + editReason). Entries are never overwritten. */
+  saveEntry: (input: SaveLogEntryInput) => Promise<LogEntry>
+  /** Remove an entry from the log; it stays in the history with the reason */
+  voidEntry: (entryId: string, reason: string) => Promise<void>
+  /** Every version of an entry, oldest first */
+  fetchEntryHistory: (rootId: string) => Promise<LogEntry[]>
   buildTemplate: (template: Partial<LogTemplate>, fields: Partial<LogField>[]) => Promise<LogTemplate>
   updateSubscription: (subscriptionId: string, updates: Partial<LogSubscription>) => Promise<void>
   deactivateSubscription: (subscriptionId: string) => Promise<void>
   clearError: () => void
 }
 
+export interface SaveLogEntryInput {
+  subscriptionId: string
+  entryDate?: string
+  data: Record<string, unknown>
+  replacesId?: string | null
+  editReason?: string | null
+}
+
+const ENTRY_SELECT = '*, entered_by_profile:ps_user_profiles!entered_by_user_id(id, full_name)'
+
 export const useLogStore = create<LogState>((set, get) => ({
   templates: [],
   subscriptions: [],
   entries: [],
+  orgEntries: [],
   activeTemplate: null,
   activeFields: [],
   activeSubscription: null,
@@ -98,9 +116,11 @@ export const useLogStore = create<LogState>((set, get) => ({
     try {
       let query = getUserClient()
         .from('ps_log_entries')
-        .select('*, entered_by_profile:ps_user_profiles!entered_by_user_id(id, full_name)')
+        .select(ENTRY_SELECT)
         .eq('subscription_id', subscriptionId)
+        .is('superseded_at', null)
         .order('entry_date', { ascending: false })
+        .order('created_at', { ascending: false })
 
       if (dateRange) {
         query = query.gte('entry_date', dateRange.start).lte('entry_date', dateRange.end)
@@ -114,41 +134,81 @@ export const useLogStore = create<LogState>((set, get) => ({
     }
   },
 
+  fetchOrgEntries: async (orgId, dateRange) => {
+    try {
+      const { data, error } = await getUserClient()
+        .from('ps_log_entries')
+        .select(ENTRY_SELECT)
+        .eq('org_id', orgId)
+        .is('superseded_at', null)
+        .is('voided_at', null)
+        .gte('entry_date', dateRange.start)
+        .lte('entry_date', dateRange.end)
+        .order('created_at', { ascending: false })
+      if (error) throw error
+      set({ orgEntries: data as LogEntry[] })
+    } catch (e: any) {
+      set({ error: e.message })
+    }
+  },
+
   subscribeToLibrary: async (orgId, templateId) => {
+    // Re-adding a log that was removed earlier reactivates it (and its history).
     const { data, error } = await getUserClient()
       .from('ps_log_subscriptions')
-      .insert({ org_id: orgId, template_id: templateId })
+      .upsert(
+        { org_id: orgId, template_id: templateId, is_active: true },
+        { onConflict: 'org_id,template_id' },
+      )
       .select()
       .single()
     if (error) throw error
     const created = data as LogSubscription
-    set((s) => ({ subscriptions: [...s.subscriptions, created] }))
+    set((s) => ({ subscriptions: [...s.subscriptions.filter((x) => x.id !== created.id), created] }))
     return created
   },
 
-  createEntry: async (entry) => {
+  saveEntry: async ({ subscriptionId, entryDate, data, replacesId, editReason }) => {
+    const client = getUserClient()
+    const { data: saved, error } = await client.rpc('ps_log_save_entry', {
+      p_subscription_id: subscriptionId,
+      p_entry_date: entryDate ?? null,
+      p_data: data,
+      p_replaces_id: replacesId ?? null,
+      p_edit_reason: editReason ?? null,
+    })
+    if (error) throw new Error(friendlyLogError(error.message))
+    const row = saved as LogEntry
+    const { data: full } = await client.from('ps_log_entries').select(ENTRY_SELECT).eq('id', row.id).single()
+    const created = (full as LogEntry | null) ?? row
+    set((s) => ({
+      entries: [created, ...s.entries.filter((e) => e.id !== replacesId && e.id !== created.id)],
+      orgEntries: [created, ...s.orgEntries.filter((e) => e.id !== replacesId && e.id !== created.id)],
+    }))
+    return created
+  },
+
+  voidEntry: async (entryId, reason) => {
+    const { data, error } = await getUserClient().rpc('ps_log_void_entry', {
+      p_entry_id: entryId,
+      p_reason: reason,
+    })
+    if (error) throw new Error(friendlyLogError(error.message))
+    const voided = data as LogEntry
+    set((s) => ({
+      entries: s.entries.map((e) => (e.id === entryId ? { ...e, ...voided, entered_by_profile: e.entered_by_profile } : e)),
+      orgEntries: s.orgEntries.filter((e) => e.id !== entryId),
+    }))
+  },
+
+  fetchEntryHistory: async (rootId) => {
     const { data, error } = await getUserClient()
       .from('ps_log_entries')
-      .insert(entry)
-      .select('*, entered_by_profile:ps_user_profiles!entered_by_user_id(id, full_name)')
-      .single()
+      .select(ENTRY_SELECT)
+      .eq('root_id', rootId)
+      .order('created_at', { ascending: true })
     if (error) throw error
-    const created = data as LogEntry
-    set((s) => ({ entries: [created, ...s.entries] }))
-    return created
-  },
-
-  updateEntry: async (entryId, newData) => {
-    const { error } = await getUserClient()
-      .from('ps_log_entries')
-      .update({ data: newData })
-      .eq('id', entryId)
-    if (error) throw error
-    set((s) => ({
-      entries: s.entries.map((e) =>
-        e.id === entryId ? { ...e, data: newData } : e
-      ),
-    }))
+    return data as LogEntry[]
   },
 
   buildTemplate: async (template, fields) => {
@@ -197,3 +257,10 @@ export const useLogStore = create<LogState>((set, get) => ({
 
   clearError: () => set({ error: null }),
 }))
+
+/** Turns database messages into something a pharmacy team member can act on. */
+export function friendlyLogError(message: string): string {
+  if (message.startsWith('ALREADY_LOGGED')) return 'Someone has already logged this day. Refresh to see it, then edit it if needed.'
+  if (message.startsWith('CONFLICT')) return 'Someone else changed this entry a moment ago. Refresh and try again.'
+  return message
+}

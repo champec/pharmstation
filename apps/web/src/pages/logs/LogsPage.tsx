@@ -1,224 +1,270 @@
-import { useEffect, useCallback, useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuthStore, useLogStore } from '@pharmstation/core'
-import type { LogSubscription, LogCategory, LogScheduleType } from '@pharmstation/types'
+import type { LogEntry, LogSubscription } from '@pharmstation/types'
+import { Drawer } from '../../components/Drawer'
+import { LogEntryForm } from './LogEntryForm'
+import { Celebration, ProgressRing, StreakBadge, useCelebration } from './LogBits'
+import {
+  addDays,
+  categoryOf,
+  cheer,
+  computeStreak,
+  formatDay,
+  formatTime,
+  isRequiredOn,
+  isScheduled,
+  missedDays,
+  relativeDay,
+  scheduleLabel,
+  ukDate,
+} from './logUtils'
 
-/* ---- Category styling ---- */
+const WINDOW_DAYS = 35
 
-const CATEGORY_CONFIG: Record<LogCategory, { label: string; emoji: string; color: string }> = {
-  fridge: { label: 'Fridge', emoji: '🌡️', color: 'var(--ps-electric-cyan)' },
-  cleaning: { label: 'Cleaning', emoji: '🧹', color: '#22c55e' },
-  cd: { label: 'CD', emoji: '💊', color: '#a855f7' },
-  visitor: { label: 'Visitor', emoji: '👤', color: '#f59e0b' },
-  date_check: { label: 'Date Check', emoji: '📅', color: '#f97316' },
-  custom: { label: 'Custom', emoji: '📋', color: 'var(--ps-slate)' },
-}
-
-const DAY_ABBR = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
-
-function scheduleLabel(type: LogScheduleType, days?: number[]): string {
-  if (type === 'daily') return 'Daily'
-  if (type === 'sporadic') return 'Sporadic'
-  if (type === 'custom_days' && days?.length) {
-    if (days.length === 7) return 'Daily'
-    return days.sort().map((d) => DAY_ABBR[d]).join(', ')
-  }
-  return type
-}
-
-function todayStatus(sub: LogSubscription, todayEntryExists: boolean): { icon: string; label: string; cssClass: string } {
-  const template = sub.template
-  if (!template) return { icon: '—', label: 'Unknown', cssClass: '' }
-
-  if (template.schedule_type === 'sporadic') {
-    return { icon: '📝', label: 'Sporadic', cssClass: '' }
-  }
-
-  const today = new Date().getDay() // 0=Sun…6=Sat
-  const requiredDays = template.required_days || []
-  const isRequired = template.schedule_type === 'daily' || requiredDays.includes(today)
-
-  if (!isRequired) return { icon: '➖', label: 'Not Required', cssClass: 'ps-badge-grey' }
-  if (todayEntryExists) return { icon: '✅', label: 'Complete', cssClass: 'ps-badge-green' }
-  return { icon: '⏳', label: 'Pending', cssClass: 'ps-badge-amber' }
+interface CardState {
+  sub: LogSubscription
+  todayEntry: LogEntry | null
+  lastEntry: LogEntry | null
+  dueToday: boolean
+  streak: number
+  missedThisWeek: number
 }
 
 export function LogsPage() {
   const navigate = useNavigate()
-  const { organisation } = useAuthStore()
-  const { subscriptions, entries, loading, error, fetchSubscriptions, fetchEntries, clearError } = useLogStore()
+  const { organisation, activeUser } = useAuthStore()
+  const {
+    subscriptions, orgEntries, activeFields, activeTemplate, loading, error,
+    fetchSubscriptions, fetchOrgEntries, fetchTemplateDetail, saveEntry, clearError,
+  } = useLogStore()
+  const { celebration, celebrate, dismiss } = useCelebration()
 
-  const load = useCallback(() => {
-    if (organisation?.id) {
-      fetchSubscriptions(organisation.id)
-    }
-  }, [organisation?.id, fetchSubscriptions])
+  const today = ukDate()
+  const windowStart = addDays(today, -(WINDOW_DAYS - 1))
 
-  useEffect(() => { load() }, [load])
+  const [quickSub, setQuickSub] = useState<LogSubscription | null>(null)
+  const [saving, setSaving] = useState(false)
+  const [saveError, setSaveError] = useState<string | null>(null)
 
-  // Build a set of subscription IDs that have entries for today
-  const todayStr = useMemo(() => new Date().toISOString().slice(0, 10), [])
-  const todayEntryBySub = useMemo(() => {
-    const map = new Set<string>()
-    for (const e of entries) {
-      if (e.entry_date === todayStr) map.add(e.subscription_id)
-    }
-    return map
-  }, [entries, todayStr])
-
-  // Fetch today's entries for all subscriptions
   useEffect(() => {
-    for (const sub of subscriptions) {
-      fetchEntries(sub.id, { start: todayStr, end: todayStr })
+    if (!organisation?.id) return
+    fetchSubscriptions(organisation.id)
+    fetchOrgEntries(organisation.id, { start: windowStart, end: today })
+  }, [organisation?.id, fetchSubscriptions, fetchOrgEntries, windowStart, today])
+
+  const cards: CardState[] = useMemo(() => {
+    return subscriptions.map((sub) => {
+      const mine = orgEntries.filter((e) => e.subscription_id === sub.id)
+      const dates = new Set(mine.map((e) => e.entry_date))
+      const todayEntry = mine.find((e) => e.entry_date === today) ?? null
+      const lastEntry = [...mine].sort((a, b) => b.created_at.localeCompare(a.created_at))[0] ?? null
+      return {
+        sub,
+        todayEntry,
+        lastEntry,
+        dueToday: isRequiredOn(sub.template, today),
+        streak: computeStreak(sub.template, dates, today, WINDOW_DAYS),
+        missedThisWeek: missedDays(sub.template, dates, addDays(today, -7), today).length,
+      }
+    })
+  }, [subscriptions, orgEntries, today])
+
+  const due = cards.filter((c) => c.dueToday)
+  const doneCount = due.filter((c) => c.todayEntry).length
+  const left = due.filter((c) => !c.todayEntry)
+  const allDone = due.length > 0 && left.length === 0
+
+  const openQuick = (sub: LogSubscription) => {
+    setSaveError(null)
+    fetchTemplateDetail(sub.template_id)
+    setQuickSub(sub)
+  }
+
+  const handleQuickSave = async (data: Record<string, unknown>) => {
+    if (!quickSub) return
+    setSaving(true)
+    setSaveError(null)
+    try {
+      await saveEntry({ subscriptionId: quickSub.id, entryDate: today, data })
+      const remaining = left.filter((c) => c.sub.id !== quickSub.id).length
+      const title = quickSub.custom_title || quickSub.template?.title || 'Log'
+      setQuickSub(null)
+      if (isScheduled(quickSub.template) && remaining === 0 && due.length > 0) {
+        celebrate('Every log done for today!', 'Lovely work. See you tomorrow.', '🏆')
+      } else {
+        celebrate(cheer(), remaining > 0 ? `${title} saved. ${remaining} left today.` : `${title} saved.`, categoryOf(quickSub.template).emoji)
+      }
+    } catch (e) {
+      setSaveError(e instanceof Error ? e.message : 'Could not save')
+    } finally {
+      setSaving(false)
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [subscriptions.length, todayStr])
+  }
+
+  const quickFieldsReady = quickSub && activeTemplate?.id === quickSub.template_id
 
   return (
-    <div>
+    <div className="logs-page">
       <div className="page-header">
         <div className="breadcrumbs">
           <a href="/" onClick={(e) => { e.preventDefault(); navigate('/') }}>Dashboard</a>
           <span className="separator">/</span>
           <span>Logs</span>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--ps-space-md)' }}>
+        <div className="logs-header">
           <div>
-            <h1 style={{ marginBottom: 'var(--ps-space-xs)' }}>📒 Logs</h1>
-            <p style={{ margin: 0, color: 'var(--ps-slate)' }}>Open your active logs, jump into the library, or create a custom log from here.</p>
+            <h1>📒 Logs</h1>
+            <p className="log-muted">{formatDay(today, { weekday: 'long', day: 'numeric', month: 'long' })}</p>
           </div>
-          <div style={{ display: 'flex', gap: 'var(--ps-space-sm)', flexWrap: 'wrap' }}>
-            <button className="ps-btn ps-btn-secondary" onClick={() => navigate('/logs/library')}>
-              📚 Log Library
-            </button>
-            <button className="ps-btn ps-btn-primary" onClick={() => navigate('/logs/new')}>
-              + Create Custom Log
-            </button>
+          <div className="logs-header-actions">
+            <button className="ps-btn ps-btn-secondary" onClick={() => navigate('/logs/library')}>📚 Library</button>
+            <button className="ps-btn ps-btn-primary" onClick={() => navigate('/logs/new')}>+ New log</button>
           </div>
         </div>
       </div>
 
-      {/* Error banner */}
       {error && (
         <div className="auth-error" style={{ marginBottom: 'var(--ps-space-md)' }}>
           {error}
-          <button className="ps-btn ps-btn-ghost ps-btn-sm" onClick={clearError} style={{ marginLeft: 'var(--ps-space-sm)' }}>
-            Dismiss
-          </button>
+          <button className="ps-btn ps-btn-ghost ps-btn-sm" onClick={clearError} style={{ marginLeft: 'var(--ps-space-sm)' }}>Dismiss</button>
         </div>
       )}
 
-      {/* Loading skeleton */}
+      {/* Today */}
+      {subscriptions.length > 0 && (
+        <section className={`logs-today${allDone ? ' is-done' : ''}`} aria-label="Today">
+          <ProgressRing done={doneCount} total={due.length} />
+          <div className="logs-today-body">
+            {due.length === 0 ? (
+              <>
+                <h2>Nothing due today</h2>
+                <p className="log-muted">Your as-needed logs are below whenever you need them.</p>
+              </>
+            ) : allDone ? (
+              <>
+                <h2>All done for today 🎉</h2>
+                <p className="log-muted">Every log that's due today has been filled in.</p>
+              </>
+            ) : (
+              <>
+                <h2>{left.length} {left.length === 1 ? 'log' : 'logs'} left today</h2>
+                <div className="logs-today-left">
+                  {left.map((c) => {
+                    const cat = categoryOf(c.sub.template)
+                    return (
+                      <button key={c.sub.id} className="logs-today-chip" style={{ ['--cat' as string]: cat.color }} onClick={() => openQuick(c.sub)}>
+                        <span aria-hidden>{cat.emoji}</span> {c.sub.custom_title || c.sub.template?.title}
+                        <span className="logs-today-chip-go">Log now →</span>
+                      </button>
+                    )
+                  })}
+                </div>
+              </>
+            )}
+          </div>
+        </section>
+      )}
+
       {loading && subscriptions.length === 0 && (
-        <div className="dashboard-grid">
-          {[1, 2, 3, 4].map((i) => (
-            <div key={i} className="ps-card" style={{ padding: 'var(--ps-space-lg)', opacity: 0.5 }}>
-              <div style={{ height: 20, background: 'var(--ps-off-white)', borderRadius: 'var(--ps-radius-md)', marginBottom: 'var(--ps-space-sm)', width: '60%' }} />
-              <div style={{ height: 14, background: 'var(--ps-off-white)', borderRadius: 'var(--ps-radius-md)', width: '40%' }} />
-            </div>
-          ))}
+        <div className="logs-grid">
+          {[1, 2, 3].map((i) => <div key={i} className="log-card log-card-skeleton" />)}
         </div>
       )}
 
-      {/* Empty state */}
       {!loading && subscriptions.length === 0 && (
-        <div className="ps-card" style={{ padding: 'var(--ps-space-2xl)', textAlign: 'center' }}>
-          <div style={{ fontSize: '48px', marginBottom: 'var(--ps-space-md)' }}>📒</div>
-          <h2 style={{ color: 'var(--ps-midnight)', marginBottom: 'var(--ps-space-sm)' }}>No logs yet</h2>
-          <p style={{ color: 'var(--ps-slate)', marginBottom: 'var(--ps-space-lg)', maxWidth: 400, margin: '0 auto var(--ps-space-lg)' }}>
-            You haven't subscribed to any logs yet. Browse the library to get started.
+        <div className="ps-card logs-empty">
+          <div className="logs-empty-emoji">📒</div>
+          <h2>Start your first log</h2>
+          <p className="log-muted">
+            Add a fridge temperature log, cleaning rota or visitor book from the library in one click,
+            or build your own.
           </p>
-          <div style={{ display: 'flex', gap: 'var(--ps-space-sm)', justifyContent: 'center' }}>
-            <button className="ps-btn ps-btn-secondary" onClick={() => navigate('/logs/library')}>
-              📚 Browse Library
-            </button>
-            <button className="ps-btn ps-btn-primary" onClick={() => navigate('/logs/new')}>
-              + Create Custom Log
-            </button>
+          <div className="logs-header-actions" style={{ justifyContent: 'center' }}>
+            <button className="ps-btn ps-btn-primary" onClick={() => navigate('/logs/library')}>📚 Browse the library</button>
+            <button className="ps-btn ps-btn-secondary" onClick={() => navigate('/logs/new')}>+ Build your own</button>
           </div>
         </div>
       )}
 
-      {/* Log cards */}
-      {subscriptions.length > 0 && (
-        <div className="dashboard-grid">
-          {subscriptions.map((sub) => {
+      {cards.length > 0 && (
+        <div className="logs-grid">
+          {cards.map(({ sub, todayEntry, lastEntry, dueToday, streak, missedThisWeek }) => {
             const template = sub.template
-            const cat = template?.category || 'custom'
-            const config = CATEGORY_CONFIG[cat as LogCategory] || CATEGORY_CONFIG.custom
-            const schedule = scheduleLabel(
-              (template?.schedule_type || 'sporadic') as LogScheduleType,
-              template?.required_days,
-            )
-            const status = todayStatus(sub, todayEntryBySub.has(sub.id))
-
+            const cat = categoryOf(template)
+            const scheduled = isScheduled(template)
             return (
-              <div
+              <article
                 key={sub.id}
-                className="ps-card"
-                onClick={() => navigate(`/logs/${sub.id}`)}
-                style={{
-                  padding: 'var(--ps-space-lg)',
-                  cursor: 'pointer',
-                  transition: 'all var(--ps-transition-fast)',
-                }}
-                onMouseEnter={(e) => {
-                  ;(e.currentTarget as HTMLDivElement).style.borderColor = 'var(--ps-electric-cyan)'
-                  ;(e.currentTarget as HTMLDivElement).style.boxShadow = 'var(--ps-shadow-md)'
-                }}
-                onMouseLeave={(e) => {
-                  ;(e.currentTarget as HTMLDivElement).style.borderColor = ''
-                  ;(e.currentTarget as HTMLDivElement).style.boxShadow = ''
-                }}
+                className={`log-card${dueToday && !todayEntry ? ' is-due' : ''}${todayEntry && scheduled ? ' is-done' : ''}`}
+                style={{ ['--cat' as string]: cat.color, ['--cat-tint' as string]: cat.tint }}
               >
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 'var(--ps-space-sm)' }}>
-                  <h3 style={{ fontSize: 'var(--ps-font-md)', fontWeight: 600, color: 'var(--ps-midnight)', margin: 0 }}>
-                    {sub.custom_title || template?.title || 'Untitled Log'}
-                  </h3>
-                  <span
-                    className="ps-badge"
-                    style={{ background: config.color, color: '#fff', fontSize: 'var(--ps-font-xs)' }}
-                  >
-                    {config.emoji} {config.label}
-                  </span>
+                <button className="log-card-main" onClick={() => navigate(`/logs/${sub.id}`)}>
+                  <div className="log-card-top">
+                    <span className="log-card-emoji" aria-hidden>{cat.emoji}</span>
+                    <div className="log-card-titles">
+                      <h3>{sub.custom_title || template?.title || 'Untitled log'}</h3>
+                      <span className="log-muted">{scheduleLabel(template?.schedule_type, template?.required_days)}</span>
+                    </div>
+                  </div>
+                  <div className="log-card-status">
+                    {scheduled ? (
+                      todayEntry ? (
+                        <span className="log-status ok">✓ Done at {formatTime(todayEntry.created_at)}{todayEntry.entered_by_profile?.full_name ? ` by ${todayEntry.entered_by_profile.full_name.split(' ')[0]}` : ''}</span>
+                      ) : dueToday ? (
+                        <span className="log-status due">● Due today</span>
+                      ) : (
+                        <span className="log-status off">Not needed today</span>
+                      )
+                    ) : lastEntry ? (
+                      <span className="log-status off">Last entry {relativeDay(lastEntry.entry_date, today).toLowerCase()}</span>
+                    ) : (
+                      <span className="log-status off">No entries yet</span>
+                    )}
+                    <StreakBadge streak={streak} />
+                    {missedThisWeek > 0 && (
+                      <span className="log-missed">{missedThisWeek} missed this week</span>
+                    )}
+                  </div>
+                </button>
+                <div className="log-card-actions">
+                  {scheduled && todayEntry ? (
+                    <button className="ps-btn ps-btn-secondary ps-btn-sm" onClick={() => navigate(`/logs/${sub.id}`)}>View log</button>
+                  ) : (
+                    <button className="ps-btn ps-btn-primary ps-btn-sm log-cta" onClick={() => openQuick(sub)}>
+                      {cat.cta}
+                    </button>
+                  )}
+                  <button className="ps-btn ps-btn-ghost ps-btn-sm" onClick={() => navigate(`/logs/${sub.id}/settings`)} aria-label="Log settings">⚙️</button>
                 </div>
-
-                <p style={{
-                  fontSize: 'var(--ps-font-sm)',
-                  color: 'var(--ps-slate)',
-                  margin: '0 0 var(--ps-space-md)',
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  display: '-webkit-box',
-                  WebkitLineClamp: 2,
-                  WebkitBoxOrient: 'vertical',
-                }}>
-                  {template?.description || ''}
-                </p>
-
-                <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--ps-space-sm)', flexWrap: 'wrap' }}>
-                  <span className="ps-badge ps-badge-blue" style={{ fontSize: 'var(--ps-font-xs)' }}>
-                    🗓 {schedule}
-                  </span>
-                  <span className={`ps-badge ${status.cssClass}`} style={{ fontSize: 'var(--ps-font-xs)' }}>
-                    {status.icon} {status.label}
-                  </span>
-                  <button
-                    className="ps-btn ps-btn-ghost ps-btn-sm"
-                    style={{ marginLeft: 'auto' }}
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      navigate(`/logs/${sub.id}/settings`)
-                    }}
-                  >
-                    ⚙️ Settings
-                  </button>
-                </div>
-              </div>
+              </article>
             )
           })}
         </div>
       )}
+
+      <Drawer
+        isOpen={!!quickSub}
+        onClose={() => setQuickSub(null)}
+        title={`${categoryOf(quickSub?.template).emoji} ${quickSub?.custom_title || quickSub?.template?.title || 'Log'}`}
+        width="520px"
+      >
+        {quickSub && !quickFieldsReady && <p className="log-muted">Loading…</p>}
+        {quickSub && quickFieldsReady && (
+          <LogEntryForm
+            key={quickSub.id}
+            fields={activeFields}
+            date={isScheduled(quickSub.template) ? today : undefined}
+            userName={activeUser?.full_name}
+            saving={saving}
+            error={saveError}
+            onSubmit={(data) => handleQuickSave(data)}
+            onCancel={() => setQuickSub(null)}
+          />
+        )}
+      </Drawer>
+
+      <Celebration state={celebration} onDismiss={dismiss} />
     </div>
   )
 }

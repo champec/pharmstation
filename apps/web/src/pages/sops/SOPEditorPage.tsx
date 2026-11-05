@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { useAuthStore, useSOPStore } from '@pharmstation/core'
+import { useAuthStore, useSOPStore, canManageSOPs } from '@pharmstation/core'
 import type { SOPNode } from '@pharmstation/types'
 import { RichTextEditor } from '../../components/sop/RichTextEditor'
 import { Modal } from '../../components/Modal'
@@ -138,7 +138,8 @@ function TreeNodeItem({
 export function SOPEditorPage() {
   const { docId } = useParams<{ docId: string }>()
   const navigate = useNavigate()
-  const { organisation, activeUser } = useAuthStore()
+  const { organisation, activeUser, membership } = useAuthStore()
+  const isManager = canManageSOPs(membership)
 
   const {
     activeDocument,
@@ -175,6 +176,11 @@ export function SOPEditorPage() {
   const [pdfUrl, setPdfUrl] = useState<string | null>(null)
   const [pdfLoading, setPdfLoading] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  // Staff who can't edit SOPs get the read view instead of an editor whose saves fail.
+  useEffect(() => {
+    if (membership && !isManager && docId) navigate(`/sops/${docId}/read`, { replace: true })
+  }, [membership, isManager, docId, navigate])
 
   // Load document
   useEffect(() => {
@@ -285,27 +291,40 @@ export function SOPEditorPage() {
 
   const handlePDFUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
+    e.target.value = '' // let the same file be picked again
     if (!file || !selectedNodeId || !docId) return
     try {
-      await uploadNodePDF(selectedNodeId, docId, file)
-      // Reload URL
-      const node = activeNodes.find((n) => n.id === selectedNodeId)
-      if (node?.pdf_storage_path) {
-        const url = await getNodePDFUrl(node.pdf_storage_path)
-        setPdfUrl(url)
-      }
+      setPdfLoading(true)
+      const path = await uploadNodePDF(selectedNodeId, docId, file)
+      setPdfUrl(await getNodePDFUrl(path))
     } catch (e: any) {
       alert(`Upload failed: ${e.message}`)
+    } finally {
+      setPdfLoading(false)
     }
   }
 
+  const neverPublished = !activeDocument?.published_at
+  const hasChanges = !!activeDocument?.has_unpublished_changes
+
   const handlePublish = async () => {
-    if (!docId) return
-    const msg = activeDocument?.status === 'published'
-      ? 'Publishing will increment the version number and require all assigned staff to re-read this SOP. Continue?'
-      : 'Publish this SOP to make it visible to assigned staff?'
+    if (!docId || !activeDocument) return
+    let msg: string
+    if (activeDocument.status === 'archived' && !hasChanges) {
+      msg = `Restore v${activeDocument.version} so assigned staff can read and sign it again? Existing sign-offs still count.`
+    } else if (neverPublished) {
+      msg = 'Publish this SOP? Assigned staff will be able to read and sign it.'
+    } else {
+      msg = 'Publish a new version? Assigned staff will be asked to read and sign it again. Their sign-offs for the old version are kept.'
+    }
     if (!confirm(msg)) return
     await publishDocument(docId)
+  }
+
+  const handleArchive = async () => {
+    if (!docId) return
+    if (!confirm('Archive this SOP? Staff will no longer see it. Its sign-off history is kept and you can restore it later.')) return
+    await archiveDocument(docId)
   }
 
   if (loading && !activeDocument) {
@@ -352,7 +371,19 @@ export function SOPEditorPage() {
                   color: doc.status === 'published' ? 'var(--ps-success)' : 'var(--ps-warning)',
                 }}
               >
-                {doc.status === 'published' ? `v${doc.version} Published` : 'Draft'}
+                {doc.status === 'published'
+                  ? `v${doc.version} Published`
+                  : doc.status === 'archived'
+                    ? `v${doc.version} Archived`
+                    : 'Draft'}
+              </span>
+            )}
+            {doc && doc.published_at && hasChanges && (
+              <span
+                title="Staff still read the last published version until you publish again"
+                style={{ fontSize: 11, fontWeight: 600, padding: '3px 10px', borderRadius: 12, background: 'var(--ps-warning)20', color: 'var(--ps-warning)' }}
+              >
+                Changes not published
               </span>
             )}
           </div>
@@ -370,9 +401,19 @@ export function SOPEditorPage() {
                 <button className="ps-btn ps-btn-secondary" onClick={() => setEditingMeta(true)}>✏️ Edit Details</button>
                 <button className="ps-btn ps-btn-secondary" onClick={() => navigate(`/sops/${docId}/assign`)}>👥 Assign</button>
                 <button className="ps-btn ps-btn-secondary" onClick={() => navigate(`/sops/${docId}/progress`)}>📊 Progress</button>
-                {doc?.status !== 'archived' && (
+                {doc?.published_at && (
+                  <button className="ps-btn ps-btn-secondary" onClick={() => navigate(`/sops/${docId}/read`)}>👁 Staff view</button>
+                )}
+                {doc?.status === 'published' && (
+                  <button className="ps-btn ps-btn-secondary" onClick={handleArchive} disabled={saving}>🗄 Archive</button>
+                )}
+                {doc && (doc.status !== 'published' || hasChanges) && (
                   <button className="ps-btn ps-btn-primary" onClick={handlePublish} disabled={saving}>
-                    {doc?.status === 'published' ? '🔄 Publish New Version' : '🚀 Publish'}
+                    {doc.status === 'archived' && !hasChanges
+                      ? '♻️ Restore'
+                      : neverPublished
+                        ? '🚀 Publish'
+                        : '🔄 Publish New Version'}
                   </button>
                 )}
               </>

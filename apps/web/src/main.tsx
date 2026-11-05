@@ -6,6 +6,7 @@ import { RouteMeta } from './seo/RouteMeta'
 import { initSupabase } from '@pharmstation/supabase-client'
 import '@pharmstation/ui/src/styles/globals.css'
 import './styles/app.css'
+import './styles/logs.css'
 
 // Initialize dual Supabase clients
 initSupabase({
