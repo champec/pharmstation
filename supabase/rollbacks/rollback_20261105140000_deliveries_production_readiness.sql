@@ -4,6 +4,28 @@
 -- and the realtime publication entries are left in place (harmless).
 begin;
 
+-- Role defaults back to 20261104123000 (dispensers and technicians lose delivery_manage)
+create or replace function public.ps_role_default_permission(p_role text, p_permission text)
+returns boolean
+language sql
+immutable
+set search_path = public
+as $$
+  select coalesce((
+    case p_role
+      when 'owner' then '{"cd_register_read":true,"cd_register_write":true,"patient_returns_write":true,"rp_log_sign":true,"rp_log_view":true,"sop_upload":true,"handover_all":true,"manage_users":true,"approve_locums":true,"view_audit":true,"ai_scan_use":true,"org_settings":true,"billing":true,"delivery_manage":true,"delivery_drive":true,"care_home_view":true,"care_home_manage":true,"care_home_medications":true,"care_home_requests":true,"care_home_mar_prepare":true,"care_home_mar_administer":true}'
+      when 'manager' then '{"cd_register_read":true,"cd_register_write":true,"patient_returns_write":true,"rp_log_view":true,"sop_upload":true,"handover_all":true,"manage_users":true,"approve_locums":true,"view_audit":true,"ai_scan_use":true,"delivery_manage":true,"delivery_drive":true,"care_home_view":true,"care_home_manage":true,"care_home_medications":true,"care_home_requests":true,"care_home_mar_prepare":true,"care_home_mar_administer":true}'
+      when 'pharmacist' then '{"cd_register_read":true,"cd_register_write":true,"cd_register_correct":true,"rp_log_sign":true,"rp_log_view":true,"patient_returns_write":true,"handover_all":true,"ai_scan_use":true,"delivery_manage":true,"care_home_view":true,"care_home_manage":true,"care_home_medications":true,"care_home_requests":true,"care_home_mar_prepare":true,"care_home_mar_administer":true}'
+      when 'technician' then '{"cd_register_read":true,"cd_register_write":true,"rp_log_view":true,"patient_returns_write":true,"handover_all":true,"ai_scan_use":true,"delivery_drive":true,"care_home_view":true,"care_home_medications":true,"care_home_requests":true,"care_home_mar_prepare":true}'
+      when 'dispenser' then '{"rp_log_view":true,"handover_all":true,"delivery_drive":true,"care_home_view":true,"care_home_requests":true}'
+      when 'locum' then '{"cd_register_read":true,"cd_register_write":true,"cd_register_correct":true,"rp_log_sign":true,"rp_log_view":true,"patient_returns_write":true,"handover_all":true,"ai_scan_use":true,"care_home_view":true,"care_home_medications":true,"care_home_requests":true,"care_home_mar_prepare":true}'
+      when 'carehome_user' then '{"care_home_view":true,"care_home_requests":true,"care_home_mar_administer":true}'
+      else '{}'
+    end
+  )::jsonb ->> p_permission, 'false')::boolean
+$$;
+
+
 drop trigger if exists ps_delivery_round_guard on public.ps_delivery_rounds;
 drop trigger if exists ps_delivery_stop_guard on public.ps_delivery_round_patients;
 drop trigger if exists ps_delivery_autocomplete_round on public.ps_delivery_round_patients;

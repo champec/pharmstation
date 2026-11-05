@@ -9,8 +9,9 @@
 --    deliveries board, the driver route and the manager map never updated live.
 -- 2. Who can do what:
 --    - Creating, editing, deleting and cancelling rounds, stops, stop medicines
---      and templates needs delivery_manage (owner, manager, pharmacist by
---      default). Before this, any active member could.
+--      and templates needs delivery_manage (owner, manager, pharmacist,
+--      technician and dispenser by default; locums and care home users can't).
+--      Before this, any active member could.
 --    - Drivers keep their own policies, but a guard trigger limits what they
 --      can change: claim an open round for themselves, start it, complete it
 --      once every stop is resolved, and record the outcome of a pending stop
@@ -41,6 +42,30 @@
 -- Rollback: supabase/rollbacks/rollback_20261105140000_deliveries_production_readiness.sql
 
 begin;
+
+-- 0. Dispensers and technicians manage deliveries too (champe, 5 Nov 2026).
+--    Same function as 20261104123000_role_permissions_foundation.sql with
+--    "delivery_manage":true added for technician and dispenser. Matches
+--    DEFAULT_ROLE_PERMISSIONS in packages/types/src/index.ts.
+create or replace function public.ps_role_default_permission(p_role text, p_permission text)
+returns boolean
+language sql
+immutable
+set search_path = public
+as $$
+  select coalesce((
+    case p_role
+      when 'owner' then '{"cd_register_read":true,"cd_register_write":true,"patient_returns_write":true,"rp_log_sign":true,"rp_log_view":true,"sop_upload":true,"handover_all":true,"manage_users":true,"approve_locums":true,"view_audit":true,"ai_scan_use":true,"org_settings":true,"billing":true,"delivery_manage":true,"delivery_drive":true,"care_home_view":true,"care_home_manage":true,"care_home_medications":true,"care_home_requests":true,"care_home_mar_prepare":true,"care_home_mar_administer":true}'
+      when 'manager' then '{"cd_register_read":true,"cd_register_write":true,"patient_returns_write":true,"rp_log_view":true,"sop_upload":true,"handover_all":true,"manage_users":true,"approve_locums":true,"view_audit":true,"ai_scan_use":true,"delivery_manage":true,"delivery_drive":true,"care_home_view":true,"care_home_manage":true,"care_home_medications":true,"care_home_requests":true,"care_home_mar_prepare":true,"care_home_mar_administer":true}'
+      when 'pharmacist' then '{"cd_register_read":true,"cd_register_write":true,"cd_register_correct":true,"rp_log_sign":true,"rp_log_view":true,"patient_returns_write":true,"handover_all":true,"ai_scan_use":true,"delivery_manage":true,"care_home_view":true,"care_home_manage":true,"care_home_medications":true,"care_home_requests":true,"care_home_mar_prepare":true,"care_home_mar_administer":true}'
+      when 'technician' then '{"cd_register_read":true,"cd_register_write":true,"rp_log_view":true,"patient_returns_write":true,"handover_all":true,"ai_scan_use":true,"delivery_drive":true,"care_home_view":true,"care_home_medications":true,"care_home_requests":true,"care_home_mar_prepare":true,"delivery_manage":true}'
+      when 'dispenser' then '{"rp_log_view":true,"handover_all":true,"delivery_drive":true,"care_home_view":true,"care_home_requests":true,"delivery_manage":true}'
+      when 'locum' then '{"cd_register_read":true,"cd_register_write":true,"cd_register_correct":true,"rp_log_sign":true,"rp_log_view":true,"patient_returns_write":true,"handover_all":true,"ai_scan_use":true,"care_home_view":true,"care_home_medications":true,"care_home_requests":true,"care_home_mar_prepare":true}'
+      when 'carehome_user' then '{"care_home_view":true,"care_home_requests":true,"care_home_mar_administer":true}'
+      else '{}'
+    end
+  )::jsonb ->> p_permission, 'false')::boolean
+$$;
 
 -- 1. Realtime ---------------------------------------------------------------
 do $$
