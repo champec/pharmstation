@@ -52,16 +52,20 @@ export function ShiftLocumDirectoryPage() {
       /* All unique locums who've had bookings at this org */
       const { data: bookings, error: bErr } = await client
         .from('ps_locum_bookings')
-        .select('locum_id, status, shift_date')
-        .eq('org_id', orgId)
+        .select('locum_id, status, cancellation_reason, shift:ps_locum_shifts!inner(org_id, date)')
+        .eq('shift.org_id', orgId)
       if (bErr) throw bErr
 
+      type Row = { locum_id: string; status: string; cancellation_reason: string | null; shift: { date: string } | { date: string }[] }
       const locumMap = new Map<string, { completed: number; cancelled: number; lastDate: string | null }>()
-      for (const b of (bookings ?? []) as { locum_id: string; status: string; shift_date: string }[]) {
+      for (const b of (bookings ?? []) as Row[]) {
+        const shiftDate = (Array.isArray(b.shift) ? b.shift[0]?.date : b.shift?.date) ?? null
         const curr = locumMap.get(b.locum_id) ?? { completed: 0, cancelled: 0, lastDate: null }
         if (b.status === 'completed') curr.completed++
-        if (b.status === 'cancelled_locum') curr.cancelled++
-        if (!curr.lastDate || b.shift_date > curr.lastDate) curr.lastDate = b.shift_date
+        // Cancellations by the locum (pharmacy cancellations are not their fault)
+        if (b.status === 'cancelled' && b.cancellation_reason === 'Withdrawn by locum') curr.cancelled++
+        if (b.status === 'no_show') curr.cancelled++
+        if (shiftDate && (!curr.lastDate || shiftDate > curr.lastDate)) curr.lastDate = shiftDate
         locumMap.set(b.locum_id, curr)
       }
 
@@ -70,14 +74,12 @@ export function ShiftLocumDirectoryPage() {
       const allLocumIds = [...locumMap.keys()]
 
       const [profilesRes, reviewsRes, blacklistRes] = await Promise.all([
-        client.from('ps_locum_profiles').select('id, gphc_number, user_id').in('id', allLocumIds),
+        client.rpc('ps_org_shift_locums', { p_org_id: orgId, p_locum_ids: allLocumIds }),
         client.from('ps_locum_reviews').select('locum_id, score').eq('org_id', orgId).in('locum_id', allLocumIds),
         client.from('ps_locum_blacklist').select('locum_id, reason').eq('org_id', orgId).in('locum_id', allLocumIds),
       ])
 
-      const profileUserIds = ((profilesRes.data ?? []) as { id: string; gphc_number: string; user_id: string }[]).map((p) => p.user_id)
-      const userRes = await client.from('ps_user_profiles').select('id, full_name').in('id', profileUserIds)
-      const userMap = new Map(((userRes.data ?? []) as { id: string; full_name: string }[]).map((u) => [u.id, u.full_name]))
+      if (profilesRes.error) throw profilesRes.error
 
       const reviewMap = new Map<string, number[]>()
       for (const r of (reviewsRes.data ?? []) as { locum_id: string; score: number }[]) {
@@ -91,22 +93,22 @@ export function ShiftLocumDirectoryPage() {
         blacklistSet.set(b.locum_id, b.reason)
       }
 
-      const profiles = (profilesRes.data ?? []) as { id: string; gphc_number: string; user_id: string }[]
+      const profiles = (profilesRes.data ?? []) as { locum_id: string; gphc_number: string; full_name: string }[]
       const entries: LocumEntry[] = profiles.map((p) => {
-        const stats = locumMap.get(p.id)!
-        const scores = reviewMap.get(p.id) ?? []
+        const stats = locumMap.get(p.locum_id)!
+        const scores = reviewMap.get(p.locum_id) ?? []
         const avg_score = scores.length ? scores.reduce((a, b) => a + b, 0) / scores.length : null
         return {
-          locum_id: p.id,
-          full_name: userMap.get(p.user_id) ?? 'Unknown',
+          locum_id: p.locum_id,
+          full_name: p.full_name ?? 'Unknown',
           gphc_number: p.gphc_number,
           services: [],
           completed_shifts: stats.completed,
           cancelled_shifts: stats.cancelled,
           last_shift_date: stats.lastDate,
           avg_score,
-          is_blacklisted: blacklistSet.has(p.id),
-          blacklist_reason: blacklistSet.get(p.id),
+          is_blacklisted: blacklistSet.has(p.locum_id),
+          blacklist_reason: blacklistSet.get(p.locum_id),
         }
       })
 

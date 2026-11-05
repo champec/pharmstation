@@ -23,19 +23,20 @@ interface ShiftCriteria {
   sop_required: boolean
 }
 
+/** Row from ps_org_shift_locums. Contact and compliance fields are null
+ *  unless the viewer has the approve_locums permission. */
 interface LocumSummary {
-  id: string
-  user_id: string
-  gphc_number: string
-  indemnity_provider: string
-  smart_card_held: boolean
-  stripe_onboarded: boolean
-}
-
-interface UserProfile {
-  id: string
+  locum_id: string
   full_name: string
-  email: string
+  email: string | null
+  phone: string | null
+  gphc_number: string | null
+  gphc_expiry: string | null
+  indemnity_provider: string | null
+  indemnity_expiry: string | null
+  dbs_expiry: string | null
+  smart_card_held: boolean | null
+  compliance_status: string | null
 }
 
 interface Booking {
@@ -46,7 +47,6 @@ interface Booking {
   reviewed_at: string | null
   cancellation_reason: string | null
   locum?: LocumSummary
-  user?: UserProfile
 }
 
 interface SignIn {
@@ -119,25 +119,22 @@ export function ShiftDetailPage() {
       setShift(shiftData)
       setCriteria(criteriaRes.data as ShiftCriteria | null)
 
-      // Enrich bookings with locum profiles
+      // Names and compliance of the locums who applied
       const rawBookings = (bookingsRes.data ?? []) as Booking[]
-      const enriched = await Promise.all(
-        rawBookings.map(async (b) => {
-          const [lpRes, upRes] = await Promise.all([
-            client.from('ps_locum_profiles').select('id, user_id, gphc_number, indemnity_provider, smart_card_held, stripe_onboarded').eq('id', b.locum_id).maybeSingle(),
-            client.from('ps_user_profiles').select('id, full_name, email').maybeSingle(),
-          ])
-          return {
-            ...b,
-            locum: lpRes.data as LocumSummary | undefined,
-            user: upRes.data as UserProfile | undefined,
-          }
+      const locumIds = [...new Set(rawBookings.map((b) => b.locum_id))]
+      let locumMap = new Map<string, LocumSummary>()
+      if (locumIds.length > 0) {
+        const { data: locums, error: lErr } = await client.rpc('ps_org_shift_locums', {
+          p_org_id: organisation.id,
+          p_locum_ids: locumIds,
         })
-      )
-      setBookings(enriched)
+        if (lErr) throw lErr
+        locumMap = new Map(((locums ?? []) as LocumSummary[]).map((l) => [l.locum_id, l]))
+      }
+      setBookings(rawBookings.map((b) => ({ ...b, locum: locumMap.get(b.locum_id) })))
 
-      // Load sign-in for confirmed booking
-      const confirmedBooking = rawBookings.find((b) => b.status === 'approved')
+      // Load sign-in for the booked locum
+      const confirmedBooking = rawBookings.find((b) => ['approved', 'completed', 'no_show'].includes(b.status))
       if (confirmedBooking) {
         const { data: si } = await client
           .from('ps_locum_sign_ins')
@@ -157,25 +154,21 @@ export function ShiftDetailPage() {
 
   async function handleBookingAction(bookingId: string, action: 'confirm' | 'reject') {
     if (!activeUser?.id) return
+    let reason: string | null = null
+    if (action === 'reject') {
+      reason = window.prompt('Reason (optional, the locum sees this):', '')
+      if (reason === null) return
+    }
     setActionLoading(bookingId)
+    setError(null)
     try {
-      const client = getUserClient()
-      const { error } = await client
-        .from('ps_locum_bookings')
-        .update({
-          status: action === 'confirm' ? 'approved' : 'rejected',
-          reviewed_at: new Date().toISOString(),
-          reviewed_by: activeUser.id,
-        })
-        .eq('id', bookingId)
+      // One transaction: confirms, fills the shift and turns down other applicants
+      const { error } = await getUserClient().rpc('ps_org_review_booking', {
+        p_booking_id: bookingId,
+        p_action: action === 'confirm' ? 'approve' : 'reject',
+        p_reason: reason,
+      })
       if (error) throw error
-
-      // If confirming, the shift is filled and any other applicants are turned down
-      if (action === 'confirm') {
-        await client.from('ps_locum_shifts').update({ status: 'filled' }).eq('id', id)
-        await client.from('ps_locum_bookings').update({ status: 'rejected' })
-          .eq('shift_id', id).eq('status', 'pending').neq('id', bookingId)
-      }
       await load()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Action failed')
@@ -185,16 +178,34 @@ export function ShiftDetailPage() {
   }
 
   async function handleCancelShift() {
-    if (!window.confirm('Cancel this shift? All pending applications will be rejected.')) return
+    const reason = window.prompt('Cancel this shift? Applications are turned down and any confirmed locum is told it is cancelled.\n\nReason (optional, locums see this):', '')
+    if (reason === null) return
     setActionLoading('cancel')
+    setError(null)
     try {
-      const client = getUserClient()
-      await client.from('ps_locum_shifts').update({ status: 'cancelled' }).eq('id', id)
-      // Reject all pending bookings
-      await client.from('ps_locum_bookings').update({ status: 'rejected' }).eq('shift_id', id).eq('status', 'pending')
+      const { error } = await getUserClient().rpc('ps_org_cancel_shift', { p_shift_id: id, p_reason: reason })
+      if (error) throw error
       await load()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Cancel failed')
+    } finally {
+      setActionLoading(null)
+    }
+  }
+
+  async function handleMark(bookingId: string, status: 'completed' | 'no_show') {
+    const question = status === 'completed'
+      ? 'Confirm this locum worked the shift?'
+      : 'Record that this locum did not turn up?'
+    if (!window.confirm(question)) return
+    setActionLoading(status)
+    setError(null)
+    try {
+      const { error } = await getUserClient().rpc('ps_org_mark_booking', { p_booking_id: bookingId, p_status: status })
+      if (error) throw error
+      await load()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Action failed')
     } finally {
       setActionLoading(null)
     }
@@ -221,8 +232,9 @@ export function ShiftDetailPage() {
   })()
 
   const pendingBookings = bookings.filter((b) => b.status === 'pending')
-  const confirmedBooking = bookings.find((b) => b.status === 'approved')
+  const confirmedBooking = bookings.find((b) => ['approved', 'completed', 'no_show'].includes(b.status))
   const canManage = ['open', 'filled'].includes(shift.status)
+  const shiftStarted = new Date(`${shift.date}T${shift.start_time}`) <= new Date()
 
   return (
     <div className="page-container">
@@ -267,16 +279,28 @@ export function ShiftDetailPage() {
           {confirmedBooking && (
             <div className="ps-card" style={{ marginBottom: '1.5rem', border: '2px solid var(--ps-primary)' }}>
               <div className="ps-card-header">
-                <h2 className="ps-card-title">Confirmed Locum</h2>
-                <span className={BOOKING_STATUS_COLOURS['approved']}>approved</span>
+                <h2 className="ps-card-title">Booked Locum</h2>
+                <span className={BOOKING_STATUS_COLOURS[confirmedBooking.status] ?? 'ps-badge'}>{confirmedBooking.status.replace('_', ' ')}</span>
               </div>
               <div className="ps-card-body">
-                <div className="review-row"><span>Name</span><strong>{confirmedBooking.user?.full_name ?? '—'}</strong></div>
-                <div className="review-row"><span>Email</span><strong>{confirmedBooking.user?.email ?? '—'}</strong></div>
+                <div className="review-row"><span>Name</span><strong>{confirmedBooking.locum?.full_name ?? '—'}</strong></div>
+                <div className="review-row"><span>Email</span><strong>{confirmedBooking.locum?.email ?? '—'}</strong></div>
+                <div className="review-row"><span>Phone</span><strong>{confirmedBooking.locum?.phone ?? '—'}</strong></div>
                 <div className="review-row"><span>GPhC</span><strong>{confirmedBooking.locum?.gphc_number ?? '—'}</strong></div>
                 <div className="review-row"><span>Indemnity</span><strong>{confirmedBooking.locum?.indemnity_provider ?? '—'}</strong></div>
-                <div className="review-row"><span>Smartcard</span><strong>{confirmedBooking.locum?.smart_card_held ? 'Yes' : 'No'}</strong></div>
-                <div className="review-row"><span>Stripe</span><strong>{confirmedBooking.locum?.stripe_onboarded ? 'Connected' : 'Not yet connected'}</strong></div>
+                <div className="review-row"><span>Smartcard</span><strong>{confirmedBooking.locum?.smart_card_held == null ? '—' : confirmedBooking.locum.smart_card_held ? 'Yes' : 'No'}</strong></div>
+                {confirmedBooking.status === 'approved' && shiftStarted && (
+                  <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.75rem', flexWrap: 'wrap' }}>
+                    <button className="ps-btn ps-btn-primary ps-btn-sm" disabled={!!actionLoading} onClick={() => handleMark(confirmedBooking.id, 'completed')}>
+                      Confirm shift worked
+                    </button>
+                    {!signIn && (
+                      <button className="ps-btn ps-btn-ghost ps-btn-sm" disabled={!!actionLoading} onClick={() => handleMark(confirmedBooking.id, 'no_show')}>
+                        Record no-show
+                      </button>
+                    )}
+                  </div>
+                )}
               </div>
               {/* Sign-in status */}
               {signIn ? (
@@ -308,22 +332,22 @@ export function ShiftDetailPage() {
                     <th>Name</th>
                     <th>GPhC</th>
                     <th>Applied</th>
-                    <th>Stripe</th>
+                    <th>Compliance</th>
                     <th></th>
                   </tr>
                 </thead>
                 <tbody>
                   {pendingBookings.map((b) => (
                     <tr key={b.id}>
-                      <td>{b.user?.full_name ?? '—'}</td>
+                      <td>{b.locum?.full_name ?? '—'}</td>
                       <td>{b.locum?.gphc_number ?? '—'}</td>
                       <td>{fmtTs(b.applied_at)}</td>
                       <td>
-                        {b.locum?.stripe_onboarded ? (
-                          <span className="ps-badge ps-badge-success">Ready</span>
-                        ) : (
-                          <span className="ps-badge ps-badge-warning">Not set up</span>
-                        )}
+                        {b.locum?.compliance_status === 'approved' ? (
+                          <span className="ps-badge ps-badge-success">Approved</span>
+                        ) : b.locum?.compliance_status ? (
+                          <span className="ps-badge ps-badge-warning">{b.locum.compliance_status}</span>
+                        ) : '—'}
                       </td>
                       <td>
                         <div style={{ display: 'flex', gap: '0.5rem' }}>
@@ -361,7 +385,7 @@ export function ShiftDetailPage() {
                 <tbody>
                   {bookings.filter((b) => b.status !== 'pending').map((b) => (
                     <tr key={b.id}>
-                      <td>{b.user?.full_name ?? '—'}</td>
+                      <td>{b.locum?.full_name ?? '—'}</td>
                       <td><span className={BOOKING_STATUS_COLOURS[b.status] ?? 'ps-badge'}>{b.status}</span></td>
                       <td>{fmtTs(b.applied_at)}</td>
                       <td>{b.reviewed_at ? fmtTs(b.reviewed_at) : '—'}</td>

@@ -30,7 +30,7 @@ type Row = {
   dbs_expiry: string | null
   smart_card_held: boolean | null
   postcode: string | null
-  compliance_status: 'pending' | 'approved' | 'rejected'
+  compliance_status: 'pending' | 'approved' | 'rejected' | 'suspended'
   compliance_review_notes: string | null
   compliance_reviewed_at: string | null
   created_at: string
@@ -38,7 +38,7 @@ type Row = {
   documents: Doc[]
 }
 
-const STATUSES = ['pending', 'approved', 'rejected'] as const
+const STATUSES = ['pending', 'approved', 'rejected', 'suspended'] as const
 
 const DOC_LABELS: Record<string, string> = {
   gphc_certificate: 'GPhC certificate',
@@ -104,6 +104,11 @@ export function LocumApprovalsPage() {
       notes = window.prompt('Reason (the locum sees this):', 'We couldn’t verify your GPhC registration. Please check your details and documents.')
       if (notes === null) return
       if (!notes.trim()) { setError('Give the locum a reason when rejecting.'); return }
+    }
+    if (status === 'suspended') {
+      notes = window.prompt('Reason for suspending (the locum sees this). Their upcoming bookings will be cancelled:', '')
+      if (notes === null) return
+      if (!notes.trim()) { setError('Give the locum a reason when suspending.'); return }
     }
     setBusyId(row.id)
     const { error } = await getUserClient().rpc('ps_admin_set_locum_compliance', {
@@ -200,9 +205,14 @@ export function LocumApprovalsPage() {
                     Approve
                   </button>
                 )}
-                {row.compliance_status !== 'rejected' && (
+                {row.compliance_status === 'approved' && (
+                  <button className="ps-btn ps-btn-ghost ps-btn-sm" disabled={busyId === row.id} onClick={() => setStatus(row, 'suspended')}>
+                    Suspend
+                  </button>
+                )}
+                {(row.compliance_status === 'pending' || row.compliance_status === 'suspended') && (
                   <button className="ps-btn ps-btn-ghost ps-btn-sm" disabled={busyId === row.id} onClick={() => setStatus(row, 'rejected')}>
-                    {row.compliance_status === 'approved' ? 'Revoke' : 'Reject'}
+                    Reject
                   </button>
                 )}
                 {row.compliance_status !== 'pending' && (
