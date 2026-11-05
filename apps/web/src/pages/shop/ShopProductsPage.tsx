@@ -7,7 +7,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuthStore, useShopStore } from '@pharmstation/core'
-import type { ShopProduct } from '@pharmstation/types'
+import type { ShopProduct, ShopMedicineClass } from '@pharmstation/types'
 import { Modal } from '../../components/Modal'
 
 const formatPrice = (pence: number) => `£${(pence / 100).toFixed(2)}`
@@ -39,6 +39,8 @@ export function ShopProductsPage() {
   const [fActive, setFActive] = useState(true)
   const [fCheckAvailability, setFCheckAvailability] = useState(false)
   const [fQuestionnaireId, setFQuestionnaireId] = useState('')
+  const [fMedicineClass, setFMedicineClass] = useState<ShopMedicineClass>('general')
+  const [fMaxPerOrder, setFMaxPerOrder] = useState('')
   const [uploadingImage, setUploadingImage] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
@@ -65,6 +67,7 @@ export function ShopProductsPage() {
     setFName(''); setFDescription(''); setFPrice(''); setFStock('0'); setFSku('')
     setFCategoryId(''); setFImageUrl(''); setFActive(true); setFCheckAvailability(false)
     setFQuestionnaireId('')
+    setFMedicineClass('general'); setFMaxPerOrder('')
     setModalError(null)
     setShowProductModal(true)
   }
@@ -76,6 +79,8 @@ export function ShopProductsPage() {
     setFSku(p.sku || ''); setFCategoryId(p.category_id || ''); setFImageUrl(p.image_url || '')
     setFActive(p.is_active); setFCheckAvailability(p.requires_availability_check)
     setFQuestionnaireId(p.questionnaire_id || '')
+    setFMedicineClass(p.medicine_class || 'general')
+    setFMaxPerOrder(p.max_per_order ? String(p.max_per_order) : '')
     setModalError(null)
     setShowProductModal(true)
   }
@@ -102,6 +107,13 @@ export function ShopProductsPage() {
     if (!organisation?.id || !fName.trim()) return
     const pricePence = Math.round(parseFloat(fPrice || '0') * 100)
     if (isNaN(pricePence) || pricePence < 0) { setModalError('Enter a valid price'); return }
+    if (fMedicineClass === 'p' && !fQuestionnaireId) {
+      setModalError('A pharmacy (P) medicine needs a consultation questionnaire, so a pharmacist can check each sale.'); return
+    }
+    const maxPerOrder = fMaxPerOrder.trim() ? parseInt(fMaxPerOrder, 10) : null
+    if (maxPerOrder !== null && (isNaN(maxPerOrder) || maxPerOrder < 1 || maxPerOrder > 50)) {
+      setModalError('Max per order must be between 1 and 50, or left blank'); return
+    }
     setSaving(true); setModalError(null)
     try {
       const payload = {
@@ -116,6 +128,8 @@ export function ShopProductsPage() {
         requires_availability_check: fCheckAvailability,
         questionnaire_id: fQuestionnaireId || null,
         requires_consultation: !!fQuestionnaireId,
+        medicine_class: fMedicineClass,
+        max_per_order: maxPerOrder,
       }
       if (editing) {
         await updateProduct(editing.id, payload)
@@ -247,6 +261,9 @@ export function ShopProductsPage() {
                 <strong>{p.name}</strong>
                 {!p.is_active && <span className="ps-badge" style={{ background: 'var(--ps-off-white)', color: 'var(--ps-slate)' }}>Hidden</span>}
                 {p.requires_availability_check && <span className="ps-badge" style={{ background: '#fef3c7', color: '#92400e' }}>Check availability</span>}
+                {p.medicine_class === 'p' && <span className="ps-badge" style={{ background: '#fee2e2', color: '#991b1b' }}>💊 P medicine</span>}
+                {p.medicine_class === 'gsl' && <span className="ps-badge" style={{ background: '#e0f2fe', color: '#075985' }}>GSL</span>}
+                {p.max_per_order && <span className="ps-badge">Max {p.max_per_order}</span>}
                 {p.questionnaire_id && <span className="ps-badge" style={{ background: '#ede9fe', color: '#5b21b6' }}>📝 Consultation</span>}
               </div>
               <div style={{ color: 'var(--ps-slate)', fontSize: 'var(--ps-font-sm)' }}>
@@ -338,7 +355,25 @@ export function ShopProductsPage() {
             />
           </label>
           <label>
-            Consultation questionnaire
+            Product type
+            <select className="ps-input" value={fMedicineClass} onChange={(e) => setFMedicineClass(e.target.value as ShopMedicineClass)} style={{ width: '100%' }}>
+              <option value="general">Not a medicine</option>
+              <option value="gsl">General sale medicine (GSL)</option>
+              <option value="p">Pharmacy medicine (P), needs a pharmacist check</option>
+            </select>
+            <span style={{ display: 'block', color: 'var(--ps-slate)', fontSize: 'var(--ps-font-sm)', marginTop: 4 }}>
+              Prescription-only medicines (POMs) can't be sold in the shop. P medicine orders wait for a pharmacist to approve them before they can be confirmed.
+            </span>
+          </label>
+          <label>
+            Max per order
+            <input className="ps-input" type="number" min={1} max={50} value={fMaxPerOrder} onChange={(e) => setFMaxPerOrder(e.target.value)} placeholder="No limit" style={{ width: '100%' }} />
+            <span style={{ display: 'block', color: 'var(--ps-slate)', fontSize: 'var(--ps-font-sm)', marginTop: 4 }}>
+              Optional, for example 2 packs of paracetamol.
+            </span>
+          </label>
+          <label>
+            Consultation questionnaire{fMedicineClass === 'p' ? ' *' : ''}
             <select className="ps-input" value={fQuestionnaireId} onChange={(e) => setFQuestionnaireId(e.target.value)} style={{ width: '100%' }}>
               <option value="">None — no questions required</option>
               {questionnaires.filter((q) => q.is_active).map((q) => (

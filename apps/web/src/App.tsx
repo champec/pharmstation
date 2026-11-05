@@ -33,6 +33,7 @@ import { ServiceDetailPage } from './pages/services/ServiceDetailPage'
 import { FormBuilderPage } from './pages/services/FormBuilderPage'
 import { ServiceDeliveryPage } from './pages/services/ServiceDeliveryPage'
 import { ServiceDeliveriesPage } from './pages/services/ServiceDeliveriesPage'
+import { ServiceRecordPage } from './pages/services/ServiceRecordPage'
 // Expansion — Appointments
 import { AppointmentsListPage } from './pages/appointments/AppointmentsListPage'
 import { AppointmentsCalendarPage } from './pages/appointments/AppointmentsCalendarPage'
@@ -360,6 +361,7 @@ export function App() {
         <Route path="/services" element={<ServicesPage />} />
         <Route path="/services/library" element={<ServiceLibraryPage />} />
         <Route path="/services/deliveries" element={<ServiceDeliveriesPage />} />
+        <Route path="/services/deliveries/:deliveryId" element={<ServiceRecordPage />} />
         <Route path="/services/:serviceId" element={<ServiceDetailPage />} />
         <Route path="/services/:serviceId/form/:formId" element={<FormBuilderPage />} />
         <Route path="/services/:serviceId/deliver" element={<ServiceDeliveryPage />} />
