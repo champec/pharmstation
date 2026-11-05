@@ -516,7 +516,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, Permissions> = {
     ai_scan_use: true,
     org_settings: false,
     billing: false,
-    delivery_manage: false,
+    delivery_manage: true,
     delivery_drive: true,
     care_home_view: true,
     care_home_manage: false,
@@ -540,7 +540,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, Permissions> = {
     ai_scan_use: false,
     org_settings: false,
     billing: false,
-    delivery_manage: false,
+    delivery_manage: true,
     delivery_drive: true,
     care_home_view: true,
     care_home_manage: false,
@@ -2048,7 +2048,6 @@ export interface DeliveryRound {
   template_id: string | null
   care_home_batch_id?: string | null
   notes: string | null
-  time_window: string | null
   created_by: string
   started_at: string | null
   completed_at: string | null

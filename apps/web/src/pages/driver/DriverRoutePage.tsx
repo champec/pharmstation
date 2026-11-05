@@ -1,13 +1,19 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { useAuthStore, useDriverStore } from '@pharmstation/core'
-import type { DeliveryRoundPatient, DeliveryPatientStatus } from '@pharmstation/types'
+import {
+  useAuthStore,
+  useDriverStore,
+  isResolvedStopStatus,
+  stopAddress,
+  mapsLink,
+  toCanvasPoint,
+  formatTimeWindow,
+} from '@pharmstation/core'
+import type { DeliveryRoundPatient, DeliveryMethod } from '@pharmstation/types'
 import { Modal } from '../../components/Modal'
 
 const PATIENT_STATUS_BADGE: Record<string, { cls: string; label: string }> = {
   pending: { cls: 'ps-badge-slate', label: 'Pending' },
-  in_transit: { cls: 'ps-badge-blue', label: 'In Transit' },
-  arrived: { cls: 'ps-badge-amber', label: 'Arrived' },
   delivered: { cls: 'ps-badge-green', label: 'Delivered' },
   failed: { cls: 'ps-badge-red', label: 'Failed' },
   pending_redelivery: { cls: 'ps-badge-red', label: 'Redelivery' },
@@ -17,8 +23,31 @@ const PATIENT_STATUS_BADGE: Record<string, { cls: string; label: string }> = {
   cancelled: { cls: 'ps-badge-red', label: 'Cancelled' },
 }
 
-function isResolved(status: string): boolean {
-  return ['delivered', 'failed', 'pending_redelivery', 'skipped', 'moved_to_round', 'returned', 'cancelled'].includes(status)
+const METHODS: { value: DeliveryMethod; label: string }[] = [
+  { value: 'handed_to_patient', label: 'Handed to patient' },
+  { value: 'handed_to_representative', label: 'Handed to someone else' },
+  { value: 'left_in_safe_place', label: 'Left in a safe place' },
+]
+
+const FAIL_REASONS = [
+  'No answer at door',
+  'Patient not home',
+  'Wrong address',
+  'Patient refused delivery',
+  'Access issue (gate, buzzer)',
+  'Safety concern',
+]
+
+const SKIP_REASONS = [
+  'Ran out of time',
+  'Road or access closed',
+  'Patient asked to rearrange',
+  'Pharmacy asked me to skip',
+]
+
+function patientName(stop: DeliveryRoundPatient | null): string {
+  const p = stop?.patient as any
+  return [p?.first_name, p?.last_name].filter(Boolean).join(' ') || 'patient'
 }
 
 export function DriverRoutePage() {
@@ -28,22 +57,28 @@ export function DriverRoutePage() {
   const {
     activeRoute: round,
     loading,
+    saving,
     error,
     fetchRoundRoute,
     startRound,
-    updatePatientStatus,
-    submitSignature,
+    completeDelivery,
+    failDelivery,
+    skipDelivery,
     startLocationTracking,
     stopLocationTracking,
     subscribeToRoute,
     clearError,
   } = useDriverStore()
 
-  const [activePatient, setActivePatient] = useState<DeliveryRoundPatient | null>(null)
-  const [showDeliverModal, setShowDeliverModal] = useState(false)
-  const [showFailModal, setShowFailModal] = useState(false)
-  const [failureReason, setFailureReason] = useState('')
-  const [processing, setProcessing] = useState(false)
+  const [activeStop, setActiveStop] = useState<DeliveryRoundPatient | null>(null)
+  const [modal, setModal] = useState<'deliver' | 'fail' | 'skip' | null>(null)
+  const [reason, setReason] = useState('')
+  const [method, setMethod] = useState<DeliveryMethod>('handed_to_patient')
+  const [recipientName, setRecipientName] = useState('')
+  const [photos, setPhotos] = useState<File[]>([])
+  const [hasSignature, setHasSignature] = useState(false)
+  const [formError, setFormError] = useState<string | null>(null)
+  const [starting, setStarting] = useState(false)
 
   // Signature canvas
   const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -56,45 +91,50 @@ export function DriverRoutePage() {
 
   useEffect(() => { load() }, [load])
 
-  // Subscribe to realtime updates
   useEffect(() => {
     if (!roundId) return
-    const unsub = subscribeToRoute(roundId)
-    return unsub
+    return subscribeToRoute(roundId)
   }, [roundId, subscribeToRoute])
 
-  // Start location tracking when round is in progress
+  // Share live location only while this driver's round is in progress.
+  const isMyRound = !!round && !!membership?.id && round.driver_id === membership.id
   useEffect(() => {
-    if (round?.status === 'in_progress' && roundId && membership?.id) {
+    if (round?.status === 'in_progress' && isMyRound && roundId && membership?.id) {
       startLocationTracking(roundId, membership.id)
       return () => stopLocationTracking()
     }
-  }, [round?.status, roundId, membership?.id, startLocationTracking, stopLocationTracking])
+  }, [round?.status, isMyRound, roundId, membership?.id, startLocationTracking, stopLocationTracking])
 
   const handleStartRound = async () => {
     if (!roundId) return
-    setProcessing(true)
+    setStarting(true)
     try {
       await startRound(roundId)
     } catch (e: any) {
       alert(e.message)
     }
-    setProcessing(false)
+    setStarting(false)
   }
 
-  const openDeliverModal = (patient: DeliveryRoundPatient) => {
-    setActivePatient(patient)
-    setShowDeliverModal(true)
-    // Reset canvas on next tick
-    setTimeout(() => clearCanvas(), 50)
+  const closeModal = () => {
+    setModal(null)
+    setActiveStop(null)
+    setFormError(null)
   }
 
-  const openFailModal = (patient: DeliveryRoundPatient) => {
-    setActivePatient(patient)
-    setFailureReason('')
-    setShowFailModal(true)
+  const openModal = (kind: 'deliver' | 'fail' | 'skip', stop: DeliveryRoundPatient) => {
+    setActiveStop(stop)
+    setReason('')
+    setMethod('handed_to_patient')
+    setRecipientName('')
+    setPhotos([])
+    setHasSignature(false)
+    setFormError(null)
+    setModal(kind)
+    if (kind === 'deliver') setTimeout(() => clearCanvas(), 50)
   }
 
+  // ── Signature pad ──
   const clearCanvas = () => {
     const canvas = canvasRef.current
     if (!canvas) return
@@ -103,14 +143,13 @@ export function DriverRoutePage() {
       ctx.fillStyle = '#fff'
       ctx.fillRect(0, 0, canvas.width, canvas.height)
     }
+    setHasSignature(false)
   }
 
   const getCanvasPos = (e: React.TouchEvent | React.MouseEvent) => {
     const canvas = canvasRef.current!
-    const rect = canvas.getBoundingClientRect()
-    const clientX = 'touches' in e ? e.touches[0].clientX : (e as React.MouseEvent).clientX
-    const clientY = 'touches' in e ? e.touches[0].clientY : (e as React.MouseEvent).clientY
-    return { x: clientX - rect.left, y: clientY - rect.top }
+    const point = 'touches' in e ? e.touches[0] : (e as React.MouseEvent)
+    return toCanvasPoint(point.clientX, point.clientY, canvas.getBoundingClientRect(), canvas)
   }
 
   const handleDrawStart = (e: React.TouchEvent | React.MouseEvent) => {
@@ -122,63 +161,59 @@ export function DriverRoutePage() {
   const handleDrawMove = (e: React.TouchEvent | React.MouseEvent) => {
     if (!isDrawing.current) return
     e.preventDefault()
-    const canvas = canvasRef.current!
-    const ctx = canvas.getContext('2d')!
+    const ctx = canvasRef.current!.getContext('2d')!
     const pos = getCanvasPos(e)
     ctx.beginPath()
     ctx.moveTo(lastPos.current.x, lastPos.current.y)
     ctx.lineTo(pos.x, pos.y)
     ctx.strokeStyle = '#000'
-    ctx.lineWidth = 2
+    ctx.lineWidth = 2.5
     ctx.lineCap = 'round'
     ctx.stroke()
     lastPos.current = pos
+    if (!hasSignature) setHasSignature(true)
   }
 
   const handleDrawEnd = () => { isDrawing.current = false }
 
-  const getSignatureData = (): string | null => {
-    const canvas = canvasRef.current
-    if (!canvas) return null
-    return canvas.toDataURL('image/png')
-  }
-
+  // ── Outcomes ──
   const handleConfirmDelivery = async () => {
-    if (!activePatient) return
-    setProcessing(true)
-    try {
-      const sigData = getSignatureData() || undefined
-      await updatePatientStatus(activePatient.id, 'delivered', sigData)
-      setShowDeliverModal(false)
-      setActivePatient(null)
-    } catch (e: any) {
-      alert(e.message)
+    if (!activeStop) return
+    const handedOver = method !== 'left_in_safe_place'
+    if (handedOver && !hasSignature && !recipientName.trim()) {
+      setFormError('Ask the person to sign, or type the name of the person who took it.')
+      return
     }
-    setProcessing(false)
+    if (method === 'handed_to_representative' && !recipientName.trim()) {
+      setFormError('Type the name of the person who took the delivery.')
+      return
+    }
+    if (method === 'left_in_safe_place' && !recipientName.trim()) {
+      setFormError('Describe where you left it.')
+      return
+    }
+    try {
+      await completeDelivery(activeStop.id, {
+        deliveryMethod: method,
+        recipientName,
+        signatureData: hasSignature ? canvasRef.current?.toDataURL('image/png') : undefined,
+        photos,
+      })
+      closeModal()
+    } catch (e: any) {
+      setFormError(e.message)
+    }
   }
 
-  const handleConfirmFailed = async () => {
-    if (!activePatient || !failureReason.trim()) return
-    setProcessing(true)
+  const handleConfirmReason = async () => {
+    if (!activeStop || !reason.trim()) return
     try {
-      await updatePatientStatus(activePatient.id, 'failed', undefined, failureReason.trim())
-      setShowFailModal(false)
-      setActivePatient(null)
+      if (modal === 'fail') await failDelivery(activeStop.id, reason)
+      else await skipDelivery(activeStop.id, reason)
+      closeModal()
     } catch (e: any) {
-      alert(e.message)
+      setFormError(e.message)
     }
-    setProcessing(false)
-  }
-
-  const handleSkip = async (patient: DeliveryRoundPatient) => {
-    if (!confirm(`Skip delivery for ${(patient.patient as any)?.first_name} ${(patient.patient as any)?.last_name}?`)) return
-    setProcessing(true)
-    try {
-      await updatePatientStatus(patient.id, 'skipped')
-    } catch (e: any) {
-      alert(e.message)
-    }
-    setProcessing(false)
   }
 
   if (loading && !round) {
@@ -191,8 +226,9 @@ export function DriverRoutePage() {
 
   const patients = round.patients || []
   const deliveredCount = patients.filter((p) => p.status === 'delivered').length
-  const resolvedCount = patients.filter((p) => isResolved(p.status)).length
+  const resolvedCount = patients.filter((p) => isResolvedStopStatus(p.status)).length
   const progressPct = patients.length ? Math.round((resolvedCount / patients.length) * 100) : 0
+  const window = formatTimeWindow(round.scheduled_time_start, round.scheduled_time_end)
 
   return (
     <div>
@@ -203,46 +239,62 @@ export function DriverRoutePage() {
           <span>{round.title || 'Delivery Route'}</span>
         </div>
         <h1>🗺️ {round.title || 'Delivery Route'}</h1>
+        {window && <p style={{ color: 'var(--ps-slate)', marginTop: 4 }}>🕐 {window}</p>}
       </div>
 
-      {error && <div className="auth-error" style={{ marginBottom: 'var(--ps-space-md)' }}>{error}</div>}
+      {error && (
+        <div className="auth-error" style={{ marginBottom: 'var(--ps-space-md)' }}>
+          {error}
+          <button className="ps-btn ps-btn-ghost ps-btn-sm" onClick={clearError} style={{ marginLeft: 'var(--ps-space-sm)' }}>✕</button>
+        </div>
+      )}
 
-      {/* Progress bar */}
+      {/* Progress */}
       <div className="ps-card" style={{ padding: 'var(--ps-space-md)', marginBottom: 'var(--ps-space-md)' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--ps-space-xs)' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--ps-space-xs)', gap: 'var(--ps-space-sm)', flexWrap: 'wrap' }}>
           <span style={{ fontWeight: 600 }}>Progress</span>
           <span style={{ fontSize: 'var(--ps-font-sm)', color: 'var(--ps-slate)' }}>
-            {deliveredCount} delivered · {resolvedCount}/{patients.length} resolved
+            {deliveredCount} delivered · {resolvedCount}/{patients.length} done
           </span>
         </div>
         <div style={{ height: 8, background: 'var(--ps-off-white)', borderRadius: 4, overflow: 'hidden' }}>
           <div style={{ height: '100%', width: `${progressPct}%`, background: 'var(--ps-primary)', borderRadius: 4, transition: 'width 0.3s ease' }} />
         </div>
 
-        {round.status === 'scheduled' && (
+        {round.status === 'scheduled' && isMyRound && (
           <button
             className="ps-btn ps-btn-primary"
             onClick={handleStartRound}
-            disabled={processing}
+            disabled={starting}
             style={{ marginTop: 'var(--ps-space-sm)', width: '100%' }}
           >
-            {processing ? 'Starting…' : '🚀 Start Deliveries'}
+            {starting ? 'Starting…' : '🚀 Start deliveries'}
           </button>
         )}
-
+        {round.status === 'draft' && (
+          <p style={{ marginTop: 'var(--ps-space-sm)', color: 'var(--ps-slate)', fontSize: 'var(--ps-font-sm)' }}>
+            The pharmacy hasn't scheduled this round yet.
+          </p>
+        )}
+        {round.status === 'in_progress' && isMyRound && (
+          <p style={{ marginTop: 'var(--ps-space-sm)', color: 'var(--ps-slate)', fontSize: 'var(--ps-font-xs)' }}>
+            📍 Your location is shared with the pharmacy until the round is finished.
+          </p>
+        )}
         {round.status === 'completed' && (
           <div style={{ textAlign: 'center', marginTop: 'var(--ps-space-sm)', color: 'var(--ps-green)', fontWeight: 600 }}>
-            ✅ Round Complete
+            ✅ Round complete
           </div>
         )}
       </div>
 
-      {/* Patient list */}
+      {/* Stops */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--ps-space-sm)' }}>
-        {patients.map((p, idx) => {
+        {patients.map((p) => {
           const pat = p.patient as any
           const badge = PATIENT_STATUS_BADGE[p.status] || PATIENT_STATUS_BADGE.pending
-          const resolved = isResolved(p.status)
+          const resolved = isResolvedStopStatus(p.status)
+          const address = stopAddress(p)
 
           return (
             <div
@@ -251,56 +303,59 @@ export function DriverRoutePage() {
               style={{
                 padding: 'var(--ps-space-md)',
                 opacity: resolved ? 0.6 : 1,
-                borderLeft: p.status === 'delivered' ? '4px solid var(--ps-green)' : p.status === 'pending_redelivery' || p.status === 'failed' ? '4px solid var(--ps-red)' : '4px solid transparent',
+                borderLeft: p.status === 'delivered' ? '4px solid var(--ps-green)' : ['pending_redelivery', 'failed'].includes(p.status) ? '4px solid var(--ps-red)' : '4px solid transparent',
               }}
             >
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                <div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--ps-space-sm)', marginBottom: 4 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 'var(--ps-space-sm)' }}>
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--ps-space-sm)', marginBottom: 4, flexWrap: 'wrap' }}>
                     <span style={{ fontWeight: 700, fontSize: '1.1rem', color: 'var(--ps-primary)' }}>{p.delivery_order}</span>
                     <span style={{ fontWeight: 600 }}>{pat?.first_name} {pat?.last_name}</span>
                     <span className={`ps-badge ${badge.cls}`}>{badge.label}</span>
                   </div>
-                  <div style={{ fontSize: 'var(--ps-font-sm)', color: 'var(--ps-slate)' }}>
-                    📍 {pat?.address_line_1}{pat?.address_line_2 ? `, ${pat.address_line_2}` : ''}, {pat?.postcode}
+                  <div style={{ fontSize: 'var(--ps-font-sm)', color: 'var(--ps-slate)', overflowWrap: 'anywhere' }}>
+                    📍 {address || 'No address recorded'}
                   </div>
-                  {pat?.phone && (
-                    <div style={{ fontSize: 'var(--ps-font-sm)', marginTop: 2 }}>
+                  <div style={{ display: 'flex', gap: 'var(--ps-space-md)', flexWrap: 'wrap', marginTop: 2, fontSize: 'var(--ps-font-sm)' }}>
+                    {address && (
+                      <a href={mapsLink(address)} target="_blank" rel="noreferrer" style={{ color: 'var(--ps-primary)' }}>🧭 Directions</a>
+                    )}
+                    {pat?.phone && (
                       <a href={`tel:${pat.phone}`} style={{ color: 'var(--ps-primary)' }}>📞 {pat.phone}</a>
-                    </div>
+                    )}
+                  </div>
+                  {p.notes && (
+                    <div style={{ fontSize: 'var(--ps-font-xs)', color: 'var(--ps-slate)', marginTop: 4, fontStyle: 'italic' }}>{p.notes}</div>
                   )}
                 </div>
                 {p.signature_data && <span title="Signature collected" style={{ fontSize: '1.2rem' }}>✍️</span>}
               </div>
 
-              {/* Medications */}
               {p.medications && p.medications.length > 0 && (
                 <div style={{ marginTop: 'var(--ps-space-xs)', display: 'flex', flexWrap: 'wrap', gap: 4 }}>
                   {p.medications.map((m) => (
                     <span key={m.id} className="ps-badge ps-badge-slate" style={{ fontSize: 'var(--ps-font-xs)' }}>
-                      {(m.patient_medication as any)?.drug_name || 'Medication'} × {m.quantity}
+                      {(m.patient_medication as any)?.drug_name || 'Medication'}{m.quantity ? ` × ${m.quantity}` : ''}
                     </span>
                   ))}
                 </div>
               )}
 
-              {/* Failure reason */}
               {p.failure_reason && (
                 <div style={{ marginTop: 'var(--ps-space-xs)', fontSize: 'var(--ps-font-sm)', color: 'var(--ps-red)' }}>
                   ⚠️ {p.failure_reason}
                 </div>
               )}
 
-              {/* Actions — only for in-progress rounds and unresolved patients */}
-              {round.status === 'in_progress' && !resolved && (
-                <div style={{ display: 'flex', gap: 'var(--ps-space-sm)', marginTop: 'var(--ps-space-sm)' }}>
-                  <button className="ps-btn ps-btn-primary ps-btn-sm" onClick={() => openDeliverModal(p)} disabled={processing}>
+              {round.status === 'in_progress' && isMyRound && !resolved && (
+                <div style={{ display: 'flex', gap: 'var(--ps-space-sm)', marginTop: 'var(--ps-space-sm)', flexWrap: 'wrap' }}>
+                  <button className="ps-btn ps-btn-primary ps-btn-sm" onClick={() => openModal('deliver', p)} disabled={saving}>
                     ✅ Delivered
                   </button>
-                  <button className="ps-btn ps-btn-secondary ps-btn-sm" onClick={() => openFailModal(p)} disabled={processing} style={{ color: 'var(--ps-red)' }}>
-                    ❌ Failed
+                  <button className="ps-btn ps-btn-secondary ps-btn-sm" onClick={() => openModal('fail', p)} disabled={saving} style={{ color: 'var(--ps-red)' }}>
+                    ❌ Couldn't deliver
                   </button>
-                  <button className="ps-btn ps-btn-ghost ps-btn-sm" onClick={() => handleSkip(p)} disabled={processing}>
+                  <button className="ps-btn ps-btn-ghost ps-btn-sm" onClick={() => openModal('skip', p)} disabled={saving}>
                     ⏭️ Skip
                   </button>
                 </div>
@@ -316,77 +371,114 @@ export function DriverRoutePage() {
         </div>
       )}
 
-      {/* Deliver Modal — with signature capture */}
-      <Modal
-        isOpen={showDeliverModal}
-        onClose={() => { setShowDeliverModal(false); setActivePatient(null) }}
-        title={`Deliver to ${(activePatient?.patient as any)?.first_name} ${(activePatient?.patient as any)?.last_name}`}
-        width="420px"
-      >
+      {/* Deliver */}
+      <Modal isOpen={modal === 'deliver'} onClose={closeModal} title={`Deliver to ${patientName(activeStop)}`} width="440px">
         <div>
-          <p style={{ color: 'var(--ps-slate)', fontSize: 'var(--ps-font-sm)', marginBottom: 'var(--ps-space-sm)' }}>
-            Collect a signature from the patient to confirm delivery.
-          </p>
+          <div className="form-group">
+            <label>How was it delivered? *</label>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {METHODS.map((m) => (
+                <label key={m.value} style={{ display: 'flex', alignItems: 'center', gap: 8, fontWeight: 400 }}>
+                  <input type="radio" name="delivery-method" checked={method === m.value} onChange={() => setMethod(m.value)} />
+                  {m.label}
+                </label>
+              ))}
+            </div>
+          </div>
 
-          <div style={{ border: '2px solid var(--ps-off-white)', borderRadius: 'var(--ps-radius-md)', marginBottom: 'var(--ps-space-sm)', touchAction: 'none' }}>
-            <canvas
-              ref={canvasRef}
-              width={376}
-              height={160}
-              style={{ display: 'block', width: '100%', cursor: 'crosshair' }}
-              onMouseDown={handleDrawStart}
-              onMouseMove={handleDrawMove}
-              onMouseUp={handleDrawEnd}
-              onMouseLeave={handleDrawEnd}
-              onTouchStart={handleDrawStart}
-              onTouchMove={handleDrawMove}
-              onTouchEnd={handleDrawEnd}
+          <div className="form-group">
+            <label>
+              {method === 'left_in_safe_place' ? 'Where did you leave it? *' : method === 'handed_to_representative' ? 'Name of the person who took it *' : 'Name of the person who took it'}
+            </label>
+            <input
+              className="ps-input"
+              value={recipientName}
+              onChange={(e) => setRecipientName(e.target.value)}
+              placeholder={method === 'left_in_safe_place' ? 'e.g. Behind the side gate, as agreed' : 'e.g. Jane Smith (daughter)'}
             />
           </div>
 
-          <button className="ps-btn ps-btn-ghost ps-btn-sm" onClick={clearCanvas} style={{ marginBottom: 'var(--ps-space-md)' }}>
-            Clear Signature
-          </button>
+          {method !== 'left_in_safe_place' && (
+            <>
+              <label style={{ display: 'block', fontWeight: 600, marginBottom: 4 }}>Signature</label>
+              <div style={{ border: '2px solid var(--ps-off-white)', borderRadius: 'var(--ps-radius-md)', marginBottom: 'var(--ps-space-xs)', touchAction: 'none' }}>
+                <canvas
+                  ref={canvasRef}
+                  width={760}
+                  height={320}
+                  style={{ display: 'block', width: '100%', height: 160, cursor: 'crosshair' }}
+                  onMouseDown={handleDrawStart}
+                  onMouseMove={handleDrawMove}
+                  onMouseUp={handleDrawEnd}
+                  onMouseLeave={handleDrawEnd}
+                  onTouchStart={handleDrawStart}
+                  onTouchMove={handleDrawMove}
+                  onTouchEnd={handleDrawEnd}
+                />
+              </div>
+              <button className="ps-btn ps-btn-ghost ps-btn-sm" onClick={clearCanvas} style={{ marginBottom: 'var(--ps-space-md)' }}>
+                Clear signature
+              </button>
+            </>
+          )}
+
+          <div className="form-group">
+            <label>Photo (optional)</label>
+            <input
+              type="file"
+              accept="image/*"
+              capture="environment"
+              multiple
+              onChange={(e) => setPhotos(Array.from(e.target.files ?? []).slice(0, 3))}
+            />
+            {photos.length > 0 && (
+              <div style={{ fontSize: 'var(--ps-font-xs)', color: 'var(--ps-slate)', marginTop: 4 }}>{photos.length} photo{photos.length === 1 ? '' : 's'} attached</div>
+            )}
+          </div>
+
+          {formError && <div className="auth-error" style={{ marginBottom: 'var(--ps-space-sm)' }}>{formError}</div>}
 
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 'var(--ps-space-sm)' }}>
-            <button className="ps-btn ps-btn-secondary" onClick={() => { setShowDeliverModal(false); setActivePatient(null) }}>Cancel</button>
-            <button className="ps-btn ps-btn-primary" onClick={handleConfirmDelivery} disabled={processing}>
-              {processing ? 'Saving…' : 'Confirm Delivery'}
+            <button className="ps-btn ps-btn-secondary" onClick={closeModal}>Cancel</button>
+            <button className="ps-btn ps-btn-primary" onClick={handleConfirmDelivery} disabled={saving}>
+              {saving ? 'Saving…' : 'Confirm delivery'}
             </button>
           </div>
         </div>
       </Modal>
 
-      {/* Failed Delivery Modal */}
+      {/* Couldn't deliver / Skip */}
       <Modal
-        isOpen={showFailModal}
-        onClose={() => { setShowFailModal(false); setActivePatient(null) }}
-        title={`Failed Delivery — ${(activePatient?.patient as any)?.first_name} ${(activePatient?.patient as any)?.last_name}`}
+        isOpen={modal === 'fail' || modal === 'skip'}
+        onClose={closeModal}
+        title={`${modal === 'skip' ? 'Skip' : "Couldn't deliver"} — ${patientName(activeStop)}`}
         width="420px"
       >
         <div>
+          <p style={{ color: 'var(--ps-slate)', fontSize: 'var(--ps-font-sm)', marginBottom: 'var(--ps-space-sm)' }}>
+            The pharmacy will see this in the redelivery queue.
+          </p>
           <div className="form-group">
-            <label>Reason for failed delivery *</label>
-            <select className="ps-input" value={failureReason} onChange={(e) => setFailureReason(e.target.value)} style={{ marginBottom: 'var(--ps-space-sm)' }}>
-              <option value="">Select reason...</option>
-              <option value="No answer at door">No answer at door</option>
-              <option value="Patient not home">Patient not home</option>
-              <option value="Wrong address">Wrong address</option>
-              <option value="Patient refused delivery">Patient refused delivery</option>
-              <option value="Access issue (gate, buzzer)">Access issue (gate, buzzer)</option>
-              <option value="Safety concern">Safety concern</option>
+            <label>Reason *</label>
+            <select className="ps-input" value={reason} onChange={(e) => setReason(e.target.value)}>
+              <option value="">Select reason…</option>
+              {(modal === 'skip' ? SKIP_REASONS : FAIL_REASONS).map((r) => (
+                <option key={r} value={r}>{r}</option>
+              ))}
             </select>
           </div>
 
+          {formError && <div className="auth-error" style={{ marginBottom: 'var(--ps-space-sm)' }}>{formError}</div>}
+
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 'var(--ps-space-sm)' }}>
-            <button className="ps-btn ps-btn-secondary" onClick={() => { setShowFailModal(false); setActivePatient(null) }}>Cancel</button>
+            <button className="ps-btn ps-btn-secondary" onClick={closeModal}>Cancel</button>
             <button
               className="ps-btn ps-btn-primary"
-              onClick={handleConfirmFailed}
-              disabled={processing || !failureReason.trim()}
+              onClick={handleConfirmReason}
+              disabled={saving || !reason.trim()}
               style={{ background: 'var(--ps-red)' }}
             >
-              {processing ? 'Saving…' : 'Confirm Failed'}
+              {saving ? 'Saving…' : modal === 'skip' ? 'Skip stop' : 'Confirm'}
             </button>
           </div>
         </div>

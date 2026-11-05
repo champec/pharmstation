@@ -1,6 +1,6 @@
-import { useEffect, useCallback } from 'react'
+import { useEffect, useCallback, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useAuthStore, useDriverStore } from '@pharmstation/core'
+import { useAuthStore, useDriverStore, formatTimeWindow } from '@pharmstation/core'
 import type { DeliveryRound, DeliveryRoundStatus } from '@pharmstation/types'
 
 const STATUS_BADGE: Record<DeliveryRoundStatus, { cls: string; label: string }> = {
@@ -19,12 +19,26 @@ function formatDate(dateStr: string | null): string {
 export function DriverDashboardPage() {
   const navigate = useNavigate()
   const { membership } = useAuthStore()
-  const { assignedRounds, loading, error, fetchAssignedRounds, clearError } = useDriverStore()
+  const { assignedRounds, openRounds, loading, error, fetchAssignedRounds, claimRound, clearError } = useDriverStore()
+  const [claiming, setClaiming] = useState<string | null>(null)
 
   const load = useCallback(() => {
     if (!membership?.id) return
-    fetchAssignedRounds(membership.id)
-  }, [membership?.id, fetchAssignedRounds])
+    fetchAssignedRounds(membership.id, membership.organisation_id)
+  }, [membership?.id, membership?.organisation_id, fetchAssignedRounds])
+
+  const handleClaim = async (roundId: string) => {
+    if (!membership?.id) return
+    setClaiming(roundId)
+    try {
+      await claimRound(roundId, membership.id)
+      navigate(`/driver/${roundId}`)
+    } catch (e: any) {
+      alert(e.message)
+      load()
+    }
+    setClaiming(null)
+  }
 
   useEffect(() => { load() }, [load])
 
@@ -84,9 +98,9 @@ export function DriverDashboardPage() {
                     <span>📦 {counts.delivered}/{counts.total} delivered</span>
                     <span>⏳ {counts.pending} remaining</span>
                   </div>
-                  {round.time_window && (
+                  {formatTimeWindow(round.scheduled_time_start, round.scheduled_time_end) && (
                     <div style={{ fontSize: 'var(--ps-font-xs)', color: 'var(--ps-slate)', marginTop: 4 }}>
-                      🕐 {round.time_window}
+                      🕐 {formatTimeWindow(round.scheduled_time_start, round.scheduled_time_end)}
                     </div>
                   )}
                   <div style={{ marginTop: 'var(--ps-space-sm)' }}>
@@ -121,9 +135,9 @@ export function DriverDashboardPage() {
                     <span>📅 {formatDate(round.scheduled_date)}</span>
                     <span>📦 {counts.total} patients</span>
                   </div>
-                  {round.time_window && (
+                  {formatTimeWindow(round.scheduled_time_start, round.scheduled_time_end) && (
                     <div style={{ fontSize: 'var(--ps-font-xs)', color: 'var(--ps-slate)', marginTop: 4 }}>
-                      🕐 {round.time_window}
+                      🕐 {formatTimeWindow(round.scheduled_time_start, round.scheduled_time_end)}
                     </div>
                   )}
                   {round.notes && (
@@ -178,8 +192,41 @@ export function DriverDashboardPage() {
         </div>
       )}
 
+      {/* Open rounds any driver can take */}
+      {openRounds.length > 0 && (
+        <div style={{ marginBottom: 'var(--ps-space-lg)' }}>
+          <h2 style={{ marginBottom: 'var(--ps-space-sm)', fontSize: '1.1rem' }}>🙋 Open rounds</h2>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--ps-space-sm)' }}>
+            {openRounds.map((round) => (
+              <div key={round.id} className="ps-card" style={{ padding: 'var(--ps-space-md)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--ps-space-xs)', gap: 'var(--ps-space-sm)' }}>
+                  <h3 style={{ margin: 0 }}>{round.title || 'Delivery Round'}</h3>
+                  <span className="ps-badge ps-badge-blue">No driver</span>
+                </div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--ps-space-lg)', fontSize: 'var(--ps-font-sm)', color: 'var(--ps-slate)' }}>
+                  <span>📅 {formatDate(round.scheduled_date)}</span>
+                  <span>📦 {(round.patients || []).length} stops</span>
+                  {formatTimeWindow(round.scheduled_time_start, round.scheduled_time_end) && (
+                    <span>🕐 {formatTimeWindow(round.scheduled_time_start, round.scheduled_time_end)}</span>
+                  )}
+                </div>
+                <div style={{ marginTop: 'var(--ps-space-sm)' }}>
+                  <button
+                    className="ps-btn ps-btn-primary ps-btn-sm"
+                    onClick={() => handleClaim(round.id)}
+                    disabled={claiming !== null}
+                  >
+                    {claiming === round.id ? 'Taking…' : 'Take this round'}
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Empty state */}
-      {!loading && assignedRounds.length === 0 && (
+      {!loading && assignedRounds.length === 0 && openRounds.length === 0 && (
         <div className="ps-card" style={{ padding: 'var(--ps-space-2xl)', textAlign: 'center' }}>
           <div style={{ fontSize: '2rem', marginBottom: 'var(--ps-space-sm)' }}>📭</div>
           <h3>No Assigned Rounds</h3>

@@ -11,6 +11,7 @@
   "scripts": {
     "lint": "eslint src --ext .ts,.tsx",
     "type-check": "tsc --noEmit",
+    "test": "node --test --experimental-strip-types src/*.test.ts",
     "clean": "rm -rf dist"
   },
   "dependencies": {

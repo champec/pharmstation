@@ -143,9 +143,9 @@ export function RedeliveryQueuePage() {
                     {rp.delivery_address_line_1 || (rp.patient as any)?.address_line_1}
                     {rp.delivery_postcode || (rp.patient as any)?.postcode ? `, ${rp.delivery_postcode || (rp.patient as any)?.postcode}` : ''}
                   </div>
-                  {rp.failure_reason && (
+                  {(rp.failure_reason || rp.status === 'skipped') && (
                     <div style={{ fontSize: 'var(--ps-font-sm)', color: 'var(--ps-red)', marginTop: 2 }}>
-                      Reason: {rp.failure_reason}
+                      {rp.status === 'skipped' ? 'Skipped' : 'Failed'}{rp.failure_reason ? `: ${rp.failure_reason}` : ''}
                     </div>
                   )}
                   {rp.medications && rp.medications.length > 0 && (
