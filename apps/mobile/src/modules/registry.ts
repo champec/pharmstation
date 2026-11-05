@@ -196,7 +196,7 @@ export const MODULES: MobileModule[] = [
         title: 'Handover',
         icon: 'reader-outline',
         visible: (ctx) => has(ctx.permissions, 'handover_all'),
-        blurb: 'Shift handover notes and tasks',
+        blurb: 'RP on duty, today’s checks and handover notes',
       },
       {
         id: 'team',
