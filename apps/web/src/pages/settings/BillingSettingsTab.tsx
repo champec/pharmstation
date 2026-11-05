@@ -13,7 +13,7 @@ import {
   type PlanId,
   type BillingInterval,
 } from '@pharmstation/core'
-import { BILLING_ROLES } from '../../lib/billing'
+import { canManageBilling } from '../../lib/billing'
 import { SmsCreditsCard } from './SmsCreditsCard'
 import '../../components/billing/billing.css'
 
@@ -21,7 +21,7 @@ const fmtDate = (iso: string | null) =>
   iso ? new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }) : ''
 
 export function BillingSettingsTab() {
-  const { organisation, membership } = useAuthStore()
+  const { organisation, membership, permissions } = useAuthStore()
   const orgId = organisation?.id
   const { subscription, plan, loaded, fetchSubscription, startCheckout, openPortal, getBillingMode } =
     useSubscriptionStore()
@@ -34,8 +34,7 @@ export function BillingSettingsTab() {
   const [notice, setNotice] = useState('')
   const [interval, setBillingInterval] = useState<BillingInterval>('month')
 
-  // The org login itself (no staff membership) is treated as the owner.
-  const canManage = !membership || BILLING_ROLES.has(membership.role)
+  const canManage = canManageBilling(membership, permissions)
   const hasStripeSub =
     !!subscription?.stripe_subscription_id &&
     ['trialing', 'active', 'past_due', 'unpaid', 'incomplete'].includes(subscription.status)
@@ -173,7 +172,7 @@ export function BillingSettingsTab() {
       </div>
 
       {!canManage && (
-        <p className="billing-note">Only the pharmacy owner or a manager can change the plan.</p>
+        <p className="billing-note">Only the pharmacy owner, or staff they give billing access, can change the plan. Sign in with your own staff account to do it.</p>
       )}
 
       {!hasStripeSub && (

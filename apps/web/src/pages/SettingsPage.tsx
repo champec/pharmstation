@@ -9,6 +9,7 @@ import { TeamSettingsTab } from './settings/TeamSettingsTab'
 import { GeneralSettingsTab } from './settings/GeneralSettingsTab'
 import { AppointmentSettingsTab } from './settings/AppointmentSettingsTab'
 import { SignInActivityCard } from '../components/account/SignInActivityCard'
+import { canManageBilling } from '../lib/billing'
 
 type Tab = 'general' | 'team' | 'ai' | 'messaging' | 'alerts' | 'appointments' | 'nhs' | 'payments' | 'billing'
 
@@ -212,8 +213,9 @@ type ConnectStatus = {
 }
 
 function PaymentsSettingsTab() {
-  const { organisation } = useAuthStore()
+  const { organisation, membership, permissions } = useAuthStore()
   const orgId = organisation?.id
+  const canManage = canManageBilling(membership, permissions)
   const [searchParams] = useSearchParams()
   const returnedFromStripe = searchParams.get('stripe_return') === '1'
 
@@ -314,7 +316,12 @@ function PaymentsSettingsTab() {
 
             <div style={{ display: 'flex', gap: 'var(--ps-space-sm)', flexWrap: 'wrap' }}>
               {status?.status !== 'active' && (
-                <button className="ps-btn ps-btn-primary" onClick={handleStartOnboarding} disabled={starting}>
+                <button
+                  className="ps-btn ps-btn-primary"
+                  onClick={handleStartOnboarding}
+                  disabled={starting || !canManage}
+                  title={canManage ? undefined : 'Only the pharmacy owner, or staff they give billing access, can set up payouts.'}
+                >
                   {starting ? 'Redirecting to Stripe…' : status?.status === 'not_onboarded' ? '🚀 Set up payments' : '▶ Continue setup'}
                 </button>
               )}
@@ -322,6 +329,12 @@ function PaymentsSettingsTab() {
                 🔄 Refresh status
               </button>
             </div>
+
+            {!canManage && status?.status !== 'active' && (
+              <p style={{ color: 'var(--ps-slate)', fontSize: 'var(--ps-font-sm)', marginTop: 'var(--ps-space-md)', marginBottom: 0 }}>
+                Only the pharmacy owner, or staff they give billing access, can set up payouts. Sign in with your own staff account to do it.
+              </p>
+            )}
 
             {status?.status === 'active' && (
               <p style={{ color: 'var(--ps-slate)', fontSize: 'var(--ps-font-sm)', marginTop: 'var(--ps-space-md)', marginBottom: 0 }}>
