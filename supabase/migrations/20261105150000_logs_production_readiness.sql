@@ -5,13 +5,15 @@
 -- 2. Fridge, cleaning and other logs become append-only: an edit saves a new
 --    version with a reason, a removal is a "void" with a reason, and the
 --    person who made the entry is always the signed-in user. Saves go through
---    ps_log_save_entry / ps_log_void_entry; the table is read-only to the app.
+--    ps_log_save_entry / ps_log_void_entry. The table becomes read-only to the
+--    app in the follow-up lockdown migration.
 -- 3. Library fridge log: 2 to 8 °C range on each fridge reading.
 -- 4. RP log: server-side sign in / sign out / take over (times from the
 --    server clock, name and GPhC number from the pharmacist's profile), and
 --    RP absences (ps_rp_absences).
 --
--- Safe to re-run. Needs ps_member_has_permission (role permissions foundation).
+-- Safe to re-run, and safe to run before the new web app is deployed (the
+-- old app keeps working). Needs ps_member_has_permission.
 
 begin;
 
@@ -55,14 +57,26 @@ create index if not exists ps_log_entries_current_idx
 create index if not exists ps_log_entries_root_idx on public.ps_log_entries (root_id);
 create index if not exists ps_log_entries_org_date_idx on public.ps_log_entries (org_id, entry_date);
 
-drop policy if exists org_members_crud_entries on public.ps_log_entries;
+-- Rows written by the older web app (direct inserts) still get a root_id.
+create or replace function public.ps_log_entries_set_root()
+returns trigger language plpgsql set search_path = public as $$
+begin
+  new.root_id := coalesce(new.root_id, new.id);
+  return new;
+end;
+$$;
+drop trigger if exists ps_log_entries_set_root on public.ps_log_entries;
+create trigger ps_log_entries_set_root before insert on public.ps_log_entries
+  for each row execute function public.ps_log_entries_set_root();
+
 drop policy if exists ps_log_entries_select on public.ps_log_entries;
 create policy ps_log_entries_select on public.ps_log_entries
   for select to authenticated
   using (org_id in (select ps_get_user_org_ids()));
-
 revoke all on public.ps_log_entries from anon;
-revoke insert, update, delete, truncate on public.ps_log_entries from authenticated;
+
+-- Direct writes are switched off in 20261105150100_logs_entries_lockdown.sql,
+-- run once the web app that saves through ps_log_save_entry is live.
 
 -- Save a new entry, or a new version of an existing one (p_replaces_id).
 create or replace function public.ps_log_save_entry(
