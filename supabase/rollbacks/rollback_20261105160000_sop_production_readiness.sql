@@ -12,6 +12,7 @@ drop trigger if exists ps_sop_document_guard on public.ps_sop_documents;
 drop trigger if exists ps_sop_nodes_mark_changed on public.ps_sop_nodes;
 drop trigger if exists ps_locum_sop_document_guard on public.ps_locum_sop_documents;
 drop function if exists public.ps_sop_publish(uuid);
+drop function if exists public.ps_can_manage_locum_sops(uuid) cascade;
 
 -- Storage, as before
 drop policy if exists sop_pdfs_select_authenticated on storage.objects;

@@ -71,6 +71,12 @@ export function canManageSOPs(member: Pick<OrganisationMember, 'role' | 'permiss
   return !!resolvePermissions(member.role, member.permissions ?? {}).sop_upload
 }
 
+/** Locum SOPs (Shifts > SOPs) can also be managed by whoever manages locums. Mirrors ps_can_manage_locum_sops(). */
+export function canManageLocumSOPs(member: Pick<OrganisationMember, 'role' | 'permissions' | 'status'> | null | undefined): boolean {
+  if (canManageSOPs(member)) return true
+  return !!member && member.status === 'active' && !!resolvePermissions(member.role, member.permissions ?? {}).approve_locums
+}
+
 /**
  * The sign-off that counts for a staff member: the one for the current version
  * if there is one, otherwise their newest. (A member who has signed several

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { getUserClient } from '@pharmstation/supabase-client'
-import { useAuthStore, canManageSOPs } from '@pharmstation/core'
+import { useAuthStore, canManageLocumSOPs } from '@pharmstation/core'
 
 const MAX_FILE_BYTES = 20 * 1024 * 1024
 const ALLOWED_TYPES = ['application/pdf', 'image/jpeg', 'image/png']
@@ -40,7 +40,7 @@ interface Signoff {
 export function ShiftSOPsPage() {
   const { organisation, activeUser, membership } = useAuthStore()
   const orgId = organisation?.id
-  const isManager = canManageSOPs(membership)
+  const isManager = canManageLocumSOPs(membership)
   const newVersionInput = useRef<HTMLInputElement>(null)
   const [newVersionFor, setNewVersionFor] = useState<SopDoc | null>(null)
   const [uploadingVersion, setUploadingVersion] = useState<string | null>(null)

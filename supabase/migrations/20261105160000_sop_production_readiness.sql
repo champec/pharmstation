@@ -18,8 +18,16 @@
 --     the current published version; the time, signer and name are set by the
 --     database. Locums sign only active SOPs at pharmacies they are booked with,
 --     at the current version.
---  "SOP manager" = owner, manager or pharmacist (as before), or anyone given the
---  sop_upload permission. ps_sop_* table policies now use the same check.
+--  "SOP manager" = a permanent member (not a locum's temporary shift access)
+--  who is owner, manager or pharmacist (as before), or has sop_upload.
+--  ps_sop_* table policies now use the same check. Locum SOPs (and their
+--  files) can also be managed by anyone with approve_locums.
+--  "Booked locum" = a locum with a pending, approved or completed booking at
+--  that pharmacy (so they can read SOPs once they have applied).
+--
+--  This file owns every sop-pdfs and locum SOP policy. It also drops the
+--  equivalent policies from 20261105170000_locum_production_readiness.sql
+--  (PR #41) so the two can run in either order without widening access.
 --
 -- Phase 2, trustworthy sign-offs
 --  4. Publishing goes through ps_sop_publish(document_id). It freezes a copy of
@@ -51,8 +59,19 @@ returns boolean language sql stable security definer set search_path = public as
   select exists (
     select 1 from ps_organisation_members
     where user_id = auth.uid() and organisation_id = p_org and status = 'active'
-      and role in ('owner', 'manager', 'pharmacist'))
-  or ps_member_has_permission(p_org, 'sop_upload');
+      and access_expires_at is null
+      and (role in ('owner', 'manager', 'pharmacist')
+           or ps_member_has_permission(p_org, 'sop_upload')));
+$$;
+
+-- Locum SOPs: SOP managers, or whoever manages locums (approve_locums).
+create or replace function public.ps_can_manage_locum_sops(p_org uuid)
+returns boolean language sql stable security definer set search_path = public as $$
+  select ps_is_sop_manager(p_org)
+      or exists (select 1 from ps_organisation_members
+                 where user_id = auth.uid() and organisation_id = p_org and status = 'active'
+                   and access_expires_at is null
+                   and ps_member_has_permission(p_org, 'approve_locums'));
 $$;
 
 create or replace function public.ps_locum_has_booking_with_org(p_org uuid)
@@ -61,7 +80,7 @@ returns boolean language sql stable security definer set search_path = public as
     select 1 from ps_locum_bookings b
     join ps_locum_shifts s on s.id = b.shift_id
     where b.locum_id = ps_get_my_locum_id()
-      and b.status in ('approved', 'completed')
+      and b.status in ('pending', 'approved', 'completed')
       and s.org_id = p_org);
 $$;
 
@@ -84,12 +103,21 @@ returns boolean language sql stable security definer set search_path = public as
         and ps_locum_has_booking_with_org(l.org_id));
 $$;
 
+-- Library files (<sop_document_id>/...): SOP managers. Pharmacy folder files
+-- (<org_id>/..., locum SOPs): whoever can manage locum SOPs.
 create or replace function public.ps_sop_file_writable(p_name text)
 returns boolean language sql stable security definer set search_path = public as $$
-  select coalesce(ps_is_sop_manager(ps_sop_folder_org((storage.foldername(p_name))[1])), false);
+  select coalesce(
+    case
+      when exists (select 1 from ps_organisations o where o.id::text = (storage.foldername(p_name))[1])
+        then ps_can_manage_locum_sops(((storage.foldername(p_name))[1])::uuid)
+      else ps_is_sop_manager(ps_sop_folder_org((storage.foldername(p_name))[1]))
+    end, false);
 $$;
 
 revoke all on function public.ps_is_sop_manager(uuid) from public, anon;
+revoke all on function public.ps_can_manage_locum_sops(uuid) from public, anon;
+grant execute on function public.ps_can_manage_locum_sops(uuid) to authenticated, service_role;
 revoke all on function public.ps_locum_has_booking_with_org(uuid) from public, anon;
 revoke all on function public.ps_sop_folder_org(text) from public, anon;
 revoke all on function public.ps_sop_file_readable(text) from public, anon;
@@ -114,6 +142,11 @@ drop policy if exists sop_pdfs_select_authenticated on storage.objects;
 drop policy if exists sop_pdfs_insert_authenticated on storage.objects;
 drop policy if exists sop_pdfs_update_authenticated on storage.objects;
 drop policy if exists sop_pdfs_delete_authenticated on storage.objects;
+-- Same policies under PR #41's names (locum module), if that ran first.
+drop policy if exists sop_pdfs_select_scoped on storage.objects;
+drop policy if exists sop_pdfs_insert_scoped on storage.objects;
+drop policy if exists sop_pdfs_update_scoped on storage.objects;
+drop policy if exists sop_pdfs_delete_scoped on storage.objects;
 
 create policy sop_pdfs_select_authenticated on storage.objects for select to authenticated
   using (bucket_id = 'sop-pdfs' and public.ps_sop_file_readable(name));
@@ -134,6 +167,9 @@ drop policy if exists booked_locums_read_active_sops on public.ps_locum_sop_docu
 drop policy if exists org_members_crud_sop_documents on public.ps_locum_sop_documents;
 drop policy if exists org_members_read_sop_documents on public.ps_locum_sop_documents;
 drop policy if exists sop_managers_write_sop_documents on public.ps_locum_sop_documents;
+-- PR #41's names for the same policies
+drop policy if exists locum_read_booked_org_sops on public.ps_locum_sop_documents;
+drop policy if exists org_managers_manage_sop_documents on public.ps_locum_sop_documents;
 
 create policy org_members_read_sop_documents on public.ps_locum_sop_documents
   for select to authenticated
@@ -143,8 +179,8 @@ create policy booked_locums_read_active_sops on public.ps_locum_sop_documents
   using (is_active and public.ps_locum_has_booking_with_org(org_id));
 create policy sop_managers_write_sop_documents on public.ps_locum_sop_documents
   for all to authenticated
-  using (public.ps_is_sop_manager(org_id))
-  with check (public.ps_is_sop_manager(org_id));
+  using (public.ps_can_manage_locum_sops(org_id))
+  with check (public.ps_can_manage_locum_sops(org_id));
 
 -- ─────────────────────────────────────────────────────────────
 -- SOP library table policies: same manager check everywhere
