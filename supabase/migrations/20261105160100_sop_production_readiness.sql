@@ -46,7 +46,7 @@
 --     member id where a user id is needed). Republishing now also alerts the
 --     assigned staff that they need to re-read.
 --
--- Rollback: supabase/rollbacks/rollback_20261105160000_sop_production_readiness.sql
+-- Rollback: supabase/rollbacks/rollback_20261105160100_sop_production_readiness.sql
 
 begin;
 

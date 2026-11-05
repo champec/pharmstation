@@ -1,4 +1,4 @@
--- Rollback for 20261105160000_sop_production_readiness.sql
+-- Rollback for 20261105160100_sop_production_readiness.sql
 -- Puts the SOP policies back as they were on London on 5 Nov 2026 and removes
 -- the guards and publish function. WARNING: this reopens the sop-pdfs storage
 -- hole (any signed-in user can read, change and delete every pharmacy's SOP
