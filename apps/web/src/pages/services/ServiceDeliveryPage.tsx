@@ -692,7 +692,7 @@ export function ServiceDeliveryPage() {
 
       {/* Step indicators */}
       <div style={{
-        display: 'flex',
+        display: nhsLocked ? 'none' : 'flex',
         gap: 'var(--ps-space-md)',
         marginBottom: 'var(--ps-space-lg)',
       }}>

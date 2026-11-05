@@ -14196,7 +14196,25 @@ textarea.form-input {
     padding: 0 !important;
   }
 
+  /* An older global print rule hides body *; show just the record. */
+  body[data-print-mode="service-record"] .service-record-document,
+  body[data-print-mode="service-record"] .service-record-document * {
+    visibility: visible !important;
+  }
+
+  body[data-print-mode="service-record"] .dashboard-layout,
+  body[data-print-mode="service-record"] .dashboard-main,
+  body[data-print-mode="service-record"] .dashboard-content,
+  body[data-print-mode="service-record"] .service-record {
+    position: static !important;
+    transform: none !important;
+  }
+
   body[data-print-mode="service-record"] .service-record-document {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
     border: none !important;
     box-shadow: none !important;
     padding: 0 !important;
