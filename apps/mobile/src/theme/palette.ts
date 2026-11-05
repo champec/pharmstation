@@ -1,8 +1,8 @@
 // PharmStation mobile — brand palette (scaffold light theme).
 export const palette = {
-  brand: '#208AEF',
-  brandDark: '#1565C0',
-  brandTint: '#E8F1FE',
+  brand: '#257BB4',
+  brandDark: '#1B5E8C',
+  brandTint: '#E5F2F7',
 
   bg: '#F4F7FB',
   surface: '#FFFFFF',

@@ -7,14 +7,17 @@
 //   - 'locum'           — locum pharmacist, account stored in ps_locum_profiles
 //
 // Actions:
-//   - start_onboarding : create Express account (if needed) + onboarding link
-//   - get_status       : report account status (charges/payouts enabled)
+//   - start_onboarding : create Express account (if needed) + onboarding link.
+//                        For an org this needs the billing permission (owner by
+//                        default, never the shared pharmacy login).
+//   - get_status       : report account status (charges/payouts enabled); any member
 //
 // Deployed via MCP. Do not run local supabase CLI deploys.
 // ============================================================
 
 import Stripe from 'npm:stripe@18.0.0';
 import { createClient } from 'npm:@supabase/supabase-js@2';
+import { checkBillingPermission } from '../_shared/org-billing-permission.ts';
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
@@ -208,6 +211,7 @@ async function locumContext(userId: string): Promise<EntityCtx> {
 async function resolveEntity(
   req: Request,
   body: Record<string, unknown>,
+  needBilling: boolean,
 ): Promise<{ ctx: EntityCtx } | { errorResponse: Response }> {
   const callerId = await getCaller(req);
   if (!callerId) {
@@ -231,8 +235,13 @@ async function resolveEntity(
   if (!orgId) {
     return { errorResponse: json({ error: 'org_id is required' }, 400) };
   }
-  const allowed = await verifyOrgMember(callerId, orgId);
-  if (!allowed) {
+  // Creating or changing the payout account decides where the pharmacy's money
+  // goes, so it needs the billing permission (owner by default, never the
+  // shared pharmacy login). Reading the status only needs membership.
+  if (needBilling) {
+    const access = await checkBillingPermission(getAdminClient(), callerId, orgId);
+    if (!access.ok) return { errorResponse: json({ error: access.error }, access.status) };
+  } else if (!(await verifyOrgMember(callerId, orgId))) {
     return { errorResponse: json({ error: 'Not authorised for this organisation' }, 403) };
   }
   try {
@@ -353,7 +362,7 @@ Deno.serve(async (req: Request) => {
     const body = (await req.json().catch(() => ({}))) as Record<string, unknown>;
     const action = body.action as string | undefined;
 
-    const resolved = await resolveEntity(req, body);
+    const resolved = await resolveEntity(req, body, action === 'start_onboarding');
     if ('errorResponse' in resolved) return resolved.errorResponse;
     const { ctx } = resolved;
 

@@ -8,13 +8,13 @@
 //   create_checkout  → { url }  Stripe Checkout, subscription mode
 //                      body: { org_id, plan: 'essential'|'complete',
 //                              interval?: 'month'|'year' (default month),
-//                              success_url, cancel_url }      owner/manager
+//                              success_url, cancel_url }      billing permission
 //   create_portal    → { url }  Stripe customer portal (change plan, card,
 //                      cancel, invoices). body: { org_id, return_url }
-//                                                             owner/manager
+//                                                             billing permission
 //   buy_sms_credits  → { url }  Stripe Checkout (one-off payment) for a pack
 //                      of prepaid text credits. body: { org_id, pack,
-//                      success_url, cancel_url }        owner/manager
+//                      success_url, cancel_url }        billing permission
 //   refresh          → { subscription } re-read the org's subscription from
 //                      Stripe and store it (backup if a webhook is late)
 //                                                             any member
@@ -39,6 +39,7 @@ import {
   type PaidPlan,
 } from '../_shared/billing-plans.ts'
 import { syncSubscription } from '../_shared/billing-sync.ts'
+import { checkBillingPermission } from '../_shared/org-billing-permission.ts'
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
@@ -46,7 +47,6 @@ const CORS_HEADERS = {
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 }
 
-const BILLING_ROLES = new Set(['owner', 'manager'])
 const LIVE_STATUSES = ['trialing', 'active', 'past_due', 'unpaid', 'incomplete']
 
 const DEFAULT_APP_ORIGINS = [
@@ -144,10 +144,8 @@ async function requireMember(db: Db, callerId: string, orgId: string): Promise<s
 }
 
 async function requireBillingManager(db: Db, callerId: string, orgId: string): Promise<void> {
-  const role = await requireMember(db, callerId, orgId)
-  if (role !== 'org_account' && !BILLING_ROLES.has(role)) {
-    throw new HttpError(403, 'Only the pharmacy owner or a manager can change the subscription.')
-  }
+  const access = await checkBillingPermission(db, callerId, orgId)
+  if (!access.ok) throw new HttpError(access.status, access.error)
 }
 
 // ------------------------------------------------------------

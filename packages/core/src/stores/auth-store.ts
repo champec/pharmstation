@@ -534,11 +534,11 @@ async function finishUserLogin(
 
   // Save email to recent staff list — only for actual staff at this org
   if (membership) {
-    const savedStaff = JSON.parse(localStorage.getItem('ps-saved-staff') || '[]') as string[]
-    if (!savedStaff.includes(email)) {
-      savedStaff.unshift(email)
-      localStorage.setItem('ps-saved-staff', JSON.stringify(savedStaff.slice(0, 10)))
-    }
+    // Kept per pharmacy: a shared device can be signed in to different pharmacies
+    const key = `ps-saved-staff:${org!.id}`
+    const savedStaff = JSON.parse(localStorage.getItem(key) || '[]') as string[]
+    const next = [email, ...savedStaff.filter((e) => e !== email)].slice(0, 10)
+    localStorage.setItem(key, JSON.stringify(next))
   }
 
   let locumProfile: LocumProfile | null = null

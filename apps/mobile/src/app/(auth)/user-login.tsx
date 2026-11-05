@@ -1,11 +1,21 @@
-import { useEffect, useState } from 'react'
-import { Linking, Pressable, StyleSheet, Text, View } from 'react-native'
+import { useEffect, useRef, useState } from 'react'
+import { Alert, Linking, Pressable, StyleSheet, Text, View } from 'react-native'
 import { useRouter } from 'expo-router'
 
 import { Button } from '@/components/ui/Button'
 import { Field } from '@/components/ui/Field'
 import { Screen } from '@/components/ui/Screen'
+import { BrandLogo } from '@/components/BrandLogo'
 import { loadOtpAccounts } from '@/lib/authenticator'
+import {
+  biometricEmail,
+  biometricLabel,
+  disableBiometricLogin,
+  enableBiometricLogin,
+  readBiometricLogin,
+  rememberEmail,
+  rememberedEmail,
+} from '@/lib/biometric-login'
 import { FORGOT_PASSWORD_URL } from '@/lib/supabase'
 import { totp } from '@/lib/totp'
 import * as LocalAuthentication from 'expo-local-authentication'
@@ -48,13 +58,86 @@ export default function UserLoginScreen() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
+  const [bioLabel, setBioLabel] = useState<string | null>(null)
+  const [bioEmail, setBioEmail] = useState<string | null>(null)
+  // The login being signed in with, so we can offer quick sign-in once it
+  // has fully succeeded (including the two-step code).
+  const pending = useRef<{ email: string; password: string; viaBio: boolean } | null>(null)
+  const autoPrompted = useRef(false)
+
+  useEffect(() => {
+    ;(async () => {
+      const [last, label, enabledFor] = await Promise.all([rememberedEmail(), biometricLabel(), biometricEmail()])
+      if (last) setEmail((e) => e || last)
+      setBioLabel(label)
+      setBioEmail(label ? enabledFor : null)
+      // Open the fingerprint/face prompt straight away when it's set up.
+      if (label && enabledFor && !autoPrompted.current && !useAuthStore.getState().mfaPendingFactorId) {
+        autoPrompted.current = true
+        void signInWithBiometrics()
+      }
+    })()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // Offer quick sign-in after a successful password sign-in, then go home.
+  const finishSignIn = async () => {
+    const p = pending.current
+    pending.current = null
+    if (p) await rememberEmail(p.email)
+    if (p && !p.viaBio && bioLabel && bioEmail?.toLowerCase() !== p.email.trim().toLowerCase()) {
+      const turnOn = await new Promise<boolean>((resolve) =>
+        Alert.alert(
+          `Sign in with ${bioLabel} next time?`,
+          `Your login is kept in this phone's secure storage and only unlocked by your ${bioLabel}.`,
+          [
+            { text: 'Not now', style: 'cancel', onPress: () => resolve(false) },
+            { text: 'Turn on', onPress: () => resolve(true) },
+          ],
+          { cancelable: true, onDismiss: () => resolve(false) },
+        ),
+      )
+      if (turnOn && (await enableBiometricLogin(p.email, p.password))) setBioEmail(p.email.trim())
+    }
+    router.replace('/(app)/home')
+  }
+
+  const signInWithBiometrics = async () => {
+    setError(null)
+    const saved = await readBiometricLogin()
+    if (!saved) return
+    setEmail(saved.email)
+    pending.current = { ...saved, viaBio: true }
+    try {
+      await userLogin(saved.email, saved.password)
+      if (useAuthStore.getState().isUserLoggedIn) await finishSignIn()
+    } catch (err) {
+      pending.current = null
+      const msg = err instanceof Error ? err.message : 'Login failed'
+      if (/invalid login|invalid credentials/i.test(msg)) {
+        // Password was changed since quick sign-in was set up.
+        await disableBiometricLogin()
+        setBioEmail(null)
+        setError('Your password has changed. Sign in with your password once to turn quick sign-in back on.')
+      } else {
+        setError(msg)
+      }
+    }
+  }
+
+  const turnOffBiometrics = async () => {
+    await disableBiometricLogin()
+    setBioEmail(null)
+  }
 
   const onSubmit = async () => {
     setError(null)
+    pending.current = { email, password, viaBio: false }
     try {
       await userLogin(email, password)
-      if (useAuthStore.getState().isUserLoggedIn) router.replace('/(app)/home')
+      if (useAuthStore.getState().isUserLoggedIn) await finishSignIn()
     } catch (err) {
+      pending.current = null
       setError(err instanceof Error ? err.message : 'Login failed')
     }
   }
@@ -63,7 +146,7 @@ export default function UserLoginScreen() {
     setError(null)
     try {
       await verifyMfa(code)
-      router.replace('/(app)/home')
+      await finishSignIn()
     } catch (err) {
       setCode('')
       setError(err instanceof Error ? err.message : 'That code didn’t work')
@@ -74,7 +157,7 @@ export default function UserLoginScreen() {
     return (
       <Screen scroll contentStyle={styles.content}>
         <View style={styles.header}>
-          <Text style={styles.brand}>PharmStation</Text>
+          <BrandLogo size={36} wordmark="row" />
           <Text style={styles.title}>Enter your code</Text>
           <Text style={styles.subtitle}>
             Type the 6-digit code from your authenticator app, or fill it from this phone.
@@ -114,7 +197,7 @@ export default function UserLoginScreen() {
   return (
     <Screen scroll contentStyle={styles.content}>
       <View style={styles.header}>
-        <Text style={styles.brand}>PharmStation</Text>
+        <BrandLogo size={36} wordmark="row" />
         <Text style={styles.title}>Sign in to your account</Text>
         <Text style={styles.subtitle}>
           This is your personal account. Sign in to manage your profile — connect
@@ -123,6 +206,16 @@ export default function UserLoginScreen() {
       </View>
 
       <View style={styles.form}>
+        {bioLabel && bioEmail ? (
+          <View style={styles.bio}>
+            <Button label={`Sign in with ${bioLabel}`} onPress={() => void signInWithBiometrics()} loading={busy} />
+            <Text style={styles.bioHint}>
+              {bioEmail} ·{' '}
+              <Text style={styles.link} onPress={() => void turnOffBiometrics()}>Turn off</Text>
+            </Text>
+            <Text style={styles.or}>or use your password</Text>
+          </View>
+        ) : null}
         <Field
           label="Email"
           value={email}
@@ -165,8 +258,10 @@ export default function UserLoginScreen() {
 const styles = StyleSheet.create({
   content: { gap: 28, paddingTop: 32 },
   header: { gap: 8 },
-  brand: { fontSize: 18, fontWeight: '800', color: palette.brandDark },
   title: { fontSize: 28, fontWeight: '800', color: palette.text },
+  bio: { gap: 10 },
+  bioHint: { fontSize: 13, color: palette.textMuted, textAlign: 'center' },
+  or: { fontSize: 13, color: palette.textMuted, textAlign: 'center', marginTop: 4 },
   subtitle: { fontSize: 15, lineHeight: 22, color: palette.textMuted },
   form: { gap: 16 },
   error: { color: palette.danger, fontSize: 14, fontWeight: '600' },
