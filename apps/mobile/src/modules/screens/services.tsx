@@ -2,6 +2,7 @@
 // Library (service setup) is web-only (locked by ModuleHost).
 import type { ComponentType } from 'react'
 import { makeTab } from '@/components/module/TabPlaceholder'
+import { BookingsScreen } from './bookings'
 
 const COLOR = '#9333EA'
 
@@ -12,10 +13,5 @@ export const servicesScreens: Record<string, ComponentType> = {
     blurb: 'Delivered services and their outcomes.',
     color: COLOR,
   }),
-  bookings: makeTab({
-    icon: 'calendar-number-outline',
-    title: 'Bookings',
-    blurb: 'Upcoming service appointments for this pharmacy.',
-    color: COLOR,
-  }),
+  bookings: BookingsScreen,
 }

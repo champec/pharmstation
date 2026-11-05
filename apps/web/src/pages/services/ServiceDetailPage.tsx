@@ -95,6 +95,11 @@ export function ServiceDetailPage() {
     await updateService(serviceId, { is_public: !activeService.is_public })
   }
 
+  const handleToggleVideo = async () => {
+    if (!serviceId || !activeService) return
+    await updateService(serviceId, { is_video: !activeService.is_video })
+  }
+
   const handleToggleChargeable = async () => {
     if (!serviceId || !activeService) return
     await updateService(serviceId, { is_chargeable: !activeService.is_chargeable })
@@ -246,6 +251,14 @@ export function ServiceDetailPage() {
               onChange={handleTogglePublic}
             />
             Publicly Bookable
+          </label>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 'var(--ps-space-xs)', cursor: 'pointer', fontSize: 'var(--ps-font-sm)' }} title="Bookings get a video room and the patient is texted the link and code with their reminder">
+            <input
+              type="checkbox"
+              checked={!!activeService.is_video}
+              onChange={handleToggleVideo}
+            />
+            Video appointment
           </label>
         </div>
       </div>

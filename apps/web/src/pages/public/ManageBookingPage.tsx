@@ -22,9 +22,13 @@ type ManageInfo = {
     paid_pence: number
   }
   can_cancel: boolean
+  can_move: boolean
   refund_on_cancel: boolean
   refund_cutoff_hours: number
+  video: { consultation_id: string; access_code: string } | null
 }
+
+type Slot = { id: string; start_time: string; end_time: string }
 
 const STATUS_LABEL: Record<ManageInfo['booking']['status'], string> = {
   pending: 'Waiting for the pharmacy to confirm',
@@ -48,6 +52,10 @@ async function call(body: Record<string, unknown>) {
 }
 
 const pounds = (p: number) => `£${(p / 100).toFixed(2)}`
+const dayKey = (iso: string) => {
+  const d = new Date(iso)
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
 
 export function ManageBookingPage() {
   const { token } = useParams<{ token: string }>()
@@ -58,6 +66,9 @@ export function ManageBookingPage() {
   const [confirming, setConfirming] = useState(false)
   const [busy, setBusy] = useState(false)
   const [notice, setNotice] = useState('')
+  const [slots, setSlots] = useState<Slot[] | null>(null)
+  const [moveDay, setMoveDay] = useState('')
+  const [moveTo, setMoveTo] = useState<string | null>(null)
 
   const load = async () => {
     setLoading(true)
@@ -90,6 +101,35 @@ export function ManageBookingPage() {
     setBusy(false)
   }
 
+  const openMove = async () => {
+    setBusy(true)
+    setError('')
+    try {
+      const out = await call({ action: 'available_slots', token })
+      setSlots(out.slots as Slot[])
+      setMoveDay(out.slots?.[0] ? dayKey(out.slots[0].start_time) : '')
+      setMoveTo(null)
+    } catch (e: any) {
+      setError(e.message)
+    }
+    setBusy(false)
+  }
+
+  const move = async () => {
+    if (!moveTo) return
+    setBusy(true)
+    setError('')
+    try {
+      await call({ action: 'reschedule', token, slot_id: moveTo })
+      setNotice('Your booking has been moved. We have texted you the new time.')
+      setSlots(null)
+      await load()
+    } catch (e: any) {
+      setError(e.message)
+    }
+    setBusy(false)
+  }
+
   const b = info?.booking
   const fmtDate = (iso: string) => new Date(iso).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
   const fmtTime = (iso: string) => new Date(iso).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
@@ -115,8 +155,12 @@ export function ManageBookingPage() {
             {b.start_time && (
               <div className="booking-result-detail"><span>Date and time</span><strong>{fmtDate(b.start_time)}, {fmtTime(b.start_time)}{b.end_time ? ` to ${fmtTime(b.end_time)}` : ''}</strong></div>
             )}
-            {b.is_video && b.status === 'confirmed' && (
+            {b.is_video && b.status === 'confirmed' && !info.video && (
               <div className="booking-result-detail"><span>How</span><strong>Video call. We'll text you the link and code before your appointment.</strong></div>
+            )}
+            {info.video && (
+              <div className="booking-result-detail"><span>Video call</span><strong>Your code is {info.video.access_code}</strong>
+                <a className="booking-primary-action" href={`/consult/${info.video.consultation_id}`}>Join video call</a></div>
             )}
             {b.paid_pence > 0 && (
               <div className="booking-result-detail"><span>Paid</span><strong>{pounds(b.paid_pence)}</strong></div>
@@ -124,7 +168,35 @@ export function ManageBookingPage() {
             {notice && <div className="booking-form-notice">{notice}</div>}
             {error && <div className="booking-form-error">{error}</div>}
 
-            {info.can_cancel && !confirming && (
+            {info.can_move && !slots && !confirming && (
+              <button type="button" className="booking-secondary-action" onClick={openMove} disabled={busy}>Move to another time</button>
+            )}
+            {slots && (
+              <div className="booking-manage-confirm">
+                {slots.length === 0 ? (
+                  <p>There are no other times available online. Please contact the pharmacy.</p>
+                ) : (
+                  <>
+                    <label htmlFor="move-day">Choose a day</label>
+                    <select id="move-day" className="ps-input" value={moveDay} onChange={(e) => { setMoveDay(e.target.value); setMoveTo(null) }}>
+                      {[...new Set(slots.map((x) => dayKey(x.start_time)))].map((d) => (
+                        <option key={d} value={d}>{fmtDate(`${d}T12:00:00`)}</option>
+                      ))}
+                    </select>
+                    <div className="booking-manage-slots">
+                      {slots.filter((x) => dayKey(x.start_time) === moveDay).map((x) => (
+                        <button type="button" key={x.id} className={moveTo === x.id ? 'selected' : ''} onClick={() => setMoveTo(x.id)}>{fmtTime(x.start_time)}</button>
+                      ))}
+                    </div>
+                  </>
+                )}
+                <div className="booking-manage-actions">
+                  <button type="button" className="booking-secondary-action" onClick={() => setSlots(null)} disabled={busy}>Keep current time</button>
+                  {slots.length > 0 && <button type="button" className="booking-primary-action" onClick={move} disabled={busy || !moveTo}>{busy ? 'Moving…' : 'Move my booking'}</button>}
+                </div>
+              </div>
+            )}
+            {info.can_cancel && !confirming && !slots && (
               <button type="button" className="booking-secondary-action" onClick={() => setConfirming(true)}>Cancel this booking</button>
             )}
             {info.can_cancel && confirming && (
