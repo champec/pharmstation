@@ -1,13 +1,19 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { useAuthStore, useSOPStore } from '@pharmstation/core'
+import { useAuthStore, useSOPStore, canManageSOPs } from '@pharmstation/core'
 import type { OrganisationMember } from '@pharmstation/types'
 import { getUserClient } from '@pharmstation/supabase-client'
 
 export function SOPAssignPage() {
   const { docId } = useParams<{ docId: string }>()
   const navigate = useNavigate()
-  const { organisation, activeUser } = useAuthStore()
+  const { organisation, membership, activeUser } = useAuthStore()
+
+  // Only SOP managers can assign and see everyone's progress; staff go to the read view.
+  const isManager = canManageSOPs(membership)
+  useEffect(() => {
+    if (membership && !isManager && docId) navigate(`/sops/${docId}/read`, { replace: true })
+  }, [membership, isManager, docId, navigate])
 
   const {
     activeDocument,

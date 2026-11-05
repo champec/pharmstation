@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useAuthStore, useSOPStore } from '@pharmstation/core'
+import { useAuthStore, useSOPStore, canManageSOPs } from '@pharmstation/core'
 import type { SOPDocument } from '@pharmstation/types'
 import { Modal } from '../../components/Modal'
 
@@ -26,8 +26,12 @@ export function SOPsPage() {
     clearError,
   } = useSOPStore()
 
-  const isManager = ['owner', 'manager', 'pharmacist'].includes(membership?.role ?? '')
+  const isManager = canManageSOPs(membership)
   const [tab, setTab] = useState<Tab>(isManager ? 'manage' : 'my-sops')
+  // Membership can arrive after the first render; staff never stay on the manage tab.
+  useEffect(() => {
+    if (membership && !isManager && tab === 'manage') setTab('my-sops')
+  }, [membership, isManager, tab])
   const [showCreate, setShowCreate] = useState(false)
   const [newTitle, setNewTitle] = useState('')
   const [newDesc, setNewDesc] = useState('')
@@ -68,7 +72,7 @@ export function SOPsPage() {
   }
 
   const handleDelete = async (doc: SOPDocument) => {
-    if (!confirm(`Delete "${doc.title}"? This will remove all nodes and assignments.`)) return
+    if (!confirm(`Delete "${doc.title}"? This removes all its sections, files and assignments. An SOP that anyone has signed can't be deleted; archive it instead so its sign-off history is kept.`)) return
     try {
       await deleteDocument(doc.id)
     } catch (e: any) {
@@ -183,6 +187,9 @@ export function SOPsPage() {
 
                   <div style={{ display: 'flex', gap: 12, fontSize: 12, color: 'var(--ps-text-muted)', flexWrap: 'wrap' }}>
                     <span>v{doc.version}</span>
+                    {tab === 'manage' && doc.published_at && doc.has_unpublished_changes && (
+                      <span style={{ color: 'var(--ps-warning)', fontWeight: 600 }}>Changes not published</span>
+                    )}
                     {doc.published_at && (
                       <span>Published {new Date(doc.published_at).toLocaleDateString()}</span>
                     )}
