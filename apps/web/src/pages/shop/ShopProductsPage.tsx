@@ -82,7 +82,9 @@ export function ShopProductsPage() {
 
   const handleImageFile = async (file: File | undefined) => {
     if (!file || !organisation?.id) return
-    if (!file.type.startsWith('image/')) { setModalError('Please choose an image file'); return }
+    if (!['image/jpeg', 'image/png', 'image/webp', 'image/gif'].includes(file.type)) {
+      setModalError('Please choose a JPEG, PNG, WebP or GIF image'); return
+    }
     if (file.size > 5 * 1024 * 1024) { setModalError('Image must be under 5 MB'); return }
     setUploadingImage(true); setModalError(null)
     try {
@@ -316,7 +318,7 @@ export function ShopProductsPage() {
               <input
                 ref={fileInputRef}
                 type="file"
-                accept="image/*"
+                accept="image/jpeg,image/png,image/webp,image/gif"
                 style={{ display: 'none' }}
                 onChange={(e) => handleImageFile(e.target.files?.[0])}
               />
