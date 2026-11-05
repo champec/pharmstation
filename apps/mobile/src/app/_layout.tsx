@@ -1,16 +1,20 @@
 import { useEffect, useRef } from 'react'
-import { ActivityIndicator, StyleSheet, Text, View } from 'react-native'
+import { ActivityIndicator, Platform, StyleSheet, View } from 'react-native'
 import { Stack, useRouter } from 'expo-router'
 import * as Notifications from 'expo-notifications'
 import { StatusBar } from 'expo-status-bar'
+import * as SplashScreen from 'expo-splash-screen'
 import { SafeAreaProvider } from 'react-native-safe-area-context'
 import { GestureHandlerRootView } from 'react-native-gesture-handler'
 
 import { useAuthStore } from '@/stores/auth-store'
-import { palette } from '@/theme/palette'
 import { registerForPush, type PushPayload } from '@/lib/push'
 import { useCommsStore } from '@/stores/comms-store'
 import { StartupNotices } from '@/components/StartupNotices'
+import { BRAND_BLUE, BrandLogo } from '@/components/BrandLogo'
+
+// Keep the native splash up until we know whether someone is signed in.
+SplashScreen.preventAutoHideAsync().catch(() => {})
 
 export default function RootLayout() {
   const initialize = useAuthStore((s) => s.initialize)
@@ -22,14 +26,18 @@ export default function RootLayout() {
 
   usePush(!initializing)
 
+  useEffect(() => {
+    if (!initializing) SplashScreen.hideAsync().catch(() => {})
+  }, [initializing])
+
   return (
     <GestureHandlerRootView style={styles.flex}>
       <SafeAreaProvider>
-        <StatusBar style="dark" />
+        <StatusBar style={initializing ? 'light' : 'dark'} />
         {initializing ? (
           <View style={styles.splash}>
-            <Text style={styles.logo}>PharmStation</Text>
-            <ActivityIndicator color={palette.brand} />
+            <BrandLogo variant="mark" size={120} wordmark="stack" />
+            <ActivityIndicator color="#fff" style={styles.spinner} />
           </View>
         ) : (
           <Stack screenOptions={{ headerShown: false }}>
@@ -49,7 +57,6 @@ export default function RootLayout() {
 function usePush(ready: boolean) {
   const router = useRouter()
   const isUserLoggedIn = useAuthStore((s) => s.isUserLoggedIn)
-  const response = Notifications.useLastNotificationResponse()
   const handled = useRef<string | null>(null)
 
   useEffect(() => {
@@ -57,15 +64,22 @@ function usePush(ready: boolean) {
   }, [ready, isUserLoggedIn])
 
   useEffect(() => {
-    if (!ready || !isUserLoggedIn || !response) return
-    const id = response.notification.request.identifier
-    if (handled.current === id) return
-    handled.current = id
-    const data = (response.notification.request.content.data ?? {}) as PushPayload
-    if (data.thread_id) useCommsStore.getState().setPendingOpen({ threadId: data.thread_id })
-    else if (data.from_number) useCommsStore.getState().setPendingOpen({ phone: data.from_number })
-    router.push({ pathname: '/module/[id]', params: { id: 'communications', tab: 'notifications' } })
-  }, [ready, isUserLoggedIn, response, router])
+    if (!ready || !isUserLoggedIn || Platform.OS === 'web') return
+    const open = (response: Notifications.NotificationResponse | null) => {
+      if (!response) return
+      const id = response.notification.request.identifier
+      if (handled.current === id) return
+      handled.current = id
+      const data = (response.notification.request.content.data ?? {}) as PushPayload
+      if (data.thread_id) useCommsStore.getState().setPendingOpen({ threadId: data.thread_id })
+      else if (data.from_number) useCommsStore.getState().setPendingOpen({ phone: data.from_number })
+      router.push({ pathname: '/module/[id]', params: { id: 'communications', tab: 'notifications' } })
+    }
+    // The tap that launched the app, then any taps while it's running.
+    Notifications.getLastNotificationResponseAsync().then(open).catch(() => {})
+    const sub = Notifications.addNotificationResponseReceivedListener(open)
+    return () => sub.remove()
+  }, [ready, isUserLoggedIn, router])
 }
 
 const styles = StyleSheet.create({
@@ -74,8 +88,7 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 16,
-    backgroundColor: palette.bg,
+    backgroundColor: BRAND_BLUE,
   },
-  logo: { fontSize: 24, fontWeight: '800', color: palette.brandDark },
+  spinner: { marginTop: 28 },
 })

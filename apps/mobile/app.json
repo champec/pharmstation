@@ -8,13 +8,13 @@
     "scheme": "pharmstation",
     "userInterfaceStyle": "automatic",
     "ios": {
-      "icon": "./assets/expo.icon",
+      "icon": "./assets/images/icon.png",
       "bundleIdentifier": "com.pharmstation.mobile"
     },
     "android": {
       "package": "com.pharmstation.mobile",
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
+        "backgroundColor": "#257BB4",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
         "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
@@ -31,11 +31,9 @@
       [
         "expo-splash-screen",
         {
-          "backgroundColor": "#208AEF",
-          "android": {
-            "image": "./assets/images/splash-icon.png",
-            "imageWidth": 76
-          }
+          "backgroundColor": "#257BB4",
+          "image": "./assets/images/splash-icon.png",
+          "imageWidth": 200
         }
       ],
       "expo-sharing",
@@ -73,7 +71,7 @@
       [
         "expo-notifications",
         {
-          "color": "#208AEF",
+          "color": "#257BB4",
           "defaultChannel": "default"
         }
       ]
@@ -93,6 +91,7 @@
       "eas": {
         "projectId": "93bbae05-5861-493b-9810-168c9999d569"
       }
-    }
+    },
+    "backgroundColor": "#257BB4"
   }
 }
