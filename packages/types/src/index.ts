@@ -150,6 +150,10 @@ export interface Permissions {
   care_home_requests?: boolean
   care_home_mar_prepare?: boolean
   care_home_mar_administer?: boolean
+  /** Create, edit and archive services and their forms (services module) */
+  services_manage?: boolean
+  /** Amend a completed service record (reason + audit trail) */
+  services_amend?: boolean
   [key: string]: boolean | undefined
 }
 
@@ -426,7 +430,9 @@ export interface AuditLogEntry {
 // Mirrored in the database by ps_role_default_permission() (see
 // supabase/migrations/20261104123000_role_permissions_foundation.sql), which
 // RLS policies and functions use through ps_member_has_permission().
-// Change both together.
+// Change both together. Exception: services_manage / services_amend are
+// mirrored in ps_member_has_services_permission() (see
+// supabase/migrations/20261105160200_services_records_protection.sql).
 
 export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, Permissions> = {
   owner: {
@@ -452,6 +458,8 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, Permissions> = {
     care_home_requests: true,
     care_home_mar_prepare: true,
     care_home_mar_administer: true,
+    services_manage: true,
+    services_amend: true,
   },
   manager: {
     cd_register_read: true,
@@ -476,6 +484,8 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, Permissions> = {
     care_home_requests: true,
     care_home_mar_prepare: true,
     care_home_mar_administer: true,
+    services_manage: true,
+    services_amend: true,
   },
   pharmacist: {
     cd_register_read: true,
@@ -500,6 +510,8 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, Permissions> = {
     care_home_requests: true,
     care_home_mar_prepare: true,
     care_home_mar_administer: true,
+    services_manage: true,
+    services_amend: true,
   },
   technician: {
     cd_register_read: true,
@@ -524,6 +536,8 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, Permissions> = {
     care_home_requests: true,
     care_home_mar_prepare: true,
     care_home_mar_administer: false,
+    services_manage: false,
+    services_amend: false,
   },
   dispenser: {
     cd_register_read: false,
@@ -548,6 +562,8 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, Permissions> = {
     care_home_requests: true,
     care_home_mar_prepare: false,
     care_home_mar_administer: false,
+    services_manage: false,
+    services_amend: false,
   },
   locum: {
     cd_register_read: true,
@@ -572,6 +588,8 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, Permissions> = {
     care_home_requests: true,
     care_home_mar_prepare: true,
     care_home_mar_administer: false,
+    services_manage: false,
+    services_amend: true,
   },
   carehome_user: {
     cd_register_read: false,
@@ -596,6 +614,8 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, Permissions> = {
     care_home_requests: true,
     care_home_mar_prepare: false,
     care_home_mar_administer: true,
+    services_manage: false,
+    services_amend: false,
   },
 }
 
@@ -971,6 +991,8 @@ export interface Service {
   currency?: string
   /** Delivered by video: booking it sets up a video consultation */
   is_video?: boolean
+  /** Set when the service is archived (records are kept; it is hidden) */
+  archived_at?: string | null
 }
 
 // ============ Payments (Stripe) ============
@@ -1023,6 +1045,8 @@ export interface ServiceForm {
   is_default: boolean
   version: number
   created_at: string
+  /** Set when the form is archived (past records keep their snapshot) */
+  archived_at?: string | null
   fields?: ServiceFormField[]
 }
 
@@ -1116,6 +1140,33 @@ export interface ServiceDelivery {
   status: 'draft' | 'completed'
   created_at: string
   completed_at: string | null
+  /** Idempotency key sent by the app when completing */
+  client_ref?: string | null
+  /** Form version and field definitions at the time of delivery */
+  form_version?: number | null
+  form_snapshot?: ServiceFormSnapshot | null
+  updated_at?: string
+  amended_at?: string | null
+  amendment_count?: number
+}
+
+export interface ServiceFormSnapshot {
+  form_id: string
+  name: string
+  version: number
+  fields: Array<Pick<ServiceFormField, 'field_key' | 'label' | 'field_type' | 'options' | 'is_required'>>
+}
+
+export interface ServiceDeliveryEvent {
+  id: string
+  delivery_id: string
+  org_id: string
+  event: 'completed' | 'amended'
+  actor: string | null
+  reason: string | null
+  before: { form_data?: Record<string, unknown>; notes?: string } | null
+  after: { form_data?: Record<string, unknown>; notes?: string } | null
+  created_at: string
 }
 
 // ============================================

@@ -1,6 +1,36 @@
 import { create } from 'zustand'
-import type { Service, ServiceLibraryItem, ServiceForm, ServiceFormField, ServiceDelivery } from '@pharmstation/types'
+import type { Service, ServiceLibraryItem, ServiceForm, ServiceFormField, ServiceDelivery, OutcomeType } from '@pharmstation/types'
 import { getUserClient } from '@pharmstation/supabase-client'
+
+export interface CompleteDeliveryInput {
+  orgId: string
+  serviceId: string
+  /** Idempotency key: reuse the same value when retrying the same delivery */
+  clientRef: string
+  patientId?: string | null
+  formId?: string | null
+  formData: Record<string, unknown>
+  notes?: string
+  outcome?: {
+    outcome_type: OutcomeType
+    referral_to?: string | null
+    referral_reason?: string | null
+    referral_urgency?: 'routine' | 'urgent' | 'emergency' | null
+    advice_given?: string | null
+  } | null
+  medications?: Array<{
+    drug_id: string | null
+    drug_name: string
+    drug_form?: string | null
+    drug_strength?: string | null
+    dose?: string | null
+    quantity?: number | null
+    unit?: string | null
+    is_controlled_drug?: boolean
+    sort_order?: number
+  }>
+  draftId?: string | null
+}
 
 export interface ServiceState {
   // Data
@@ -21,13 +51,16 @@ export interface ServiceState {
   createService: (service: Partial<Service>) => Promise<Service>
   subscribeToLibraryService: (orgId: string, libraryItemId: string) => Promise<Service>
   updateService: (serviceId: string, updates: Partial<Service>) => Promise<void>
-  deleteService: (serviceId: string) => Promise<void>
+  /** Hide a service. Its delivery records are always kept. */
+  archiveService: (serviceId: string) => Promise<void>
   createForm: (serviceId: string, name: string) => Promise<ServiceForm>
   saveFields: (formId: string, fields: Partial<ServiceFormField>[]) => Promise<void>
-  deleteForm: (formId: string) => Promise<void>
+  /** Hide a form. Past records keep a snapshot of the form they used. */
+  archiveForm: (formId: string) => Promise<void>
   // Deliveries
   fetchDeliveries: (orgId: string, serviceId?: string) => Promise<void>
-  createDelivery: (delivery: Partial<ServiceDelivery>) => Promise<ServiceDelivery>
+  /** Save delivery + outcome + medicines in one transaction (idempotent on clientRef) */
+  completeDelivery: (input: CompleteDeliveryInput) => Promise<ServiceDelivery>
   clearError: () => void
 }
 
@@ -48,6 +81,7 @@ export const useServiceStore = create<ServiceState>((set, get) => ({
         .from('ps_services')
         .select('*')
         .eq('org_id', orgId)
+        .is('archived_at', null)
         .order('name')
       if (error) throw error
       set({ services: data as Service[], loading: false })
@@ -88,6 +122,7 @@ export const useServiceStore = create<ServiceState>((set, get) => ({
         .from('ps_service_forms')
         .select('*')
         .or(ownerFilter)
+        .is('archived_at', null)
         .order('created_at')
       if (formsRes.error) throw formsRes.error
 
@@ -131,6 +166,30 @@ export const useServiceStore = create<ServiceState>((set, get) => ({
   subscribeToLibraryService: async (orgId, libraryItemId) => {
     const lib = get().libraryItems.find((l) => l.id === libraryItemId)
     if (!lib) throw new Error('Library item not found')
+    // Re-adding a service that was removed brings back the archived one, so
+    // its history stays under a single service.
+    const client = getUserClient()
+    const { data: archived, error: archivedErr } = await client
+      .from('ps_services')
+      .select('*')
+      .eq('org_id', orgId)
+      .eq('library_service_id', libraryItemId)
+      .not('archived_at', 'is', null)
+      .limit(1)
+      .maybeSingle()
+    if (archivedErr) throw archivedErr
+    if (archived) {
+      const { data: restored, error } = await client
+        .from('ps_services')
+        .update({ archived_at: null, is_active: true })
+        .eq('id', (archived as Service).id)
+        .select()
+        .single()
+      if (error) throw error
+      const svc = restored as Service
+      set((s) => ({ services: [...s.services, svc] }))
+      return svc
+    }
     return get().createService({
       org_id: orgId,
       library_service_id: libraryItemId,
@@ -141,11 +200,13 @@ export const useServiceStore = create<ServiceState>((set, get) => ({
   },
 
   updateService: async (serviceId, updates) => {
-    const { error } = await getUserClient()
+    const { data, error } = await getUserClient()
       .from('ps_services')
       .update(updates)
       .eq('id', serviceId)
+      .select('id')
     if (error) throw error
+    if (!data || data.length === 0) throw new Error('You do not have permission to change this service.')
     set((s) => ({
       services: s.services.map((svc) =>
         svc.id === serviceId ? { ...svc, ...updates } : svc
@@ -157,12 +218,14 @@ export const useServiceStore = create<ServiceState>((set, get) => ({
     }))
   },
 
-  deleteService: async (serviceId) => {
-    const { error } = await getUserClient()
+  archiveService: async (serviceId) => {
+    const { data, error } = await getUserClient()
       .from('ps_services')
-      .delete()
+      .update({ archived_at: new Date().toISOString(), is_active: false, is_public: false })
       .eq('id', serviceId)
+      .select('id')
     if (error) throw error
+    if (!data || data.length === 0) throw new Error('You do not have permission to remove this service.')
     set((s) => ({
       services: s.services.filter((svc) => svc.id !== serviceId),
     }))
@@ -190,29 +253,32 @@ export const useServiceStore = create<ServiceState>((set, get) => ({
   },
 
   saveFields: async (formId, fields) => {
-    const client = getUserClient()
-    // Delete existing fields for this form
-    await client.from('ps_service_form_fields').delete().eq('form_id', formId)
-    // Insert all fields with correct display_order
-    const rows = fields.map((f, i) => ({
-      ...f,
-      form_id: formId,
-      display_order: i,
+    // One transaction on the server: replaces the fields in order and bumps
+    // the form version. Past records keep a snapshot of the old version.
+    const payload = fields.map((f) => ({
+      label: f.label,
+      field_key: f.field_key,
+      field_type: f.field_type,
+      options: f.options ?? null,
+      is_required: f.is_required ?? false,
     }))
-    if (rows.length > 0) {
-      const { error } = await client.from('ps_service_form_fields').insert(rows)
-      if (error) throw error
-    }
+    const { error } = await getUserClient().rpc('ps_save_service_form_fields', {
+      p_form_id: formId,
+      p_fields: payload,
+    })
+    if (error) throw error
     // Refresh
     await get().fetchFormFields(formId)
   },
 
-  deleteForm: async (formId) => {
-    const { error } = await getUserClient()
+  archiveForm: async (formId) => {
+    const { data, error } = await getUserClient()
       .from('ps_service_forms')
-      .delete()
+      .update({ archived_at: new Date().toISOString(), is_default: false })
       .eq('id', formId)
+      .select('id')
     if (error) throw error
+    if (!data || data.length === 0) throw new Error('You do not have permission to remove this form.')
     set((s) => ({
       activeForms: s.activeForms.filter((f) => f.id !== formId),
     }))
@@ -235,15 +301,24 @@ export const useServiceStore = create<ServiceState>((set, get) => ({
     }
   },
 
-  createDelivery: async (delivery) => {
-    const { data, error } = await getUserClient()
-      .from('ps_service_deliveries')
-      .insert(delivery)
-      .select()
-      .single()
+  completeDelivery: async (input) => {
+    const { data, error } = await getUserClient().rpc('ps_complete_service_delivery', {
+      p_org_id: input.orgId,
+      p_service_id: input.serviceId,
+      p_client_ref: input.clientRef,
+      p_patient_id: input.patientId || null,
+      p_form_id: input.formId || null,
+      p_form_data: input.formData ?? {},
+      p_notes: input.notes ?? '',
+      p_outcome: input.outcome ?? null,
+      p_medications: input.medications ?? [],
+      p_draft_id: input.draftId || null,
+    })
     if (error) throw error
     const created = data as ServiceDelivery
-    set((s) => ({ deliveries: [created, ...s.deliveries] }))
+    set((s) => ({
+      deliveries: [created, ...s.deliveries.filter((d) => d.id !== created.id)],
+    }))
     return created
   },
 

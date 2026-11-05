@@ -4,6 +4,7 @@ import { useAuthStore, useAppointmentStore } from '@pharmstation/core'
 import { getUserClient } from '@pharmstation/supabase-client'
 import type { Appointment, AppointmentStatus } from '@pharmstation/types'
 import { Modal } from '../../components/Modal'
+import { PatientServicesTab } from '../../components/services/PatientServicesTab'
 
 const STATUS_BADGE: Record<AppointmentStatus, { cls: string; label: string }> = {
   pending: { cls: 'ps-badge-amber', label: 'Pending' },
@@ -28,7 +29,7 @@ export function PatientDetailPage() {
 
   const [patientAppointments, setPatientAppointments] = useState<Appointment[]>([])
   const [apptLoading, setApptLoading] = useState(false)
-  const [tab, setTab] = useState<'appointments' | 'messages' | 'video'>('appointments')
+  const [tab, setTab] = useState<'appointments' | 'services' | 'messages' | 'video'>('appointments')
 
   // Edit modal
   const [showEditModal, setShowEditModal] = useState(false)
@@ -175,7 +176,7 @@ export function PatientDetailPage() {
 
       {/* Tabs */}
       <div style={{ display: 'flex', gap: 'var(--ps-space-md)', marginBottom: 'var(--ps-space-lg)', borderBottom: '2px solid var(--ps-off-white)' }}>
-        {(['appointments', 'messages', 'video'] as const).map((t) => (
+        {(['appointments', 'services', 'messages', 'video'] as const).map((t) => (
           <button
             key={t}
             className="ps-btn ps-btn-ghost"
@@ -188,7 +189,7 @@ export function PatientDetailPage() {
             }}
             onClick={() => setTab(t)}
           >
-            {t === 'appointments' ? '📅 Appointments' : t === 'messages' ? '💬 Messages' : '📹 Video Consults'}
+            {t === 'appointments' ? '📅 Appointments' : t === 'services' ? '🩺 Services' : t === 'messages' ? '💬 Messages' : '📹 Video Consults'}
           </button>
         ))}
       </div>
@@ -237,6 +238,10 @@ export function PatientDetailPage() {
             </div>
           )}
         </div>
+      )}
+
+      {tab === 'services' && patientId && organisation?.id && (
+        <PatientServicesTab patientId={patientId} orgId={organisation.id} />
       )}
 
       {tab === 'messages' && (

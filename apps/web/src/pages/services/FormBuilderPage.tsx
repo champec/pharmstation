@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { useServiceStore } from '@pharmstation/core'
+import { useServiceStore, useAuthStore } from '@pharmstation/core'
 import type { ServiceFormField, FieldType } from '@pharmstation/types'
 
 /* ---- Constants ---- */
@@ -76,6 +76,8 @@ export function FormBuilderPage() {
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [previewMode, setPreviewMode] = useState(false)
+  const [saveError, setSaveError] = useState<string | null>(null)
+  const { permissions } = useAuthStore()
 
   const savedTimeout = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -150,8 +152,9 @@ export function FormBuilderPage() {
   /* ---- Save ---- */
 
   const handleSave = async () => {
-    if (!formId) return
+    if (!formId || readOnly) return
     setSaving(true)
+    setSaveError(null)
     try {
       const toSave = fields.map((f, i) => ({
         label: f.label,
@@ -166,7 +169,9 @@ export function FormBuilderPage() {
       setSaved(true)
       if (savedTimeout.current) clearTimeout(savedTimeout.current)
       savedTimeout.current = setTimeout(() => setSaved(false), 2500)
-    } catch { /* error from store */ }
+    } catch (e) {
+      setSaveError(e instanceof Error ? e.message : 'The form could not be saved.')
+    }
     setSaving(false)
   }
 
@@ -178,6 +183,12 @@ export function FormBuilderPage() {
   // Find the form name
   const activeForms = useServiceStore((s) => s.activeForms)
   const currentForm = activeForms.find((f) => f.id === formId)
+  // Standard (library / NHS) forms and staff without services_manage get a
+  // read-only view; the database enforces the same rule.
+  const readOnly =
+    !permissions?.services_manage ||
+    !!activeService?.is_nhs_service ||
+    (currentForm != null && !currentForm.org_service_id)
 
   return (
     <div>
@@ -205,38 +216,43 @@ export function FormBuilderPage() {
                 ✓ Saved
               </span>
             )}
-            <button
-              className="ps-btn ps-btn-secondary ps-btn-sm"
-              onClick={() => setPreviewMode(!previewMode)}
-            >
-              {previewMode ? '🔧 Edit' : '👁 Preview'}
-            </button>
-            {dirty && (
+            {!readOnly && (
+              <button
+                className="ps-btn ps-btn-secondary ps-btn-sm"
+                onClick={() => setPreviewMode(!previewMode)}
+              >
+                {previewMode ? '🔧 Edit' : '👁 Preview'}
+              </button>
+            )}
+            {readOnly && <span className="ps-badge">Read only</span>}
+            {!readOnly && dirty && (
               <button className="ps-btn ps-btn-ghost ps-btn-sm" onClick={handleDiscard}>
                 Discard
               </button>
             )}
-            <button
-              className="ps-btn ps-btn-primary"
-              onClick={handleSave}
-              disabled={saving || !dirty}
-            >
-              {saving ? 'Saving…' : 'Save Fields'}
-            </button>
+            {!readOnly && (
+              <button
+                className="ps-btn ps-btn-primary"
+                onClick={handleSave}
+                disabled={saving || !dirty}
+              >
+                {saving ? 'Saving…' : 'Save Fields'}
+              </button>
+            )}
           </div>
         </div>
       </div>
 
-      {error && (
+      {(error || saveError) && (
         <div className="auth-error" style={{ marginBottom: 'var(--ps-space-md)' }}>
-          {error}
-          <button className="ps-btn ps-btn-ghost ps-btn-sm" onClick={clearError} style={{ marginLeft: 'var(--ps-space-sm)' }}>
+          {error || saveError}
+          <button className="ps-btn ps-btn-ghost ps-btn-sm" onClick={() => { clearError(); setSaveError(null) }} style={{ marginLeft: 'var(--ps-space-sm)' }}>
             Dismiss
           </button>
         </div>
       )}
 
-      {previewMode ? (
+      {previewMode || readOnly ? (
         <FormPreview fields={fields} />
       ) : (
         <div style={{ display: 'flex', gap: 'var(--ps-space-lg)', alignItems: 'flex-start' }}>
