@@ -529,6 +529,16 @@ function AlertsScreen() {
   const markAll = useCommsStore((s) => s.markAllAlertsRead)
   const [threadId, setThreadId] = useState<string | null>(null)
   const [phone, setPhone] = useState<string | null>(null)
+  const pendingOpen = useCommsStore((s) => s.pendingOpen)
+  const setPendingOpen = useCommsStore((s) => s.setPendingOpen)
+
+  // Opened from a push notification: jump straight into that conversation.
+  useEffect(() => {
+    if (!pendingOpen) return
+    if (pendingOpen.threadId) setThreadId(pendingOpen.threadId)
+    else if (pendingOpen.phone) setPhone(pendingOpen.phone)
+    setPendingOpen(null)
+  }, [pendingOpen, setPendingOpen])
 
   const open = (item: AlertItem) => {
     void markRead(item.id)

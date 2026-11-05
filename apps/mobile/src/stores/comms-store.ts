@@ -120,6 +120,9 @@ interface CommsState {
   alertsLoading: boolean
   alertsError: string | null
   alertsUnread: number
+  /** Conversation to open when the app was launched from a push. */
+  pendingOpen: { threadId?: string; phone?: string } | null
+  setPendingOpen: (v: { threadId?: string; phone?: string } | null) => void
 
   loadNetwork: () => Promise<void>
   openThread: (threadId: string) => Promise<void>
@@ -213,6 +216,8 @@ export const useCommsStore = create<CommsState>((set, get) => ({
   alertsLoading: false,
   alertsError: null,
   alertsUnread: 0,
+  pendingOpen: null,
+  setPendingOpen: (v) => set({ pendingOpen: v }),
 
   // ---------------------------------------------------------------- network
   loadNetwork: async () => {
