@@ -6,6 +6,8 @@ import { DashboardLayout } from './layouts/DashboardLayout'
 import { LocumLayout } from './layouts/LocumLayout'
 import { OrgLoginPage } from './pages/auth/OrgLoginPage'
 import { UserLoginPage } from './pages/auth/UserLoginPage'
+import { ForgotPasswordPage } from './pages/auth/ForgotPasswordPage'
+import { ResetPasswordPage } from './pages/auth/ResetPasswordPage'
 import { PersonalLoginPage } from './pages/auth/PersonalLoginPage'
 import { PersonalProfilePage } from './pages/PersonalProfilePage'
 import { LocumApprovalsPage } from './pages/admin/LocumApprovalsPage'
@@ -98,9 +100,11 @@ import { PublicBookingHomePage } from './pages/public/PublicBookingHomePage'
 import { PublicOrgPage } from './pages/public/PublicOrgPage'
 import { PublicServicePage } from './pages/public/PublicServicePage'
 import { PublicBookingConfirmPage } from './pages/public/PublicBookingConfirmPage'
+import { ManageBookingPage } from './pages/public/ManageBookingPage'
 import { PaymentResultPage } from './pages/public/PaymentResultPage'
 import { PaymentsPage } from './pages/payments/PaymentsPage'
 import { AboutPage } from './pages/public/AboutPage'
+import { ContactPage } from './pages/public/ContactPage'
 import { PublicPharmacyMapPage } from './pages/public/PublicPharmacyMapPage'
 import { PrivacyNoticePage } from './pages/public/PrivacyNoticePage'
 import { LandingPage } from './pages/public/LandingPage'
@@ -192,9 +196,11 @@ export function App() {
       <Route path="/book/:orgSlug/:serviceId" element={<PublicServicePage />} />
       <Route path="/book/:orgSlug/:serviceId/confirm" element={<PublicBookingConfirmPage />} />
       <Route path="/book/:orgSlug/payment-result" element={<PaymentResultPage />} />
+      <Route path="/booking/manage/:token" element={<ManageBookingPage />} />
       <Route path="/shop" element={<ModernShopHomePage />} />
       <Route path="/shop/:orgSlug" element={<PublicShopOrgPage />} />
       <Route path="/about" element={<AboutPage />} />
+      <Route path="/contact" element={<ContactPage />} />
       <Route path="/privacy" element={<PrivacyNoticePage />} />
       <Route path="/resources" element={<ResourcesPage />} />
       <Route path="/resources/forms" element={<ServiceFormsPage />} />
@@ -268,6 +274,9 @@ export function App() {
           element={isOrgLoggedIn ? <OwnerSetupPage /> : <Navigate to="/login/org" replace />}
         />
         <Route path="/join/:token" element={<JoinInvitePage />} />
+        {/* Password reset: open whatever is signed in on this device */}
+        <Route path="/forgot-password/:kind?" element={<ForgotPasswordPage />} />
+        <Route path="/reset-password/:kind?" element={<ResetPasswordPage />} />
         {/* Personal (individual-tier) login — bypasses org entirely */}
         <Route
           path="/me/login"

@@ -38,6 +38,7 @@
 import Stripe from 'https://esm.sh/stripe@17.7.0?target=denonext'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.0'
 import { syncSubscription } from '../_shared/billing-sync.ts'
+import { loadBooking, pounds, refundBookingPayment, textPatient } from '../_shared/appointment-helpers.ts'
 
 function getStripe(): Stripe {
   const key = Deno.env.get('STRIPE_SECRET_KEY')
@@ -76,11 +77,37 @@ async function onCheckoutCompleted(db: Db, session: Stripe.Checkout.Session) {
   // Paid booking: the patient has committed, so confirm the slot.
   const appointmentId = await appointmentFor(db, session)
   if (appointmentId) {
-    const { error: apptErr } = await db.from('ps_appointments')
-      .update({ status: 'confirmed' })
+    const { data: confirmed, error: apptErr } = await db.from('ps_appointments')
+      .update({ status: 'confirmed', hold_expires_at: null })
       .eq('id', appointmentId)
       .eq('status', 'pending')
+      .select('id')
     if (apptErr) throw new Error(`appointment confirm failed: ${apptErr.message}`)
+
+    const booking = await loadBooking(db, { id: appointmentId })
+    if (confirmed?.length) {
+      if (booking) await textPatient(db, booking, 'confirmed', 'Payment received, thank you.')
+    } else if (booking?.status === 'cancelled') {
+      // Paid after the hold ran out and the slot was released: give the
+      // money back rather than keep payment for a booking that doesn't exist.
+      try {
+        const refunded = await refundBookingPayment(db, appointmentId, 'system:late_payment')
+        if (refunded) {
+          await textPatient(db, booking, 'cancelled',
+            `Your payment arrived after the booking had expired, so ${pounds(refunded)} has been refunded. Please book again.`)
+        }
+      } catch (e) {
+        console.error('late payment refund failed', e)
+        await db.rpc('ps_fanout_notification', {
+          p_org_id: booking.org_id,
+          p_event_type: 'appointment',
+          p_title: 'Refund needed: payment for an expired booking',
+          p_body: `${booking.patient_first_name ?? 'A patient'} paid for ${booking.service_name} after the booking expired. Refund them from Payments.`,
+          p_link: '/payments',
+          p_metadata: { appointment_id: appointmentId },
+        })
+      }
+    }
   }
 }
 

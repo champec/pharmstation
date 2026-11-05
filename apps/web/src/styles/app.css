@@ -365,6 +365,12 @@
 .booking-checkbox-option input, .booking-multiselect-options input { width: 18px; height: 18px; accent-color: var(--booking-green); }
 .booking-multiselect-options { display: flex; flex-wrap: wrap; gap: 8px; }
 .booking-form-error { padding: 13px 15px; border-left: 4px solid #b83c35; background: #fee9e7; color: #8f2f2a; font-size: 14px; }
+.booking-form-notice { padding: 13px 15px; border-left: 4px solid var(--booking-green); background: #e8f4ee; color: #1f4d36; font-size: 14px; }
+.booking-turnstile { min-height: 65px; }
+.booking-manage { text-align: center; }
+.booking-manage .booking-result-detail { width: 100%; }
+.booking-manage-confirm { display: grid; gap: 10px; width: 100%; }
+.booking-manage-actions { display: flex; justify-content: center; gap: 10px; flex-wrap: wrap; }
 .booking-confirm-form > footer { display: flex; justify-content: flex-end; gap: 10px; padding-top: 5px; }
 .booking-result { display: grid; width: min(660px, calc(100% - 36px)); min-height: calc(100vh - 72px); place-items: center; align-content: center; gap: 11px; margin: 0 auto; text-align: center; }
 .booking-result-mark { display: grid; width: 70px; height: 70px; place-items: center; margin-bottom: 8px; border-radius: 50%; background: var(--booking-green); color: #fff; font-size: 34px; }
@@ -5843,6 +5849,89 @@
   color: var(--ps-error);
   font-size: var(--ps-font-sm);
   margin-top: var(--ps-space-xs);
+}
+
+.mfa-code-input {
+  font-size: 1.5rem;
+  letter-spacing: 0.3em;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.totp-steps {
+  padding-left: 1.25rem;
+  margin: 0 0 1rem;
+  display: grid;
+  gap: 0.75rem;
+  font-size: 0.875rem;
+}
+
+.totp-qr {
+  margin: 0.75rem 0;
+  padding: 0.5rem;
+  background: #fff;
+  display: inline-block;
+  border-radius: var(--ps-radius-md);
+  border: 1px solid var(--ps-border, #e2e8f0);
+}
+
+.totp-secret {
+  display: block;
+  margin-top: 0.5rem;
+  padding: 0.5rem;
+  word-break: break-all;
+  font-size: 0.8125rem;
+  background: var(--ps-off-white, #f8fafc);
+  border-radius: var(--ps-radius-md);
+}
+
+.signin-activity {
+  display: grid;
+  max-height: 420px;
+  overflow-y: auto;
+  font-size: var(--ps-font-sm);
+}
+
+.signin-activity-row {
+  display: grid;
+  grid-template-columns: 8.5rem minmax(8rem, 12rem) 1fr;
+  gap: 0.75rem;
+  padding: 0.45rem 0;
+  border-bottom: 1px solid var(--ps-border, #e2e8f0);
+}
+
+.signin-activity-row.is-problem .signin-activity-what {
+  color: var(--ps-error);
+  font-weight: 600;
+}
+
+.signin-activity-time {
+  color: var(--ps-slate);
+  font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 640px) {
+  .signin-activity-row {
+    grid-template-columns: 1fr;
+    gap: 0.1rem;
+  }
+}
+
+.ps-btn-danger {
+  background: var(--ps-error);
+  color: #fff;
+  border-color: var(--ps-error);
+}
+
+.mfa-setup-gate {
+  max-width: 560px;
+  margin: 2rem auto;
+}
+
+.auth-forgot-link {
+  text-align: right;
+  margin: calc(var(--ps-space-xs) * -1) 0 var(--ps-space-sm);
+  font-size: var(--ps-font-sm);
 }
 
 .auth-error {
@@ -14067,4 +14156,23 @@ textarea.form-input {
   .chat-composer { padding-bottom: calc(var(--ps-space-xs) + env(safe-area-inset-bottom, 0px)); }
   .chat-composer-foot > span:first-child { display: none; }
   .chat-composer-input { font-size: 16px; }
+}
+
+/* Contact page and in-app help form */
+.contact-layout { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); gap: 24px; align-items: start; }
+.contact-form { display: grid; gap: 16px; }
+.contact-form .form-group { display: grid; gap: 6px; }
+.contact-form .ps-input { width: 100%; min-height: 44px; padding: 10px 12px; font-size: 15px; }
+.contact-form textarea.ps-input { resize: vertical; }
+.contact-form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.contact-optional { color: var(--landing-muted); font-weight: 400; }
+.contact-hint { color: var(--landing-muted); font-size: 13px; margin: 0; }
+.contact-honeypot { position: absolute; left: -10000px; width: 1px; height: 1px; overflow: hidden; }
+.contact-addresses { list-style: none; padding: 0; margin: 0 0 16px; display: grid; gap: 12px; }
+.contact-addresses li { display: grid; gap: 2px; }
+.contact-addresses a { font-weight: 700; color: var(--landing-blue); word-break: break-all; }
+.contact-addresses span { color: var(--landing-muted); font-size: 14px; }
+.contact-sent { display: grid; gap: 12px; justify-items: start; }
+@media (max-width: 860px) {
+  .contact-layout, .contact-form-row { grid-template-columns: 1fr; }
 }

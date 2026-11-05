@@ -169,6 +169,7 @@ export type TransactionType =
   | 'transfer_in'
   | 'transfer_out'
   | 'balance_check'
+  | 'opening_balance'
 
 // --- Register Ledger ---
 
@@ -422,15 +423,19 @@ export interface AuditLogEntry {
 }
 
 // --- Default Role Permissions ---
+// Mirrored in the database by ps_role_default_permission() (see
+// supabase/migrations/20261104123000_role_permissions_foundation.sql), which
+// RLS policies and functions use through ps_member_has_permission().
+// Change both together.
 
 export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, Permissions> = {
   owner: {
     cd_register_read: true,
-    cd_register_write: false, // Owner defaults to read-only on CD, can self-enable
+    cd_register_write: true, // Kept in step with ps_role_default_permission() in the database
     cd_register_correct: false,
     rp_log_sign: true,
     rp_log_view: true,
-    patient_returns_write: false,
+    patient_returns_write: true,
     sop_upload: true,
     handover_all: true,
     manage_users: true,
@@ -450,11 +455,11 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, Permissions> = {
   },
   manager: {
     cd_register_read: true,
-    cd_register_write: false,
+    cd_register_write: true,
     cd_register_correct: false,
     rp_log_sign: false,
     rp_log_view: true,
-    patient_returns_write: false,
+    patient_returns_write: true,
     sop_upload: true,
     handover_all: true,
     manage_users: true,
@@ -595,6 +600,26 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, Permissions> = {
 }
 
 // --- Utility: resolve permissions with overrides ---
+
+/** Today's date in the UK (Europe/London) as YYYY-MM-DD. Use for register dates, not toISOString (UTC). */
+export function ukToday(date: Date = new Date()): string {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Europe/London',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(date)
+}
+
+/**
+ * UK practice: an AI-read prescription or invoice only becomes a CD register
+ * line once a pharmacist or pharmacy technician has checked it. Mirrors
+ * ps_is_cd_scan_reviewer() in the database, which is what actually enforces it.
+ */
+export function canApproveCdScan(role: UserRole | null | undefined, gphcNumber?: string | null): boolean {
+  if (role === 'pharmacist' || role === 'technician' || role === 'locum') return true
+  return !!gphcNumber?.trim()
+}
 
 export function resolvePermissions(role: UserRole, overrides: Permissions = {}): Permissions {
   return {
@@ -944,6 +969,8 @@ export interface Service {
   price_pence?: number | null
   /** ISO currency code, defaults to gbp */
   currency?: string
+  /** Delivered by video: booking it sets up a video consultation */
+  is_video?: boolean
 }
 
 // ============ Payments (Stripe) ============
@@ -1123,6 +1150,17 @@ export interface Appointment {
   booked_by_user_id: string | null
   created_at: string
   updated_at: string
+  /** Unpaid booking of a paid service: released automatically after this time */
+  hold_expires_at?: string | null
+  /** Secret for the patient's manage link — staff only, never show to other patients */
+  manage_token?: string
+  /** Why staff should check which patient record this booking belongs to */
+  patient_review_reason?: string | null
+  cancelled_at?: string | null
+  cancelled_by?: 'patient' | 'pharmacy' | 'system' | null
+  reminder_sent_at?: string | null
+  /** How it was booked: by staff, the public booking page, or the patient portal */
+  source?: 'staff' | 'public' | 'portal'
   // Joined
   patient?: Patient
   service?: Service | null

@@ -4,6 +4,10 @@ import { getUserClient } from '@pharmstation/supabase-client'
 import { useAuthStore, useAlertStore } from '@pharmstation/core'
 import { LocumReviewAdminCard } from '../components/LocumReviewAdminCard'
 import { PlatformAdminCard } from '../components/PlatformAdminCard'
+import { ChangePasswordCard } from '../components/ChangePasswordCard'
+import { TwoStepCard } from '../components/mfa/TwoStepCard'
+import { ChangeEmailCard } from '../components/account/ChangeEmailCard'
+import { DeleteAccountCard } from '../components/account/DeleteAccountCard'
 
 interface LocumSummary {
   id: string
@@ -201,6 +205,10 @@ export function PersonalProfilePage() {
         </div>
       </form>
 
+      <ChangeEmailCard />
+      <ChangePasswordCard />
+      <TwoStepCard />
+
       {/* Workplace */}
       <div className="ps-card" style={{ marginBottom: '1.25rem' }}>
         <div className="ps-card-header"><h2 className="ps-card-title">🏥 Workplace</h2></div>
@@ -370,6 +378,10 @@ export function PersonalProfilePage() {
             Personal payment methods, invoices and receipts will appear here soon.
           </p>
         </div>
+      </div>
+
+      <div style={{ marginTop: '1.25rem' }}>
+        <DeleteAccountCard />
       </div>
     </div>
   )

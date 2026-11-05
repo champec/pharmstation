@@ -1,10 +1,11 @@
 import { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { PublicSiteShell } from '../../components/public/PublicSiteShell'
 import { usePatientStore } from '@pharmstation/core'
 
 export function PatientLoginPage() {
   const navigate = useNavigate()
+  const [params] = useSearchParams()
   const { login } = usePatientStore()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -34,6 +35,7 @@ export function PatientLoginPage() {
           <p style={{ color: 'var(--ps-slate)' }}>Sign in to view your appointments</p>
         </div>
 
+        {params.get('confirmed') && !error && <div className="booking-form-notice" style={{ marginBottom: 'var(--ps-space-md)' }}>Your email is confirmed. Sign in to see your appointments.</div>}
         {error && <div className="auth-error" style={{ marginBottom: 'var(--ps-space-md)' }}>{error}</div>}
 
         <form onSubmit={handleSubmit}>
@@ -44,6 +46,9 @@ export function PatientLoginPage() {
           <div className="form-group">
             <label>Password</label>
             <input className="ps-input" type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Enter your password" />
+          </div>
+          <div className="auth-forgot-link">
+            <Link to="/forgot-password/patient">Forgot password?</Link>
           </div>
           <button className="ps-btn ps-btn-primary" type="submit" disabled={loading || !email.trim() || !password} style={{ width: '100%', marginTop: 'var(--ps-space-md)' }}>
             {loading ? 'Signing in…' : 'Sign In'}

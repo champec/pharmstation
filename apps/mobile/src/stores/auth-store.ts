@@ -23,6 +23,9 @@ import {
   fetchOrganisation,
   fetchOrgMembership,
   fetchUserProfile,
+  claimLocumShiftAccess,
+  getMfaStatus,
+  verifyTotpCode,
   getOrgSession,
   getUserSession,
   orgClient,
@@ -47,6 +50,10 @@ export interface AuthState {
   permissions: Permissions | null
   isOrgConnected: boolean
 
+  /** Set when the password was right but the account still needs its
+   *  authenticator code (two-step sign-in). */
+  mfaPendingFactorId: string | null
+
   // --- Lifecycle ---
   initializing: boolean
   busy: boolean
@@ -62,6 +69,8 @@ export interface AuthState {
   initialize: () => Promise<void>
   userLogin: (email: string, password: string) => Promise<void>
   userLogout: () => Promise<void>
+  /** Finish a sign-in that's waiting for an authenticator code. */
+  verifyMfa: (code: string) => Promise<void>
   connectOrg: (email: string, password: string) => Promise<void>
   disconnectOrg: () => Promise<void>
   clearError: () => void
@@ -78,6 +87,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   membership: null,
   permissions: null,
   isOrgConnected: false,
+
+  mfaPendingFactorId: null,
 
   initializing: true,
   busy: false,
@@ -105,7 +116,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     // 1. User session
     try {
       const userSession = await getUserSession()
-      if (userSession?.user) {
+      const mfa = userSession?.user ? await getMfaStatus().catch(() => null) : null
+      if (userSession?.user && mfa?.needsCode) {
+        set({ mfaPendingFactorId: mfa.factorId })
+      } else if (userSession?.user) {
         const [userProfile, locumProfile] = await Promise.all([
           fetchUserProfile(userSession.user.id),
           fetchLocumProfile(userSession.user.id),
@@ -188,25 +202,26 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         throw new Error('Login returned no session. Please try again.')
       }
 
-      let userProfile: UserProfile
-      let locumProfile: LocumProfile | null
-      try {
-        ;[userProfile, locumProfile] = await Promise.all([
-          fetchUserProfile(data.user.id),
-          fetchLocumProfile(data.user.id),
-        ])
-      } catch {
-        await userSignOut()
-        throw new Error('No account profile found for this login.')
+      const mfa = await getMfaStatus()
+      if (mfa.needsCode) {
+        set({ mfaPendingFactorId: mfa.factorId, busy: false })
+        return
       }
+      await loadUserLayer()
+    } catch (err) {
+      set({ busy: false, error: messageFrom(err) })
+      throw err
+    }
+  },
 
-      set({
-        userSession: data.session,
-        userProfile,
-        locumProfile,
-        isUserLoggedIn: true,
-        busy: false,
-      })
+  verifyMfa: async (code) => {
+    const factorId = get().mfaPendingFactorId
+    if (!factorId) throw new Error('Sign in again, then enter your code.')
+    set({ busy: true, error: null })
+    try {
+      await verifyTotpCode(factorId, code)
+      set({ mfaPendingFactorId: null })
+      await loadUserLayer()
     } catch (err) {
       set({ busy: false, error: messageFrom(err) })
       throw err
@@ -232,6 +247,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         membership: null,
         permissions: null,
         isOrgConnected: false,
+        mfaPendingFactorId: null,
         busy: false,
       })
     }
@@ -264,14 +280,18 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         )
       }
 
-      const membership = await fetchOrgMembership(
+      let membership = await fetchOrgMembership(
         organisation.id,
         userSession.user.id,
       )
+      // A booked locum gets access for their shift without being staff.
+      if (!membership && (await claimLocumShiftAccess(organisation.id))) {
+        membership = await fetchOrgMembership(organisation.id, userSession.user.id)
+      }
       if (!membership) {
         await orgSignOut()
         throw new Error(
-          'You are not an active member of this pharmacy. Ask the admin to approve you.',
+          'You are not on the staff list for this pharmacy, and you have no approved locum shift here right now. Ask the pharmacy manager.',
         )
       }
 
@@ -313,6 +333,32 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   clearError: () => set({ error: null }),
 }))
+
+/** Load the profile once the password (and code, if any) are done. */
+async function loadUserLayer() {
+  const set = useAuthStore.setState
+  const session = await getUserSession()
+  if (!session?.user) throw new Error('Login returned no session. Please try again.')
+  let userProfile: UserProfile
+  let locumProfile: LocumProfile | null
+  try {
+    ;[userProfile, locumProfile] = await Promise.all([
+      fetchUserProfile(session.user.id),
+      fetchLocumProfile(session.user.id),
+    ])
+  } catch {
+    await userSignOut()
+    throw new Error('No account profile found for this login.')
+  }
+
+  set({
+    userSession: session,
+    userProfile,
+    locumProfile,
+    isUserLoggedIn: true,
+    busy: false,
+  })
+}
 
 function messageFrom(err: unknown): string {
   if (err instanceof Error) return err.message

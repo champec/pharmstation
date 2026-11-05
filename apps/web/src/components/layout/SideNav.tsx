@@ -133,6 +133,7 @@ const menuSections: NavSection[] = [
       { to: '/notes', icon: '📌', label: 'Notes' },
       { to: '/sops', icon: '📋', label: 'SOPs' },
       { to: '/resources', icon: '📂', label: 'Resources' },
+      { to: '/contact', icon: '🛟', label: 'Help & support' },
     ],
   },
   {

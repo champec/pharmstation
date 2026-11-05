@@ -39,7 +39,8 @@ export function PatientAppointmentsPage() {
         service:ps_services(id, name, duration_minutes),
         slot:ps_appointment_slots(id, start_time, end_time)
       `)
-      .eq('patient_id', patient.id)
+      // RLS limits this to the patient's own bookings, at every pharmacy
+      // they're registered with.
       .order('created_at', { ascending: false })
       .then(({ data }) => {
         setAppointments((data as Appointment[]) || [])
@@ -48,16 +49,25 @@ export function PatientAppointmentsPage() {
   }, [patient, isLoggedIn, authLoading, navigate])
 
   const handleCancel = async (apptId: string) => {
-    if (!confirm('Are you sure you want to cancel this appointment?')) return
+    if (!confirm('Cancel this appointment? If you paid and cancel in good time, you will be refunded automatically.')) return
     setCancelling(apptId)
     try {
-      await getPatientClient()
-        .from('ps_appointments')
-        .update({ status: 'cancelled' })
-        .eq('id', apptId)
+      const { data, error } = await getPatientClient().functions.invoke('appointments', {
+        body: { action: 'cancel', appointment_id: apptId },
+      })
+      if (error || data?.error) {
+        let msg = data?.error as string | undefined
+        const ctx = (error as any)?.context
+        if (!msg && ctx && typeof ctx.json === 'function') {
+          try { msg = (await ctx.json())?.error } catch { /* ignore */ }
+        }
+        throw new Error(msg || 'Failed to cancel appointment.')
+      }
       setAppointments((prev) =>
         prev.map((a) => (a.id === apptId ? { ...a, status: 'cancelled' as AppointmentStatus } : a))
       )
+      if (data?.refund_error) alert(data.refund_error)
+      else if (data?.refunded_pence) alert(`Cancelled. £${(data.refunded_pence / 100).toFixed(2)} will be refunded to your card within 5 to 10 days.`)
     } catch (e: any) {
       alert(e.message || 'Failed to cancel appointment.')
     }

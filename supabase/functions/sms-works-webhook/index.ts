@@ -100,6 +100,60 @@ function normalisePhone(raw: string): string {
   return n
 }
 
+/**
+ * Confirm a STOP or START by text, from the number the patient texted, so
+ * they know it worked and how to undo it. Logged in ps_messages and usage
+ * like any other text, but never charged to the pharmacy's credits.
+ * Best effort: a failure here must not lose the opt-out itself.
+ */
+async function sendKeywordConfirmation(
+  admin: AdminClient, orgId: string, replyNumber: string, destination: string, kind: 'stop' | 'start',
+) {
+  const jwt = Deno.env.get('SMSWORKS_JWT')
+  if (!jwt || !/^\d{8,15}$/.test(replyNumber)) return
+  const { data: org } = await admin.from('ps_organisations').select('name').eq('id', orgId).maybeSingle()
+  const name = String(org?.name || 'this pharmacy').replace(/[^\w &'.,()-]/g, '').slice(0, 60)
+  const content = kind === 'stop'
+    ? `You have opted out of texts from ${name}. Text START to opt back in.`
+    : `You have opted back in to texts from ${name}. Text STOP at any time to opt out.`
+
+  const { data: pending, error } = await admin.from('ps_messages').insert({
+    org_id: orgId, provider: 'smsworks', channel: 'sms', status: 'pending',
+    recipient_phone: destination, recipient_phone_normalized: destination,
+    body: content, personalisation: { body: content }, sms_sender: replyNumber, reply_number: replyNumber,
+    reference: `opt_${kind}_confirmation`, feature: 'opt_out_confirmation',
+  }).select('id').single()
+  if (error || !pending) { console.error('confirmation log error', error); return }
+
+  try {
+    const res = await fetch('https://api.thesmsworks.co.uk/v1/message/send', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `JWT ${jwt.trim().replace(/^(JWT|Bearer)\s+/i, '')}` },
+      body: JSON.stringify({
+        sender: replyNumber, destination, content, tag: 'opt_out_confirmation',
+        metadata: [{ key: 'org_id', value: orgId }, { key: 'message_id', value: pending.id }],
+      }),
+    })
+    const result = await res.json().catch(() => ({})) as Record<string, unknown>
+    if (!res.ok) throw new Error(String(result.message || `HTTP ${res.status}`))
+    const credits = typeof result.credits === 'number' ? result.credits : 1
+    const segments = typeof result.messageparts === 'number' ? result.messageparts : 1
+    await admin.from('ps_messages').update({
+      status: mapSmsworksStatus(String(result.status || 'SENT')), notify_message_id: (result.messageid as string) || null,
+      credits, segments, sent_at: new Date().toISOString(), updated_at: new Date().toISOString(),
+    }).eq('id', pending.id)
+    await admin.rpc('ps_sms_record_usage', {
+      p_org_id: orgId, p_period: currentPeriod(), p_outbound: 1, p_credits: credits, p_segments: segments, p_inbound: 0,
+    })
+  } catch (e) {
+    console.error('confirmation send error', e)
+    await admin.from('ps_messages').update({
+      status: 'failed', failed_at: new Date().toISOString(),
+      failure_reason: e instanceof Error ? e.message : 'Send failed', updated_at: new Date().toISOString(),
+    }).eq('id', pending.id)
+  }
+}
+
 function clientIp(req: Request): string {
   const xff = req.headers.get('x-forwarded-for') || ''
   return xff.split(',')[0].trim()
@@ -214,10 +268,19 @@ async function handleInbound(admin: AdminClient, payload: Record<string, unknown
       opted_out_at: new Date().toISOString(),
     }, { onConflict: 'org_id,phone_normalized' })
     if (optErr) console.error('opt-out upsert error', optErr)
+    // Marketing sends check their own suppression list too, so STOP must reach it (PECR).
+    const { error: suppErr } = await admin.from('ps_marketing_suppressions').upsert({
+      org_id: orgId, channel: 'sms', destination_normalized: fromNorm, reason: 'recipient_opt_out', source: 'sms_keyword',
+    }, { onConflict: 'org_id,channel,destination_normalized' })
+    if (suppErr) console.error('marketing suppression upsert error', suppErr)
   } else if (OPT_IN_KEYWORDS.has(keyword)) {
     const { error: optErr } = await admin.from('ps_sms_opt_outs')
       .delete().eq('org_id', orgId).eq('phone_normalized', fromNorm)
     if (optErr) console.error('opt-in delete error', optErr)
+    // Only lift suppressions that came from a STOP text, never ones staff added.
+    const { error: suppErr } = await admin.from('ps_marketing_suppressions')
+      .delete().eq('org_id', orgId).eq('channel', 'sms').eq('destination_normalized', fromNorm).eq('source', 'sms_keyword')
+    if (suppErr) console.error('marketing suppression delete error', suppErr)
   }
 
   // Match only when exactly one patient owns this number. Shared family
@@ -295,6 +358,13 @@ async function handleInbound(admin: AdminClient, payload: Record<string, unknown
     p_org_id: orgId, p_period: currentPeriod(),
     p_outbound: 0, p_credits: 0, p_segments: 0, p_inbound: 1,
   })
+
+  // Tell the patient their STOP/START worked. Skipped for blocked or flooding
+  // senders so repeated keywords can't run up texts.
+  const isKeyword = OPT_OUT_KEYWORDS.has(keyword) || OPT_IN_KEYWORDS.has(keyword)
+  if (isKeyword && disposition !== 'blocked' && dispositionReason !== 'rate_limit') {
+    await sendKeywordConfirmation(admin, orgId, toNumber, fromNorm, OPT_OUT_KEYWORDS.has(keyword) ? 'stop' : 'start')
+  }
 
   return json({
     received: true, routed: true, org_id: orgId, patient_id: patientId,

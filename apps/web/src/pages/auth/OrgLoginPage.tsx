@@ -89,6 +89,9 @@ export function OrgLoginPage() {
             required
           />
         </div>
+        <div className="auth-forgot-link">
+          <Link to="/forgot-password/org">Forgot password?</Link>
+        </div>
 
         <button
           type="submit"

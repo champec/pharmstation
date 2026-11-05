@@ -256,10 +256,20 @@ async function executeTool(
   args: Record<string, unknown>,
   orgId: string,
   supabaseAdmin: ReturnType<typeof createClient>,
+  userClient: ReturnType<typeof createClient>,
 ): Promise<string> {
   try {
     switch (toolName) {
       case 'search_cd_register': {
+        // The admin client skips row security, so check the user's CD register
+        // permission (role default + per-member override) in the database first.
+        const { data: canReadCd } = await userClient.rpc('ps_member_has_permission', {
+          p_organisation_id: orgId,
+          p_permission: 'cd_register_read',
+        })
+        if (canReadCd !== true) {
+          return JSON.stringify({ error: 'This user does not have permission to view the CD register.' })
+        }
         let query = supabaseAdmin
           .from('ps_register_entries')
           .select('entry_number, date_of_transaction, transaction_type, supplier_name, invoice_number, patient_name, prescriber_name, quantity_received, quantity_deducted, running_balance, notes, entered_at, source')
@@ -690,7 +700,7 @@ IMPORTANT RULES:
               parsedArgs = {}
             }
 
-            const result = await executeTool(call.function.name, parsedArgs, organisation_id, supabaseAdmin)
+            const result = await executeTool(call.function.name, parsedArgs, organisation_id, supabaseAdmin, userClient)
             messages.push({ role: 'tool', tool_call_id: call.id, content: result })
             await sendEvent(writer, {
               type: 'tool_result',
