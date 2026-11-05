@@ -6,7 +6,7 @@ export { useScanStore, type ScanState, type ScanSupplyDetails } from './stores/s
 export { usePatientStore, type PatientState } from './stores/patient-store'
 export { useServiceStore, type ServiceState } from './stores/service-store'
 export { useAppointmentStore, type AppointmentState } from './stores/appointment-store'
-export { useLogStore, type LogState } from './stores/log-store'
+export { useLogStore, friendlyLogError, type LogState, type SaveLogEntryInput } from './stores/log-store'
 export { useVideoStore, type VideoState } from './stores/video-store'
 export { useMessagingStore, type MessagingState, type NotifySettingsSafe, type MessageStats, type NotifyParams, type CallbackInfo, type OrgMessagingRouting } from './stores/messaging-store'
 export { psNotify, type PsNotify } from './notify'

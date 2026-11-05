@@ -71,7 +71,7 @@ export function LogSettingsPage() {
 
   const handleDeactivate = async () => {
     if (!subscriptionId) return
-    if (!confirm('Are you sure you want to deactivate this log? Existing entries will be preserved.')) return
+    if (!confirm('Remove this log from your Logs page? Its entries are kept, and they come back if you add the log again.')) return
     setDeactivating(true)
     try {
       await deactivateSubscription(subscriptionId)
@@ -219,7 +219,7 @@ export function LogSettingsPage() {
           <div className="ps-card" style={{ padding: 'var(--ps-space-lg)', borderColor: '#ef4444' }}>
             <h3 style={{ fontSize: 'var(--ps-font-md)', color: '#ef4444', marginBottom: 'var(--ps-space-sm)' }}>Danger Zone</h3>
             <p style={{ fontSize: 'var(--ps-font-sm)', color: 'var(--ps-slate)', marginBottom: 'var(--ps-space-md)' }}>
-              Deactivating this log will remove it from your dashboard. Existing entries are preserved and can be reactivated later.
+              Removing this log takes it off your Logs page. Every entry is kept, and re-adding the log from the library brings them back.
             </p>
             <button
               className="ps-btn ps-btn-sm"
@@ -227,7 +227,7 @@ export function LogSettingsPage() {
               onClick={handleDeactivate}
               disabled={deactivating}
             >
-              {deactivating ? 'Deactivating…' : '🗑 Deactivate Log'}
+              {deactivating ? 'Removing…' : 'Remove log'}
             </button>
           </div>
         </div>
