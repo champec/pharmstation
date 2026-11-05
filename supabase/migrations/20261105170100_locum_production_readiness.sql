@@ -34,7 +34,7 @@
 --
 -- Needs: 20261104123000_role_permissions_foundation.sql (ps_member_has_permission)
 --        20261104131500_locum_shift_access.sql (shift-access window)
--- Rollback: supabase/rollbacks/rollback_20261105170000_locum_production_readiness.sql
+-- Rollback: supabase/rollbacks/rollback_20261105170100_locum_production_readiness.sql
 
 begin;
 

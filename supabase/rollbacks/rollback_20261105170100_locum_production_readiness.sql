@@ -1,4 +1,4 @@
--- Rollback for 20261105170000_locum_production_readiness.sql
+-- Rollback for 20261105170100_locum_production_readiness.sql
 -- Puts the locum RLS policies back as they were on 4 Nov 2026 and removes the
 -- new functions. NOTE: this re-opens the holes the migration closed (direct
 -- booking inserts, unchecked sign-ins, open sop-pdfs bucket). Use only to
