@@ -101,12 +101,7 @@ export function LocumBookingsPage() {
     if (!locumProfile || !booking.shift) return
     setActionId(booking.id)
     try {
-      const { error } = await getUserClient().from('ps_locum_sign_ins').insert({
-        booking_id: booking.id,
-        locum_id: locumProfile.id,
-        org_id: booking.shift.org_id,
-        signed_in_at: new Date().toISOString(),
-      })
+      const { error } = await getUserClient().rpc('ps_locum_sign_in', { p_booking_id: booking.id })
       if (error) throw error
       await load()
     } catch (err) {
@@ -120,13 +115,7 @@ export function LocumBookingsPage() {
     if (!booking.sign_in) return
     setActionId(booking.id)
     try {
-      const signedOutAt = new Date()
-      const signedInAt = new Date(booking.sign_in.signed_in_at)
-      const duration_minutes = Math.round((signedOutAt.getTime() - signedInAt.getTime()) / 60000)
-      const { error } = await getUserClient()
-        .from('ps_locum_sign_ins')
-        .update({ signed_out_at: signedOutAt.toISOString(), duration_minutes })
-        .eq('id', booking.sign_in.id)
+      const { error } = await getUserClient().rpc('ps_locum_sign_out', { p_booking_id: booking.id })
       if (error) throw error
       await load()
     } catch (err) {

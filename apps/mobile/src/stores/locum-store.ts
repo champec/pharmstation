@@ -249,12 +249,7 @@ export const useLocumStore = create<LocumState>((set, get) => ({
     if (!locum || !booking.shift) return
     set({ actionId: booking.id, error: null })
     try {
-      const { error } = await userClient.from('ps_locum_sign_ins').insert({
-        booking_id: booking.id,
-        locum_id: locum.id,
-        org_id: booking.shift.org_id,
-        signed_in_at: new Date().toISOString(),
-      })
+      const { error } = await userClient.rpc('ps_locum_sign_in', { p_booking_id: booking.id })
       if (error) throw error
       set({ loadedFor: null })
       await get().load(true)
@@ -269,21 +264,7 @@ export const useLocumStore = create<LocumState>((set, get) => ({
     if (!booking.sign_in) return
     set({ actionId: booking.id, error: null })
     try {
-      const signedOutAt = new Date()
-      const durationMinutes = Math.max(
-        0,
-        Math.round(
-          (signedOutAt.getTime() - new Date(booking.sign_in.signed_in_at).getTime()) /
-            60000,
-        ),
-      )
-      const { error } = await userClient
-        .from('ps_locum_sign_ins')
-        .update({
-          signed_out_at: signedOutAt.toISOString(),
-          duration_minutes: durationMinutes,
-        })
-        .eq('id', booking.sign_in.id)
+      const { error } = await userClient.rpc('ps_locum_sign_out', { p_booking_id: booking.id })
       if (error) throw error
       set({ loadedFor: null })
       await get().load(true)
