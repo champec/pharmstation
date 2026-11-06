@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Alert, Linking, Pressable, StyleSheet, Text, View } from 'react-native'
+import { Linking, Pressable, StyleSheet, Switch, Text, View } from 'react-native'
 import { useRouter } from 'expo-router'
 
 import { Button } from '@/components/ui/Button'
@@ -73,6 +73,7 @@ export default function UserLoginScreen() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
+  const [remember, setRemember] = useState(true)
   const [bioLabel, setBioLabel] = useState<string | null>(null)
   const [bioEmail, setBioEmail] = useState<string | null>(null)
   // The login being signed in with, so we can offer quick sign-in once it
@@ -95,24 +96,17 @@ export default function UserLoginScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // Offer quick sign-in after a successful password sign-in, then go home.
+  // After a full sign-in (including the two-step code): with "Remember me"
+  // on, keep the email and, when the phone has a fingerprint or face, turn
+  // on quick sign-in (the phone confirms with its own prompt). Then go home.
   const finishSignIn = async () => {
     const p = pending.current
     pending.current = null
-    if (p) await rememberEmail(p.email)
-    if (p && !p.viaBio && bioLabel && bioEmail?.toLowerCase() !== p.email.trim().toLowerCase()) {
-      const turnOn = await new Promise<boolean>((resolve) =>
-        Alert.alert(
-          `Sign in with ${bioLabel} next time?`,
-          `Your login is kept in this phone's secure storage and only unlocked by your ${bioLabel}.`,
-          [
-            { text: 'Not now', style: 'cancel', onPress: () => resolve(false) },
-            { text: 'Turn on', onPress: () => resolve(true) },
-          ],
-          { cancelable: true, onDismiss: () => resolve(false) },
-        ),
-      )
-      if (turnOn && (await enableBiometricLogin(p.email, p.password))) setBioEmail(p.email.trim())
+    if (p && remember) {
+      await rememberEmail(p.email)
+      if (!p.viaBio && bioLabel && bioEmail?.toLowerCase() !== p.email.trim().toLowerCase()) {
+        if (await enableBiometricLogin(p.email, p.password)) setBioEmail(p.email.trim())
+      }
     }
     router.replace('/(app)/home')
   }
@@ -236,7 +230,8 @@ export default function UserLoginScreen() {
           value={email}
           onChangeText={setEmail}
           autoCapitalize="none"
-          autoComplete="email"
+          autoComplete="username"
+          textContentType="username"
           keyboardType="email-address"
           placeholder="you@example.com"
         />
@@ -245,8 +240,17 @@ export default function UserLoginScreen() {
           value={password}
           onChangeText={setPassword}
           secureTextEntry
+          autoComplete="current-password"
+          textContentType="password"
           placeholder="••••••••"
         />
+
+        <View style={styles.rememberRow}>
+          <Text style={styles.rememberText}>
+            {bioLabel ? `Remember me (sign in with ${bioLabel} next time)` : 'Remember my email'}
+          </Text>
+          <Switch value={remember} onValueChange={setRemember} />
+        </View>
 
         <Pressable onPress={() => Linking.openURL(FORGOT_PASSWORD_URL)} accessibilityRole="link">
           <Text style={styles.link}>Forgot password?</Text>
@@ -282,4 +286,6 @@ const styles = StyleSheet.create({
   error: { color: palette.danger, fontSize: 14, fontWeight: '600' },
   link: { color: palette.brandDark, fontSize: 14, fontWeight: '600', textAlign: 'right' },
   footnote: { fontSize: 13, lineHeight: 20, color: palette.textMuted },
+  rememberRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
+  rememberText: { fontSize: 14, color: palette.text, flex: 1 },
 })
