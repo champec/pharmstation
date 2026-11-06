@@ -28,8 +28,8 @@ export function LocumLayout() {
           <NavLink to="/locum/bookings" className={({ isActive }) => isActive ? 'locum-nav-link active' : 'locum-nav-link'}>
             My Bookings
           </NavLink>
-          <NavLink to="/locum/invoices" className={({ isActive }) => isActive ? 'locum-nav-link active' : 'locum-nav-link'}>
-            Invoices
+          <NavLink to="/locum/timesheets" className={({ isActive }) => isActive ? 'locum-nav-link active' : 'locum-nav-link'}>
+            Timesheets
           </NavLink>
           <NavLink to="/locum/sops" className={({ isActive }) => isActive ? 'locum-nav-link active' : 'locum-nav-link'}>
             SOPs
