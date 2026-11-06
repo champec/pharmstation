@@ -26,6 +26,7 @@ import {
   claimLocumShiftAccess,
   getMfaStatus,
   verifyTotpCode,
+  recoverMfaByEmail,
   getOrgSession,
   getUserSession,
   orgClient,
@@ -72,6 +73,8 @@ export interface AuthState {
   userLogout: () => Promise<void>
   /** Finish a sign-in that's waiting for an authenticator code. */
   verifyMfa: (code: string) => Promise<void>
+  /** Lost authenticator: finish sign-in with a code emailed to the account. */
+  recoverMfaByEmail: (code: string) => Promise<void>
   connectOrg: (email: string, password: string) => Promise<void>
   disconnectOrg: () => Promise<void>
   clearError: () => void
@@ -199,6 +202,19 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     set({ busy: true, error: null })
     try {
       await verifyTotpCode(factorId, code)
+      set({ mfaPendingFactorId: null })
+      await loadUserLayer()
+      await restoreOrgLayer()
+    } catch (err) {
+      set({ busy: false, error: messageFrom(err) })
+      throw err
+    }
+  },
+
+  recoverMfaByEmail: async (code) => {
+    set({ busy: true, error: null })
+    try {
+      await recoverMfaByEmail(code)
       set({ mfaPendingFactorId: null })
       await loadUserLayer()
       await restoreOrgLayer()
