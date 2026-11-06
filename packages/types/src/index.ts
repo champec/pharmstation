@@ -674,6 +674,8 @@ export interface AIModel {
   is_active: boolean
   is_default: boolean
   sort_order: number
+  /** Genie (ai-chat) only uses models with this flag. */
+  genie_enabled?: boolean
   created_at: string
   updated_at: string
 }
@@ -691,6 +693,8 @@ export interface AIOrgSettings {
   monthly_token_limit: number | null
   tokens_used_this_month: number
   enable_ai_features: boolean
+  /** Genie may see patient data. Only platform admins can change it. */
+  genie_patient_data?: boolean
   created_at: string
   updated_at: string
 }
@@ -755,6 +759,12 @@ export interface ChatRequest {
   model_type?: AIModelType          // or specify by type, resolved server-side
 }
 
+/** Genie messages used this month by the pharmacy, and its monthly allowance. */
+export interface GenieUsage {
+  used: number
+  limit: number
+}
+
 export interface ChatStreamEvent {
   type: 'text_delta' | 'tool_call_start' | 'tool_call_delta' | 'tool_call_end' | 'tool_result' | 'done' | 'error' | 'conversation_created' | 'message_saved'
   // text_delta
@@ -771,6 +781,7 @@ export interface ChatStreamEvent {
   // done
   input_tokens?: number
   output_tokens?: number
+  usage?: GenieUsage
   // error
   error?: string
 }
