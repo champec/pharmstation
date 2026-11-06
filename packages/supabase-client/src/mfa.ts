@@ -90,3 +90,35 @@ export async function getMfaStatus(): Promise<{ needsCode: boolean; factorId: st
   }
   return { needsCode, factorId, hasFactor }
 }
+
+async function callEmailRecovery(body: Record<string, unknown>) {
+  const client = getUserClient()
+  const { data, error } = await client.functions.invoke('mfa-email-recovery', { body })
+  if (error) {
+    let message = 'Something went wrong. Try again.'
+    try {
+      const ctx = (error as { context?: Response }).context
+      const parsed = ctx ? await ctx.json() : null
+      if (parsed?.error) message = parsed.error
+    } catch {
+      // keep the default
+    }
+    throw new Error(message)
+  }
+  return data as { ok: boolean; sentTo?: string }
+}
+
+/** Lost authenticator: email a 6-digit code to the signed-in (password only) account. */
+export async function sendMfaRecoveryEmail(): Promise<string | null> {
+  const data = await callEmailRecovery({ action: 'send' })
+  return data.sentTo ?? null
+}
+
+/** Check the emailed code. On success two-step sign-in is turned off for the
+ *  account and the session is refreshed, so sign-in can continue and the
+ *  person is asked to set two-step sign-in up again. */
+export async function recoverMfaByEmail(code: string) {
+  await callEmailRecovery({ action: 'verify', code: code.replace(/\s/g, '') })
+  const { error } = await getUserClient().auth.refreshSession()
+  if (error) throw new Error(mfaErrorMessage(error))
+}
