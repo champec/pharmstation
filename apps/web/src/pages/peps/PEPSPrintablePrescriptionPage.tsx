@@ -3,7 +3,6 @@ import { Link, Navigate, useParams } from 'react-router-dom'
 import JsBarcode from 'jsbarcode'
 import { useAuthStore, usePepsStore } from '@pharmstation/core'
 import type { PepsEvent } from '@pharmstation/types'
-import { getUserClient } from '@pharmstation/supabase-client'
 
 function formatDateTime(value: string): string {
   return new Date(value).toLocaleString()
@@ -11,8 +10,8 @@ function formatDateTime(value: string): string {
 
 export function PEPSPrintablePrescriptionPage() {
   const { id } = useParams<{ id: string }>()
-  const { organisation, activeUser, isOrgLoggedIn, isUserLoggedIn } = useAuthStore()
-  const { activePrescription: rx, activeItems, activeEvents, fetchPrescription, loading, error } = usePepsStore()
+  const { organisation, isOrgLoggedIn, isUserLoggedIn } = useAuthStore()
+  const { activePrescription: rx, activeItems, activeEvents, fetchPrescription, logEvent, loading, error } = usePepsStore()
 
   const barcodeRef = useRef<SVGSVGElement | null>(null)
   const [recorded, setRecorded] = useState(false)
@@ -24,7 +23,7 @@ export function PEPSPrintablePrescriptionPage() {
 
   const printEvents = useMemo(() => {
     return activeEvents
-      .filter((ev) => ev.event_type === 'downloaded' && Boolean((ev.metadata as Record<string, unknown> | null)?.document_print))
+      .filter((ev) => ev.event_type === 'printed' || (ev.event_type === 'downloaded' && Boolean((ev.metadata as Record<string, unknown> | null)?.document_print)))
       .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
   }, [activeEvents])
 
@@ -61,9 +60,6 @@ export function PEPSPrintablePrescriptionPage() {
     let cancelled = false
     const run = async () => {
       try {
-        const { data: auth } = await getUserClient().auth.getUser()
-        const actorUserId = auth.user?.id ?? activeUser?.id ?? null
-
         const metadata = {
           document_print: true,
           print_mode: mode,
@@ -73,14 +69,7 @@ export function PEPSPrintablePrescriptionPage() {
           original_printed_at: originalInfo?.printedAt ?? null,
         }
 
-        await getUserClient().from('ps_peps_events').insert({
-          prescription_id: rx.id,
-          event_type: 'downloaded',
-          from_org_id: organisation.id,
-          to_org_id: organisation.id,
-          actor_user_id: actorUserId,
-          metadata,
-        })
+        await logEvent(rx.id, 'printed', metadata)
 
         if (cancelled) return
         setRecorded(true)
@@ -97,7 +86,7 @@ export function PEPSPrintablePrescriptionPage() {
     return () => {
       cancelled = true
     }
-  }, [activeUser?.id, mode, organisation?.id, organisation?.name, originalInfo?.pharmacyName, originalInfo?.printedAt, recorded, rx])
+  }, [logEvent, mode, organisation?.id, organisation?.name, originalInfo?.pharmacyName, originalInfo?.printedAt, recorded, rx])
 
   if (!isOrgLoggedIn) return <Navigate to="/login/org" replace />
   if (!isUserLoggedIn) return <Navigate to="/login/user" replace />
