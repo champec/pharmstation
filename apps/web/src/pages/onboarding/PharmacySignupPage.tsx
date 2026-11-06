@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { getOrgClient, friendlyAuthError, passwordProblem } from '@pharmstation/supabase-client'
 import { OwnerSetupForm } from './OwnerSetupForm'
+import { PasswordInput } from '../../components/PasswordInput'
 
 type Step = 'pharmacy' | 'confirm-email' | 'owner'
 
@@ -143,12 +144,12 @@ export function PharmacySignupPage() {
             </div>
             <div className="form-group">
               <label htmlFor="ph-password">Password</label>
-              <input id="ph-password" type="password" className="ps-input" autoComplete="new-password" value={password}
+              <PasswordInput id="ph-password" className="ps-input" autoComplete="new-password" value={password}
                 onChange={(e) => setPassword(e.target.value)} required />
             </div>
             <div className="form-group">
               <label htmlFor="ph-confirm">Confirm password</label>
-              <input id="ph-confirm" type="password" className="ps-input" autoComplete="new-password" value={confirm}
+              <PasswordInput id="ph-confirm" className="ps-input" autoComplete="new-password" value={confirm}
                 onChange={(e) => setConfirm(e.target.value)} required />
             </div>
 

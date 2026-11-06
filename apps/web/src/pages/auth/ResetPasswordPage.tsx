@@ -2,6 +2,7 @@ import { useMemo, useState, type FormEvent } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { completePasswordReset, friendlyAuthError, passwordProblem } from '@pharmstation/supabase-client'
 import { RESET_RETURN, resetReturn } from './passwordReturn'
+import { PasswordInput } from '../../components/PasswordInput'
 
 export function ResetPasswordPage() {
   const { kind } = useParams<{ kind: string }>()
@@ -78,9 +79,8 @@ export function ResetPasswordPage() {
           <form onSubmit={handleSubmit}>
             <div className="form-group">
               <label htmlFor="reset-password">New password</label>
-              <input
+              <PasswordInput
                 id="reset-password"
-                type="password"
                 className="ps-input"
                 autoComplete="new-password"
                 value={password}
@@ -91,9 +91,8 @@ export function ResetPasswordPage() {
             </div>
             <div className="form-group">
               <label htmlFor="reset-confirm">Type it again</label>
-              <input
+              <PasswordInput
                 id="reset-confirm"
-                type="password"
                 className="ps-input"
                 autoComplete="new-password"
                 value={confirm}

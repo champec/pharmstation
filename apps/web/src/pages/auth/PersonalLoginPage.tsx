@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuthStore } from '@pharmstation/core'
 import { MfaCodeForm } from '../../components/mfa/MfaCodeForm'
+import { PasswordInput } from '../../components/PasswordInput'
 
 /**
  * Personal account sign-in — bypasses the organisation login entirely.
@@ -79,9 +80,8 @@ export function PersonalLoginPage() {
 
         <div className="form-group">
           <label htmlFor="me-password">Password</label>
-          <input
+          <PasswordInput
             id="me-password"
-            type="password"
             className="ps-input"
             placeholder="Enter your password"
             value={password}
