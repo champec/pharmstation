@@ -118,6 +118,10 @@ export interface PepsPrescription {
   dispensed_at: string | null
   dispensed_by: string | null
   unique_code: string | null
+  expires_at: string | null
+  cancelled_at: string | null
+  cancelled_by: string | null
+  cancel_reason: string | null
   created_at: string
   updated_at: string
   // Joined
@@ -138,8 +142,8 @@ export type PepsEventType =
   | 'printed'
   | 'cd_evidence_attached'
 
-// Events the app may record through ps_peps_log_event (all others are server-only)
-export type PepsLoggableEventType = 'created' | 'sent_to_spine' | 'directed' | 'printed' | 'cd_evidence_attached'
+// Events the app may record through ps_peps_log_event (all others are written by the server)
+export type PepsLoggableEventType = 'printed' | 'cd_evidence_attached'
 
 export interface PepsEvent {
   id: string
