@@ -4,6 +4,10 @@ import { useAuthStore, usePepsStore } from '@pharmstation/core'
 import type { PepsPrescription, PepsSpineResult } from '@pharmstation/types'
 
 function statusBadge(rx: PepsPrescription) {
+  const expired = !!rx.expires_at && new Date(rx.expires_at).getTime() < Date.now()
+  if (expired && (rx.status === 'held' || rx.status === 'available')) {
+    return <span className="ps-badge ps-badge-muted">Expired</span>
+  }
   switch (rx.status) {
     case 'held':
       return <span className="ps-badge ps-badge-success">Held</span>

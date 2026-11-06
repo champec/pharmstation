@@ -28,7 +28,9 @@ export function PEPSPrintablePrescriptionPage() {
   }, [activeEvents])
 
   const firstPrint = printEvents[0] ?? null
-  const mode: 'ORIGINAL' | 'COPY' = firstPrint || rx?.status === 'dispensed' ? 'COPY' : 'ORIGINAL'
+  // Every print is a COPY: the electronic prescription in PEPS is the original,
+  // so a paper print can never be dispensed as a second original.
+  const mode = 'COPY' as const
 
   const originalInfo = useMemo(() => {
     if (!firstPrint) return null
@@ -183,7 +185,6 @@ export function PEPSPrintablePrescriptionPage() {
           font-size: 12px;
           color: #334155;
         }
-        .peps-print-mode-original { color: #0f766e; font-weight: 700; }
         .peps-print-mode-copy { color: #b91c1c; font-weight: 700; }
         .peps-print-copy-note {
           margin-top: 8px;
@@ -242,7 +243,7 @@ export function PEPSPrintablePrescriptionPage() {
       </div>
 
       <article className="peps-print-sheet">
-        {mode === 'COPY' && <div className="peps-print-watermark">COPY</div>}
+        <div className="peps-print-watermark">COPY</div>
         <header className="peps-print-head">
           <div>
             <h1 className="peps-print-title">Private Prescription</h1>
@@ -250,13 +251,11 @@ export function PEPSPrintablePrescriptionPage() {
             <p className="peps-print-meta">Date: {rx.prescription_date}</p>
             <p className="peps-print-meta">Patient: {rx.patient_snapshot?.full_name ?? 'Unknown patient'}</p>
             <p className="peps-print-meta">
-              {mode === 'ORIGINAL'
-                ? <span className="peps-print-mode-original">ORIGINAL</span>
-                : <span className="peps-print-mode-copy">COPY</span>}
+              <span className="peps-print-mode-copy">COPY — NOT VALID FOR DISPENSING</span>
             </p>
-            {mode === 'COPY' && originalInfo && (
+            {originalInfo && (
               <p className="peps-print-copy-note">
-                ORIGINAL printed by {originalInfo.pharmacyName} at {formatDateTime(originalInfo.printedAt)}
+                First printed by {originalInfo.pharmacyName} at {formatDateTime(originalInfo.printedAt)}
               </p>
             )}
           </div>
@@ -286,7 +285,7 @@ export function PEPSPrintablePrescriptionPage() {
         </section>
 
         <section className="peps-print-legal">
-          This printout is linked to the unique prescription code and PEPS audit trail. Only one legal original should be retained by the dispensing pharmacy. Any reprint is marked as COPY and cannot replace the original legal paper copy.
+          This printout is a copy for records only. The original is the electronic prescription in PEPS, linked to this unique code and audit trail. Do not dispense from this paper.
         </section>
 
         <footer className="peps-print-foot">
