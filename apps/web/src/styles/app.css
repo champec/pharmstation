@@ -14230,3 +14230,14 @@ textarea.form-input {
     page-break-inside: avoid;
   }
 }
+
+/* Password field with show/hide toggle (components/PasswordInput.tsx) */
+.password-input { position: relative; }
+.password-input > input { width: 100%; padding-right: 4.25rem; }
+.password-input-toggle {
+  position: absolute; top: 50%; right: 0.5rem; transform: translateY(-50%);
+  background: none; border: 0; padding: 0.25rem 0.5rem; cursor: pointer;
+  font-size: var(--ps-font-sm, 0.8125rem); font-weight: 600; color: var(--ps-primary, #1565c0);
+  border-radius: 6px;
+}
+.password-input-toggle:focus-visible { outline: 2px solid var(--ps-primary, #1565c0); outline-offset: 1px; }

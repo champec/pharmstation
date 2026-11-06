@@ -10,6 +10,7 @@ import {
   passwordProblem,
 } from '@pharmstation/supabase-client'
 import { ROLE_LABELS, type InvitePreview, type UserRole } from '@pharmstation/types'
+import { PasswordInput } from '../../components/PasswordInput'
 
 type Joined = { organisation_id: string; organisation_name: string; role: UserRole }
 
@@ -238,7 +239,7 @@ export function JoinInvitePage() {
           )}
           <div className="form-group">
             <label htmlFor="join-password">{mode === 'new' ? 'Choose a password' : 'Password'}</label>
-            <input id="join-password" type="password" className="ps-input"
+            <PasswordInput id="join-password" className="ps-input"
               autoComplete={mode === 'new' ? 'new-password' : 'current-password'} value={password}
               onChange={(e) => setPassword(e.target.value)} required />
           </div>

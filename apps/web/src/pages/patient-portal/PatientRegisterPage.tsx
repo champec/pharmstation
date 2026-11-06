@@ -4,6 +4,7 @@ import { PublicSiteShell } from '../../components/public/PublicSiteShell'
 import { usePatientStore } from '@pharmstation/core'
 import { getUserClient, passwordProblem } from '@pharmstation/supabase-client'
 import type { Organisation } from '@pharmstation/types'
+import { PasswordInput } from '../../components/PasswordInput'
 
 export function PatientRegisterPage() {
   const navigate = useNavigate()
@@ -92,11 +93,11 @@ export function PatientRegisterPage() {
           </div>
           <div className="form-group">
             <label>Password *</label>
-            <input className="ps-input" type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="10+ characters, letters and numbers" />
+            <PasswordInput className="ps-input" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="10+ characters, letters and numbers" />
           </div>
           <div className="form-group">
             <label>Confirm Password *</label>
-            <input className="ps-input" type="password" value={confirmPw} onChange={(e) => setConfirmPw(e.target.value)} />
+            <PasswordInput className="ps-input" value={confirmPw} onChange={(e) => setConfirmPw(e.target.value)} />
           </div>
           <button
             className="ps-btn ps-btn-primary"
