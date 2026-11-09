@@ -243,7 +243,7 @@ export function CareHomeDashboardPage() {
             {TABS.map((item) => (
               <button key={item.id} type="button" role="tab" aria-selected={tab === item.id} className={`ps-tab${tab === item.id ? ' active' : ''}`} onClick={() => setTab(item.id)}>
                 {item.label}
-                {item.id === 'residents' ? ` (${residents.length})` : item.id === 'mar' ? ` (${visibleCycles.length})` : ''}
+                {loading ? '' : item.id === 'residents' ? ` (${residents.length})` : item.id === 'mar' ? ` (${visibleCycles.length})` : ''}
               </button>
             ))}
           </div>

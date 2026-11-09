@@ -182,7 +182,7 @@ function ResidentsScreen() {
         <LinkPicker ctx={ctx} />
         {gate ?? (
           <>
-            <Text style={styles.summaryTitle}>{residents.filter((r) => r.status === 'active').length} active residents</Text>
+            <Text style={styles.summaryTitle}>{(() => { const n = residents.filter((r) => r.status === 'active').length; return `${n} active resident${n === 1 ? '' : 's'}` })()}</Text>
             {residents.length > 6 ? (
               <TextInput style={styles.search} placeholder="Search by name or room" placeholderTextColor={palette.textMuted} value={query} onChangeText={setQuery} accessibilityLabel="Search residents" />
             ) : null}
