@@ -18,6 +18,7 @@ import { Ionicons } from '@expo/vector-icons'
 import { SafeAreaView } from 'react-native-safe-area-context'
 
 import { useCommsStore, type NetworkContact, type NetworkSetup } from '@/stores/comms-store'
+import { useAuthStore } from '@/stores/auth-store'
 import { palette, radius } from '@/theme/palette'
 
 const COLOR = '#0EA5E9'
@@ -43,6 +44,12 @@ export function networkBlocker(setup: NetworkSetup | null): { title: string; tex
       title: 'Link your pharmacy to join the network',
       text: 'Choose your NHS pharmacy record once so nearby pharmacies can find and message you.',
       action: 'Link pharmacy',
+    }
+  }
+  if (!setup.link.is_verified) {
+    return {
+      title: 'We’re checking your linked pharmacy',
+      text: 'Your address doesn’t match the NHS record for this pharmacy, so our team will confirm it before others can find or message you. This usually takes one working day.',
     }
   }
   if (!setup.networkEnabled) {
@@ -80,6 +87,7 @@ export function NetworkSetupModal({ visible, onClose }: { visible: boolean; onCl
   const loading = useCommsStore((s) => s.setupLoading)
   const loadSetup = useCommsStore((s) => s.loadSetup)
   const [linking, setLinking] = useState(false)
+  const canManage = useAuthStore((s) => s.permissions?.org_settings === true)
 
   useEffect(() => {
     if (visible) {
@@ -109,7 +117,7 @@ export function NetworkSetupModal({ visible, onClose }: { visible: boolean; onCl
           <LinkSearch onDone={() => setLinking(false)} />
         ) : (
           <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-            <NetworkStatusBanner onOpenSetup={() => (setup.link ? undefined : setLinking(true))} />
+            <NetworkStatusBanner onOpenSetup={() => (setup.link || !canManage ? undefined : setLinking(true))} />
 
             <Section title="Your pharmacy">
               {setup.link?.pharmacy ? (
@@ -118,6 +126,8 @@ export function NetworkSetupModal({ visible, onClose }: { visible: boolean; onCl
                   <Text style={styles.cardMeta}>
                     {[setup.link.pharmacy.ods_code && `ODS ${setup.link.pharmacy.ods_code}`, setup.link.pharmacy.address1, setup.link.pharmacy.city, setup.link.pharmacy.postcode].filter(Boolean).join(' · ')}
                   </Text>
+                  {!setup.link.is_verified ? <Text style={styles.tagMuted}>Being checked by PharmStation</Text> : null}
+                  {canManage ? (
                   <View style={styles.cardActions}>
                     <SmallButton label="Change" onPress={() => setLinking(true)} disabled={!verified} />
                     <SmallButton
@@ -133,7 +143,10 @@ export function NetworkSetupModal({ visible, onClose }: { visible: boolean; onCl
                       )}
                     />
                   </View>
+                  ) : null}
                 </View>
+              ) : !canManage ? (
+                <Text style={styles.hint}>Ask an owner or manager to link your pharmacy.</Text>
               ) : (
                 <Pressable
                   style={[styles.primary, !verified && styles.disabled]}
@@ -177,6 +190,31 @@ function LinkSearch({ onDone }: { onDone: () => void }) {
   const currentId = useCommsStore((s) => s.setup?.link?.pharmacy_id)
   const [query, setQuery] = useState('')
   const [busyId, setBusyId] = useState<number | null>(null)
+
+  const dispute = (p: { id: number; organisation_name: string }) => {
+    const send = async (message: string) => {
+      try {
+        const ref = await useCommsStore.getState().disputeLink(p.id, message)
+        Alert.alert('Sent to PharmStation', `Case ${ref}. We’ll check who owns ${p.organisation_name}, usually within one working day.`)
+      } catch (e) {
+        Alert.alert('Not sent', (e as Error).message)
+      }
+    }
+    if (Alert.prompt) {
+      Alert.prompt(
+        'Is this your pharmacy?',
+        'Another PharmStation account has linked it. Tell us why it’s yours (for example your GPhC premises number) and we’ll check the register.',
+        [{ text: 'Cancel', style: 'cancel' }, { text: 'Send', onPress: (t?: string) => void send(t ?? '') }],
+        'plain-text',
+      )
+    } else {
+      Alert.alert(
+        'Is this your pharmacy?',
+        'Another PharmStation account has linked it. We’ll check the GPhC register and move it to the right account.',
+        [{ text: 'Cancel', style: 'cancel' }, { text: 'Ask PharmStation', onPress: () => void send('') }],
+      )
+    }
+  }
 
   useEffect(() => {
     const t = setTimeout(() => void search(query), 350)
@@ -224,7 +262,10 @@ function LinkSearch({ onDone }: { onDone: () => void }) {
               {current ? (
                 <Text style={styles.tag}>Your pharmacy</Text>
               ) : p.taken ? (
-                <Text style={styles.tagMuted}>Already on PharmStation</Text>
+                <>
+                  <Text style={styles.tagMuted}>Already on PharmStation</Text>
+                  <SmallButton label="This is ours" onPress={() => dispute(p)} />
+                </>
               ) : (
                 <SmallButton label={busyId === p.id ? 'Linking…' : 'This is my pharmacy'} onPress={() => void link(p.id)} disabled={busyId !== null} />
               )}
