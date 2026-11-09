@@ -96,11 +96,20 @@ function isAllowedRedirect(url: unknown): url is string {
   const configured = (Deno.env.get('APP_ORIGINS') ?? '')
     .split(',').map((o) => o.trim()).filter(Boolean)
   const origins = configured.length ? configured : DEFAULT_APP_ORIGINS
+  let parsed: URL
   try {
-    return origins.includes(new URL(url).origin)
+    parsed = new URL(url)
   } catch {
     return false
   }
+  if (origins.includes(parsed.origin)) return true
+  // Test keys only: also allow local dev servers and Vercel preview
+  // deployments, so preview and local testing can complete a checkout.
+  if (billingMode() === 'test') {
+    if (parsed.protocol === 'http:' && ['localhost', '127.0.0.1'].includes(parsed.hostname)) return true
+    if (parsed.protocol === 'https:' && /^pharmstation[a-z0-9-]*\.vercel\.app$/.test(parsed.hostname)) return true
+  }
+  return false
 }
 
 // ------------------------------------------------------------
@@ -228,7 +237,7 @@ async function createCheckout(db: Db, caller: Caller, body: Record<string, unkno
   const interval = body.interval ?? 'month'
   if (!isInterval(interval)) throw new HttpError(400, 'interval must be "month" or "year"')
   if (!isAllowedRedirect(body.success_url) || !isAllowedRedirect(body.cancel_url)) {
-    throw new HttpError(400, 'success_url and cancel_url must be PharmStation addresses')
+    throw new HttpError(400, 'Stripe can only send you back to the PharmStation website. Open PharmStation from its usual address and try again.')
   }
   await requireBillingManager(db, caller.id, orgId)
 
@@ -287,7 +296,7 @@ async function createCheckout(db: Db, caller: Caller, body: Record<string, unkno
 
 async function createPortal(db: Db, caller: Caller, body: Record<string, unknown>): Promise<Response> {
   const orgId = body.org_id as string
-  if (!isAllowedRedirect(body.return_url)) throw new HttpError(400, 'return_url must be a PharmStation address')
+  if (!isAllowedRedirect(body.return_url)) throw new HttpError(400, 'Stripe can only send you back to the PharmStation website. Open PharmStation from its usual address and try again.')
   await requireBillingManager(db, caller.id, orgId)
 
   const stripe = getStripe()
@@ -308,7 +317,7 @@ async function buySmsCredits(db: Db, caller: Caller, body: Record<string, unknow
   const pack = SMS_PACKS[packId]
   if (!pack) throw new HttpError(400, 'Unknown text credit pack')
   if (!isAllowedRedirect(body.success_url) || !isAllowedRedirect(body.cancel_url)) {
-    throw new HttpError(400, 'success_url and cancel_url must be PharmStation addresses')
+    throw new HttpError(400, 'Stripe can only send you back to the PharmStation website. Open PharmStation from its usual address and try again.')
   }
   await requireBillingManager(db, caller.id, orgId)
 
