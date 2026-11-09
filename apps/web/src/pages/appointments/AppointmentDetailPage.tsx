@@ -120,6 +120,16 @@ export function AppointmentDetailPage() {
     setBusy(false)
   }
 
+  // Service record made for this appointment, if any
+  const [record, setRecord] = useState<{ id: string } | null>(null)
+  useEffect(() => {
+    if (!id) return
+    getUserClient().from('ps_service_deliveries').select('id')
+      .eq('appointment_id', id).eq('status', 'completed')
+      .order('created_at', { ascending: false }).limit(1).maybeSingle()
+      .then(({ data }) => setRecord(data as any))
+  }, [id, appt?.status])
+
   // Video call linked to this appointment
   const [video, setVideo] = useState<{ id: string; status: string } | null>(null)
   useEffect(() => {
@@ -374,6 +384,20 @@ export function AppointmentDetailPage() {
           {appt.status === 'pending' && (
             <button className="ps-btn ps-btn-primary" onClick={() => staffSetStatus('confirmed')} disabled={busy}>
               ✓ Confirm and text patient
+            </button>
+          )}
+          {(appt.status === 'pending' || appt.status === 'confirmed') && !appt.hold_expires_at && appt.service_id && !record && (
+            <button
+              className="ps-btn ps-btn-primary"
+              onClick={() => navigate(`/services/${appt.service_id}/deliver?appointment=${appt.id}`)}
+              title="Record the consultation. The appointment is marked completed when you finish."
+            >
+              ▶ Start service
+            </button>
+          )}
+          {record && (
+            <button className="ps-btn ps-btn-secondary" onClick={() => navigate(`/services/deliveries/${record.id}`)}>
+              📄 View service record
             </button>
           )}
           {(appt.status === 'pending' || appt.status === 'confirmed') && (

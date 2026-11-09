@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuthStore, useServiceStore, useNHSStore } from '@pharmstation/core'
 import type { GPSearchResult } from '@pharmstation/core'
 import { getUserClient } from '@pharmstation/supabase-client'
@@ -137,6 +137,11 @@ function hasFieldValue(field: ServiceFormField, value: unknown): boolean {
 export function ServiceDeliveryPage() {
   const { serviceId } = useParams<{ serviceId: string }>()
   const navigate = useNavigate()
+  // Started from an appointment ("Start service"): the patient is filled in
+  // and the finished record is linked back to the booking.
+  const [searchParams] = useSearchParams()
+  const appointmentId = searchParams.get('appointment')
+  const [appointmentLinkError, setAppointmentLinkError] = useState<string | null>(null)
   const { organisation, activeUser } = useAuthStore()
   const {
     activeService,
@@ -228,6 +233,23 @@ export function ServiceDeliveryPage() {
     setDraftId(null)
     setDraftSavedAt(null)
   }, [serviceId])
+
+  // Prefill the booked patient when started from an appointment.
+  useEffect(() => {
+    if (!appointmentId || !organisation?.id) return
+    let cancelled = false
+    getUserClient()
+      .from('ps_appointments')
+      .select('patient:ps_patients(id, first_name, last_name, nhs_number, dob, phone)')
+      .eq('id', appointmentId)
+      .eq('org_id', organisation.id)
+      .maybeSingle()
+      .then(({ data }) => {
+        const patient = (data as { patient: PatientOption | null } | null)?.patient
+        if (!cancelled && patient) setSelectedPatient(patient)
+      })
+    return () => { cancelled = true }
+  }, [appointmentId, organisation?.id, serviceId])
 
   /* ---- Load this person's unfinished drafts for this service ---- */
   const loadMyDrafts = useCallback(async () => {
@@ -599,6 +621,15 @@ export function ServiceDeliveryPage() {
         })),
       })
 
+      if (appointmentId) {
+        const { error: linkErr } = await getUserClient().rpc('ps_link_delivery_to_appointment', {
+          p_delivery_id: saved.id,
+          p_appointment_id: appointmentId,
+        })
+        setAppointmentLinkError(linkErr
+          ? `The record was saved, but it could not be linked to the appointment: ${linkErr.message}`
+          : null)
+      }
       setCompletedId(saved.id)
       setCompleted(true)
       setDraftId(null)
@@ -625,9 +656,20 @@ export function ServiceDeliveryPage() {
               Patient: {selectedPatient.first_name} {selectedPatient.last_name}
             </p>
           )}
+          {appointmentId && !appointmentLinkError && (
+            <p style={{ color: 'var(--ps-slate)', marginBottom: 'var(--ps-space-lg)' }}>
+              The appointment has been marked completed.
+            </p>
+          )}
+          {appointmentLinkError && (
+            <div className="ps-alert ps-alert-error" style={{ marginBottom: 'var(--ps-space-lg)' }}>{appointmentLinkError}</div>
+          )}
           <div style={{ display: 'flex', gap: 'var(--ps-space-sm)', justifyContent: 'center' }}>
             <button className="ps-btn ps-btn-primary" onClick={() => {
-              // Reset for another delivery of the same service
+              // Reset for another delivery of the same service. The next one
+              // is not for the booked appointment, so drop the link.
+              if (appointmentId) navigate(`/services/${serviceId}/deliver`, { replace: true })
+              setAppointmentLinkError(null)
               setStep('patient')
               setSelectedPatient(null)
               setSkipPatient(false)
@@ -649,6 +691,11 @@ export function ServiceDeliveryPage() {
             {completedId && (
               <button className="ps-btn ps-btn-secondary" onClick={() => navigate(`/services/deliveries/${completedId}`)}>
                 View / print record
+              </button>
+            )}
+            {appointmentId && (
+              <button className="ps-btn ps-btn-secondary" onClick={() => navigate(`/appointments/${appointmentId}`)}>
+                Back to appointment
               </button>
             )}
             <button className="ps-btn ps-btn-secondary" onClick={() => navigate('/services')}>
