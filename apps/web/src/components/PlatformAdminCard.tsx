@@ -51,6 +51,9 @@ export function PlatformAdminCard() {
         <Link to="/me/admin/announcements" className="ps-btn ps-btn-secondary ps-btn-sm" style={{ marginLeft: '0.5rem' }}>
           App announcements
         </Link>
+        <Link to="/me/admin/support" className="ps-btn ps-btn-secondary ps-btn-sm" style={{ marginLeft: '0.5rem' }}>
+          Support inbox
+        </Link>
 
         <h3 style={{ margin: '1.25rem 0 0.5rem', fontSize: '1rem' }}>Account deletion requests</h3>
         {requests.length === 0 ? (

@@ -25,6 +25,10 @@ const ADDRESSES = [
   { email: 'security@pharmstation.co.uk', label: 'Report a security issue' },
 ]
 
+const REQUEST_STATUS: Record<string, string> = {
+  new: 'Received', open: 'Being looked at', waiting: 'Waiting on you', closed: 'Closed',
+}
+
 export function ContactPage() {
   const { organisation, activeUser, isUserLoggedIn } = useAuthStore()
   const inApp = isUserLoggedIn && !!organisation
@@ -39,6 +43,7 @@ export function ContactPage() {
   const [sending, setSending] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [sentReference, setSentReference] = useState<string | null>(null)
+  const [myRequests, setMyRequests] = useState<Array<{ reference: string; topic: string; status: string; created_at: string }>>([])
 
   // The signed-in profile can arrive after first render.
   useEffect(() => {
@@ -46,6 +51,14 @@ export function ContactPage() {
     if (activeUser?.email) setEmail((v) => v || activeUser.email || '')
     if (organisation?.name) setOrganisationName((v) => v || organisation.name)
   }, [activeUser, organisation])
+
+  // Signed-in people can see what they've already sent (RLS: own tickets only).
+  useEffect(() => {
+    if (!isUserLoggedIn) { setMyRequests([]); return }
+    getUserClient().from('ps_support_tickets').select('reference, topic, status, created_at')
+      .order('created_at', { ascending: false }).limit(5)
+      .then(({ data }) => setMyRequests(data ?? []))
+  }, [isUserLoggedIn, sentReference])
 
   const submit = async (e: FormEvent) => {
     e.preventDefault()
@@ -153,6 +166,17 @@ export function ContactPage() {
             ))}
           </ul>
           <p className="contact-hint">For a medical emergency call 999. For urgent medical advice, call NHS 111.</p>
+          {myRequests.length > 0 && (
+            <div className="contact-requests">
+              <h2>Your recent messages</h2>
+              {myRequests.map((r) => (
+                <div key={r.reference} className="contact-request">
+                  <span>{r.reference} · {new Date(r.created_at).toLocaleDateString('en-GB')}</span>
+                  <strong>{REQUEST_STATUS[r.status] ?? r.status}</strong>
+                </div>
+              ))}
+            </div>
+          )}
         </aside>
       </div>
     </PublicSiteShell>
