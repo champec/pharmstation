@@ -203,6 +203,8 @@ interface CommsState {
   unlinkPharmacy: () => Promise<void>
   /** "This is ours" for a pharmacy another account has linked. Returns the case reference. */
   disputeLink: (pharmacyId: number, message: string) => Promise<string>
+  /** Open dispute cases for this org, keyed by ODS code. */
+  fetchOpenDisputes: () => Promise<Record<string, string>>
   saveNetworkSettings: (patch: { network_enabled?: boolean; sms_pings_enabled?: boolean }) => Promise<void>
   addContact: (input: { phone: string; label: string | null; start: string; end: string }) => Promise<void>
   updateContact: (id: string, patch: Partial<Pick<NetworkContact, 'is_enabled' | 'pause_until'>>) => Promise<void>
@@ -494,7 +496,19 @@ export const useCommsStore = create<CommsState>((set, get) => ({
       p_org_id: org, p_pharmacy_id: pharmacyId, p_message: message,
     })
     if (error) throw new Error(error.message)
-    return data as string
+    const reference = data as string
+    // Email the case to the support inbox (best effort; the ticket is saved either way).
+    void userClient.functions.invoke('support-request', { body: { action: 'forward', reference } }).catch(() => undefined)
+    return reference
+  },
+
+  fetchOpenDisputes: async () => {
+    const org = orgId()
+    if (!org) return {}
+    const { data } = await userClient.rpc('ps_network_open_disputes', { p_org_id: org })
+    const out: Record<string, string> = {}
+    for (const r of (data ?? []) as { ods_code: string; reference: string }[]) out[r.ods_code] = r.reference
+    return out
   },
 
   unlinkPharmacy: async () => {

@@ -12,7 +12,7 @@ type Ticket = {
   id: string
   reference: string
   source: 'public' | 'app'
-  topic: 'support' | 'sales' | 'billing' | 'privacy' | 'safety' | 'other'
+  topic: 'support' | 'sales' | 'billing' | 'privacy' | 'safety' | 'network' | 'other'
   name: string
   email: string
   phone: string | null
@@ -26,7 +26,7 @@ type Ticket = {
 
 const TOPIC_LABELS: Record<Ticket['topic'], string> = {
   support: 'Help', sales: 'Demo / pricing', billing: 'Billing',
-  privacy: 'Data protection', safety: 'Clinical safety', other: 'Other',
+  privacy: 'Data protection', safety: 'Clinical safety', network: 'Network dispute', other: 'Other',
 }
 const STATUS_LABELS: Record<Ticket['status'], string> = {
   new: 'New', open: 'In progress', waiting: 'Waiting on them', closed: 'Closed',
