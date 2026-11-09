@@ -62,7 +62,7 @@ export function PublicBookingConfirmPage() {
       client.from('ps_appointment_slots').select('*').eq('id', slotId).single(),
       client.from('ps_service_forms').select('*, fields:ps_service_form_fields(*)').eq('service_id', serviceId).eq('is_default', true).limit(1).maybeSingle(),
     ]).then(([orgRes, svcRes, slotRes, formRes]) => {
-      if (orgRes.data) setOrg(orgRes.data as Organisation)
+      if (orgRes.data) setOrg(orgRes.data as unknown as Organisation)
       if (svcRes.data) setService(svcRes.data as Service)
       if (slotRes.data) setSlot(slotRes.data as AppointmentSlot)
       if (formRes.data) {

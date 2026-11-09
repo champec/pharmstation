@@ -36,7 +36,7 @@ export function PublicServicePage() {
       .single()
       .then(({ data }) => {
         if (!data) { setError('Pharmacy not found.'); setLoading(false); return }
-        setOrg(data as Organisation)
+        setOrg(data as unknown as Organisation)
         return getUserClient()
           .from('ps_services')
           .select('*')
