@@ -64,7 +64,7 @@ export function LogLibraryPage() {
         </div>
         <div className="logs-header">
           <div>
-            <h1>📚 Log library</h1>
+            <h1>Log library</h1>
             <p className="log-muted">Ready-made logs for UK pharmacies. Add one in a click; you can rename it later.</p>
           </div>
           <div className="logs-header-actions">

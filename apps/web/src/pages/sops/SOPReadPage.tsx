@@ -299,7 +299,7 @@ export function SOPReadPage() {
                         className="ps-btn ps-btn-secondary"
                         style={{ marginBottom: 12, display: 'inline-block' }}
                       >
-                        🔗 Open in new tab
+                        Open in new tab
                       </a>
                       <iframe
                         src={pdfUrl}

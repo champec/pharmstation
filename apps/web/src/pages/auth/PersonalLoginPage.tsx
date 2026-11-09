@@ -105,7 +105,7 @@ export function PersonalLoginPage() {
 
       <div style={{ marginTop: '16px', textAlign: 'center', display: 'flex', flexDirection: 'column', gap: '4px' }}>
         <Link to="/login/org" style={{ fontSize: 'var(--ps-font-sm)' }}>
-          🏥 Pharmacy sign in instead
+          Pharmacy sign in instead
         </Link>
       </div>
     </div>

@@ -553,7 +553,6 @@ export function CDLedgerPage() {
               onClick={() => toggleAnnotations(row.id)}
               title={count > 0 ? `${count} note${count === 1 ? '' : 's'} — click to view` : 'Add a note to this entry'}
             >
-              💬
               {count > 0 && <span className="annotation-count">{count}</span>}
             </button>
           )
@@ -1382,7 +1381,6 @@ export function CDLedgerPage() {
             title="Add a note or mark part supply for this entry (optional)"
             disabled={!entryMode}
           >
-            💬
             {(provNote.trim() !== '' || provPartSupply || provPartLink !== 'none' || provCollector !== '') && <span className="prov-extras-dot" />}
           </button>
           {provExtrasOpen && entryMode && (
@@ -1421,7 +1419,7 @@ export function CDLedgerPage() {
                   /* This patient has an outstanding part supply — offer to link this entry to it */
                   <div className="prov-part-link">
                     <span className="prov-extras-label">
-                      ⏳ Part supply owed — entry #{linkedOutstanding.entry_number}
+                      Part supply owed — entry #{linkedOutstanding.entry_number}
                       {' '}({new Date(linkedOutstanding.date_of_transaction).toLocaleDateString('en-GB')}
                       {linkedOutstanding.quantity_deducted ? `, -${linkedOutstanding.quantity_deducted}` : ''})
                     </span>
@@ -1450,7 +1448,7 @@ export function CDLedgerPage() {
                         checked={provPartLink === 'continues'}
                         onChange={() => setProvPartLink('continues')}
                       />
-                      <span>⏳ Further part supply</span>
+                      <span>Further part supply</span>
                     </label>
                   </div>
                 ) : (
@@ -1460,7 +1458,7 @@ export function CDLedgerPage() {
                       checked={provPartSupply}
                       onChange={(e) => setProvPartSupply(e.target.checked)}
                     />
-                    <span>⏳ Part supply — balance owed</span>
+                    <span>Part supply — balance owed</span>
                   </label>
                 )
               )}
@@ -1493,7 +1491,7 @@ export function CDLedgerPage() {
         </div>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--ps-space-md)' }}>
           <div>
-            <h1>📋 {drug?.drug_brand ?? 'Loading...'}</h1>
+            <h1>{drug?.drug_brand ?? 'Loading...'}</h1>
             {drug && (
               <p style={{ color: 'var(--ps-slate)', fontSize: 'var(--ps-font-sm)', marginTop: '2px' }}>
                 {drug.drug_form} — {drug.drug_strength} — {drug.drug_class} — {drug.drug_type}
@@ -1519,14 +1517,14 @@ export function CDLedgerPage() {
               disabled={!activeLedger || !canWrite}
               title="Quick balance check for this register"
             >
-              📋 Balance Check
+              Balance Check
             </button>
             <button
               className="ps-btn ps-btn-ghost"
               onClick={() => navigate('/registers/scan')}
               title="Scan a prescription or invoice with AI"
             >
-              📸 Scan
+              Scan
             </button>
             <button
               className="ps-btn ps-btn-ghost"
@@ -1534,7 +1532,7 @@ export function CDLedgerPage() {
               disabled={!activeLedger || entriesLoading}
               title="Print or save this register as a PDF"
             >
-              🖨️ Print / PDF
+              Print / PDF
             </button>
             <button
               className="ps-btn ps-btn-ghost"
@@ -1550,7 +1548,7 @@ export function CDLedgerPage() {
               disabled={!activeLedger || !canWrite}
               title="Open full IN form"
             >
-              📥 Full IN
+              Full IN
             </button>
             <button
               className="ps-btn ps-btn-primary"
@@ -1558,7 +1556,7 @@ export function CDLedgerPage() {
               disabled={!activeLedger || !canWrite}
               title="Open full OUT form"
             >
-              📤 Full OUT
+              Full OUT
             </button>
           </div>
         </div>
@@ -1629,7 +1627,7 @@ export function CDLedgerPage() {
           onClick={() => setShowPartSupplyOnly((v) => !v)}
           title="Show only entries with an outstanding part supply (balance owed)"
         >
-          ⏳ Outstanding Part Supplies{outstandingPartCount > 0 ? ` (${outstandingPartCount})` : ''}
+          Outstanding Part Supplies{outstandingPartCount > 0 ? ` (${outstandingPartCount})` : ''}
         </button>
       </div>
 
@@ -1807,7 +1805,7 @@ export function CDLedgerPage() {
                           setBcAdjAmount(String(parseFloat(bcCount) - (activeLedger?.current_balance ?? 0)))
                         }}
                       >
-                        🔧 Adjust balance to match count
+                        Adjust balance to match count
                       </button>
                     </div>
                   )}

@@ -50,7 +50,7 @@ export function DashboardPage() {
           onClick={() => setShowMap(true)}
           style={{ whiteSpace: 'nowrap' }}
         >
-          🗺 Open Maps
+          Open Maps
         </button>
       </div>
 

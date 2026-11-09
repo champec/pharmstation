@@ -235,7 +235,7 @@ export function MessageDetailModal({ message, onClose, onChanged }: Props) {
             )}
             {m.body && (
               <button className="ps-btn ps-btn-secondary" onClick={() => handleReuse(m)}>
-                📝 Reuse message
+                Reuse message
               </button>
             )}
             <button className="ps-btn ps-btn-ghost" style={{ marginLeft: 'auto' }} onClick={close}>

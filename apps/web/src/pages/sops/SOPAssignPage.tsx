@@ -114,7 +114,7 @@ export function SOPAssignPage() {
         </div>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div>
-            <h1>👥 Assign SOP</h1>
+            <h1>Assign SOP</h1>
             {doc && <p style={{ margin: '4px 0 0', color: 'var(--ps-text-muted)', fontSize: 13 }}>{doc.title} · v{doc.version}</p>}
           </div>
           <button className="ps-btn ps-btn-secondary" onClick={() => navigate(`/sops/${docId}/edit`)}>
