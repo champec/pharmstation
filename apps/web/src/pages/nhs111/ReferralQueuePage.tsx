@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuthStore, useNHS111Store } from '@pharmstation/core'
 import type { NHS111ReferralStatus, NHS111Urgency } from '@pharmstation/types'
+import { Inbox } from 'lucide-react'
 
 // ============================================================
 // Status & urgency badge helpers
@@ -193,7 +194,7 @@ export function ReferralQueuePage() {
       {/* Empty state */}
       {!loading && filtered.length === 0 && (
         <div className="ps-card" style={{ padding: 'var(--ps-space-2xl)', textAlign: 'center' }}>
-          <div style={{ fontSize: '2rem', marginBottom: 'var(--ps-space-sm)' }}>📭</div>
+          <span className="ps-empty-icon" aria-hidden="true"><Inbox size={26} strokeWidth={1.75} /></span>
           <h3 style={{ marginBottom: 'var(--ps-space-xs)' }}>No referrals found</h3>
           <p style={{ color: 'var(--ps-slate)', margin: 0 }}>
             {statusFilter !== 'all'
@@ -265,7 +266,7 @@ export function ReferralQueuePage() {
                   {/* Right: badges */}
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4, flexShrink: 0 }}>
                     <span className={urgency.cls} style={{ fontSize: '0.75rem' }}>
-                      {urgency.icon} {urgency.label}
+                      {urgency.label}
                     </span>
                     <span className={status.cls} style={{ fontSize: '0.75rem' }}>
                       {status.label}

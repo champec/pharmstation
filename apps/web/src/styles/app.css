@@ -6436,13 +6436,16 @@
 /* Dashboard cards */
 .dashboard-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
   gap: var(--ps-space-md);
 }
 
 .dashboard-card {
+  display: block;
+  color: inherit;
+  text-decoration: none;
   background: var(--ps-white);
-  border-radius: var(--ps-radius-lg);
+  border-radius: var(--ps-radius-xl);
   border: 1px solid var(--ps-off-white);
   padding: var(--ps-space-lg);
   cursor: pointer;
@@ -6456,9 +6459,24 @@
   transform: translateY(-2px);
 }
 
+.dashboard-card:hover {
+  text-decoration: none;
+}
+
+.dashboard-card:focus-visible {
+  outline: 2px solid var(--ps-electric-cyan);
+  outline-offset: 2px;
+}
+
 .dashboard-card-icon {
-  font-size: 28px;
-  margin-bottom: var(--ps-space-sm);
+  width: 40px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  margin-bottom: var(--ps-space-md);
+  border-radius: var(--ps-radius-lg);
+  background: var(--ps-off-white);
+  color: var(--ps-deep-blue);
 }
 
 .dashboard-card h3 {
@@ -7769,7 +7787,7 @@
 }
 
 .genie-header-icon {
-  font-size: 20px;
+  display: inline-flex;
 }
 
 .genie-header-title {
@@ -7862,7 +7880,14 @@
 }
 
 .genie-welcome-icon {
-  font-size: 48px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 56px;
+  border-radius: var(--ps-radius-full);
+  background: rgba(37, 123, 180, 0.1);
+  color: var(--ps-deep-blue);
   margin-bottom: var(--ps-space-sm);
 }
 
@@ -7922,8 +7947,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 14px;
   flex-shrink: 0;
+  color: var(--ps-deep-blue);
   background: rgba(37, 123, 180, 0.1);
 }
 
@@ -8046,7 +8071,8 @@
 }
 
 .genie-tool-icon {
-  font-size: 12px;
+  display: inline-flex;
+  color: var(--ps-slate);
 }
 
 .genie-tool-name {
@@ -8101,10 +8127,10 @@
   gap: var(--ps-space-sm);
   margin-bottom: var(--ps-space-sm);
   padding: var(--ps-space-sm);
-  border: 1px solid rgba(220, 38, 38, 0.2);
+  border: 1px solid rgba(239, 68, 68, 0.2);
   border-radius: var(--ps-radius-md);
-  background: #fef2f2;
-  color: #b91c1c;
+  background: rgba(239, 68, 68, 0.08);
+  color: var(--ps-error);
   font-size: var(--ps-font-xs);
 }
 
@@ -8185,7 +8211,8 @@
 }
 
 .genie-stop-btn:hover {
-  background: #DC2626;
+  background: var(--ps-error);
+  filter: brightness(0.9);
 }
 
 /* History panel */
@@ -14632,4 +14659,32 @@ textarea.form-input {
 .contact-request { display: flex; justify-content: space-between; gap: 8px; font-size: 14px; border-top: 1px solid var(--ps-border, #e2e8f0); padding-top: 8px; }
 @media (max-width: 640px) {
   .support-ticket-meta { justify-items: start; }
+}
+
+.ps-empty-icon {
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.ps-empty-icon.success {
+  background: #dcfce7;
+  color: #15803d;
+}
+
+/* Older empty-state markup gets the same white card as <EmptyState> */
+.cd-empty-state,
+.ps-empty-state {
+  background: var(--ps-white);
+  border: 1px solid var(--ps-off-white);
+  border-radius: var(--ps-radius-xl);
+  box-shadow: var(--ps-shadow-sm);
+}
+
+.ps-card .cd-empty-state,
+.ps-card .ps-empty-state,
+.modal .cd-empty-state,
+.modal .ps-empty-state {
+  background: transparent;
+  border: 0;
+  box-shadow: none;
 }

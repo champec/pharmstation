@@ -10,6 +10,7 @@ import { getUserClient } from '@pharmstation/supabase-client'
 import type { ScanDrugItem, ScanQueueItem, CDDrug } from '@pharmstation/types'
 import { canApproveCdScan } from '@pharmstation/types'
 import { EditDrugModal } from './EditDrugModal'
+import { TriangleAlert } from 'lucide-react'
 
 interface ScanReviewModalProps {
   isOpen: boolean
@@ -230,7 +231,7 @@ export function ScanReviewModal({ isOpen, scanId, onClose }: ScanReviewModalProp
             {activeScan && (
               <>
                 <span className="ps-badge ps-badge-blue">
-                  {activeScan.document_type === 'invoice' ? '📥 Invoice' : '📤 Prescription'}
+                  {activeScan.document_type === 'invoice' ? 'Invoice' : 'Prescription'}
                 </span>
                 {activeScan.overall_confidence !== null && (
                   <span className={`scan-confidence-badge ${CONFIDENCE_LABELS[activeScan.overall_confidence]?.className ?? ''}`}>
@@ -251,7 +252,7 @@ export function ScanReviewModal({ isOpen, scanId, onClose }: ScanReviewModalProp
               disabled={retrying}
               title={retrying ? 'Re-processing…' : 'Re-run the AI on the stored image — replaces the current extraction'}
             >
-              {retrying ? '⏳ Re-scanning…' : '🔄 Retry scan'}
+              {retrying ? 'Re-scanning…' : 'Retry scan'}
             </button>
           )}
           <button className="scan-review-close" onClick={onClose}>✕</button>
@@ -306,7 +307,7 @@ export function ScanReviewModal({ isOpen, scanId, onClose }: ScanReviewModalProp
                   ) : (
                     <div style={{ display: 'flex', gap: '6px' }}>
                       <button className="ps-btn ps-btn-primary ps-btn-sm" onClick={handleSaveDetails} disabled={savingDetails}>
-                        {savingDetails ? 'Saving...' : '💾 Save'}
+                        {savingDetails ? 'Saving...' : 'Save'}
                       </button>
                       <button className="ps-btn ps-btn-ghost ps-btn-sm" onClick={handleCancelEdit} disabled={savingDetails}>
                         Cancel
@@ -733,7 +734,7 @@ function ScanItemCard({ item, scan, userId, canApprove, canCreateRegister, onApp
       {/* Status indicator */}
       <div className="scan-item-status-bar">
         <span className={`scan-confidence-badge ${confidenceInfo.className}`}>
-          {confidenceInfo.icon} {confidenceInfo.label}
+          {confidenceInfo.label}
         </span>
         {item.status === 'approved' && <span className="ps-badge ps-badge-green">Approved</span>}
         {item.status === 'rejected' && <span className="ps-badge ps-badge-red">Rejected</span>}
@@ -887,7 +888,7 @@ function ScanItemCard({ item, scan, userId, canApprove, canCreateRegister, onApp
       {!isDone && !hasFormMismatch && effectiveDrugId && registerExists === false && !registerCreated && (
         <div className="scan-no-register-warning">
           <div className="scan-no-register-header">
-            <span className="scan-no-register-icon">⚠️</span>
+            <span className="scan-no-register-icon"><TriangleAlert size={18} aria-hidden="true" /></span>
             <div>
               <strong>Your organisation does not maintain a register for this drug</strong>
               <p>
@@ -914,7 +915,7 @@ function ScanItemCard({ item, scan, userId, canApprove, canCreateRegister, onApp
                 disabled={creatingRegister || !canCreateRegister}
                 title={canCreateRegister ? undefined : 'Your role cannot add CD registers'}
               >
-                {creatingRegister ? 'Creating...' : '📋 Create Register'}
+                {creatingRegister ? 'Creating...' : 'Create Register'}
               </button>
             </div>
             <p className="scan-create-register-hint">
@@ -985,7 +986,7 @@ function ScanItemCard({ item, scan, userId, canApprove, canCreateRegister, onApp
                 onClick={handleApprove}
                 disabled={approving || !effectiveDrugId}
               >
-                {approving ? 'Creating...' : '✅ Confirm Entry'}
+                {approving ? 'Creating...' : 'Confirm Entry'}
               </button>
               <button
                 className="ps-btn ps-btn-ghost"

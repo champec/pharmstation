@@ -777,7 +777,7 @@ export function ReturnsPage() {
               style={{ textTransform: 'capitalize' }}
               onClick={() => setViewMode(mode)}
             >
-              {mode === 'all' ? 'All' : mode === 'pending' ? '⏳ Pending' : '✅ Destroyed'}
+              {mode === 'all' ? 'All' : mode === 'pending' ? 'Pending' : 'Destroyed'}
               <span style={{ marginLeft: 6, opacity: 0.65, fontWeight: 400 }}>({count})</span>
             </button>
           )
@@ -929,7 +929,7 @@ export function ReturnsPage() {
                             style={{ fontSize: '12px', padding: '3px 10px', opacity: isExpanded ? 0.5 : 1 }}
                             onClick={() => toggleExpand(r.id)}
                           >
-                            {isExpanded ? '✕ Cancel' : '🗑 Destroy'}
+                            {isExpanded ? '✕ Cancel' : 'Destroy'}
                           </button>
                         )}
                       </td>
@@ -992,7 +992,7 @@ export function ReturnsPage() {
                               style={{ fontSize: '12px', padding: '5px 12px' }}
                               onClick={() => setSigModal('destroy-pharma')}
                             >
-                              {destroyForm.pharmacistSig ? '✓ Signed' : '🖊 Sign'}
+                              {destroyForm.pharmacistSig ? '✓ Signed' : 'Sign'}
                             </button>
                           </div>
 
@@ -1030,7 +1030,7 @@ export function ReturnsPage() {
                               style={{ fontSize: '12px', padding: '5px 12px' }}
                               onClick={() => setSigModal('destroy-witness')}
                             >
-                              {destroyForm.witnessSig ? '✓ Signed' : '🖊 Sign'}
+                              {destroyForm.witnessSig ? '✓ Signed' : 'Sign'}
                             </button>
                           </div>
 
@@ -1171,7 +1171,7 @@ export function ReturnsPage() {
         }}>
           <div style={{ fontSize: '12px', color: 'var(--ps-slate)', flex: 1 }}>
             {hasDestructionData
-              ? '📋 Destruction details detected — both the receipt and destruction records will be saved together.'
+              ? 'Destruction details detected — both the receipt and destruction records will be saved together.'
               : 'Fill in Date Destroyed, Pharmacist and Witness columns to record both receipt and destruction at once.'}
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>

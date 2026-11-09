@@ -7,8 +7,8 @@ import { MessageDetailModal } from '../../components/messaging/MessageDetailModa
 /* ---- Status badge config ---- */
 const STATUS_CONFIG: Record<string, { label: string; cssClass: string }> = {
   pending: { label: 'Pending', cssClass: 'ps-badge' },
-  sending: { label: '⏳ Pending', cssClass: 'ps-badge ps-badge-amber' },
-  sent: { label: '⏳ Pending', cssClass: 'ps-badge ps-badge-amber' },
+  sending: { label: 'Pending', cssClass: 'ps-badge ps-badge-amber' },
+  sent: { label: 'Pending', cssClass: 'ps-badge ps-badge-amber' },
   delivered: { label: '✓ Delivered', cssClass: 'ps-badge ps-badge-green' },
   failed: { label: 'Failed', cssClass: 'ps-badge ps-badge-red' },
   'permanent-failure': { label: 'Perm. Failure', cssClass: 'ps-badge ps-badge-red' },
@@ -133,22 +133,16 @@ export function MessagingHubPage() {
 
       {/* Stats cards */}
       {stats && (
-        <div className="ps-stat-grid" style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
-          gap: 'var(--ps-space-md)',
-          marginBottom: 'var(--ps-space-lg)',
-        }}>
+        <div className="stats-grid">
           {[
-            { label: 'Today', value: stats.today, icon: '📩' },
-            { label: 'This Week', value: stats.thisWeek, icon: '📅' },
-            { label: 'This Month', value: stats.thisMonth, icon: '📊' },
-            { label: 'Delivery Rate', value: `${stats.deliveryRate}%`, icon: '✅' },
+            { label: 'Today', value: stats.today },
+            { label: 'This week', value: stats.thisWeek },
+            { label: 'This month', value: stats.thisMonth },
+            { label: 'Delivery rate', value: `${stats.deliveryRate}%` },
           ].map((card) => (
-            <div key={card.label} className="ps-card" style={{ padding: 'var(--ps-space-lg)', textAlign: 'center' }}>
-              <div style={{ fontSize: '1.5rem', marginBottom: 'var(--ps-space-xs)' }}>{card.icon}</div>
-              <div style={{ fontSize: '1.75rem', fontWeight: 700, color: 'var(--ps-deep-blue)' }}>{card.value}</div>
-              <div style={{ fontSize: '0.85rem', color: 'var(--ps-slate)' }}>{card.label}</div>
+            <div key={card.label} className="stat-card">
+              <div className="stat-card-label">{card.label}</div>
+              <div className="stat-card-value">{card.value}</div>
             </div>
           ))}
         </div>

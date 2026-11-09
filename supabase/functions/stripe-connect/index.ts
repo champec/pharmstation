@@ -1,5 +1,5 @@
 // ============================================================
-// stripe-connect (v4)
+// stripe-connect (v5)
 // Stripe Connect Express onboarding for PharmStation entities.
 //
 // Entities:
@@ -12,6 +12,8 @@
 //                        default, never the shared pharmacy login).
 //   - get_status       : report account status (charges/payouts enabled); any member
 //
+// A stored account the current Stripe key cannot see (made in test mode before
+// the switch to live keys) is forgotten, so the owner can connect again.
 // Deployed via MCP. Do not run local supabase CLI deploys.
 // ============================================================
 
@@ -98,6 +100,8 @@ interface EntityCtx {
   displayName: string | null;
   /** persist a newly created Stripe account id */
   saveAccountId: (accountId: string) => Promise<void>;
+  /** forget a stored account id that the current Stripe key cannot see */
+  clearAccount: () => Promise<void>;
   /** persist latest status snapshot from Stripe */
   syncStatus: (status: {
     accountId: string;
@@ -143,6 +147,17 @@ async function orgContext(orgId: string): Promise<EntityCtx> {
           { onConflict: 'org_id' },
         );
       if (upErr) throw new Error(`Failed to save account id: ${upErr.message}`);
+    },
+    clearAccount: async () => {
+      await admin.from('ps_org_billing')
+        .update({
+          stripe_account_id: null,
+          stripe_account_status: 'pending',
+          charges_enabled: false,
+          payouts_enabled: false,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('org_id', orgId);
     },
     syncStatus: async (s) => {
       const { error: upErr } = await admin
@@ -191,6 +206,11 @@ async function locumContext(userId: string): Promise<EntityCtx> {
         .update({ stripe_account_id: accountId, stripe_onboarded: false })
         .eq('user_id', userId);
       if (upErr) throw new Error(`Failed to save account id: ${upErr.message}`);
+    },
+    clearAccount: async () => {
+      await admin.from('ps_locum_profiles')
+        .update({ stripe_account_id: null, stripe_onboarded: false })
+        .eq('user_id', userId);
     },
     syncStatus: async (s) => {
       const { error: upErr } = await admin
@@ -256,6 +276,26 @@ async function resolveEntity(
 // ------------------------------------------------------------
 // Actions
 // ------------------------------------------------------------
+
+// A stored account the current key cannot see (made in test mode before the
+// switch to live keys, or deleted in Stripe). Treat it as never connected so
+// the pharmacy can start again instead of being stuck on a Stripe error.
+function isMissingAccount(e: unknown): boolean {
+  return (e as { code?: string })?.code === 'resource_missing'
+}
+
+async function retrieveOrForget(ctx: EntityCtx) {
+  if (!ctx.accountId) return null
+  try {
+    return await getStripe().accounts.retrieve(ctx.accountId)
+  } catch (e) {
+    if (!isMissingAccount(e)) throw e
+    console.warn('stored Stripe account not found for this key, clearing', ctx.accountId)
+    await ctx.clearAccount()
+    ctx.accountId = null
+    return null
+  }
+}
 async function startOnboarding(
   ctx: EntityCtx,
   body: Record<string, unknown>,
@@ -268,6 +308,7 @@ async function startOnboarding(
     return json({ error: 'return_url and refresh_url are required' }, 400);
   }
 
+  await retrieveOrForget(ctx);
   let accountId = ctx.accountId;
 
   if (!accountId) {
@@ -300,7 +341,8 @@ async function startOnboarding(
 }
 
 async function getStatus(ctx: EntityCtx): Promise<Response> {
-  if (!ctx.accountId) {
+  const account = await retrieveOrForget(ctx);
+  if (!ctx.accountId || !account) {
     return json({
       status: 'not_onboarded',
       charges_enabled: false,
@@ -308,9 +350,6 @@ async function getStatus(ctx: EntityCtx): Promise<Response> {
       details_submitted: false,
     });
   }
-
-  const stripe = getStripe();
-  const account = await stripe.accounts.retrieve(ctx.accountId);
 
   const chargesEnabled = !!account.charges_enabled;
   const payoutsEnabled = !!account.payouts_enabled;
