@@ -368,7 +368,7 @@ function NewCallModal({ visible, onClose, onCreated }: { visible: boolean; onClo
               ))}
             </View>
             <Text style={styles.hint}>Need another time? Book it on the website. The link works for two hours from the booked time.</Text>
-            <Pressable style={styles.checkRow} onPress={() => setSendText((v) => !v)} accessibilityRole="checkbox" accessibilityState={{ checked: sendText }}>
+            <Pressable style={styles.checkRow} onPress={() => setSendText((v) => !v)} accessibilityRole="checkbox" accessibilityState={{ checked: sendText }} aria-checked={sendText}>
               <Ionicons name={sendText ? 'checkbox' : 'square-outline'} size={22} color={sendText ? palette.brand : palette.textMuted} />
               <Text style={styles.checkText}>Text the patient their link and access code</Text>
             </Pressable>
