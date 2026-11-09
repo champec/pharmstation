@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useAuthStore, useSOPStore, canManageSOPs } from '@pharmstation/core'
 import type { SOPCompletion } from '@pharmstation/types'
+import { Users } from 'lucide-react'
 
 const ukDateTime = (iso: string) =>
   new Date(iso).toLocaleString('en-GB', { timeZone: 'Europe/London', dateStyle: 'medium', timeStyle: 'short' })
@@ -109,7 +110,7 @@ export function SOPProgressPage() {
         </div>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div>
-            <h1>📊 Staff Progress</h1>
+            <h1>Staff Progress</h1>
             {doc && (
               <p style={{ margin: '4px 0 0', fontSize: 13, color: 'var(--ps-text-muted)' }}>
                 {doc.title} · v{currentVersion} ·{' '}
@@ -129,7 +130,7 @@ export function SOPProgressPage() {
               ⬇ Export sign-offs (CSV)
             </button>
             <button className="ps-btn ps-btn-secondary" onClick={() => window.print()}>
-              🖨 Print
+              Print
             </button>
             <button className="ps-btn ps-btn-secondary" onClick={() => navigate(`/sops/${docId}/edit`)}>
               ← Back to Editor
@@ -204,7 +205,7 @@ export function SOPProgressPage() {
           {/* Member table */}
           {memberProgress.length === 0 ? (
             <div className="ps-empty-state">
-              <div style={{ fontSize: 40 }}>👥</div>
+              <span className="ps-empty-icon" aria-hidden="true"><Users size={26} strokeWidth={1.75} /></span>
               <h3>Not assigned to anyone yet</h3>
               <p style={{ color: 'var(--ps-text-muted)' }}>
                 Assign this SOP to staff on the <strong>Assign</strong> page to track who has read it.

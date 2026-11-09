@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { Lock } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useAuthStore, useMessagingStore } from '@pharmstation/core'
 import type { MessageChannel } from '@pharmstation/types'
@@ -135,7 +136,7 @@ export function NewBroadcastPage() {
           <span className="separator">/</span>
           <span>New</span>
         </div>
-        <h1>📢 New Broadcast</h1>
+        <h1>New Broadcast</h1>
       </div>
 
       {isNotConfigured && (
@@ -172,7 +173,7 @@ export function NewBroadcastPage() {
                     style={unavailable ? { opacity: 0.5 } : undefined}
                     title={unavailable ? 'NHS-affiliated organisations only' : undefined}
                   >
-                    {ch.icon} {ch.label}{unavailable ? ' 🔒' : ''}
+                    {ch.label}{unavailable && <Lock size={12} aria-label="Not available" style={{ marginLeft: 4 }} />}
                   </button>
                 )
               })}

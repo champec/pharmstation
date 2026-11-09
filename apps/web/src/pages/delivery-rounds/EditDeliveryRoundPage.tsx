@@ -124,8 +124,8 @@ export function EditDeliveryRoundPage() {
   }
 
   return (
-    <div>
-      <div className="page-header">
+    <div className="care-home-page">
+      <div className="page-header care-home-page-header">
         <div className="breadcrumbs">
           <a href="/" onClick={(e) => { e.preventDefault(); navigate('/') }}>Dashboard</a>
           <span className="separator">/</span>
@@ -135,7 +135,13 @@ export function EditDeliveryRoundPage() {
           <span className="separator">/</span>
           <span>Edit</span>
         </div>
-        <h1>✏️ Edit Delivery Round</h1>
+        <div className="care-home-title-row">
+          <div>
+            <p className="care-home-eyebrow">Deliveries</p>
+            <h1>Edit delivery round</h1>
+            <p className="care-home-subtitle">Change the schedule, driver and stops before the round starts.</p>
+          </div>
+        </div>
       </div>
 
       {error && <div className="auth-error" style={{ marginBottom: 'var(--ps-space-md)' }}>{error}</div>}

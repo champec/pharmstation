@@ -31,6 +31,8 @@ import {
   type SmsConversation,
 } from '@/stores/comms-store'
 import { useAuthStore } from '@/stores/auth-store'
+import { NetworkSetupModal, NetworkStatusBanner, networkBlocker } from '@/modules/screens/network-setup'
+import { userClient } from '@/lib/supabase'
 import { palette, radius } from '@/theme/palette'
 
 const COLOR = '#0EA5E9'
@@ -53,7 +55,9 @@ function fullWhen(iso: string) {
 }
 
 function prettyPhone(phone: string) {
-  return phone.startsWith('+44') ? `0${phone.slice(3)}` : phone
+  if (phone.startsWith('+44')) return `0${phone.slice(3)}`
+  if (/^447\d{9}$/.test(phone)) return `0${phone.slice(2)}`
+  return phone
 }
 
 /** Keeps comms data loaded and live while a Communications tab is open. */
@@ -65,6 +69,7 @@ function useComms() {
     if (!orgId) return
     const s = useCommsStore.getState()
     void s.loadNetwork()
+    void s.loadSetup()
     void s.loadSms()
     void s.loadAlerts()
     subscribe()
@@ -82,6 +87,7 @@ function MessagesScreen() {
   const [openThread, setOpenThread] = useState<NetworkThread | null>(null)
   const [openSms, setOpenSms] = useState<SmsConversation | null>(null)
   const [composing, setComposing] = useState(false)
+  const [texting, setTexting] = useState(false)
 
   return (
     <View style={styles.screen}>
@@ -92,7 +98,7 @@ function MessagesScreen() {
 
       {view === 'pharmacies'
         ? <NetworkList onOpen={setOpenThread} onCompose={() => setComposing(true)} />
-        : <SmsList onOpen={setOpenSms} />}
+        : <SmsList onOpen={setOpenSms} onCompose={() => setTexting(true)} />}
 
       <NetworkThreadModal thread={openThread} onClose={() => setOpenThread(null)} />
       <SmsThreadModal conversation={openSms} onClose={() => setOpenSms(null)} />
@@ -100,6 +106,11 @@ function MessagesScreen() {
         visible={composing}
         onClose={() => setComposing(false)}
         onSent={() => setComposing(false)}
+      />
+      <NewTextModal
+        visible={texting}
+        onClose={() => setTexting(false)}
+        onPick={(c) => { setTexting(false); setOpenSms(c) }}
       />
     </View>
   )
@@ -119,13 +130,31 @@ function NetworkList({ onOpen, onCompose }: { onOpen: (t: NetworkThread) => void
   const loading = useCommsStore((s) => s.networkLoading)
   const error = useCommsStore((s) => s.networkError)
   const load = useCommsStore((s) => s.loadNetwork)
+  const setup = useCommsStore((s) => s.setup)
+  const [setupOpen, setSetupOpen] = useState(false)
+  const blocked = !!networkBlocker(setup) && !(setup?.link && !setup.networkEnabled && setup.verification !== 'pending' && setup.verification !== 'rejected')
 
   return (
     <View style={styles.flex}>
-      <Pressable style={({ pressed }) => [styles.newButton, pressed && styles.pressed]} onPress={onCompose}>
-        <Ionicons name="create-outline" size={18} color="#FFFFFF" />
-        <Text style={styles.newButtonText}>Message a pharmacy</Text>
-      </Pressable>
+      <View style={styles.actionsRow}>
+        <Pressable
+          style={({ pressed }) => [styles.newButton, styles.flex, pressed && styles.pressed, blocked && styles.disabled]}
+          onPress={onCompose}
+          disabled={blocked}
+        >
+          <Ionicons name="create-outline" size={18} color="#FFFFFF" />
+          <Text style={styles.newButtonText}>Message pharmacies</Text>
+        </Pressable>
+        <Pressable
+          style={({ pressed }) => [styles.iconButton, pressed && styles.pressed]}
+          onPress={() => setSetupOpen(true)}
+          accessibilityLabel="Network settings"
+        >
+          <Ionicons name="settings-outline" size={20} color={COLOR} />
+        </Pressable>
+      </View>
+      <NetworkStatusBanner onOpenSetup={() => setSetupOpen(true)} />
+      <NetworkSetupModal visible={setupOpen} onClose={() => { setSetupOpen(false); void load() }} />
       <ErrorBanner message={error} />
       <FlatList
         data={threads}
@@ -168,7 +197,7 @@ function NetworkList({ onOpen, onCompose }: { onOpen: (t: NetworkThread) => void
   )
 }
 
-function SmsList({ onOpen }: { onOpen: (c: SmsConversation) => void }) {
+function SmsList({ onOpen, onCompose }: { onOpen: (c: SmsConversation) => void; onCompose: () => void }) {
   const sms = useCommsStore((s) => s.sms)
   const loading = useCommsStore((s) => s.smsLoading)
   const error = useCommsStore((s) => s.smsError)
@@ -176,6 +205,10 @@ function SmsList({ onOpen }: { onOpen: (c: SmsConversation) => void }) {
 
   return (
     <View style={styles.flex}>
+      <Pressable style={({ pressed }) => [styles.newButton, { backgroundColor: palette.success }, pressed && styles.pressed]} onPress={onCompose}>
+        <Ionicons name="create-outline" size={18} color="#FFFFFF" />
+        <Text style={styles.newButtonText}>Text a patient</Text>
+      </Pressable>
       <ErrorBanner message={error} />
       <FlatList
         data={sms}
@@ -183,7 +216,7 @@ function SmsList({ onOpen }: { onOpen: (c: SmsConversation) => void }) {
         contentContainerStyle={styles.listContent}
         refreshControl={<RefreshControl refreshing={loading} onRefresh={() => void load()} tintColor={COLOR} />}
         ListEmptyComponent={loading ? <Loading /> : (
-          <Empty icon="chatbubble-ellipses-outline" title="No patient texts" text="When patients reply to your texts, their messages appear here and you can answer from your phone." />
+          <Empty icon="chatbubble-ellipses-outline" title="No patient texts" text="Text a patient from here. When patients reply, their messages appear here and you can answer from your phone." />
         )}
         renderItem={({ item }) => (
           <Pressable style={({ pressed }) => [styles.row, pressed && styles.pressed]} onPress={() => onOpen(item)}>
@@ -395,7 +428,8 @@ function ComposeModal({ visible, onClose, onSent }: { visible: boolean; onClose:
   const searching = useCommsStore((s) => s.searchLoading)
   const send = useCommsStore((s) => s.sendNetworkMessage)
   const [query, setQuery] = useState('')
-  const [to, setTo] = useState<NetworkPharmacy | null>(null)
+  const [to, setTo] = useState<NetworkPharmacy[]>([])
+  const [picking, setPicking] = useState(true)
   const [label, setLabel] = useState<NetworkLabel>('stock_query')
   const [subject, setSubject] = useState('')
   const [body, setBody] = useState('')
@@ -404,21 +438,28 @@ function ComposeModal({ visible, onClose, onSent }: { visible: boolean; onClose:
 
   useEffect(() => {
     if (!visible) return
-    setQuery(''); setTo(null); setLabel('stock_query'); setSubject(''); setBody(''); setUrgent(false)
+    setQuery(''); setTo([]); setPicking(true); setLabel('stock_query'); setSubject(''); setBody(''); setUrgent(false)
     void search('')
   }, [visible, search])
 
   useEffect(() => {
-    if (!visible || to) return
+    if (!visible || !picking) return
     const t = setTimeout(() => void search(query), 350)
     return () => clearTimeout(t)
-  }, [query, visible, to, search])
+  }, [query, visible, picking, search])
+
+  const toggle = (p: NetworkPharmacy) =>
+    setTo((cur) => (cur.some((x) => x.linked_org_id === p.linked_org_id)
+      ? cur.filter((x) => x.linked_org_id !== p.linked_org_id)
+      : cur.length >= 50 ? cur : [...cur, p]))
+  const anyTexts = to.some((p) => p.accepts_sms_pings)
 
   const submit = async () => {
-    if (!to?.linked_org_id || !body.trim()) return
+    const ids = to.map((p) => p.linked_org_id).filter((x): x is string => !!x)
+    if (!ids.length || !body.trim()) return
     setSending(true)
     try {
-      const note = await send({ toOrgIds: [to.linked_org_id], body: body.trim(), subject: subject.trim() || null, label, urgent })
+      const note = await send({ toOrgIds: ids, body: body.trim(), subject: subject.trim() || null, label, urgent })
       if (note) Alert.alert('Message sent', note)
       onSent()
     } catch (e) {
@@ -429,9 +470,14 @@ function ComposeModal({ visible, onClose, onSent }: { visible: boolean; onClose:
   }
 
   return (
-    <ModalShell visible={visible} title="Message a pharmacy" subtitle="PharmStation network" onClose={onClose}>
+    <ModalShell
+      visible={visible}
+      title={picking ? 'Choose pharmacies' : 'New message'}
+      subtitle={to.length ? `${to.length} selected · each gets a private conversation` : 'PharmStation network'}
+      onClose={picking && to.length ? () => setPicking(false) : onClose}
+    >
       <ScrollView contentContainerStyle={styles.composeContent} keyboardShouldPersistTaps="handled">
-        {!to ? (
+        {picking ? (
           <>
             <View style={styles.searchBox}>
               <Ionicons name="search" size={18} color={palette.textMuted} />
@@ -440,28 +486,47 @@ function ComposeModal({ visible, onClose, onSent }: { visible: boolean; onClose:
             <Text style={styles.hint}>{query.trim() ? 'Pharmacies on PharmStation' : 'Nearby pharmacies on PharmStation'}</Text>
             {searching ? <Loading /> : results.length === 0 ? (
               <Empty icon="search-outline" title="No pharmacies found" text="Only pharmacies that have joined the PharmStation network can receive messages." />
-            ) : results.map((p) => (
-              <Pressable key={`${p.pharmacy_id}-${p.linked_org_id}`} style={({ pressed }) => [styles.row, pressed && styles.pressed]} onPress={() => setTo(p)}>
-                <View style={[styles.avatar, { backgroundColor: COLOR_TINT }]}><Ionicons name="business" size={20} color={COLOR} /></View>
-                <View style={styles.rowBody}>
-                  <Text style={styles.rowTitle} numberOfLines={1}>{p.linked_org_name ?? p.organisation_name}</Text>
-                  <Text style={styles.rowMeta} numberOfLines={1}>
-                    {[p.address1, p.city, p.postcode].filter(Boolean).join(', ')}
-                    {p.distance_km != null ? ` · ${p.distance_km.toFixed(1)} km` : ''}
-                  </Text>
-                </View>
-                <Ionicons name="chevron-forward" size={18} color={palette.textMuted} />
+            ) : results.map((p) => {
+              const selected = to.some((x) => x.linked_org_id === p.linked_org_id)
+              return (
+                <Pressable
+                  key={`${p.pharmacy_id}-${p.linked_org_id}`}
+                  style={({ pressed }) => [styles.row, selected && styles.rowSelected, pressed && styles.pressed]}
+                  onPress={() => toggle(p)}
+                  accessibilityRole="checkbox"
+                  accessibilityState={{ checked: selected }}
+                >
+                  <View style={[styles.avatar, { backgroundColor: COLOR_TINT }]}><Ionicons name="business" size={20} color={COLOR} /></View>
+                  <View style={styles.rowBody}>
+                    <Text style={styles.rowTitle} numberOfLines={1}>{p.linked_org_name ?? p.organisation_name}</Text>
+                    <Text style={styles.rowMeta} numberOfLines={1}>
+                      {[p.address1, p.city, p.postcode].filter(Boolean).join(', ')}
+                      {p.distance_km != null ? ` · ${p.distance_km.toFixed(1)} km` : ''}
+                    </Text>
+                    {p.accepts_sms_pings ? <Text style={styles.rowMeta}>Gets urgent texts</Text> : null}
+                  </View>
+                  <Ionicons name={selected ? 'checkmark-circle' : 'ellipse-outline'} size={24} color={selected ? COLOR : palette.textMuted} />
+                </Pressable>
+              )
+            })}
+            {to.length ? (
+              <Pressable style={[styles.newButton, styles.stickyNext]} onPress={() => setPicking(false)}>
+                <Text style={styles.newButtonText}>Next: write message ({to.length})</Text>
+                <Ionicons name="arrow-forward" size={17} color="#FFFFFF" />
               </Pressable>
-            ))}
+            ) : null}
           </>
         ) : (
           <>
-            <Pressable style={styles.toCard} onPress={() => setTo(null)}>
+            <Pressable style={styles.toCard} onPress={() => setPicking(true)}>
               <Text style={styles.fieldLabel}>To</Text>
               <View style={styles.rowTop}>
-                <Text style={styles.rowTitle} numberOfLines={1}>{to.linked_org_name ?? to.organisation_name}</Text>
+                <Text style={styles.rowTitle} numberOfLines={2}>
+                  {to.map((p) => p.linked_org_name ?? p.organisation_name).join(', ')}
+                </Text>
                 <Text style={styles.changeLink}>Change</Text>
               </View>
+              {to.length > 1 ? <Text style={styles.rowMeta}>Each pharmacy gets its own private conversation; they can’t see each other.</Text> : null}
             </Pressable>
 
             <Text style={styles.fieldLabel}>Type</Text>
@@ -486,7 +551,11 @@ function ComposeModal({ visible, onClose, onSent }: { visible: boolean; onClose:
             <View style={styles.urgentRow}>
               <View style={styles.flex}>
                 <Text style={styles.urgentTitle}>Urgent: also send a text alert</Text>
-                <Text style={styles.urgentText}>Texts their pharmacy to check PharmStation, if they allow it.</Text>
+                <Text style={styles.urgentText}>
+                  {anyTexts
+                    ? 'Texts their phone to check PharmStation. Never includes your message, so patient details stay safe. Uses your SMS credits.'
+                    : 'None of the selected pharmacies have urgent texts turned on, so no text will be sent.'}
+                </Text>
               </View>
               <Switch value={urgent} onValueChange={setUrgent} trackColor={{ true: COLOR, false: '#CBD5E1' }} />
             </View>
@@ -507,6 +576,89 @@ function ComposeModal({ visible, onClose, onSent }: { visible: boolean; onClose:
 }
 
 // ---------------------------------------------------------------- Alerts tab
+
+// ---------------------------------------------------------------- new patient text
+
+type PatientHit = { id: string; first_name: string | null; last_name: string | null; phone: string | null; phone_normalized: string | null }
+
+function NewTextModal({ visible, onClose, onPick }: { visible: boolean; onClose: () => void; onPick: (c: SmsConversation) => void }) {
+  const orgId = useAuthStore((s) => s.organisation?.id ?? null)
+  const [query, setQuery] = useState('')
+  const [results, setResults] = useState<PatientHit[]>([])
+  const [searching, setSearching] = useState(false)
+
+  useEffect(() => { if (visible) { setQuery(''); setResults([]) } }, [visible])
+
+  useEffect(() => {
+    if (!visible || !orgId) return
+    const q = query.trim().replace(/[%(),]/g, '')
+    if (q.length < 2) { setResults([]); return }
+    const t = setTimeout(async () => {
+      setSearching(true)
+      const { data } = await userClient.from('ps_patients')
+        .select('id, first_name, last_name, phone, phone_normalized')
+        .eq('organisation_id', orgId)
+        .not('phone', 'is', null)
+        .or(`first_name.ilike.%${q}%,last_name.ilike.%${q}%,phone.ilike.%${q}%`)
+        .order('last_name')
+        .limit(20)
+      setResults((data ?? []) as PatientHit[])
+      setSearching(false)
+    }, 300)
+    return () => clearTimeout(t)
+  }, [query, visible, orgId])
+
+  // A UK mobile typed straight in, for someone who isn't a saved patient yet.
+  const typed = query.replace(/[^\d+]/g, '')
+  const typedNumber = /^(\+?44|0)7\d{9}$/.test(typed)
+    ? `44${typed.replace(/^\+?44|^0/, '')}`
+    : null
+
+  const pick = (phone: string, patient?: PatientHit) => onPick({
+    phone,
+    patientId: patient?.id ?? null,
+    patientName: patient ? [patient.first_name, patient.last_name].filter(Boolean).join(' ') || null : null,
+    lastBody: '',
+    lastAt: new Date().toISOString(),
+    unread: 0,
+  })
+
+  return (
+    <ModalShell visible={visible} title="Text a patient" subtitle="Sent from your pharmacy's number" onClose={onClose}>
+      <ScrollView contentContainerStyle={styles.composeContent} keyboardShouldPersistTaps="handled">
+        <View style={styles.searchBox}>
+          <Ionicons name="search" size={18} color={palette.textMuted} />
+          <TextInput value={query} onChangeText={setQuery} placeholder="Patient name or mobile number" placeholderTextColor={palette.textMuted} style={styles.searchInput} autoFocus />
+        </View>
+        {typedNumber ? (
+          <Pressable style={({ pressed }) => [styles.row, pressed && styles.pressed]} onPress={() => pick(typedNumber)}>
+            <View style={[styles.avatar, { backgroundColor: '#ECFDF5' }]}><Ionicons name="call" size={19} color={palette.success} /></View>
+            <View style={styles.rowBody}>
+              <Text style={styles.rowTitle}>Text {prettyPhone(typedNumber)}</Text>
+              <Text style={styles.rowMeta}>Not linked to a patient record</Text>
+            </View>
+          </Pressable>
+        ) : null}
+        {query.trim().length < 2 ? (
+          <Text style={styles.hint}>Search your patients, or type a UK mobile number.</Text>
+        ) : searching ? <Loading /> : results.length === 0 && !typedNumber ? (
+          <Empty icon="person-outline" title="No patients found" text="Only patients with a phone number on their record are shown." />
+        ) : results.map((p) => {
+          const phone = p.phone_normalized || p.phone || ''
+          return (
+            <Pressable key={p.id} style={({ pressed }) => [styles.row, pressed && styles.pressed]} onPress={() => pick(phone, p)}>
+              <View style={[styles.avatar, { backgroundColor: '#ECFDF5' }]}><Ionicons name="person" size={19} color={palette.success} /></View>
+              <View style={styles.rowBody}>
+                <Text style={styles.rowTitle} numberOfLines={1}>{[p.first_name, p.last_name].filter(Boolean).join(' ') || 'Unnamed patient'}</Text>
+                <Text style={styles.rowMeta}>{prettyPhone(phone)}</Text>
+              </View>
+            </Pressable>
+          )
+        })}
+      </ScrollView>
+    </ModalShell>
+  )
+}
 
 const ALERT_ICONS: Record<string, keyof typeof Ionicons.glyphMap> = {
   network_message: 'business-outline',
@@ -637,6 +789,10 @@ const styles = StyleSheet.create({
 
   newButton: { minHeight: 48, borderRadius: radius.md, backgroundColor: COLOR, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, marginBottom: 12 },
   newButtonText: { color: '#FFFFFF', fontWeight: '800', fontSize: 15 },
+  actionsRow: { flexDirection: 'row', gap: 8 },
+  iconButton: { width: 48, height: 48, borderRadius: radius.md, borderWidth: 1, borderColor: palette.border, backgroundColor: palette.surface, alignItems: 'center', justifyContent: 'center' },
+  rowSelected: { borderColor: COLOR, backgroundColor: COLOR_TINT },
+  stickyNext: { marginTop: 8 },
 
   listContent: { paddingBottom: 24, gap: 8, flexGrow: 1 },
   row: { flexDirection: 'row', gap: 12, alignItems: 'flex-start', backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.border, borderRadius: radius.md, padding: 12 },

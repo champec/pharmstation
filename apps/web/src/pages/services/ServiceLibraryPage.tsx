@@ -5,12 +5,12 @@ import type { ServiceLibraryItem } from '@pharmstation/types'
 import { NHS_SERVICES_ENABLED } from '../../lib/features'
 
 const CATEGORY_LABELS: Record<string, string> = {
-  nhs_advanced_service: '🏥 NHS Advanced Services',
-  vaccination: '💉 Vaccinations',
-  screening: '🔬 Screening',
-  consultation: '🗣 Consultations',
-  pharmacy_first: '🏥 Pharmacy First — Pathways',
-  general: '📋 General',
+  nhs_advanced_service: 'NHS Advanced Services',
+  vaccination: 'Vaccinations',
+  screening: 'Screening',
+  consultation: 'Consultations',
+  pharmacy_first: 'Pharmacy First — Pathways',
+  general: 'General',
 }
 
 const CATEGORY_ORDER = ['nhs_advanced_service', 'vaccination', 'screening', 'consultation', 'pharmacy_first', 'general']
@@ -107,7 +107,7 @@ export function ServiceLibraryPage() {
           <span>Library</span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <h1>📚 Service Library</h1>
+          <h1>Service Library</h1>
           <button className="ps-btn ps-btn-secondary" onClick={() => navigate('/services')}>
             ← Back to Services
           </button>
@@ -187,7 +187,7 @@ export function ServiceLibraryPage() {
                     {item.description}
                   </p>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <span className="ps-badge ps-badge-blue">{CATEGORY_LABELS[item.category]?.split(' ')[0] || '📋'} {item.category}</span>
+                    <span className="ps-badge ps-badge-blue">{CATEGORY_LABELS[item.category] ?? item.category}</span>
                     {alreadyAdded ? (
                       <div style={{ display: 'flex', gap: 'var(--ps-space-xs)', alignItems: 'center' }}>
                         <span className="ps-badge ps-badge-green">✓ Added</span>

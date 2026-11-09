@@ -260,7 +260,7 @@ export function LogViewPage() {
             {!scheduled && template && (
               <button className="ps-btn ps-btn-primary" onClick={() => openNew(today)}>+ {cat.cta}</button>
             )}
-            <button className="ps-btn ps-btn-secondary" onClick={handleLogPrint} disabled={!template}>🖨️ Print / PDF</button>
+            <button className="ps-btn ps-btn-secondary" onClick={handleLogPrint} disabled={!template}>Print / PDF</button>
             <button className="ps-btn ps-btn-secondary" onClick={handleLogCsv} disabled={!template}>⬇ CSV</button>
             <button className="ps-btn ps-btn-ghost" onClick={() => navigate(`/logs/${subscriptionId}/settings`)} aria-label="Settings">⚙️</button>
           </div>
@@ -357,7 +357,7 @@ export function LogViewPage() {
                       const out = isOutOfRange(f, v)
                       return (
                         <td key={f.id} className={out ? 'log-out' : ''}>
-                          {entry ? (f.field_type === 'canvas' || f.field_type === 'signature' ? (v ? '✍️ Signed' : '—') : displayValue(f, v)) : ''}
+                          {entry ? (f.field_type === 'canvas' || f.field_type === 'signature' ? (v ? 'Signed' : '—') : displayValue(f, v)) : ''}
                           {out && <span className="log-out-flag" title="Out of range"> ⚠</span>}
                         </td>
                       )

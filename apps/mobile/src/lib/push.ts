@@ -89,4 +89,8 @@ export type PushPayload = {
   event_type?: string
   thread_id?: string
   from_number?: string
+  /** Locum pushes: 'locum_booking' | 'locum_shift'. */
+  type?: string
+  booking_id?: string
+  shift_id?: string
 }

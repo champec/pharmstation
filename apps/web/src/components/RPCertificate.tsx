@@ -140,7 +140,7 @@ export function RPCertificate({ name, gphcNumber, onPrint }: RPCertificateProps)
             </select>
           </div>
           <button className="ps-btn ps-btn-primary" onClick={() => onPrint(orientation)}>
-            🖨️ Print Certificate
+            Print Certificate
           </button>
         </div>
       )}

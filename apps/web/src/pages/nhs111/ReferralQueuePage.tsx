@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuthStore, useNHS111Store } from '@pharmstation/core'
 import type { NHS111ReferralStatus, NHS111Urgency } from '@pharmstation/types'
+import { Inbox } from 'lucide-react'
 
 // ============================================================
 // Status & urgency badge helpers
@@ -116,7 +117,7 @@ export function ReferralQueuePage() {
         </div>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 'var(--ps-space-sm)' }}>
           <h1 style={{ display: 'flex', alignItems: 'center', gap: 'var(--ps-space-sm)' }}>
-            📞 NHS 111 Referrals
+            NHS 111 Referrals
             {unreadCount > 0 && (
               <span className="ps-badge ps-badge-red" style={{ fontSize: '0.75rem' }}>
                 {unreadCount} new
@@ -193,7 +194,7 @@ export function ReferralQueuePage() {
       {/* Empty state */}
       {!loading && filtered.length === 0 && (
         <div className="ps-card" style={{ padding: 'var(--ps-space-2xl)', textAlign: 'center' }}>
-          <div style={{ fontSize: '2rem', marginBottom: 'var(--ps-space-sm)' }}>📭</div>
+          <span className="ps-empty-icon" aria-hidden="true"><Inbox size={26} strokeWidth={1.75} /></span>
           <h3 style={{ marginBottom: 'var(--ps-space-xs)' }}>No referrals found</h3>
           <p style={{ color: 'var(--ps-slate)', margin: 0 }}>
             {statusFilter !== 'all'
@@ -265,14 +266,14 @@ export function ReferralQueuePage() {
                   {/* Right: badges */}
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4, flexShrink: 0 }}>
                     <span className={urgency.cls} style={{ fontSize: '0.75rem' }}>
-                      {urgency.icon} {urgency.label}
+                      {urgency.label}
                     </span>
                     <span className={status.cls} style={{ fontSize: '0.75rem' }}>
                       {status.label}
                     </span>
                     {r.event_type === 'discharge_details' && (
                       <span className="ps-badge" style={{ fontSize: '0.7rem' }}>
-                        ℹ️ Discharge
+                        Discharge
                       </span>
                     )}
                   </div>

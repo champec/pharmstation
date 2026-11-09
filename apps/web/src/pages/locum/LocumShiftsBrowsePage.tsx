@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { getUserClient } from '@pharmstation/supabase-client'
+import { Bell } from 'lucide-react'
+import { PageHeader } from '../../components/ui'
 import { useAuthStore } from '@pharmstation/core'
 
 interface ShiftWithCriteria {
@@ -211,17 +213,30 @@ export function LocumShiftsBrowsePage() {
     }
   }
 
+  async function createAlert() {
+    if (!locumProfile) return
+    const rate = Number(filterRateMin) || 0
+    const name = [rate ? `£${rate}+/hr` : '', filterEligible ? 'eligible only' : ''].filter(Boolean).join(', ') || 'All shifts'
+    if (!window.confirm(`Get a notification on the PharmStation phone app when a new shift is posted that matches: ${name}?\n\nManage alerts in the app under Locum Shifts › Profile.`)) return
+    const { error: e } = await getUserClient().from('ps_locum_saved_searches').insert({
+      locum_id: locumProfile.id, name, minimum_rate: rate, date_filter: 'all', eligible_only: filterEligible, alerts_enabled: true,
+    })
+    if (e) setApplyError(e.message)
+    else { setApplyError(null); setApplyNotice('Alert created. New matching shifts will be sent to the PharmStation app on your phone.') }
+  }
+
   return (
     <div className="page-container">
-      <div className="page-header">
-        <div>
-          <h1 className="page-title">Browse Shifts</h1>
-          <p className="page-subtitle">Available locum shifts across the network</p>
-        </div>
-        <button className="ps-btn ps-btn-ghost ps-btn-sm" onClick={load} disabled={loading}>
-          Refresh
-        </button>
-      </div>
+      <PageHeader
+        title="Browse shifts"
+        subtitle="Available locum shifts across the network"
+        actions={<>
+          <button className="ps-btn ps-btn-ghost ps-btn-sm" onClick={load} disabled={loading}>Refresh</button>
+          <button className="ps-btn ps-btn-secondary ps-btn-sm" onClick={createAlert} title="Get a phone notification when a new shift matches these filters">
+            <Bell size={16} strokeWidth={1.75} aria-hidden="true" /> Alert me
+          </button>
+        </>}
+      />
 
       {error && <div className="ps-alert ps-alert-error" style={{ marginBottom: '1rem' }}>{error}</div>}
       {applyError && <div className="ps-alert ps-alert-error" style={{ marginBottom: '1rem' }}>{applyError}</div>}

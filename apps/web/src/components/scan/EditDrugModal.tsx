@@ -181,7 +181,7 @@ export function EditDrugModal({
       <div className="edit-drug-modal" onClick={(e) => e.stopPropagation()}>
         {/* Header */}
         <div className="edit-drug-header">
-          <h3>🔍 Select Drug</h3>
+          <h3>Select Drug</h3>
           <button className="scan-review-close" onClick={onCancel}>
             ✕
           </button>
@@ -190,7 +190,7 @@ export function EditDrugModal({
         <div className="edit-drug-body">
           {/* AI Read reference — always visible at top */}
           <div className="edit-drug-ai-ref">
-            <h4>📷 AI Read (for reference)</h4>
+            <h4>AI Read (for reference)</h4>
             <div className="scan-item-raw">
               <span>
                 <strong>Brand:</strong> {item.drug_name_raw ?? '—'}
@@ -214,7 +214,7 @@ export function EditDrugModal({
           {confirmedDrug && (
             <div className="edit-drug-selected-banner">
               <div className="edit-drug-selected-info">
-                <span className="edit-drug-selected-label">✅ Selected:</span>
+                <span className="edit-drug-selected-label">Selected:</span>
                 <span className="edit-drug-selected-name">{confirmedDrug.drug_brand}</span>
                 <span className="edit-drug-selected-detail">
                   {confirmedDrug.drug_form} – {confirmedDrug.drug_strength}
@@ -296,8 +296,8 @@ export function EditDrugModal({
                     }}
                   >
                     {overrideFilters
-                      ? '🔒 Filter to AI read'
-                      : '🔓 Show all strengths & forms'}
+                      ? 'Filter to AI read'
+                      : 'Show all strengths & forms'}
                   </button>
                 </div>
                 {loadingBrands ? (
@@ -421,7 +421,7 @@ export function EditDrugModal({
             onClick={() => onSave(selectedDrugId, editQuantity)}
             disabled={!selectedDrugId}
           >
-            💾 Save Selection
+            Save Selection
           </button>
           <button className="ps-btn ps-btn-ghost" onClick={onCancel}>
             Cancel

@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuthStore } from '@pharmstation/core'
 import { MfaCodeForm } from '../../components/mfa/MfaCodeForm'
 import { PasswordInput } from '../../components/PasswordInput'
@@ -12,6 +12,8 @@ import { PasswordInput } from '../../components/PasswordInput'
 export function PersonalLoginPage() {
   const { userLogin, mfaPendingFactorId } = useAuthStore()
   const navigate = useNavigate()
+  const [params] = useSearchParams()
+  const confirmed = params.get('confirmed') === '1'
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
@@ -61,6 +63,11 @@ export function PersonalLoginPage() {
         Access your personal account — no pharmacy sign-in needed
       </p>
 
+      {confirmed && !error && (
+        <div className="ps-alert ps-alert-success" style={{ marginBottom: '1rem' }}>
+          Your email is confirmed. Sign in to carry on.
+        </div>
+      )}
       {error && <div className="auth-error">{error}</div>}
 
       <form onSubmit={handleSubmit}>
@@ -104,8 +111,11 @@ export function PersonalLoginPage() {
       </form>
 
       <div style={{ marginTop: '16px', textAlign: 'center', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+        <Link to="/me/signup" style={{ fontSize: 'var(--ps-font-sm)' }}>
+          New to PharmStation? Create an account
+        </Link>
         <Link to="/login/org" style={{ fontSize: 'var(--ps-font-sm)' }}>
-          🏥 Pharmacy sign in instead
+          Pharmacy sign in instead
         </Link>
       </div>
     </div>

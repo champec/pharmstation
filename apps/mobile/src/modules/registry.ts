@@ -28,7 +28,7 @@ export const MODULES: MobileModule[] = [
   {
     id: 'account',
     title: 'My Account',
-    description: 'Your profile, pharmacies and security',
+    description: 'Your profile, pharmacies, security and help',
     icon: 'person-circle-outline',
     color: '#208AEF',
     tier: 'user',
@@ -42,6 +42,12 @@ export const MODULES: MobileModule[] = [
         title: 'Security',
         icon: 'shield-checkmark-outline',
         blurb: 'Two-step sign-in codes',
+      },
+      {
+        id: 'help',
+        title: 'Help',
+        icon: 'help-buoy-outline',
+        blurb: 'Contact PharmStation support',
       },
     ],
   },
@@ -79,6 +85,12 @@ export const MODULES: MobileModule[] = [
         title: 'Earnings',
         icon: 'wallet-outline',
         blurb: 'Completed hours and estimated earnings',
+      },
+      {
+        id: 'profile',
+        title: 'Profile',
+        icon: 'person-outline',
+        blurb: 'Compliance, documents, shift alerts and SOPs',
       },
     ],
   },
@@ -168,6 +180,21 @@ export const MODULES: MobileModule[] = [
     ],
   },
   {
+    id: 'locum-cover',
+    title: 'Locum Cover',
+    description: 'Confirm applicants and record worked shifts',
+    icon: 'people-circle-outline',
+    color: '#7C3AED',
+    tier: 'org',
+    platform: 'both',
+    visible: (ctx) => has(ctx.permissions, 'approve_locums'),
+    tabs: [
+      { id: 'shifts', title: 'Shifts', icon: 'calendar-outline', blurb: 'Upcoming shifts and applications' },
+      { id: 'record', title: 'To record', icon: 'checkmark-done-outline', blurb: 'Mark finished shifts as worked or no-show' },
+      { id: 'post', title: 'Post shift', icon: 'add-circle-outline', platform: 'web', blurb: 'Post new shifts on the website' },
+    ],
+  },
+  {
     id: 'pharmacy',
     title: 'Pharmacy Management',
     description: 'Registers, handover and team tasks',
@@ -202,11 +229,10 @@ export const MODULES: MobileModule[] = [
         id: 'team',
         title: 'Team',
         icon: 'people-outline',
-        platform: 'web',
         visible: (ctx) =>
           has(ctx.permissions, 'manage_users') ||
           has(ctx.permissions, 'org_settings'),
-        blurb: 'Manage staff, roles and permissions',
+        blurb: 'Invite staff, change roles, reset two-step sign-in',
       },
     ],
   },
@@ -298,6 +324,44 @@ export const MODULES: MobileModule[] = [
     ],
   },
 
+  {
+    id: 'billing',
+    title: 'Plan & Billing',
+    description: 'Your PharmStation plan and text credits',
+    icon: 'card-outline',
+    color: '#257BB4',
+    tier: 'org',
+    platform: 'both',
+    visible: (ctx) => ctx.isOrgConnected,
+    tabs: [
+      {
+        id: 'plan',
+        title: 'Plan',
+        icon: 'card-outline',
+        blurb: 'Current plan, renewal date and text credits',
+      },
+    ],
+  },
+
+  {
+    id: 'genie',
+    title: 'Genie',
+    description: 'Ask about your registers, RP log and team',
+    icon: 'sparkles-outline',
+    color: '#6D28D9',
+    tier: 'org',
+    platform: 'both',
+    visible: (ctx) => ctx.isOrgConnected,
+    tabs: [
+      {
+        id: 'ask',
+        title: 'Ask',
+        icon: 'sparkles-outline',
+        blurb: 'Your pharmacy AI assistant',
+      },
+    ],
+  },
+
   // ---------- WEB-ONLY (surfaced as informational cards) ----------
   {
     id: 'video',
@@ -306,10 +370,16 @@ export const MODULES: MobileModule[] = [
     icon: 'videocam-outline',
     color: '#475569',
     tier: 'org',
-    platform: 'web',
+    platform: 'both',
     visible: (ctx) => ctx.isOrgConnected,
-    webHint: 'Video consultations run in the web app on a desktop browser.',
-    tabs: [],
+    tabs: [
+      {
+        id: 'consultations',
+        title: 'Calls',
+        icon: 'videocam-outline',
+        blurb: 'Book, text the link and join patient video calls',
+      },
+    ],
   },
 ]
 

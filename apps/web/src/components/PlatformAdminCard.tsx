@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
   adminListDeletionRequests,
+  adminCompleteAccountDeletion,
   adminSetDeletionRequest,
   getUserClient,
   type DeletionRequest,
@@ -25,15 +26,25 @@ export function PlatformAdminCard() {
     })
   }, [loadRequests])
 
+  const [error, setError] = useState<string | null>(null)
+
   const handle = async (r: DeletionRequest, status: 'done' | 'declined') => {
-    const note = status === 'declined'
-      ? window.prompt('Why can’t this be done? The person will see this.')
-      : window.prompt('Optional note (e.g. what was removed or kept)') ?? ''
-    if (status === 'declined' && !note) return
+    let note: string | null
+    if (status === 'declined') {
+      note = window.prompt('Why can’t this be done? The person will see this.')
+      if (!note) return
+    } else {
+      if (!window.confirm(`Delete ${r.email ?? 'this account'}? Their sign-in and personal details are removed for good. Records they made at a pharmacy stay, under "Deleted user".`)) return
+      note = window.prompt('Optional note for the record') ?? ''
+    }
     setBusyId(r.id)
+    setError(null)
     try {
-      await adminSetDeletionRequest(r.id, status, note ?? undefined)
+      if (status === 'done') await adminCompleteAccountDeletion(r.id, note || undefined)
+      else await adminSetDeletionRequest(r.id, status, note ?? undefined)
       loadRequests()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'That didn’t work.')
     } finally {
       setBusyId(null)
     }
@@ -43,7 +54,7 @@ export function PlatformAdminCard() {
 
   return (
     <div className="ps-card" style={{ marginBottom: '1.25rem' }}>
-      <div className="ps-card-header"><h2 className="ps-card-title">🛡️ PharmStation admin</h2></div>
+      <div className="ps-card-header"><h2 className="ps-card-title">PharmStation admin</h2></div>
       <div className="ps-card-body">
         <Link to="/me/admin/pharmacies" className="ps-btn ps-btn-primary ps-btn-sm">
           Verify new pharmacies
@@ -51,15 +62,19 @@ export function PlatformAdminCard() {
         <Link to="/me/admin/announcements" className="ps-btn ps-btn-secondary ps-btn-sm" style={{ marginLeft: '0.5rem' }}>
           App announcements
         </Link>
+        <Link to="/me/admin/support" className="ps-btn ps-btn-secondary ps-btn-sm" style={{ marginLeft: '0.5rem' }}>
+          Support inbox
+        </Link>
 
         <h3 style={{ margin: '1.25rem 0 0.5rem', fontSize: '1rem' }}>Account deletion requests</h3>
+        {error && <div className="ps-alert ps-alert-error" style={{ marginBottom: '0.5rem' }}>{error}</div>}
         {requests.length === 0 ? (
           <p className="text-muted" style={{ fontSize: '0.875rem' }}>None waiting.</p>
         ) : (
           <>
             <p className="text-muted" style={{ fontSize: '0.8125rem', marginBottom: '0.5rem' }}>
-              Delete the person in Supabase Auth, keeping CD register and RP log entries (they stay attributed),
-              then mark it done. Aim for within 30 days.
+              Deleting removes the person&rsquo;s sign-in and personal details. Registers and logs they made stay,
+              under &ldquo;Deleted user&rdquo;. Aim for within 30 days.
             </p>
             {requests.map((r) => (
               <div key={r.id} style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap', padding: '0.4rem 0', borderBottom: '1px solid var(--ps-border, #e2e8f0)', fontSize: '0.875rem' }}>
@@ -68,7 +83,7 @@ export function PlatformAdminCard() {
                   {r.reason && <span className="text-muted"> · “{r.reason}”</span>}
                 </span>
                 <button type="button" className="ps-btn ps-btn-secondary ps-btn-sm" disabled={busyId === r.id} onClick={() => handle(r, 'done')}>
-                  Mark done
+                  Delete account
                 </button>
                 <button type="button" className="ps-btn ps-btn-ghost ps-btn-sm" disabled={busyId === r.id} onClick={() => handle(r, 'declined')}>
                   Decline

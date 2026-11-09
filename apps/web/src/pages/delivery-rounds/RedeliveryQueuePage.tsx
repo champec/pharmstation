@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useAuthStore, useDeliveryRoundStore } from '@pharmstation/core'
 import type { DeliveryRoundPatient } from '@pharmstation/types'
 import { Modal } from '../../components/Modal'
+import { CircleCheck } from 'lucide-react'
 
 export function RedeliveryQueuePage() {
   const navigate = useNavigate()
@@ -87,8 +88,8 @@ export function RedeliveryQueuePage() {
     new Date(d).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
 
   return (
-    <div>
-      <div className="page-header">
+    <div className="care-home-page">
+      <div className="page-header care-home-page-header">
         <div className="breadcrumbs">
           <a href="/" onClick={(e) => { e.preventDefault(); navigate('/') }}>Dashboard</a>
           <span className="separator">/</span>
@@ -96,13 +97,19 @@ export function RedeliveryQueuePage() {
           <span className="separator">/</span>
           <span>Redelivery Queue</span>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <h1>⚠️ Redelivery Queue</h1>
-          {selectedIds.length > 0 && (
-            <button className="ps-btn ps-btn-primary" onClick={handleCreateRedeliveryRound} disabled={saving}>
-              Create Redelivery Round ({selectedIds.length} patient{selectedIds.length !== 1 ? 's' : ''})
-            </button>
-          )}
+        <div className="care-home-title-row">
+          <div>
+            <p className="care-home-eyebrow">Deliveries</p>
+            <h1>Redelivery queue</h1>
+            <p className="care-home-subtitle">Stops that failed or were skipped. Select them to book a new round.</p>
+          </div>
+          <div className="care-home-header-actions">
+            {selectedIds.length > 0 && (
+              <button className="ps-btn ps-btn-primary" onClick={handleCreateRedeliveryRound} disabled={saving}>
+                Create redelivery round ({selectedIds.length} patient{selectedIds.length !== 1 ? 's' : ''})
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
@@ -119,7 +126,7 @@ export function RedeliveryQueuePage() {
 
       {!loading && redeliveryQueue.length === 0 && (
         <div className="ps-card" style={{ padding: 'var(--ps-space-2xl)', textAlign: 'center' }}>
-          <div style={{ fontSize: '48px', marginBottom: 'var(--ps-space-md)' }}>✅</div>
+          <span className="ps-empty-icon success" aria-hidden="true"><CircleCheck size={26} strokeWidth={1.75} /></span>
           <h2 style={{ color: 'var(--ps-midnight)', marginBottom: 'var(--ps-space-sm)' }}>Queue is empty</h2>
           <p style={{ color: 'var(--ps-slate)' }}>No failed deliveries awaiting redelivery.</p>
         </div>

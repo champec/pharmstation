@@ -303,8 +303,8 @@ export function NewDeliveryRoundPage() {
   const configMedsList = showConfigMedsModal ? getConfigMedsList() : []
 
   return (
-    <div>
-      <div className="page-header">
+    <div className="care-home-page">
+      <div className="page-header care-home-page-header">
         <div className="breadcrumbs">
           <a href="/" onClick={(e) => { e.preventDefault(); navigate('/') }}>Dashboard</a>
           <span className="separator">/</span>
@@ -312,38 +312,56 @@ export function NewDeliveryRoundPage() {
           <span className="separator">/</span>
           <span>New Delivery</span>
         </div>
-        <h1>📦 New Delivery</h1>
+        <div className="care-home-title-row">
+          <div>
+            <p className="care-home-eyebrow">Deliveries</p>
+            <h1>New delivery round</h1>
+            <p className="care-home-subtitle">Pick the patients, check their medicines, then schedule the round.</p>
+          </div>
+        </div>
       </div>
 
       {error && <div className="auth-error" style={{ marginBottom: 'var(--ps-space-md)' }}>{error}</div>}
 
       {/* Step indicator */}
-      <div style={{ display: 'flex', gap: 'var(--ps-space-lg)', marginBottom: 'var(--ps-space-lg)' }}>
-        {[{ n: 1, label: 'Select Patients' }, { n: 2, label: 'Review' }, { n: 3, label: 'Schedule & Create' }].map(({ n, label }) => (
-          <div
-            key={n}
-            style={{ display: 'flex', alignItems: 'center', gap: 'var(--ps-space-xs)', cursor: n < step ? 'pointer' : 'default' }}
-            onClick={() => n < step && setStep(n)}
-          >
-            <div style={{
-              width: 28, height: 28, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center',
-              background: step >= n ? 'var(--ps-primary)' : 'var(--ps-off-white)',
-              color: step >= n ? '#fff' : 'var(--ps-slate)', fontWeight: 600, fontSize: 'var(--ps-font-sm)',
-            }}>
-              {step > n ? '✓' : n}
-            </div>
-            <span style={{ fontSize: 'var(--ps-font-sm)', color: step >= n ? 'var(--ps-midnight)' : 'var(--ps-slate)', fontWeight: step === n ? 600 : 400 }}>
-              {label}
-            </span>
-          </div>
-        ))}
-      </div>
+      <ol aria-label="Steps" style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--ps-space-lg)', margin: 'var(--ps-space-lg) 0', padding: 0, listStyle: 'none' }}>
+        {[{ n: 1, label: 'Select patients' }, { n: 2, label: 'Review' }, { n: 3, label: 'Schedule and create' }].map(({ n, label }) => {
+          const done = step > n
+          const current = step === n
+          return (
+            <li key={n} aria-current={current ? 'step' : undefined}>
+              <button
+                type="button"
+                disabled={!done}
+                onClick={() => done && setStep(n)}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 'var(--ps-space-sm)', background: 'none', border: 'none', padding: 0,
+                  cursor: done ? 'pointer' : 'default', font: 'inherit',
+                }}
+              >
+                <span style={{
+                  width: 28, height: 28, borderRadius: '50%', display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                  boxSizing: 'border-box', fontWeight: 600, fontSize: 'var(--ps-font-sm)',
+                  background: done || current ? 'var(--ps-deep-blue)' : 'var(--ps-white)',
+                  color: done || current ? 'var(--ps-white)' : 'var(--ps-slate)',
+                  border: done || current ? '2px solid var(--ps-deep-blue)' : '2px solid var(--ps-mist)',
+                }}>
+                  {done ? '✓' : n}
+                </span>
+                <span style={{ fontSize: 'var(--ps-font-sm)', color: done || current ? 'var(--ps-midnight)' : 'var(--ps-slate)', fontWeight: current ? 600 : 400 }}>
+                  {label}
+                </span>
+              </button>
+            </li>
+          )
+        })}
+      </ol>
 
       {/* ========== Step 1 — Select Patients ========== */}
       {step === 1 && (
         <div>
           <div className="ps-card" style={{ padding: 'var(--ps-space-md)', marginBottom: 'var(--ps-space-md)' }}>
-            <h3 style={{ marginBottom: 'var(--ps-space-sm)' }}>Search & Add Patients</h3>
+            <h3 style={{ marginBottom: 'var(--ps-space-sm)' }}>Find and add patients</h3>
             <input
               className="ps-input"
               placeholder="Search patients by name, NHS number, phone…"
@@ -476,7 +494,7 @@ export function NewDeliveryRoundPage() {
 
           <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 'var(--ps-space-lg)' }}>
             <button className="ps-btn ps-btn-secondary" onClick={() => setStep(1)}>← Back</button>
-            <button className="ps-btn ps-btn-primary" onClick={() => setStep(3)}>Next: Schedule →</button>
+            <button className="ps-btn ps-btn-primary" onClick={() => setStep(3)}>Next: schedule →</button>
           </div>
         </div>
       )}
@@ -485,7 +503,7 @@ export function NewDeliveryRoundPage() {
       {step === 3 && (
         <div>
           <div className="ps-card" style={{ padding: 'var(--ps-space-md)' }}>
-            <h3 style={{ marginBottom: 'var(--ps-space-md)' }}>Schedule & Assign</h3>
+            <h3 style={{ marginBottom: 'var(--ps-space-md)' }}>Schedule and assign driver</h3>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--ps-space-md)' }}>
               <div className="form-group">
                 <label>Round Title</label>
@@ -592,7 +610,7 @@ export function NewDeliveryRoundPage() {
       </Modal>
 
       {/* ========== Configure Medications Modal ========== */}
-      <Modal isOpen={showConfigMedsModal} onClose={closeConfigMeds} title={`⚙️ Configure Medications — ${configMedsPatientName}`} width="640px">
+      <Modal isOpen={showConfigMedsModal} onClose={closeConfigMeds} title={`Configure Medications — ${configMedsPatientName}`} width="640px">
         <div>
           {configMedsLoading ? (
             <div style={{ textAlign: 'center', padding: 'var(--ps-space-lg)', color: 'var(--ps-slate)' }}>Loading medications…</div>

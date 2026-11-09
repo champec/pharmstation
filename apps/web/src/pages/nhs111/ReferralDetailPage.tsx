@@ -139,8 +139,8 @@ export function ReferralDetailPage() {
         </div>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 'var(--ps-space-sm)' }}>
           <h1 style={{ display: 'flex', alignItems: 'center', gap: 'var(--ps-space-sm)' }}>
-            📞 {referral.patient_name ?? 'Unknown Patient'}
-            <span className={urgency.cls}>{urgency.icon} {urgency.label}</span>
+            {referral.patient_name ?? 'Unknown Patient'}
+            <span className={urgency.cls}>{urgency.label}</span>
             <span className={status.cls}>{status.label}</span>
           </h1>
           <button className="ps-btn ps-btn-ghost" onClick={() => navigate('/services/111-referrals')}>
@@ -176,7 +176,7 @@ export function ReferralDetailPage() {
         )}
         {referral.status === 'accepted' && (
           <button className="ps-btn ps-btn-primary" onClick={handleStart} disabled={loading}>
-            🩺 Start Consultation
+            Start Consultation
           </button>
         )}
         {referral.status === 'in_progress' && (
@@ -192,7 +192,7 @@ export function ReferralDetailPage() {
         <div style={{ display: 'grid', gap: 'var(--ps-space-md)' }}>
           {/* Patient Demographics */}
           <div className="ps-card" style={{ padding: 'var(--ps-space-lg)' }}>
-            <h3 style={{ marginBottom: 'var(--ps-space-md)' }}>👤 Patient</h3>
+            <h3 style={{ marginBottom: 'var(--ps-space-md)' }}>Patient</h3>
             <div style={{ display: 'grid', gap: 'var(--ps-space-sm)' }}>
               <Row label="Name" value={referral.patient_name} />
               <Row label="NHS Number" value={referral.patient_nhs_number} />
@@ -218,7 +218,7 @@ export function ReferralDetailPage() {
 
           {/* Clinical: Presenting Complaint */}
           <div className="ps-card" style={{ padding: 'var(--ps-space-lg)' }}>
-            <h3 style={{ marginBottom: 'var(--ps-space-md)' }}>🩺 Clinical</h3>
+            <h3 style={{ marginBottom: 'var(--ps-space-md)' }}>Clinical</h3>
             <div style={{ display: 'grid', gap: 'var(--ps-space-sm)' }}>
               <Row label="Presenting Complaint" value={referral.presenting_complaint} />
               <Row label="Disposition" value={
@@ -233,7 +233,7 @@ export function ReferralDetailPage() {
           {/* Care Plan */}
           {referral.care_plan && (
             <div className="ps-card" style={{ padding: 'var(--ps-space-lg)' }}>
-              <h3 style={{ marginBottom: 'var(--ps-space-md)' }}>📋 Care Advice</h3>
+              <h3 style={{ marginBottom: 'var(--ps-space-md)' }}>Care Advice</h3>
               <div style={{ whiteSpace: 'pre-wrap', fontSize: '0.9rem', lineHeight: 1.6, color: 'var(--ps-ink)' }}>
                 {referral.care_plan}
               </div>
@@ -243,7 +243,7 @@ export function ReferralDetailPage() {
           {/* Encounter Summary */}
           {referral.encounter_summary && (
             <div className="ps-card" style={{ padding: 'var(--ps-space-lg)' }}>
-              <h3 style={{ marginBottom: 'var(--ps-space-md)' }}>📝 Encounter Summary</h3>
+              <h3 style={{ marginBottom: 'var(--ps-space-md)' }}>Encounter Summary</h3>
               <div style={{ whiteSpace: 'pre-wrap', fontSize: '0.9rem', lineHeight: 1.6, color: 'var(--ps-ink)' }}>
                 {referral.encounter_summary}
               </div>
@@ -256,7 +256,7 @@ export function ReferralDetailPage() {
           {/* Triage Q&A */}
           {referral.triage_questions && referral.triage_questions.length > 0 && (
             <div className="ps-card" style={{ padding: 'var(--ps-space-lg)' }}>
-              <h3 style={{ marginBottom: 'var(--ps-space-md)' }}>❓ Triage Questions</h3>
+              <h3 style={{ marginBottom: 'var(--ps-space-md)' }}>Triage Questions</h3>
               <div style={{ display: 'grid', gap: 'var(--ps-space-sm)' }}>
                 {referral.triage_questions.map((qa, i) => (
                   <div key={i} style={{
@@ -278,7 +278,7 @@ export function ReferralDetailPage() {
 
           {/* Referral Metadata */}
           <div className="ps-card" style={{ padding: 'var(--ps-space-lg)' }}>
-            <h3 style={{ marginBottom: 'var(--ps-space-md)' }}>📎 Referral Details</h3>
+            <h3 style={{ marginBottom: 'var(--ps-space-md)' }}>Referral Details</h3>
             <div style={{ display: 'grid', gap: 'var(--ps-space-sm)' }}>
               <Row label="Case ID" value={referral.case_id} />
               <Row label="Case Ref" value={referral.case_ref} />
@@ -298,7 +298,7 @@ export function ReferralDetailPage() {
 
           {/* Notes */}
           <div className="ps-card" style={{ padding: 'var(--ps-space-lg)' }}>
-            <h3 style={{ marginBottom: 'var(--ps-space-md)' }}>💬 Notes</h3>
+            <h3 style={{ marginBottom: 'var(--ps-space-md)' }}>Notes</h3>
             {referral.notes && (
               <div style={{
                 whiteSpace: 'pre-wrap',
@@ -336,7 +336,7 @@ export function ReferralDetailPage() {
           {/* Raw FHIR bundle toggle */}
           <div className="ps-card" style={{ padding: 'var(--ps-space-lg)' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <h3 style={{ margin: 0 }}>🔧 Raw FHIR Bundle</h3>
+              <h3 style={{ margin: 0 }}>Raw FHIR Bundle</h3>
               <button
                 className="ps-btn ps-btn-ghost ps-btn-sm"
                 onClick={() => setShowRawBundle(!showRawBundle)}
