@@ -112,6 +112,8 @@ import { ContactPage } from './pages/public/ContactPage'
 import { PublicPharmacyMapPage } from './pages/public/PublicPharmacyMapPage'
 import { PrivacyNoticePage } from './pages/public/PrivacyNoticePage'
 import { LandingPage } from './pages/public/LandingPage'
+import { PatientHubPage } from './pages/public/PatientHubPage'
+import { PublicShopProductPage } from './pages/public/PublicShopProductPage'
 import { ModernShopHomePage } from './pages/public/ModernShopHomePage'
 import { ShopPaymentResultPage } from './pages/public/ShopPaymentResultPage'
 import { ShopOrderTrackingPage } from './pages/public/ShopOrderTrackingPage'
@@ -208,6 +210,7 @@ export function App() {
       {/* Public routes — no auth required */}
       {/* Visitors who aren't signed in to a pharmacy get the landing page at "/" instead of the login redirect */}
       {!isOrgLoggedIn && <Route path="/" element={<LandingPage />} />}
+      <Route path="/pharmacies" element={<PatientHubPage />} />
       <Route path="/rp" element={<RPCertificatePage />} />
       <Route path="/maps" element={<PublicPharmacyMapPage />} />
       <Route path="/consult/:consultationId" element={<PatientVideoPage />} />
@@ -223,6 +226,7 @@ export function App() {
       <Route path="/shop/terms" element={<ShopTermsPage />} />
       <Route path="/shop/:orgSlug" element={<PublicShopOrgPage />} />
       <Route path="/shop/:orgSlug/payment-result" element={<ShopPaymentResultPage />} />
+      <Route path="/shop/:orgSlug/:productSlug" element={<PublicShopProductPage />} />
       <Route path="/about" element={<AboutPage />} />
       <Route path="/contact" element={<ContactPage />} />
       <Route path="/privacy" element={<PrivacyNoticePage />} />

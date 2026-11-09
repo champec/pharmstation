@@ -1,70 +1,157 @@
+import { useEffect, useMemo, useState, type FormEvent } from 'react'
+import { Link, useSearchParams } from 'react-router-dom'
+import { ArrowRight, LocateFixed, MapPin, Search, Video } from 'lucide-react'
 import { BookingNavAccount } from '../../components/public/BookingNavAccount'
-import { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { getUserClient } from '@pharmstation/supabase-client'
-import type { Organisation } from '@pharmstation/types'
+import { AudienceSwitch } from '../../components/public/AudienceSwitch'
 import { PublicFooter } from '../../components/public/PublicFooter'
+import {
+  currentLocation, formatAddress, formatPounds, geocodePostcode, matchesQuery, orgPath,
+  usePharmacyDirectory, type LatLng,
+} from '../../lib/publicDirectory'
+import { usePageMeta } from '../../seo/RouteMeta'
 
-// Anonymous visitors may only read these columns (column grants on ps_organisations).
-const PUBLIC_ORG_COLUMNS = 'id, name, slug, address, public_description, public_logo_url, is_public, is_active, organisation_type'
-
+// /book — search every participating pharmacy by what you need (service) and where (postcode).
+// ?q=flu+jab&postcode=SW1A1AA come from the patient hub, popular-service chips and ads.
 export function PublicBookingHomePage() {
-  const navigate = useNavigate()
-  const [search, setSearch] = useState('')
-  const [orgs, setOrgs] = useState<Organisation[]>([])
-  const [loading, setLoading] = useState(true)
+  const [params, setParams] = useSearchParams()
+  const [query, setQuery] = useState(params.get('q') ?? '')
+  const [postcode, setPostcode] = useState(params.get('postcode') ?? '')
+  const [location, setLocation] = useState<LatLng | null>(null)
+  const [locationLabel, setLocationLabel] = useState<string | null>(null)
+  const [locating, setLocating] = useState(false)
+  const [locationError, setLocationError] = useState<string | null>(null)
+  const { pharmacies, loading } = usePharmacyDirectory(location)
 
+  // A postcode in the link (e.g. from an ad or the hub) is looked up straight away.
   useEffect(() => {
-    // Fetch all public orgs (anon read)
-    getUserClient()
-      .from('ps_organisations')
-      .select(PUBLIC_ORG_COLUMNS)
-      .eq('is_public', true)
-      .order('name')
-      .then(({ data }) => {
-        setOrgs((data as unknown as Organisation[]) || [])
-        setLoading(false)
-      })
-  }, [])
+    const initial = params.get('postcode')
+    if (initial) applyPostcode(initial)
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const filtered = orgs.filter((o) => {
-    const q = search.toLowerCase()
-    if (!q) return true
-    return (
-      o.name.toLowerCase().includes(q) ||
-      (o.address?.postcode || '').toLowerCase().includes(q) ||
-      (o.address?.city || '').toLowerCase().includes(q)
-    )
-  })
+  const applyPostcode = async (value: string) => {
+    if (!value.trim()) { setLocation(null); setLocationLabel(null); return }
+    setLocating(true)
+    setLocationError(null)
+    const coords = await geocodePostcode(value)
+    setLocating(false)
+    if (!coords) { setLocationError('We could not find that postcode. Check it and try again.'); return }
+    setLocation(coords)
+    setLocationLabel(value.trim().toUpperCase())
+  }
+
+  const submit = (event: FormEvent) => {
+    event.preventDefault()
+    const next = new URLSearchParams()
+    if (query.trim()) next.set('q', query.trim())
+    if (postcode.trim()) next.set('postcode', postcode.trim().toUpperCase())
+    setParams(next, { replace: true })
+    if (postcode.trim().toUpperCase() !== locationLabel) applyPostcode(postcode)
+  }
+
+  const useMyLocation = async () => {
+    setLocating(true)
+    setLocationError(null)
+    const coords = await currentLocation()
+    setLocating(false)
+    if (!coords) { setLocationError('Location is turned off. Enter your postcode instead.'); return }
+    setPostcode('')
+    setLocation(coords)
+    setLocationLabel('your location')
+  }
+
+  const q = query.trim()
+  usePageMeta(params.get('q') ? {
+    title: `Book ${params.get('q')} at a pharmacy near you`,
+    description: `Find a local pharmacy offering ${params.get('q')} and book online. See prices, times and the nearest pharmacy first.`,
+    canonicalPath: '/book',
+  } : null)
+
+  // Pharmacies that take bookings, with the services that match the search highlighted.
+  const results = useMemo(() => pharmacies
+    .filter((pharmacy) => pharmacy.services.length > 0)
+    .map((pharmacy) => {
+      const pharmacyMatch = !q || matchesQuery(`${pharmacy.name} ${formatAddress(pharmacy.address)}`, q)
+      const matching = q ? pharmacy.services.filter((service) => matchesQuery(service.name, q)) : pharmacy.services
+      return { pharmacy, matching: pharmacyMatch && !matching.length ? pharmacy.services : matching, show: pharmacyMatch || matching.length > 0 }
+    })
+    .filter((row) => row.show), [pharmacies, q])
 
   return (
     <div className="booking-public">
+      <AudienceSwitch active="patients" />
       <header className="booking-nav">
-        <button type="button" className="booking-wordmark" onClick={() => navigate('/book')}>Pharm<span>Station</span><small>Book</small></button>
-        <nav><a href="/shop">Shop</a><a href="/maps">Find a pharmacy</a><BookingNavAccount /></nav>
+        <Link to="/pharmacies" className="booking-wordmark">Pharm<span>Station</span><small>Book</small></Link>
+        <nav><Link to="/shop">Shop</Link><Link to="/maps">Find a pharmacy</Link><BookingNavAccount /></nav>
       </header>
       <main>
         <section className="booking-discovery-hero">
-          <div><span className="booking-eyebrow">Pharmacy care, booked around you</span><h1>Find the right service.<br />Choose a time that works.</h1><p>Book trusted care with a participating local pharmacy in a few clear steps.</p></div>
-          <div className="booking-search-panel">
-            <label htmlFor="booking-pharmacy-search">Find your pharmacy</label>
-            <div><span aria-hidden="true">⌕</span><input id="booking-pharmacy-search" placeholder="Pharmacy name, city or postcode" value={search} onChange={(event) => setSearch(event.target.value)} /></div>
-            <small>{loading ? 'Finding participating pharmacies…' : `${filtered.length} ${filtered.length === 1 ? 'pharmacy' : 'pharmacies'} available`}</small>
+          <div>
+            <span className="booking-eyebrow">Pharmacy care, booked around you</span>
+            <h1>Find the right service.<br />Choose a time that works.</h1>
+            <p>Search by what you need and where you are. You'll see prices, available times and the nearest pharmacy first.</p>
           </div>
+          <form className="booking-search-panel patient-hub-search" onSubmit={submit}>
+            <label htmlFor="booking-need">What do you need?</label>
+            <div className="patient-hub-input">
+              <Search size={18} aria-hidden="true" />
+              <input id="booking-need" type="search" placeholder="Service or pharmacy, e.g. flu jab" value={query} onChange={(event) => setQuery(event.target.value)} />
+            </div>
+            <label htmlFor="booking-postcode">Near</label>
+            <div className="patient-hub-input">
+              <MapPin size={18} aria-hidden="true" />
+              <input id="booking-postcode" placeholder={locationLabel === 'your location' ? 'Using your location' : 'Postcode'} value={postcode} onChange={(event) => setPostcode(event.target.value)} autoComplete="postal-code" />
+              <button type="button" className="patient-hub-locate" onClick={useMyLocation} disabled={locating} aria-label="Use my location"><LocateFixed size={18} aria-hidden="true" /></button>
+            </div>
+            {locationError && <small className="patient-hub-error" role="alert">{locationError}</small>}
+            <button type="submit" className="booking-primary-action" disabled={locating}>{locating ? 'Finding you…' : 'Search'}</button>
+            <small>{loading ? 'Finding participating pharmacies…' : `${results.length} ${results.length === 1 ? 'pharmacy' : 'pharmacies'} available`}</small>
+          </form>
         </section>
 
-        <section className="booking-trust-strip"><div><b>01</b><span><strong>Choose a pharmacy</strong>Near home or work</span></div><div><b>02</b><span><strong>Select a service</strong>See duration and cost</span></div><div><b>03</b><span><strong>Pick your appointment</strong>Live available times</span></div></section>
+        <section className="booking-trust-strip"><div><b>01</b><span><strong>Choose a service</strong>See duration and cost upfront</span></div><div><b>02</b><span><strong>Pick a time</strong>Live available times</span></div><div><b>03</b><span><strong>Confirm</strong>Pay online or at the pharmacy</span></div></section>
 
         <section className="booking-results">
-          <header><div><span className="booking-eyebrow">Participating pharmacies</span><h2>{search ? 'Search results' : 'Choose where to book'}</h2></div><p>Appointments are managed directly by each pharmacy.</p></header>
+          <header>
+            <div>
+              <span className="booking-eyebrow">{locationLabel ? `Nearest to ${locationLabel}` : 'Participating pharmacies'}</span>
+              <h2>{q ? `Results for “${q}”` : 'Choose where to book'}</h2>
+            </div>
+            <p>Appointments are provided directly by each pharmacy.</p>
+          </header>
           {loading && <div className="booking-loading"><i /><span>Loading pharmacies…</span></div>}
-          {!loading && filtered.length === 0 && <div className="booking-empty"><strong>{search ? 'No pharmacies match your search' : 'No pharmacies are accepting online bookings yet'}</strong><p>{search ? 'Check the spelling or try a nearby town or postcode.' : 'Please check again soon.'}</p>{search && <button type="button" onClick={() => setSearch('')}>Clear search</button>}</div>}
-          <div className="booking-pharmacy-list">{filtered.map((org, index) => <button type="button" key={org.id} onClick={() => navigate(`/book/${(org as any).slug || org.id}`)}>
-            <span className="booking-result-number">{String(index + 1).padStart(2, '0')}</span>
-            {(org as any).public_logo_url ? <img src={(org as any).public_logo_url} alt="" /> : <span className="booking-pharmacy-initials" aria-hidden="true">{org.name.slice(0, 2).toUpperCase()}</span>}
-            <span className="booking-pharmacy-copy"><strong>{org.name}</strong><small>{[org.address?.line_1, org.address?.city, org.address?.postcode].filter(Boolean).join(', ') || 'Contact pharmacy for address'}</small>{(org as any).public_description && <p>{(org as any).public_description}</p>}</span>
-            <span className="booking-result-action">View services <b>→</b></span>
-          </button>)}</div>
+          {!loading && results.length === 0 && (
+            <div className="booking-empty">
+              <strong>{q ? `No pharmacies offer “${q}” online yet` : 'No pharmacies are accepting online bookings yet'}</strong>
+              <p>{q ? 'Try a different word, such as “vaccine” or “consultation”, or find a pharmacy on the map and call them.' : 'Please check again soon, or find a pharmacy on the map.'}</p>
+              {q ? <button type="button" onClick={() => { setQuery(''); setParams(new URLSearchParams(), { replace: true }) }}>Show all services</button> : <Link to="/maps">Open the pharmacy map</Link>}
+            </div>
+          )}
+          <div className="booking-directory">
+            {results.map(({ pharmacy, matching }) => (
+              <article key={pharmacy.org_id}>
+                <Link to={`/book/${orgPath(pharmacy)}`} className="booking-directory-head">
+                  {pharmacy.public_logo_url ? <img src={pharmacy.public_logo_url} alt="" /> : <span className="booking-pharmacy-initials" aria-hidden="true">{pharmacy.name.slice(0, 2).toUpperCase()}</span>}
+                  <span>
+                    <strong>{pharmacy.name}</strong>
+                    <small>{formatAddress(pharmacy.address) || 'Contact pharmacy for address'}{pharmacy.distance_km != null && ` · ${pharmacy.distance_km.toFixed(1)} km`}</small>
+                  </span>
+                  <span className="booking-result-action">All services <ArrowRight size={16} aria-hidden="true" /></span>
+                </Link>
+                <ul>
+                  {matching.slice(0, 6).map((service) => (
+                    <li key={service.id}>
+                      <Link to={`/book/${orgPath(pharmacy)}/${service.slug || service.id}`}>
+                        <span><strong>{service.name}</strong><small>{service.duration_minutes} min{service.is_video && <> · <Video size={12} aria-hidden="true" /> Video</>}</small></span>
+                        <b>{service.price_pence ? formatPounds(service.price_pence) : ''}</b>
+                        <em>Book</em>
+                      </Link>
+                    </li>
+                  ))}
+                  {matching.length > 6 && <li><Link to={`/book/${orgPath(pharmacy)}`}>+{matching.length - 6} more services</Link></li>}
+                </ul>
+              </article>
+            ))}
+          </div>
         </section>
       </main>
       <PublicFooter />

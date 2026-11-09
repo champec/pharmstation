@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
+import { Plus } from 'lucide-react'
+import { AudienceSwitch } from '../../components/public/AudienceSwitch'
 import { useShopStore } from '@pharmstation/core'
 import { PublicFooter } from '../../components/public/PublicFooter'
 
@@ -29,7 +31,8 @@ export function ModernShopHomePage() {
   const [locationOpen, setLocationOpen] = useState(false)
   const [locating, setLocating] = useState(false)
   const [locationError, setLocationError] = useState<string | null>(null)
-  const [search, setSearch] = useState('')
+  const [params] = useSearchParams()
+  const [search, setSearch] = useState(params.get('q') ?? '')
   const [categoryId, setCategoryId] = useState('')
   const [deliveryOnly, setDeliveryOnly] = useState(false)
   const [view, setView] = useState<'products' | 'pharmacies'>('products')
@@ -107,6 +110,7 @@ export function ModernShopHomePage() {
   }
 
   return <div className="modern-shop">
+    <AudienceSwitch active="patients" />
     <div className="modern-shop-offer">Free collection from participating pharmacies <span>•</span> Pharmacist support when you need it</div>
     <header className="modern-shop-header">
       <button type="button" className="modern-shop-logo" onClick={() => navigate('/shop')}><span className="modern-shop-wordmark">Pharm<span>Station</span></span><small>Shop</small></button>
@@ -153,7 +157,7 @@ export function ModernShopHomePage() {
         <section className="modern-shop-hero">
           <div className="modern-shop-hero-copy"><span>Local pharmacy, made effortless</span><h1>Health essentials.<br />Ready when you are.</h1><p>Browse nearby pharmacy stock, choose collection or delivery, and get pharmacist-led support for products that need it.</p><div><button type="button" onClick={() => document.getElementById('shop-products')?.scrollIntoView({ behavior: 'smooth' })}>Shop essentials</button><button type="button" onClick={() => setView('pharmacies')}>Choose a pharmacy</button></div></div>
           <div className="modern-shop-hero-products" aria-label="Featured products">
-            {heroProducts.length ? heroProducts.map((product, index) => <button type="button" key={product.id} className={`item-${index + 1}`} onClick={() => openProductShop(product.org_id)}><img src={product.image_url!} alt={product.name} /><span>{product.name}</span><b>{formatPrice(product.price_pence)}</b></button>) : <div className="modern-shop-hero-placeholder"><b>Everyday care</b><small>Products from pharmacies near you</small></div>}
+            {heroProducts.length ? heroProducts.map((product, index) => <button type="button" key={product.id} className={`item-${index + 1}`} onClick={() => navigate(`/shop/${orgById.get(product.org_id)?.slug || product.org_id}/${product.id}`)}><img src={product.image_url!} alt={product.name} /><span>{product.name}</span><b>{formatPrice(product.price_pence)}</b></button>) : <div className="modern-shop-hero-placeholder"><b>Everyday care</b><small>Products from pharmacies near you</small></div>}
           </div>
         </section>
 
@@ -168,9 +172,10 @@ export function ModernShopHomePage() {
         {publicLoading && <div className="modern-shop-loading"><i /><span>Stocking the shelves…</span></div>}
         {!publicLoading && view === 'products' && (products.length ? <div className="modern-shop-product-grid">{products.map((product) => {
           const org = orgById.get(product.org_id)
+          const href = `/shop/${org?.slug || product.org_id}/${product.id}`
           return <article key={product.id} className="modern-shop-product-card">
-            <button type="button" className="modern-shop-product-image" onClick={() => openProductShop(product.org_id)}>{product.image_url ? <img src={product.image_url} alt={product.name} /> : <span className="modern-shop-product-placeholder">Product image</span>}{product.questionnaire && <em>Pharmacist check</em>}{product.stock_quantity === 0 && <b>Out of stock</b>}</button>
-            <div><small>{product.category?.name || 'Pharmacy essentials'}</small><button type="button" className="modern-shop-product-name" onClick={() => openProductShop(product.org_id)}>{product.name}</button><p>{org?.name || 'Local pharmacy'}{org?.distance_km != null ? ` · ${org.distance_km.toFixed(1)} km` : ''}</p><footer><strong>{formatPrice(product.price_pence)}</strong><button type="button" disabled={!product.stock_quantity} onClick={() => openProductShop(product.org_id)} aria-label={`View ${product.name}`}>＋</button></footer></div>
+            <Link to={href} className="modern-shop-product-image">{product.image_url ? <img src={product.image_url} alt={product.name} /> : <span className="modern-shop-product-placeholder">Product image</span>}{product.medicine_class === 'p' ? <em>Pharmacy medicine</em> : product.questionnaire && <em>Pharmacist check</em>}{product.stock_quantity === 0 && <b>Out of stock</b>}</Link>
+            <div><small>{product.category?.name || 'Pharmacy essentials'}</small><Link to={href} className="modern-shop-product-name">{product.name}</Link><p>{org?.name || 'Local pharmacy'}{org?.distance_km != null ? ` · ${org.distance_km.toFixed(1)} km` : ''}</p><footer><strong>{formatPrice(product.price_pence)}</strong><Link to={href} aria-label={`View ${product.name}`}><Plus size={18} aria-hidden="true" /></Link></footer></div>
           </article>
         })}</div> : <div className="modern-shop-empty"><span>⌕</span><strong>No products found</strong><p>Try another search or browse all departments.</p><button type="button" onClick={() => { setSearch(''); setCategoryId('') }}>Clear filters</button></div>)}
 

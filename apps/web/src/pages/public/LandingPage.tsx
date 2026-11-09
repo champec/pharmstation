@@ -1,5 +1,7 @@
 import { Link } from 'react-router-dom'
+import { ArrowRight, BookOpenCheck, CalendarCheck, Home, MessageSquare, Network, Sparkles, Stethoscope, Truck, type LucideIcon } from 'lucide-react'
 import { CONTACT_EMAIL, PublicSiteFooter } from '../../components/public/PublicSiteShell'
+import { AudienceSwitch } from '../../components/public/AudienceSwitch'
 
 // Shown at "/" to visitors who aren't signed in to a pharmacy. Signed-in staff get the dashboard.
 
@@ -21,44 +23,44 @@ const REPLACES = [
   'SOP folder',
 ]
 
-const FEATURES = [
+const FEATURES: Array<{ icon: LucideIcon; title: string; body: string }> = [
   {
-    icon: '💊',
+    icon: BookOpenCheck,
     title: 'Registers and logs',
     body: 'Digital CD register, RP log and patient returns, searchable in seconds. Add fridge, cleaning, visitor or any custom log your SOPs need.',
   },
   {
-    icon: '🏥',
+    icon: Network,
     title: 'Pharmacy Network',
     body: 'Message pharmacies near you securely. Ask who has a medicine in stock, broadcast to every open pharmacy nearby, and get an answer with a tap.',
   },
   {
-    icon: '🩺',
+    icon: Stethoscope,
     title: 'Services and PEPS',
     body: 'Run NHS and private services from ready-made or custom forms. Issue private prescriptions electronically through PEPS so they can be tracked and dispensed anywhere.',
   },
   {
-    icon: '📅',
+    icon: CalendarCheck,
     title: 'Bookings, payments and video',
     body: 'Patients book online, pay at checkout and join video consultations from a link. No app for them to download, no payment gateway for you to set up.',
   },
   {
-    icon: '💬',
+    icon: MessageSquare,
     title: 'Patient messaging',
     body: 'A real textable number for your pharmacy. Every approved team member can reply from any terminal, and existing patients are recognised when they text in.',
   },
   {
-    icon: '🚚',
+    icon: Truck,
     title: 'Deliveries',
     body: 'Plan rounds, manage redeliveries and give drivers a proper app with today’s stops, proof of delivery and automatic status updates.',
   },
   {
-    icon: '🏠',
+    icon: Home,
     title: 'Care homes and locums',
     body: 'A workspace for care home residents, medication requests and supply cycles. Short-staffed? Post a shift and fill it from the locum network.',
   },
   {
-    icon: '✨',
+    icon: Sparkles,
     title: 'Genie, your AI assistant',
     body: 'Ask a question in plain English, pull up information or hand off a routine task, instead of digging through menus.',
   },
@@ -96,6 +98,7 @@ const PLANS = [
 export function LandingPage() {
   return (
     <div className="landing">
+      <AudienceSwitch active="pharmacies" />
       <header className="landing-nav">
         <Link to="/" className="landing-wordmark" aria-label="PharmStation home">
           <img src="/favicon.svg" alt="" width={30} height={30} />
@@ -105,7 +108,7 @@ export function LandingPage() {
           <a href="#features">Features</a>
           <a href="#pricing">Pricing</a>
           <Link to="/resources">Free resources</Link>
-          <Link to="/book">Book an appointment</Link>
+          <Link to="/pharmacies">For patients</Link>
         </nav>
         <div className="landing-nav-actions">
           <Link to="/login/org" className="landing-btn landing-btn-ghost">Sign in</Link>
@@ -127,6 +130,10 @@ export function LandingPage() {
               <Link to="/login/org" className="landing-btn landing-btn-ghost landing-btn-lg">Pharmacy sign in</Link>
             </div>
             <small>Start free on the pharmacy network. Add paid modules only when they earn their place.</small>
+            <Link to="/pharmacies" className="landing-patient-callout">
+              <span><strong>Here as a patient?</strong> Shop, book a service or find a pharmacy near you.</span>
+              <ArrowRight size={18} aria-hidden="true" />
+            </Link>
           </div>
 
           <div className="landing-hero-visual" aria-hidden="true">
@@ -157,7 +164,7 @@ export function LandingPage() {
           <div className="landing-features">
             {FEATURES.map((feature) => (
               <article key={feature.title}>
-                <span aria-hidden="true">{feature.icon}</span>
+                <span aria-hidden="true"><feature.icon size={24} strokeWidth={2} /></span>
                 <h3>{feature.title}</h3>
                 <p>{feature.body}</p>
               </article>

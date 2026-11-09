@@ -33,19 +33,25 @@ export const PUBLIC_PAGES: PublicPage[] = [
     description: DEFAULT_DESCRIPTION,
   },
   {
+    // Front door for patients: find a local pharmacy, shop, book a service
+    path: '/pharmacies',
+    title: 'Your local pharmacy online: shop, book and find a pharmacy near you',
+    description: 'Find an independent pharmacy near you. Shop health essentials for collection or local delivery, and book consultations, vaccinations and health checks online.',
+  },
+  {
     path: '/about',
     title: 'About',
     description: 'PharmStation brings the CD register, RP log, services, bookings and messaging for UK pharmacies into one secure, cloud-based workstation.',
   },
   {
     path: '/book',
-    title: 'Book a pharmacy appointment',
-    description: 'Find a participating local pharmacy and book a service online, from Pharmacy First consultations to vaccinations and health checks.',
+    title: 'Book a pharmacy service near you',
+    description: 'Search pharmacy services near you by postcode, from weight management and travel vaccinations to flu jabs and health checks, and book online in minutes.',
   },
   {
     path: '/shop',
-    title: 'Shop from local pharmacies',
-    description: 'Browse health, wellbeing and everyday products from independent UK pharmacies, with local delivery or collection.',
+    title: 'Shop from local pharmacies near you',
+    description: 'Browse health, wellbeing and pharmacy medicines from independent UK pharmacies near you, checked by a pharmacist, with click and collect or local delivery.',
   },
   {
     path: '/maps',
@@ -132,6 +138,12 @@ const DYNAMIC_PUBLIC: Array<{ pattern: RegExp; meta: Omit<PageMeta, 'index'>; in
   {
     pattern: /^\/shop\/terms$/,
     meta: { title: 'Shop terms and returns', description: 'Terms of sale, cancellations and returns for orders from pharmacies on the PharmStation shop.' },
+    index: true,
+  },
+  { pattern: /^\/shop\/[^/]+\/payment-result$/, meta: { title: 'Payment result' }, index: false },
+  {
+    pattern: /^\/shop\/[^/]+\/[^/]+$/,
+    meta: { title: 'Pharmacy product', description: 'Buy from a registered local pharmacy, with click and collect or local delivery.' },
     index: true,
   },
   {

@@ -1,13 +1,17 @@
 import { BookingNavAccount } from '../../components/public/BookingNavAccount'
 import { useState, useEffect, useMemo } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { Link, useParams, useNavigate } from 'react-router-dom'
 import { getUserClient } from '@pharmstation/supabase-client'
 import type { Organisation, Service, AppointmentSlot } from '@pharmstation/types'
 import { orgSlugOrIdFilter } from '../../lib/orgSlugFilter'
 import { PublicFooter } from '../../components/public/PublicFooter'
+import { AudienceSwitch } from '../../components/public/AudienceSwitch'
+import { findBySlug, parseEwkbPoint, slugMap } from '../../lib/publicDirectory'
+import { usePageMeta, useStructuredData } from '../../seo/RouteMeta'
+import { serviceJsonLd } from '../../seo/structuredData'
 
 // Anonymous visitors may only read these columns (column grants on ps_organisations).
-const PUBLIC_ORG_COLUMNS = 'id, name, slug, address, public_description, public_logo_url, is_public, is_active, organisation_type'
+const PUBLIC_ORG_COLUMNS = 'id, name, slug, address, geolocation, gphc_premises_number, public_description, public_logo_url, is_public, is_active, organisation_type'
 
 /** YYYY-MM-DD in the visitor's own time zone (UTC would show the wrong day around midnight in BST). */
 function localDay(d: Date): string {
@@ -24,6 +28,32 @@ export function PublicServicePage() {
   const [error, setError] = useState('')
   const [selectedDate, setSelectedDate] = useState(localDay(new Date()))
   const [selectedSlot, setSelectedSlot] = useState<string | null>(null)
+  const [serviceSlug, setServiceSlug] = useState<string | null>(null)
+  const orgSegment = (org as any)?.slug || org?.id || orgSlug || ''
+  const town = org?.address?.city || org?.address?.postcode || ''
+  const servicePath = `/book/${orgSegment}/${serviceSlug || serviceId}`
+  usePageMeta(org && service ? {
+    title: `${service.name}${town ? ` in ${town}` : ''} at ${org.name}`,
+    description: `${service.description ? `${service.description.replace(/\s+/g, ' ').slice(0, 150)} ` : ''}Book ${service.name} at ${org.name}${town ? `, ${town}` : ''}. ${service.duration_minutes} minutes${service.is_chargeable && service.price_pence ? `, £${(service.price_pence / 100).toFixed(2)}` : ''}. Choose a time and book online.`,
+    image: (org as any).public_logo_url,
+    canonicalPath: servicePath,
+  } : null)
+  useStructuredData(org && service ? serviceJsonLd({
+    name: service.name,
+    description: service.description,
+    path: servicePath,
+    price_pence: service.is_chargeable ? service.price_pence : null,
+    isVideo: service.is_video,
+    pharmacy: {
+      name: org.name,
+      slug: orgSegment,
+      address: org.address as any,
+      description: (org as any).public_description,
+      logo: (org as any).public_logo_url,
+      point: parseEwkbPoint((org as any).geolocation),
+      gphc: (org as any).gphc_premises_number,
+    },
+  }) : null)
 
   useEffect(() => {
     if (!orgSlug || !serviceId) return
@@ -35,24 +65,28 @@ export function PublicServicePage() {
       .or(orgSlugOrIdFilter(orgSlug))
       .limit(1)
       .single()
-      .then(({ data }) => {
+      .then(async ({ data }) => {
         if (!data) { setError('Pharmacy not found.'); setLoading(false); return }
-        setOrg(data as unknown as Organisation)
-        return getUserClient()
+        const o = data as unknown as Organisation
+        setOrg(o)
+        // The URL holds a readable slug (or an id from older links): find the service among the pharmacy's.
+        const { data: list } = await getUserClient()
           .from('ps_services')
           .select('*')
-          .eq('id', serviceId)
+          .eq('org_id', o.id)
           .eq('is_public', true)
           .eq('is_active', true)
-          .single()
-      })
-      .then((res) => {
-        if (!res || !res.data) { setError('Service not found or not available for public booking.'); setLoading(false); return }
-        setService(res.data as Service)
+          .is('archived_at', null)
+        const all = (list as Service[]) || []
+        const slugs = slugMap(all)
+        const found = findBySlug(all, slugs, serviceId)
+        if (!found) { setError('Service not found or not available for public booking.'); setLoading(false); return }
+        setService(found)
+        setServiceSlug(slugs.get(found.id) || found.id)
         return getUserClient()
           .from('ps_appointment_slots')
           .select('id, start_time, end_time, max_bookings, booked_count')
-          .eq('service_id', serviceId)
+          .eq('service_id', found.id)
           .eq('is_active', true)
           .gt('start_time', new Date().toISOString())
           .order('start_time')
@@ -103,7 +137,8 @@ export function PublicServicePage() {
 
   return (
     <div className="booking-public">
-      <header className="booking-nav"><button type="button" className="booking-wordmark" onClick={() => navigate('/book')}>Pharm<span>Station</span><small>Book</small></button><nav><a href="/shop">Shop</a><a href="/maps">Find a pharmacy</a><BookingNavAccount /></nav></header>
+      <AudienceSwitch active="patients" />
+      <header className="booking-nav"><Link to="/pharmacies" className="booking-wordmark">Pharm<span>Station</span><small>Book</small></Link><nav><Link to="/shop">Shop</Link><Link to="/book">All pharmacies</Link><BookingNavAccount /></nav></header>
       <main className="booking-appointment-main">
         <button type="button" className="booking-back" onClick={() => navigate(`/book/${slug}`)}>← Services at {org?.name || 'pharmacy'}</button>
         <section className="booking-appointment-layout">
@@ -141,7 +176,7 @@ export function PublicServicePage() {
               <button type="button" key={slot.id} className={isSelected ? 'selected' : ''} onClick={() => setSelectedSlot(slot.id)}><strong>{fmt(start)}</strong><span>to {fmt(end)}</span><small>{slot.max_bookings - slot.booked_count} remaining</small></button>
             )
           })}</div>}
-            <footer><button type="button" className="booking-secondary-action" onClick={() => navigate(`/book/${slug}`)}>Cancel</button><button type="button" className="booking-primary-action" disabled={!selectedSlot} onClick={() => navigate(`/book/${slug}/${serviceId}/confirm`, { state: { slotId: selectedSlot } })}>Continue to your details →</button></footer>
+            <footer><button type="button" className="booking-secondary-action" onClick={() => navigate(`/book/${slug}`)}>Cancel</button><button type="button" className="booking-primary-action" disabled={!selectedSlot} onClick={() => navigate(`/book/${slug}/${service?.id}/confirm`, { state: { slotId: selectedSlot } })}>Continue to your details →</button></footer>
           </section>
         </section>
       </main>

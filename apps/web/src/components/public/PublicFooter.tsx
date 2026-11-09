@@ -7,6 +7,7 @@ export function PublicFooter() {
       </div>
       <div>
         <strong>Explore</strong>
+        <a href="/pharmacies">Pharmacies near you</a>
         <a href="/shop">Shop</a>
         <a href="/book">Book services</a>
         <a href="/maps">Find a pharmacy</a>
@@ -15,6 +16,7 @@ export function PublicFooter() {
         <strong>Account</strong>
         <a href="/patient/login">Sign in</a>
         <a href="/privacy">Privacy</a>
+        <a href="/">For pharmacy teams</a>
       </div>
       <small>Services, appointments and orders are provided directly by participating pharmacies.<br />© {new Date().getFullYear()} PharmStation</small>
     </footer>

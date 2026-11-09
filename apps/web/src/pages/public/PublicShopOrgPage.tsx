@@ -11,8 +11,11 @@ import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { useShopStore, type ShopFrontOrg } from '@pharmstation/core'
 import type { ShopPlaceOrderResult, ShopQuestion } from '@pharmstation/types'
 import { PublicFooter } from '../../components/public/PublicFooter'
-import { usePageTitle } from '../../seo/RouteMeta'
+import { usePageMeta, useStructuredData } from '../../seo/RouteMeta'
+import { breadcrumbs, pharmacyJsonLd } from '../../seo/structuredData'
 import { confirmDialog } from '../../components/ui/dialog'
+import { AudienceSwitch } from '../../components/public/AudienceSwitch'
+import { slugMap } from '../../lib/publicDirectory'
 
 const formatPrice = (pence: number) => `£${(pence / 100).toFixed(2)}`
 /** Most of one product a customer can put in the basket: stock, capped by the pharmacy's per-order limit. */
@@ -62,7 +65,20 @@ export function PublicShopOrgPage() {
     () => shopOrgs.find((o) => o.slug === orgSlug || o.org_id === orgSlug),
     [shopOrgs, orgSlug]
   )
-  usePageTitle(org ? `${org.name} shop` : null)
+  const town = org?.address?.city || org?.address?.postcode || ''
+  usePageMeta(org ? {
+    title: `${org.name}${town ? `, ${town}` : ''}: shop online for collection${org.delivery_enabled ? ' or local delivery' : ''}`,
+    description: `Shop health, wellbeing and pharmacy medicines from ${org.name}${town ? ` in ${town}` : ''}. ${org.public_description ? `${org.public_description.replace(/\s+/g, ' ').slice(0, 120)} ` : ''}Free click and collect${org.delivery_enabled ? `, or local delivery up to ${org.delivery_radius_km} km` : ''}.`,
+    image: org.public_logo_url,
+    canonicalPath: `/shop/${org.slug || org.org_id}`,
+  } : null)
+  useStructuredData(org ? [
+    pharmacyJsonLd({
+      name: org.name, slug: org.slug || org.org_id, page: 'shop', address: org.address, description: org.public_description,
+      logo: org.public_logo_url, gphc: org.gphc_premises_number, phone: org.contact_phone, email: org.contact_email,
+    }),
+    breadcrumbs([{ name: 'Shop', path: '/shop' }, { name: org.name, path: `/shop/${org.slug || org.org_id}` }]),
+  ] : null)
 
   useEffect(() => {
     if (org) fetchPublicProducts({ orgId: org.org_id })
@@ -102,6 +118,10 @@ export function PublicShopOrgPage() {
       return true
     })
   }, [publicProducts, org, categoryId, search])
+
+  // Readable product URLs, worked out from the whole of this pharmacy's range so they don't change with filters.
+  const productSlugs = useMemo(() => slugMap(publicProducts.filter((p) => org && p.org_id === org.org_id)), [publicProducts, org])
+  const productHref = (id: string) => `/shop/${org?.slug || org?.org_id}/${productSlugs.get(id) || id}`
 
   const usedCategoryIds = useMemo(() => new Set(publicProducts.filter((p) => !org || p.org_id === org.org_id).map((p) => p.category_id)), [publicProducts, org])
 
@@ -216,6 +236,7 @@ export function PublicShopOrgPage() {
 
   return (
     <div className="modern-shop modern-store">
+      <AudienceSwitch active="patients" />
       <div className="modern-shop-offer">Order from your local pharmacy <span>•</span> Collect in store or get it delivered</div>
       <header className="modern-store-header">
         <button className="modern-shop-logo" type="button" onClick={() => navigate('/shop')}>
@@ -303,10 +324,10 @@ export function PublicShopOrgPage() {
             const out = p.stock_quantity === 0
             return (
               <article key={p.id} className="patient-shop-store-product">
-                <div className="patient-shop-store-product-media">{p.image_url ? <img src={p.image_url} alt={p.name} /> : <span className="modern-shop-product-placeholder">Product image</span>}{p.medicine_class === 'p' ? <b>Pharmacy medicine</b> : p.questionnaire && <b>Consultation</b>}</div>
+                <Link to={productHref(p.id)} className="patient-shop-store-product-media">{p.image_url ? <img src={p.image_url} alt={p.name} /> : <span className="modern-shop-product-placeholder">Product image</span>}{p.medicine_class === 'p' ? <b>Pharmacy medicine</b> : p.questionnaire && <b>Consultation</b>}</Link>
                 <div className="patient-shop-store-product-copy">
                   <small>{p.category?.name || 'Pharmacy product'}</small>
-                  <h3>{p.name}</h3>
+                  <h3><Link to={productHref(p.id)}>{p.name}</Link></h3>
                   {p.description && <p>{p.description}</p>}
                   {p.requires_availability_check && <em>Pharmacy confirms availability</em>}
                   <div className="patient-shop-store-product-buy">
