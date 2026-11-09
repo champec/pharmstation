@@ -114,7 +114,7 @@ export function MessagingSettingsTab() {
     try {
       const result = await testSmsConnection(orgId)
       setTestResult(result.valid
-        ? { success: true, message: `Connected — platform balance: ${result.balance ?? 'n/a'} credits.` }
+        ? { success: true, message: 'Connected. Your pharmacy can send texts.' }
         : { success: false, message: result.error || 'Connection failed' })
     } catch (e: unknown) {
       setTestResult({ success: false, message: e instanceof Error ? e.message : 'Connection failed' })
@@ -180,7 +180,6 @@ export function MessagingSettingsTab() {
     try { await deleteSmsTemplate(orgId, t.id) } catch { /* surfaced via error banner */ }
   }, [orgId, deleteSmsTemplate])
 
-  const fmtPence = (p: number) => `£${(p / 100).toFixed(2)}`
 
   return (
     <div>
@@ -203,8 +202,8 @@ export function MessagingSettingsTab() {
       <div className="ps-card" style={cardStyle}>
         <h3 style={{ margin: '0 0 var(--ps-space-sm)' }}>SMS (via SMS Works)</h3>
         <p style={hintStyle}>
-          Text messages are sent through PharmStation's SMS gateway — no account or API key needed.
-          Usage is metered per pharmacy and billed monthly.
+          Text messages are sent through PharmStation's SMS gateway, so there's no account or API key to set up.
+          Each text uses credits from your prepaid SMS packs (one credit per 160 characters). Buy packs in Settings, Plan &amp; billing.
         </p>
         <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 'var(--ps-space-sm) var(--ps-space-md)' }}>
           <div style={{
@@ -220,6 +219,12 @@ export function MessagingSettingsTab() {
             {testing ? 'Testing…' : 'Test Connection'}
           </button>
         </div>
+        {organisation?.verification_status !== 'verified' && (
+          <p style={{ ...hintStyle, marginTop: 'var(--ps-space-sm)', color: 'var(--ps-warning)' }}>
+            You can set up texting now, but texts only send once your pharmacy is verified. We check every
+            pharmacy against the GPhC register, usually within one working day.
+          </p>
+        )}
         {testResult && (
           <div style={{ marginTop: 'var(--ps-space-sm)', fontSize: '0.9rem', color: testResult.success ? 'var(--ps-success)' : 'var(--ps-error)' }}>
             {testResult.success ? '✓' : '✗'} {testResult.message}
@@ -295,7 +300,7 @@ export function MessagingSettingsTab() {
         <h3 style={{ margin: '0 0 var(--ps-space-sm)' }}>Two-way Replies</h3>
         <p style={hintStyle}>
           Rent a dedicated virtual number so patients can reply to your messages. Replies appear in your
-          Messaging inbox. Adds a £13.50 + VAT monthly rental to your bill.
+          Messaging inbox. Reply numbers come with the Complete plan.
         </p>
 
         {smsSettings?.reply_enabled && smsSettings.reply_number ? (
@@ -458,8 +463,8 @@ export function MessagingSettingsTab() {
       <div className="ps-card" style={cardStyle}>
         <h3 style={{ margin: '0 0 var(--ps-space-sm)' }}>Usage & Billing</h3>
         <p style={hintStyle}>
-          Messages are billed per SMS segment, plus the reply-number rental where enabled. Figures update as
-          delivery receipts arrive.
+          Texts sent and received each month, and the credits they used (one per 160 characters). Figures
+          update as delivery receipts arrive.
         </p>
         {usage.length === 0 ? (
           <p style={{ color: 'var(--ps-slate)', fontSize: '0.9rem', margin: 0 }}>No usage recorded yet.</p>
@@ -470,9 +475,7 @@ export function MessagingSettingsTab() {
                 <th style={{ padding: 'var(--ps-space-xs)' }}>Month</th>
                 <th style={{ padding: 'var(--ps-space-xs)', textAlign: 'right' }}>Sent</th>
                 <th style={{ padding: 'var(--ps-space-xs)', textAlign: 'right' }}>Received</th>
-                <th style={{ padding: 'var(--ps-space-xs)', textAlign: 'right' }}>Segments</th>
-                <th style={{ padding: 'var(--ps-space-xs)', textAlign: 'right' }}>Number rental</th>
-                <th style={{ padding: 'var(--ps-space-xs)', textAlign: 'right' }}>Est. charge</th>
+                <th style={{ padding: 'var(--ps-space-xs)', textAlign: 'right' }}>Credits used</th>
               </tr>
             </thead>
             <tbody>
@@ -482,8 +485,7 @@ export function MessagingSettingsTab() {
                   <td style={{ padding: 'var(--ps-space-xs)', textAlign: 'right' }}>{u.outbound_count}</td>
                   <td style={{ padding: 'var(--ps-space-xs)', textAlign: 'right' }}>{u.inbound_count}</td>
                   <td style={{ padding: 'var(--ps-space-xs)', textAlign: 'right' }}>{u.segments}</td>
-                  <td style={{ padding: 'var(--ps-space-xs)', textAlign: 'right' }}>{u.reply_enabled ? fmtPence(u.reply_number_rental_pence) : '—'}</td>
-                  <td style={{ padding: 'var(--ps-space-xs)', textAlign: 'right', fontWeight: 600 }}>{fmtPence(u.estimated_charge_pence)}</td>
+
                 </tr>
               ))}
             </tbody>

@@ -63,6 +63,9 @@ export function MessagingHubPage() {
   const [recentMessages, setRecentMessages] = useState<NotifyMessage[]>([])
   const [selected, setSelected] = useState<NotifyMessage | null>(null)
 
+  // Don't flash "not configured" while settings are still loading.
+  const [settingsLoaded, setSettingsLoaded] = useState(false)
+
   const load = useCallback(async () => {
     if (!organisation?.id) return
     await Promise.all([
@@ -71,7 +74,7 @@ export function MessagingHubPage() {
       fetchSettings(organisation.id),
       fetchMessages(organisation.id, { page: 0, pageSize: 20 }),
       fetchStats(organisation.id),
-    ])
+    ]).finally(() => setSettingsLoaded(true))
   }, [organisation?.id, fetchRouting, fetchSmsSettings, fetchSettings, fetchMessages, fetchStats])
 
   useEffect(() => { load() }, [load])
@@ -110,7 +113,7 @@ export function MessagingHubPage() {
       )}
 
       {/* Setup prompt */}
-      {!isConfigured && (
+      {settingsLoaded && !isConfigured && (
         <div className="ps-card" style={{
           padding: 'var(--ps-space-lg)',
           marginBottom: 'var(--ps-space-lg)',
@@ -161,12 +164,16 @@ export function MessagingHubPage() {
         <button className="ps-btn ps-btn-secondary" onClick={() => navigate('/messaging/compose?channel=sms')}>
           Send SMS
         </button>
-        <button className="ps-btn ps-btn-secondary" onClick={() => navigate('/messaging/compose?channel=email')}>
-          Send Email
-        </button>
-        <button className="ps-btn ps-btn-secondary" onClick={() => navigate('/messaging/compose?channel=letter')}>
-          Send Letter
-        </button>
+        {routing?.nhsChannelsEnabled && (
+          <>
+            <button className="ps-btn ps-btn-secondary" onClick={() => navigate('/messaging/compose?channel=email')}>
+              Send Email
+            </button>
+            <button className="ps-btn ps-btn-secondary" onClick={() => navigate('/messaging/compose?channel=letter')}>
+              Send Letter
+            </button>
+          </>
+        )}
         <button className="ps-btn ps-btn-secondary" onClick={() => navigate('/messaging/broadcasts/new')}>
           New Broadcast
         </button>

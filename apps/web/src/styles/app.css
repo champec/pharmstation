@@ -6566,6 +6566,19 @@
   overflow-x: auto;
 }
 
+/* Long names, addresses and balance-check notes wrap instead of pushing the
+   Amount and Balance columns off the right of the screen. */
+.register-table td .cell-multiline {
+  white-space: normal;
+  min-width: 110px;
+  max-width: 240px;
+  overflow-wrap: anywhere;
+}
+
+.register-table td .bc-entry-stamp {
+  white-space: normal;
+}
+
 .register-table {
   width: 100%;
   border-collapse: collapse;

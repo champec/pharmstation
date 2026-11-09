@@ -53,13 +53,18 @@ export function ComposeMessagePage() {
   // State
   const [sending, setSending] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
+  // Don't flash "SMS is not enabled" while settings are still loading.
+  const [settingsLoaded, setSettingsLoaded] = useState(false)
   const [showSuccess, setShowSuccess] = useState(false)
 
   useEffect(() => {
     if (organisation?.id) {
-      fetchRouting(organisation.id)
-      fetchSmsSettings(organisation.id)
-      fetchSettings(organisation.id) // NHS Notify (email/letter, NHS-affiliated orgs only)
+      setSettingsLoaded(false)
+      Promise.allSettled([
+        fetchRouting(organisation.id),
+        fetchSmsSettings(organisation.id),
+        fetchSettings(organisation.id), // NHS Notify (email/letter, NHS-affiliated orgs only)
+      ]).then(() => setSettingsLoaded(true))
     }
   }, [organisation?.id, fetchRouting, fetchSmsSettings, fetchSettings])
 
@@ -163,12 +168,17 @@ export function ComposeMessagePage() {
     setShowSuccess(false)
   }
 
+  // Email and letters are NHS Notify only; fall back to SMS for everyone else.
+  useEffect(() => {
+    if (settingsLoaded && !routing?.nhsChannelsEnabled && channel !== 'sms') setChannel('sms')
+  }, [settingsLoaded, routing?.nhsChannelsEnabled, channel])
+
   // Provider-aware availability:
   //  • SMS → platform SMS Works gateway (ps_sms_settings.is_active)
   //  • Email/Letter → NHS Notify, only for NHS-affiliated orgs (nhs_channels_enabled)
   const smsReady = !!smsSettings?.is_active
   const nhsReady = !!routing?.nhsChannelsEnabled && !!settings?.has_api_key && !!settings?.is_active
-  const isNotConfigured = channel === 'sms' ? !smsReady : !nhsReady
+  const isNotConfigured = settingsLoaded && (channel === 'sms' ? !smsReady : !nhsReady)
 
   const configureMessage = channel === 'sms'
     ? <>SMS is not enabled for this pharmacy. Enable it in <a href="/settings?tab=messaging" onClick={(e) => { e.preventDefault(); navigate('/settings?tab=messaging') }}>Settings → Messaging</a>.</>
@@ -189,6 +199,10 @@ export function ComposeMessagePage() {
         <h1>Compose Message</h1>
       </div>
 
+      {!settingsLoaded && (
+        <p className="text-muted" style={{ marginBottom: 'var(--ps-space-md)' }}>Checking your messaging settings…</p>
+      )}
+
       {isNotConfigured && (
         <div className="auth-error" style={{ marginBottom: 'var(--ps-space-md)' }}>
           {configureMessage}
@@ -202,7 +216,7 @@ export function ComposeMessagePage() {
           <div style={{ marginBottom: 'var(--ps-space-lg)' }}>
             <label style={{ display: 'block', fontWeight: 600, marginBottom: 'var(--ps-space-sm)' }}>Channel</label>
             <div style={{ display: 'flex', gap: 'var(--ps-space-sm)' }}>
-              {CHANNELS.map((ch) => {
+              {CHANNELS.filter((ch) => ch.value === 'sms' || routing?.nhsChannelsEnabled).map((ch) => {
                 const unavailable = ch.value !== 'sms' && !routing?.nhsChannelsEnabled
                 return (
                   <button
