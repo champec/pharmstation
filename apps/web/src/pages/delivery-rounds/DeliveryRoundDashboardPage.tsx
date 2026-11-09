@@ -51,7 +51,7 @@ function formatTime(value: string | null) {
 export function DeliveryRoundDashboardPage() {
   const navigate = useNavigate()
   const { organisation } = useAuthStore()
-  const { rounds, redeliveryQueue, loading, error, fetchRounds, fetchRedeliveryQueue, clearError } = useDeliveryRoundStore()
+  const { rounds, redeliveryQueue, availableDrivers, loading, error, fetchRounds, fetchRedeliveryQueue, fetchAvailableDrivers, clearError } = useDeliveryRoundStore()
 
   const [search, setSearch] = useState('')
   const [showCompleted, setShowCompleted] = useState(false)
@@ -60,7 +60,8 @@ export function DeliveryRoundDashboardPage() {
     if (!organisation?.id) return
     fetchRounds(organisation.id)
     fetchRedeliveryQueue(organisation.id)
-  }, [organisation?.id, fetchRounds, fetchRedeliveryQueue])
+    fetchAvailableDrivers(organisation.id)
+  }, [organisation?.id, fetchRounds, fetchRedeliveryQueue, fetchAvailableDrivers])
 
   useEffect(() => { load() }, [load])
 
@@ -80,7 +81,9 @@ export function DeliveryRoundDashboardPage() {
 
   const renderCard = (round: DeliveryRound) => {
     const patientCount = round.patients?.length ?? 0
-    const driverName = (round.driver as { user_profile?: { full_name?: string } } | null)?.user_profile?.full_name
+    const driverName = round.driver_id
+      ? (availableDrivers.find((d) => d.id === round.driver_id)?.full_name ?? 'assigned')
+      : null
     return (
       <button
         key={round.id}

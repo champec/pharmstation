@@ -2,7 +2,6 @@ import { useState, useEffect, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useAuthStore, useDeliveryRoundStore, usePatientMedicationStore, useAppointmentStore } from '@pharmstation/core'
 import type { Patient, PatientMedication } from '@pharmstation/types'
-import { resolvePermissions } from '@pharmstation/types'
 
 export function EditDeliveryRoundPage() {
   const { id } = useParams<{ id: string }>()
@@ -52,10 +51,7 @@ export function EditDeliveryRoundPage() {
     }
   }, [round])
 
-  const drivers = availableDrivers.filter((d) => {
-    const perms = resolvePermissions(d.role, d.permissions)
-    return perms.delivery_drive
-  })
+  const drivers = availableDrivers
 
   const handlePatientSearch = useCallback(async () => {
     if (!organisation?.id || patientSearch.length < 2) return
@@ -158,9 +154,9 @@ export function EditDeliveryRoundPage() {
             <label>Assign Driver</label>
             <select className="ps-input" value={driverId} onChange={(e) => setDriverId(e.target.value)}>
               <option value="">— Select Driver —</option>
-              {drivers.map((d: any) => (
+              {drivers.map((d) => (
                 <option key={d.id} value={d.id}>
-                  {d.user_profile?.full_name} ({d.role})
+                  {d.full_name} ({d.role})
                 </option>
               ))}
             </select>

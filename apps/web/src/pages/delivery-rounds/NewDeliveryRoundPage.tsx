@@ -1,8 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuthStore, useDeliveryRoundStore, usePatientMedicationStore, useAppointmentStore } from '@pharmstation/core'
-import type { Patient, PatientMedication, DeliveryRoundStatus, BnfDrugSearchResult } from '@pharmstation/types'
-import { resolvePermissions } from '@pharmstation/types'
+import type { Patient, PatientMedication, BnfDrugSearchResult } from '@pharmstation/types'
 import { Modal } from '../../components/Modal'
 
 interface RoundPatientEntry {
@@ -15,7 +14,7 @@ interface RoundPatientEntry {
 export function NewDeliveryRoundPage() {
   const navigate = useNavigate()
   const { organisation, membership } = useAuthStore()
-  const { createRound, addPatientToRound, assignDriver, fetchAvailableDrivers, availableDrivers } = useDeliveryRoundStore()
+  const { createRoundWithStops, fetchAvailableDrivers, availableDrivers } = useDeliveryRoundStore()
   const { searchPatients, patients: searchedPatients, createPatient } = useAppointmentStore()
   const { fetchMedications, searchDrugs, drugSearchResults, addMedication, removeMedication, clearSearch } = usePatientMedicationStore()
 
@@ -253,10 +252,7 @@ export function NewDeliveryRoundPage() {
 
   // ---- Drivers ----
 
-  const drivers = availableDrivers.filter((d) => {
-    const perms = resolvePermissions(d.role, d.permissions)
-    return perms.delivery_drive
-  })
+  const drivers = availableDrivers
 
   // ---- Create round ----
 
@@ -265,34 +261,25 @@ export function NewDeliveryRoundPage() {
     setSaving(true)
     setError(null)
     try {
-      const round = await createRound({
-        organisation_id: organisation.id,
+      // One database transaction: the round, its stops and medicines.
+      const roundId = await createRoundWithStops({
+        orgId: organisation.id,
         title: title.trim() || null,
-        status: (scheduledDate ? 'scheduled' : 'draft') as DeliveryRoundStatus,
-        scheduled_date: scheduledDate || null,
-        scheduled_time_start: timeStart || null,
-        scheduled_time_end: timeEnd || null,
+        scheduledDate: scheduledDate || null,
+        timeStart: timeStart || null,
+        timeEnd: timeEnd || null,
         notes: roundNotes.trim() || null,
-        created_by: membership.user_id,
+        driverId: driverId || null,
+        stops: selectedPatients.map((sp) => ({
+          patientId: sp.patient.id,
+          notes: sp.notes || undefined,
+          address: sp.addressOverride,
+          medications: sp.medications
+            .filter((m) => m.selected)
+            .map((m) => ({ patient_medication_id: m.med.id, quantity: m.quantity })),
+        })),
       })
-
-      for (let i = 0; i < selectedPatients.length; i++) {
-        const sp = selectedPatients[i]
-        const selectedMeds = sp.medications
-          .filter((m) => m.selected)
-          .map((m) => ({ patient_medication_id: m.med.id, quantity: m.quantity }))
-        const addr = sp.addressOverride
-        await addPatientToRound(
-          round.id, organisation.id, sp.patient.id, i + 1, selectedMeds,
-          addr.line1 || addr.line2 || addr.city || addr.postcode
-            ? { line1: addr.line1, line2: addr.line2, city: addr.city, postcode: addr.postcode }
-            : undefined,
-          sp.notes || undefined,
-        )
-      }
-
-      if (driverId) await assignDriver(round.id, driverId)
-      navigate(`/deliveries/${round.id}`)
+      navigate(`/deliveries/${roundId}`)
     } catch (e: any) {
       setError(e.message)
     }
@@ -513,8 +500,8 @@ export function NewDeliveryRoundPage() {
                 <label>Assign Driver</label>
                 <select className="ps-input" value={driverId} onChange={(e) => setDriverId(e.target.value)}>
                   <option value="">— Select Driver —</option>
-                  {drivers.map((d: any) => (
-                    <option key={d.id} value={d.id}>{d.user_profile?.full_name} ({d.role})</option>
+                  {drivers.map((d) => (
+                    <option key={d.id} value={d.id}>{d.full_name} ({d.role})</option>
                   ))}
                 </select>
               </div>
