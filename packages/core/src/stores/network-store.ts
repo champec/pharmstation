@@ -268,7 +268,7 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
     set({ searchLoading: true, error: null })
     try {
       const client = getUserClient()
-      const { data, error } = await client.rpc('search_network_pharmacies', {
+      const { data, error } = await client.rpc('ps_network_search', {
         p_org_id:        orgId,
         p_search:        search,
         p_radius_km:     radiusKm,
@@ -371,7 +371,11 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
         .upsert({ org_id: orgId, pharmacy_id: pharmacyId }, { onConflict: 'org_id' })
         .select('*, pharmacy:pharmacy_id(id, ods_code, organisation_name, address1, city, postcode, latitude, longitude)')
         .single()
-      if (error) throw error
+      if (error) {
+        if (error.code === '23505') throw new Error('Another PharmStation account has already linked this pharmacy. If it is yours, contact hello@pharmstation.co.uk.')
+        if (error.code === '42501') throw new Error('Your pharmacy needs to be verified before it can join the network.')
+        throw error
+      }
       set({ myLink: data as OrgPharmacyLink, loading: false })
     } catch (e: unknown) {
       set({ error: (e as Error).message, loading: false })

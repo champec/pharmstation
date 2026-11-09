@@ -26,7 +26,7 @@ export function PEPSPrescriptionDetailPage() {
   const { organisation } = useAuthStore()
   const {
     activePrescription: rx, activeItems, activeEvents, loading, error,
-    fetchPrescription, dispense, release, transfer, downloadFromSpine, searchPharmacies, logEvent,
+    fetchPrescription, dispense, cancel, release, transfer, downloadFromSpine, searchPharmacies, logEvent,
   } = usePepsStore()
 
   const [busy, setBusy] = useState(false)
@@ -35,11 +35,18 @@ export function PEPSPrescriptionDetailPage() {
   const [showTransfer, setShowTransfer] = useState(false)
   const [controlledDispenseAck, setControlledDispenseAck] = useState(false)
   const [controlledDispenseEvidence, setControlledDispenseEvidence] = useState<File | null>(null)
+  const [showCancel, setShowCancel] = useState(false)
+  const [cancelReason, setCancelReason] = useState('')
+  const [supplyNote, setSupplyNote] = useState('')
+  const [myUserId, setMyUserId] = useState<string | null>(null)
   const [pharmacyText, setPharmacyText] = useState('')
   const [target, setTarget] = useState<{ id: string; name: string } | null>(null)
 
   const load = useCallback(() => { if (id) fetchPrescription(id) }, [id, fetchPrescription])
   useEffect(() => { load() }, [load])
+  useEffect(() => {
+    getUserClient().auth.getUser().then(({ data }) => setMyUserId(data.user?.id ?? null))
+  }, [])
 
   if (loading && !rx) return <div style={{ padding: 'var(--ps-space-lg)' }}>Loading…</div>
   if (!rx) {
@@ -52,9 +59,12 @@ export function PEPSPrescriptionDetailPage() {
   }
 
   const orgId = organisation?.id
-  const heldByMe = rx.status === 'held' && rx.assigned_org_id === orgId
+  const expired = !!rx.expires_at && new Date(rx.expires_at).getTime() < Date.now()
+  const heldByMe = rx.status === 'held' && rx.assigned_org_id === orgId && !expired
+  const iWroteIt = !!myUserId && rx.written_by === myUserId
+  const canCancel = iWroteIt && (rx.status === 'available' || rx.status === 'held')
   // Only prescriptions sent to this pharmacy can be downloaded here. Open-spine ones are claimed from the queue.
-  const downloadable = rx.status === 'available' && !!orgId && rx.assigned_org_id === orgId
+  const downloadable = rx.status === 'available' && !!orgId && rx.assigned_org_id === orgId && !expired
   const canPrintDocument = !!orgId && rx.assigned_org_id === orgId && (rx.status === 'held' || rx.status === 'dispensed')
   const controlledDrugDeclared = activeEvents.some(
     (ev) => ev.event_type === 'created' && Boolean((ev.metadata as Record<string, unknown> | null)?.controlled_drug_declared),
@@ -139,7 +149,15 @@ export function PEPSPrescriptionDetailPage() {
           recorded_at: new Date().toISOString(),
         })
       }
-      await dispense(rx.id)
+      await dispense(
+        rx.id,
+        activeItems.map((it) => ({
+          item: it.drug_name,
+          quantity: it.quantity,
+          ...(supplyNote.trim() ? { note: supplyNote.trim() } : {}),
+        })),
+      )
+      setSupplyNote('')
     })
   }
 
@@ -152,10 +170,24 @@ export function PEPSPrescriptionDetailPage() {
           <span>{rx.prescription_ref}</span>
         </div>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <h1>℞ {rx.prescription_ref}</h1>
-          <span className={`ps-badge ${rx.status === 'held' ? 'ps-badge-success' : ''}`}>{rx.status.toUpperCase()}</span>
+          <h1>{rx.prescription_ref}</h1>
+          <span className={`ps-badge ${rx.status === 'held' && !expired ? 'ps-badge-success' : ''}`}>
+            {expired && rx.status !== 'dispensed' && rx.status !== 'cancelled' ? 'EXPIRED' : rx.status.toUpperCase()}
+          </span>
         </div>
+        {rx.expires_at && rx.status !== 'cancelled' && (
+          <p style={{ color: expired ? 'var(--ps-danger, #b91c1c)' : 'var(--ps-slate)', margin: '4px 0 0', fontSize: 'var(--ps-font-sm)' }}>
+            {expired ? 'Expired' : 'Valid until'} {new Date(rx.expires_at).toLocaleDateString('en-GB')}
+          </p>
+        )}
       </div>
+
+      {rx.status === 'cancelled' && (
+        <div className="ps-alert ps-alert-error" style={{ marginBottom: 'var(--ps-space-md)' }}>
+          Cancelled by the prescriber{rx.cancelled_at ? ` on ${new Date(rx.cancelled_at).toLocaleDateString('en-GB')}` : ''}
+          {rx.cancel_reason ? `: ${rx.cancel_reason}` : ''}. Do not dispense.
+        </div>
+      )}
 
       {actionError && <div className="ps-alert ps-alert-error" style={{ marginBottom: 'var(--ps-space-md)' }}>{actionError}</div>}
 
@@ -213,13 +245,13 @@ export function PEPSPrescriptionDetailPage() {
             {canPrintDocument && (
               <button className="ps-btn ps-btn-primary" style={{ width: '100%', marginBottom: 8 }} disabled={busy}
                 onClick={openPrintPage}>
-                🖨 Open A4 print page
+                Open A4 print page
               </button>
             )}
             {downloadable && !heldByMe && (
               <button className="ps-btn ps-btn-primary" style={{ width: '100%', marginBottom: 8 }} disabled={busy}
                 onClick={handleDownloadAndPrint}>
-                📥 Download and print original
+                Download and print
               </button>
             )}
             {heldByMe && (
@@ -238,18 +270,28 @@ export function PEPSPrescriptionDetailPage() {
                 </button>
               </>
             )}
-            {!downloadable && !heldByMe && (
+            {canCancel && (
+              <button className="ps-btn ps-btn-secondary" style={{ width: '100%', marginTop: 8, marginBottom: 8 }} disabled={busy}
+                onClick={() => setShowCancel(true)}>
+                ✕ Cancel prescription
+              </button>
+            )}
+            {!downloadable && !heldByMe && !canCancel && (
               <p style={{ color: 'var(--ps-slate)', fontSize: 'var(--ps-font-sm)', margin: 0 }}>
                 {rx.status === 'dispensed'
                   ? 'This prescription has been dispensed.'
-                  : rx.status === 'available'
-                    ? 'This prescription is on the spine but directed to another pharmacy.'
-                    : 'No actions available for your pharmacy.'}
+                  : rx.status === 'cancelled'
+                    ? 'This prescription was cancelled.'
+                    : expired
+                      ? 'This prescription has expired and can no longer be dispensed.'
+                      : rx.status === 'available'
+                        ? 'This prescription is waiting to be collected.'
+                        : 'No actions available for your pharmacy.'}
               </p>
             )}
             {canPrintDocument && (
               <p style={{ color: 'var(--ps-slate)', fontSize: 'var(--ps-font-sm)', marginTop: 8, marginBottom: 0 }}>
-                Prints are audited in PEPS. If an original already exists or the script is dispensed, the print is marked COPY.
+                Prints are audited and always marked COPY. The electronic prescription in PEPS is the original.
               </p>
             )}
           </div>
@@ -280,6 +322,10 @@ export function PEPSPrescriptionDetailPage() {
         <div className="ps-alert ps-alert-error" style={{ marginBottom: 'var(--ps-space-md)' }}>
           This decision cannot be reversed. A private prescription must be legally retained once dispensed.
         </div>
+        <div className="form-group" style={{ marginBottom: 'var(--ps-space-sm)' }}>
+          <label>Batch / supply note (optional)</label>
+          <input className="ps-input" value={supplyNote} onChange={(e) => setSupplyNote(e.target.value)} placeholder="e.g. batch AB123, exp 03/2028" />
+        </div>
         {controlledDrugDeclared && (
           <>
             <div className="ps-alert ps-alert-warning" style={{ marginBottom: 'var(--ps-space-md)' }}>
@@ -305,6 +351,25 @@ export function PEPSPrescriptionDetailPage() {
           <button className="ps-btn ps-btn-primary" disabled={busy}
             onClick={handleDispense}>
             Confirm dispense
+          </button>
+        </div>
+      </Modal>
+
+      {/* Cancel (prescriber) */}
+      <Modal isOpen={showCancel} onClose={() => setShowCancel(false)} title="Cancel prescription">
+        <p style={{ marginTop: 0 }}>
+          Cancelling stops <strong>{rx.prescription_ref}</strong> being dispensed anywhere.
+          {rx.assigned_org_id ? ' The pharmacy holding it will be told.' : ''}
+        </p>
+        <div className="form-group">
+          <label>Reason *</label>
+          <input className="ps-input" value={cancelReason} onChange={(e) => setCancelReason(e.target.value)} placeholder="e.g. wrong dose, patient no longer needs it" />
+        </div>
+        <div style={{ display: 'flex', gap: 'var(--ps-space-sm)', justifyContent: 'flex-end' }}>
+          <button className="ps-btn ps-btn-ghost" onClick={() => setShowCancel(false)}>Keep it</button>
+          <button className="ps-btn ps-btn-primary" disabled={busy || cancelReason.trim().length < 3}
+            onClick={() => { const r = cancelReason.trim(); setShowCancel(false); setCancelReason(''); run(() => cancel(rx.id, r)) }}>
+            Cancel prescription
           </button>
         </div>
       </Modal>

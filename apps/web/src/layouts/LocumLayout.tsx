@@ -48,7 +48,7 @@ export function LocumLayout() {
               </span>
           )}
           <Link to="/me" className="ps-btn ps-btn-ghost ps-btn-sm" title="My personal account">
-            👤 My Account
+            My Account
           </Link>
           <button className="ps-btn ps-btn-ghost ps-btn-sm" onClick={handleLogout}>
             Sign Out

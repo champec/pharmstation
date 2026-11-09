@@ -54,3 +54,18 @@ export const SMS_PACKS: Record<string, { credits: number; pence: number }> = {
   sms_1000: { credits: 1000, pence: 3500 },
   sms_2500: { credits: 2500, pence: 8000 },
 }
+
+/**
+ * Genie messages each pharmacy can send per UK calendar month.
+ * Keep in step with genieMonthlyMessages in packages/core/src/billing/plans.ts.
+ */
+export const GENIE_MONTHLY_MESSAGES: Record<PlanId, number> = {
+  network: 0,
+  essential: 300,
+  complete: 1500,
+}
+
+/** True when the server should enforce plan features (set ENFORCE_PLANS=true once billing is live). */
+export function plansEnforced(): boolean {
+  return Deno.env.get('ENFORCE_PLANS') === 'true'
+}

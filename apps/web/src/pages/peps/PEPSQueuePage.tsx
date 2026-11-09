@@ -4,6 +4,10 @@ import { useAuthStore, usePepsStore } from '@pharmstation/core'
 import type { PepsPrescription, PepsSpineResult } from '@pharmstation/types'
 
 function statusBadge(rx: PepsPrescription) {
+  const expired = !!rx.expires_at && new Date(rx.expires_at).getTime() < Date.now()
+  if (expired && (rx.status === 'held' || rx.status === 'available')) {
+    return <span className="ps-badge ps-badge-muted">Expired</span>
+  }
   switch (rx.status) {
     case 'held':
       return <span className="ps-badge ps-badge-success">Held</span>
@@ -129,8 +133,8 @@ export function PEPSQueuePage() {
           <span>PEPS Queue</span>
         </div>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <h1>℞ PEPS Queue</h1>
-          <button className="ps-btn ps-btn-primary" onClick={() => navigate('/peps/write')}>✍️ Write prescription</button>
+          <h1>PEPS Queue</h1>
+          <button className="ps-btn ps-btn-primary" onClick={() => navigate('/peps/write')}>Write prescription</button>
         </div>
         <p style={{ color: 'var(--ps-slate)', marginTop: '4px' }}>
           Prescriptions held by {organisation?.name ?? 'your pharmacy'}. Download ones sent to you, or claim a patient's spine prescription with their reference.

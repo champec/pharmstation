@@ -206,7 +206,6 @@ export function PEPSWritePage() {
         animal_owner: type === 'vet' ? animalOwner.trim() || null : null,
         cascade_wording: type === 'vet' && useCascade ? CASCADE_TEXT : null,
         repeats,
-        signature_data: myPrescriber.signature_data,
         items: items
           .filter((it) => it.drug_name.trim() && it.quantity.trim())
           .map<Partial<PepsPrescriptionItem>>((it) => ({
@@ -217,6 +216,14 @@ export function PEPSWritePage() {
             dosage: it.dosage.trim() || null,
           })),
         assigned_org_id: route === 'pharmacy' ? targetPharmacy!.id : null,
+        // Controlled-drug declaration is stored on the 'created' audit event.
+        created_metadata: type === 'private'
+          ? {
+              declaration_source: 'write_page',
+              controlled_drug_declared: controlledDrug,
+              controlled_drug_acknowledged: controlledDrug ? controlledDrugAck : false,
+            }
+          : {},
       })
 
       let controlledDrugEvidencePath: string | null = null
@@ -231,17 +238,13 @@ export function PEPSWritePage() {
         controlledDrugEvidencePath = path
       }
 
-      // Track controlled-drug declaration and legal acknowledgement as audit metadata.
-      if (type === 'private') {
-        await logEvent(rx.id, 'created', {
-          declaration_source: 'write_page',
-          controlled_drug_declared: controlledDrug,
-          controlled_drug_acknowledged: controlledDrug ? controlledDrugAck : false,
-          controlled_drug_evidence_name: controlledDrugEvidence?.name ?? null,
-          controlled_drug_evidence_type: controlledDrugEvidence?.type ?? null,
-          controlled_drug_evidence_size: controlledDrugEvidence?.size ?? null,
-          controlled_drug_evidence_bucket: controlledDrugEvidencePath ? 'scan-images' : null,
-          controlled_drug_evidence_path: controlledDrugEvidencePath,
+      if (controlledDrugEvidencePath && controlledDrugEvidence) {
+        await logEvent(rx.id, 'cd_evidence_attached', {
+          attachment_name: controlledDrugEvidence.name,
+          attachment_type: controlledDrugEvidence.type,
+          attachment_size: controlledDrugEvidence.size,
+          attachment_storage_bucket: 'scan-images',
+          attachment_storage_path: controlledDrugEvidencePath,
         })
       }
 
@@ -276,7 +279,7 @@ export function PEPSWritePage() {
     return (
       <div>
         <div className="page-header">
-          <h1>✍️ Write Prescription</h1>
+          <h1>Write Prescription</h1>
         </div>
         <div className="ps-card" style={{ maxWidth: 560, padding: 'var(--ps-space-lg)' }}>
           <p style={{ marginTop: 0 }}>
@@ -300,7 +303,7 @@ export function PEPSWritePage() {
           <span className="separator">/</span>
           <span>Write Prescription</span>
         </div>
-        <h1>✍️ Write Prescription</h1>
+        <h1>Write Prescription</h1>
       </div>
 
       {error && <div className="ps-alert ps-alert-error" style={{ marginBottom: 'var(--ps-space-md)' }}>{error}</div>}

@@ -76,6 +76,16 @@ function usePush(ready: boolean) {
         router.push({ pathname: '/module/[id]', params: { id: 'locum', tab: data.type === 'locum_shift' ? 'find' : 'bookings' } })
         return
       }
+      // Pharmacy locum alerts open Locum Cover.
+      if (data.event_type === 'locum') {
+        router.push({ pathname: '/module/[id]', params: { id: 'locum-cover', tab: 'shifts' } })
+        return
+      }
+      // Shop order alerts open the shop's order list.
+      if (data.event_type === 'shop_order') {
+        router.push({ pathname: '/module/[id]', params: { id: 'shop', tab: 'orders' } })
+        return
+      }
       if (data.thread_id) useCommsStore.getState().setPendingOpen({ threadId: data.thread_id })
       else if (data.from_number) useCommsStore.getState().setPendingOpen({ phone: data.from_number })
       router.push({ pathname: '/module/[id]', params: { id: 'communications', tab: 'notifications' } })

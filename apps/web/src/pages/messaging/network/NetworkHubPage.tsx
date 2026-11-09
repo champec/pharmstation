@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuthStore, useNetworkStore } from '@pharmstation/core'
 import { NETWORK_LABEL_CONFIG } from '@pharmstation/types'
@@ -15,7 +15,14 @@ function relativeTime(iso: string): string {
   return `${Math.floor(hours / 24)}d ago`
 }
 
-type Tab = 'inbox' | 'sent'
+type Tab = 'all' | 'unread' | 'sent'
+
+/** One row per conversation: its latest message in either direction. */
+interface Conversation {
+  latest: NetworkMessage
+  otherName: string
+  unread: boolean
+}
 
 export function NetworkHubPage() {
   const navigate = useNavigate()
@@ -29,7 +36,7 @@ export function NetworkHubPage() {
     clearError,
   } = useNetworkStore()
 
-  const [tab, setTab] = useState<Tab>('inbox')
+  const [tab, setTab] = useState<Tab>('all')
   const [showMap, setShowMap] = useState(false)
 
   const load = useCallback(async () => {
@@ -49,40 +56,69 @@ export function NetworkHubPage() {
     return () => unsubscribeFromInbox()
   }, [organisation?.id])  // eslint-disable-line react-hooks/exhaustive-deps
 
-  const messages: NetworkMessage[] = tab === 'inbox' ? inbox : sent
   const isNetworkEnabled = settings?.network_enabled !== false
+  const verification = organisation?.verification_status
+  const awaitingVerification = verification === 'pending' || verification === 'rejected'
 
-  function renderMessage(msg: NetworkMessage, isInbox: boolean) {
+  const conversations = useMemo<Conversation[]>(() => {
+    const unreadThreads = new Set(inbox.filter((m) => !m.is_read).map((m) => m.thread_id))
+    const byThread = new Map<string, NetworkMessage>()
+    for (const m of [...inbox, ...sent]) {
+      const cur = byThread.get(m.thread_id)
+      if (!cur || m.created_at > cur.created_at) byThread.set(m.thread_id, m)
+    }
+    return Array.from(byThread.values())
+      .sort((a, b) => (a.created_at < b.created_at ? 1 : -1))
+      .map((latest) => {
+        const fromMe = latest.from_org_id === organisation?.id
+        return {
+          latest,
+          otherName: (fromMe ? latest.to_org?.name : latest.from_org?.name) ?? 'Unknown pharmacy',
+          unread: unreadThreads.has(latest.thread_id),
+        }
+      })
+  }, [inbox, sent, organisation?.id])
+
+  const sentThreads = useMemo(() => new Set(sent.map((m) => m.thread_id)), [sent])
+  const shown = conversations.filter((c) =>
+    tab === 'unread' ? c.unread : tab === 'sent' ? sentThreads.has(c.latest.thread_id) : true,
+  )
+
+  function renderConversation(c: Conversation) {
+    const msg = c.latest
     const labelCfg = NETWORK_LABEL_CONFIG[msg.label] ?? NETWORK_LABEL_CONFIG.other
-    const other = isInbox ? msg.from_org : msg.to_org
-    const isUnread = isInbox && !msg.is_read
+    const fromMe = msg.from_org_id === organisation?.id
 
     return (
       <tr
-        key={msg.id}
-        style={{ cursor: 'pointer', fontWeight: isUnread ? 700 : 400, background: isUnread ? 'var(--ps-off-white)' : undefined }}
+        key={msg.thread_id}
+        style={{ cursor: 'pointer', fontWeight: c.unread ? 700 : 400, background: c.unread ? 'var(--ps-off-white)' : undefined }}
         onClick={() => navigate(`/messaging/network/thread/${msg.thread_id}`)}
       >
         <td>
           <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--ps-space-xs)' }}>
-            {isUnread && (
-              <span style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--ps-electric-cyan)', display: 'inline-block', flexShrink: 0 }} />
+            {c.unread && (
+              <span aria-label="Unread" style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--ps-electric-cyan)', display: 'inline-block', flexShrink: 0 }} />
             )}
-            <span>{other?.name ?? '—'}</span>
+            <span>{c.otherName}</span>
           </div>
         </td>
-        <td className="ps-cell-wide" style={{ maxWidth: 280, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+        <td className="ps-cell-wide" style={{ maxWidth: 320, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
           {msg.subject && <strong>{msg.subject} · </strong>}
-          <span style={{ color: 'var(--ps-slate)' }}>{msg.body.slice(0, 80)}{msg.body.length > 80 ? '…' : ''}</span>
+          <span style={{ color: 'var(--ps-slate)' }}>
+            {fromMe ? 'You: ' : ''}{msg.body.slice(0, 80)}{msg.body.length > 80 ? '…' : ''}
+          </span>
         </td>
         <td><span className={labelCfg.cssClass}>{labelCfg.icon} {labelCfg.label}</span></td>
-        {!isInbox && (
-          <td>
+        <td>
+          {fromMe ? (
             <span className={msg.is_read ? 'ps-badge ps-badge-green' : 'ps-badge ps-badge-blue'}>
               {msg.is_read ? '✓ Read' : 'Sent'}
             </span>
-          </td>
-        )}
+          ) : (
+            <span className={c.unread ? 'ps-badge ps-badge-blue' : 'ps-badge'}>{c.unread ? 'New' : 'Replied to you'}</span>
+          )}
+        </td>
         <td style={{ whiteSpace: 'nowrap', color: 'var(--ps-slate)', fontSize: '0.85rem' }}>
           {relativeTime(msg.created_at)}
         </td>
@@ -102,7 +138,7 @@ export function NetworkHubPage() {
         </div>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--ps-space-md)' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--ps-space-sm)' }}>
-            <h1>🏥 Pharmacy Network</h1>
+            <h1>Pharmacy Network</h1>
             {unreadCount > 0 && (
               <span className="ps-badge ps-badge-red" style={{ fontSize: '0.8rem' }}>
                 {unreadCount} new
@@ -111,19 +147,20 @@ export function NetworkHubPage() {
           </div>
           <div style={{ display: 'flex', gap: 'var(--ps-space-sm)' }}>
             <button className="ps-btn ps-btn-ghost" onClick={() => navigate('/messaging/network/settings')}>
-              ⚙️ Settings
+              Settings
             </button>
             <button
               className="ps-btn ps-btn-ghost"
               onClick={() => setShowMap(true)}
               title="Open pharmacy map"
             >
-              🗺 Map
+              Map
             </button>
             <button
               className="ps-btn ps-btn-primary"
               onClick={() => navigate('/messaging/network/compose')}
-              disabled={!isNetworkEnabled}
+              disabled={!isNetworkEnabled || !myLink || awaitingVerification}
+              title={awaitingVerification ? 'Available once your pharmacy is verified' : !myLink ? 'Link your pharmacy first' : undefined}
             >
               + New Message
             </button>
@@ -138,15 +175,32 @@ export function NetworkHubPage() {
         </div>
       )}
 
+      {awaitingVerification && (
+        <div className={`ps-alert ${verification === 'rejected' ? 'ps-alert-error' : 'ps-alert-info'}`} style={{ marginBottom: 'var(--ps-space-lg)' }}>
+          {verification === 'pending' ? (
+            <span>
+              <strong>Your pharmacy is being verified.</strong> We check every pharmacy against the GPhC premises register
+              before it can join the network, so other pharmacies know who they are talking to. This usually takes one
+              working day. You can read any messages already sent to you.
+            </span>
+          ) : (
+            <span>
+              <strong>We couldn&rsquo;t verify this pharmacy</strong>, so it can&rsquo;t join the network.{' '}
+              {organisation?.verification_note ?? ''} Contact <a href="mailto:hello@pharmstation.co.uk">hello@pharmstation.co.uk</a>.
+            </span>
+          )}
+        </div>
+      )}
+
       {/* Onboarding prompt */}
-      {!myLink && (
+      {!myLink && !awaitingVerification && (
         <div className="ps-card" style={{
           padding: 'var(--ps-space-lg)',
           marginBottom: 'var(--ps-space-lg)',
           background: 'var(--ps-off-white)',
           border: '2px solid var(--ps-electric-cyan)',
         }}>
-          <h3 style={{ margin: '0 0 var(--ps-space-sm)' }}>🔗 Link Your Pharmacy</h3>
+          <h3 style={{ margin: '0 0 var(--ps-space-sm)' }}>Link Your Pharmacy</h3>
           <p style={{ color: 'var(--ps-slate)', margin: '0 0 var(--ps-space-md)' }}>
             Before you can send or receive network messages, link your PharmStation account to your NHS ODS pharmacy entry. This lets other pharmacies find and message you.
           </p>
@@ -185,7 +239,7 @@ export function NetworkHubPage() {
           flexWrap: 'wrap',
         }}>
           <div>
-            <span style={{ fontWeight: 600 }}>🏥 Linked as:</span>{' '}
+            <span style={{ fontWeight: 600 }}>Linked as:</span>{' '}
             {myLink.pharmacy?.organisation_name ?? 'Unknown'}{' '}
             <span style={{ color: 'var(--ps-slate)', fontSize: '0.85rem' }}>
               · {myLink.pharmacy?.ods_code}
@@ -200,9 +254,9 @@ export function NetworkHubPage() {
       {/* Quick stats */}
       <div className="ps-stat-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 'var(--ps-space-md)', marginBottom: 'var(--ps-space-lg)' }}>
         {[
-          { label: 'Inbox', value: inbox.length, icon: '📨' },
-          { label: 'Unread', value: unreadCount, icon: '🔵' },
-          { label: 'Sent', value: sent.length, icon: '📤' },
+          { label: 'Conversations', value: conversations.length, icon: '💬' },
+          { label: 'Unread messages', value: unreadCount, icon: '🔵' },
+          { label: 'Messages sent', value: sent.length, icon: '📤' },
         ].map((card) => (
           <div key={card.label} className="ps-card" style={{ padding: 'var(--ps-space-lg)', textAlign: 'center' }}>
             <div style={{ fontSize: '1.4rem', marginBottom: 4 }}>{card.icon}</div>
@@ -215,7 +269,7 @@ export function NetworkHubPage() {
       {/* Tabs */}
       <div className="ps-card" style={{ overflow: 'hidden' }}>
         <div style={{ display: 'flex', borderBottom: '1px solid var(--ps-off-white)', padding: '0 var(--ps-space-md)' }}>
-          {(['inbox', 'sent'] as Tab[]).map((t) => (
+          {(['all', 'unread', 'sent'] as Tab[]).map((t) => (
             <button
               key={t}
               className="ps-btn ps-btn-ghost"
@@ -228,7 +282,7 @@ export function NetworkHubPage() {
               }}
               onClick={() => setTab(t)}
             >
-              {t === 'inbox' ? `📨 Inbox${unreadCount > 0 ? ` (${unreadCount})` : ''}` : '📤 Sent'}
+              {t === 'all' ? 'All conversations' : t === 'unread' ? `Unread${unreadCount > 0 ? ` (${unreadCount})` : ''}` : 'Started or replied by you'}
             </button>
           ))}
         </div>
@@ -237,25 +291,27 @@ export function NetworkHubPage() {
           <div style={{ textAlign: 'center', padding: 'var(--ps-space-2xl)' }}>
             <div className="loading-spinner" />
           </div>
-        ) : messages.length === 0 ? (
+        ) : shown.length === 0 ? (
           <div style={{ textAlign: 'center', padding: 'var(--ps-space-2xl)', color: 'var(--ps-slate)' }}>
-            {tab === 'inbox'
-              ? 'No messages yet. Other pharmacies on the platform can message you here.'
-              : 'No sent messages yet. Use the "New Message" button to reach out to another pharmacy.'}
+            {tab === 'unread'
+              ? 'You are all caught up.'
+              : tab === 'sent'
+                ? 'You haven’t messaged anyone yet. Use “New Message” to ask a nearby pharmacy about stock or a prescription.'
+                : 'No conversations yet. Ask nearby pharmacies about stock, prescriptions or local alerts, and their replies appear here.'}
           </div>
         ) : (
           <table className="ps-table ps-table-stack">
             <thead>
               <tr>
-                <th>{tab === 'inbox' ? 'From' : 'To'}</th>
-                <th>Message</th>
+                <th>Pharmacy</th>
+                <th>Latest message</th>
                 <th>Label</th>
-                {tab === 'sent' && <th>Status</th>}
+                <th>Status</th>
                 <th>Time</th>
               </tr>
             </thead>
             <tbody>
-              {messages.map((msg) => renderMessage(msg, tab === 'inbox'))}
+              {shown.map(renderConversation)}
             </tbody>
           </table>
         )}

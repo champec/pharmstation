@@ -185,7 +185,7 @@ export function ComposeMessagePage() {
           <span className="separator">/</span>
           <span>Compose</span>
         </div>
-        <h1>✏️ Compose Message</h1>
+        <h1>Compose Message</h1>
       </div>
 
       {isNotConfigured && (
@@ -374,7 +374,7 @@ export function ComposeMessagePage() {
               padding: 'var(--ps-space-md)', minHeight: '120px',
             }}>
               <div style={{ fontSize: '0.8rem', color: 'var(--ps-slate)', marginBottom: 'var(--ps-space-xs)' }}>
-                📱 To: {phoneNumber || '—'}
+                To: {phoneNumber || '—'}
               </div>
               <div style={{
                 background: 'var(--ps-deep-blue)', color: 'white',
@@ -393,7 +393,7 @@ export function ComposeMessagePage() {
               padding: 'var(--ps-space-md)', minHeight: '120px',
             }}>
               <div style={{ fontSize: '0.8rem', color: 'var(--ps-slate)', marginBottom: 'var(--ps-space-xs)' }}>
-                📧 To: {emailAddress || '—'}
+                To: {emailAddress || '—'}
               </div>
               <div style={{ fontWeight: 600, marginBottom: 'var(--ps-space-sm)' }}>
                 {subject || 'Message from your pharmacy'}

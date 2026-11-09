@@ -127,12 +127,12 @@ export function StickyNoteCard({ note, currentUserId, isDragging, onDragStart, o
       <div className="sticky-note-meta">
         {note.assignee && (
           <span className="sticky-note-assignee" title={`Assigned to ${note.assignee.full_name}`}>
-            👤 {note.assignee.full_name}
+            {note.assignee.full_name}
           </span>
         )}
         {note.target_date && (
           <span className="sticky-note-date">
-            📅 {new Date(note.target_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
+            {new Date(note.target_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
           </span>
         )}
       </div>
