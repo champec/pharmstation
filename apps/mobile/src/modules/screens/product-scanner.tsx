@@ -112,7 +112,7 @@ function ProductScannerScreen() {
 
   return (
     <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-      <View><Text style={styles.heading}>Medicine pack lookup</Text><Text style={styles.subheading}>Demonstration scanner using the same dm+d lookup as the web app.</Text></View>
+      <View><Text style={styles.heading}>Medicine pack lookup</Text><Text style={styles.subheading}>Scan the barcode on a medicine pack to identify it from the NHS dm+d and see its CD register balance.</Text></View>
       <Pressable style={styles.scanButton} onPress={startCamera}><Ionicons name="scan-outline" size={24} color={palette.textInverse} /><Text style={styles.scanButtonText}>Scan product barcode</Text></Pressable>
       <View style={styles.manualRow}><TextInput value={manual} onChangeText={setManual} style={styles.input} keyboardType="number-pad" placeholder="Enter a 13 or 14 digit GTIN" placeholderTextColor={palette.textMuted} /><Pressable style={styles.lookupButton} onPress={() => void lookup(manual)} disabled={busy}><Ionicons name="search" size={21} color={palette.textInverse} /></Pressable></View>
       {busy ? <ActivityIndicator size="large" color={COLOR} style={styles.loading} /> : null}
@@ -135,7 +135,7 @@ function ResultCard({ parsed, result }: { parsed: ParsedBarcode; result: LookupR
       <Field label="CD register" value={result.organisation_register ? 'Subscribed at this pharmacy' : 'Not subscribed'} />
       <Field label="Current balance" value={result.ledger ? String(result.ledger.current_balance) : null} />
       {result.historical ? <Text style={styles.warning}>This is a historical dm+d pack mapping.</Text> : null}
-      <Text style={styles.disclaimer}>Result is for demonstration only</Text>
+      <Text style={styles.disclaimer}>Always check the pack itself before you act on this result.</Text>
     </View>
   )
 }

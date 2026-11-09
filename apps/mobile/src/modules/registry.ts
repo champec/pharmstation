@@ -171,8 +171,8 @@ export const MODULES: MobileModule[] = [
   },
   {
     id: 'product-scanner',
-    title: 'Product Scanner',
-    description: 'Demo medicine barcode and dm+d lookup',
+    title: 'Pack Lookup',
+    description: 'Scan a medicine pack to identify it and check your CD register',
     icon: 'barcode-outline',
     color: '#0F766E',
     tier: 'org',
