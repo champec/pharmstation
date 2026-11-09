@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { useVideoStore } from '@pharmstation/core'
 import { Modal } from '../../components/Modal'
 import type DailyIframe from '@daily-co/daily-js'
+import { Video } from 'lucide-react'
 
 export function VideoRoomPage() {
   const { consultationId } = useParams<{ consultationId: string }>()
@@ -124,7 +125,7 @@ export function VideoRoomPage() {
   if (activeConsultation && (activeConsultation.status === 'completed' || activeConsultation.status === 'cancelled')) {
     return (
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '60vh', gap: 'var(--ps-space-lg)' }}>
-        <div style={{ fontSize: '3rem' }}>📹</div>
+        <span className="ps-empty-icon" aria-hidden="true"><Video size={26} strokeWidth={1.75} /></span>
         <h2>This consultation has ended</h2>
         <p style={{ color: 'var(--ps-slate)' }}>The video consultation with {activeConsultation.patient_name} is no longer active.</p>
         <button className="ps-btn ps-btn-primary" onClick={() => navigate('/video')}>
@@ -186,7 +187,7 @@ export function VideoRoomPage() {
           onClick={handleEndConsultation}
           disabled={ending}
         >
-          {ending ? 'Ending...' : '⏹ End Consultation'}
+          {ending ? 'Ending...' : 'End Consultation'}
         </button>
       </div>
 

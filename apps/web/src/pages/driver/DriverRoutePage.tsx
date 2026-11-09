@@ -263,7 +263,7 @@ export function DriverRoutePage() {
           </span>
         </div>
         <div style={{ height: 8, background: 'var(--ps-off-white)', borderRadius: 4, overflow: 'hidden' }}>
-          <div style={{ height: '100%', width: `${progressPct}%`, background: 'var(--ps-primary)', borderRadius: 4, transition: 'width 0.3s ease' }} />
+          <div style={{ height: '100%', width: `${progressPct}%`, background: 'var(--ps-deep-blue)', borderRadius: 4, transition: 'width 0.3s ease' }} />
         </div>
 
         {round.status === 'scheduled' && isMyRound && (
@@ -273,7 +273,7 @@ export function DriverRoutePage() {
             disabled={starting}
             style={{ marginTop: 'var(--ps-space-sm)', width: '100%' }}
           >
-            {starting ? 'Starting…' : '🚀 Start deliveries'}
+            {starting ? 'Starting…' : 'Start deliveries'}
           </button>
         )}
         {round.status === 'draft' && (
@@ -287,7 +287,7 @@ export function DriverRoutePage() {
           </p>
         )}
         {round.status === 'completed' && (
-          <div style={{ textAlign: 'center', marginTop: 'var(--ps-space-sm)', color: 'var(--ps-green)', fontWeight: 600 }}>
+          <div style={{ textAlign: 'center', marginTop: 'var(--ps-space-sm)', color: 'var(--ps-success)', fontWeight: 600 }}>
             Round complete
           </div>
         )}
@@ -308,13 +308,13 @@ export function DriverRoutePage() {
               style={{
                 padding: 'var(--ps-space-md)',
                 opacity: resolved ? 0.6 : 1,
-                borderLeft: p.status === 'delivered' ? '4px solid var(--ps-green)' : ['pending_redelivery', 'failed'].includes(p.status) ? '4px solid var(--ps-red)' : '4px solid transparent',
+                borderLeft: p.status === 'delivered' ? '4px solid var(--ps-success)' : ['pending_redelivery', 'failed'].includes(p.status) ? '4px solid var(--ps-error)' : '4px solid transparent',
               }}
             >
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 'var(--ps-space-sm)' }}>
                 <div style={{ minWidth: 0 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--ps-space-sm)', marginBottom: 4, flexWrap: 'wrap' }}>
-                    <span style={{ fontWeight: 700, fontSize: '1.1rem', color: 'var(--ps-primary)' }}>{p.delivery_order}</span>
+                    <span style={{ fontWeight: 700, fontSize: '1.1rem', color: 'var(--ps-deep-blue)' }}>{p.delivery_order}</span>
                     <span style={{ fontWeight: 600 }}>{pat?.first_name} {pat?.last_name}</span>
                     <span className={`ps-badge ${badge.cls}`}>{badge.label}</span>
                   </div>
@@ -323,17 +323,17 @@ export function DriverRoutePage() {
                   </div>
                   <div style={{ display: 'flex', gap: 'var(--ps-space-md)', flexWrap: 'wrap', marginTop: 2, fontSize: 'var(--ps-font-sm)' }}>
                     {address && (
-                      <a href={mapsLink(address)} target="_blank" rel="noreferrer" style={{ color: 'var(--ps-primary)' }}>Directions</a>
+                      <a href={mapsLink(address)} target="_blank" rel="noreferrer" style={{ color: 'var(--ps-deep-blue)' }}>Directions</a>
                     )}
                     {pat?.phone && (
-                      <a href={`tel:${pat.phone}`} style={{ color: 'var(--ps-primary)' }}>{pat.phone}</a>
+                      <a href={`tel:${pat.phone}`} style={{ color: 'var(--ps-deep-blue)' }}>{pat.phone}</a>
                     )}
                   </div>
                   {p.notes && (
                     <div style={{ fontSize: 'var(--ps-font-xs)', color: 'var(--ps-slate)', marginTop: 4, fontStyle: 'italic' }}>{p.notes}</div>
                   )}
                 </div>
-                {p.signature_data && <span title="Signature collected" style={{ fontSize: '1.2rem' }}>✍️</span>}
+                {p.signature_data && <span className="ps-badge ps-badge-success" title="Signature collected">Signed</span>}
               </div>
 
               {p.medications && p.medications.length > 0 && (
@@ -347,8 +347,8 @@ export function DriverRoutePage() {
               )}
 
               {p.failure_reason && (
-                <div style={{ marginTop: 'var(--ps-space-xs)', fontSize: 'var(--ps-font-sm)', color: 'var(--ps-red)' }}>
-                  ⚠️ {p.failure_reason}
+                <div style={{ marginTop: 'var(--ps-space-xs)', fontSize: 'var(--ps-font-sm)', color: 'var(--ps-error)' }}>
+                  Reason: {p.failure_reason}
                 </div>
               )}
 
@@ -357,7 +357,7 @@ export function DriverRoutePage() {
                   <button className="ps-btn ps-btn-primary ps-btn-sm" onClick={() => openModal('deliver', p)} disabled={saving}>
                     Delivered
                   </button>
-                  <button className="ps-btn ps-btn-secondary ps-btn-sm" onClick={() => openModal('fail', p)} disabled={saving} style={{ color: 'var(--ps-red)' }}>
+                  <button className="ps-btn ps-btn-secondary ps-btn-sm" onClick={() => openModal('fail', p)} disabled={saving} style={{ color: 'var(--ps-error)' }}>
                     Couldn't deliver
                   </button>
                   <button className="ps-btn ps-btn-ghost ps-btn-sm" onClick={() => openModal('skip', p)} disabled={saving}>
@@ -481,7 +481,7 @@ export function DriverRoutePage() {
               className="ps-btn ps-btn-primary"
               onClick={handleConfirmReason}
               disabled={saving || !reason.trim()}
-              style={{ background: 'var(--ps-red)' }}
+              style={{ background: 'var(--ps-error)' }}
             >
               {saving ? 'Saving…' : modal === 'skip' ? 'Skip stop' : 'Confirm'}
             </button>

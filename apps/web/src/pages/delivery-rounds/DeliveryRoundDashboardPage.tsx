@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuthStore, useDeliveryRoundStore } from '@pharmstation/core'
 import type { DeliveryRound, DeliveryRoundStatus } from '@pharmstation/types'
+import { Truck } from 'lucide-react'
 
 // Kanban columns mapped onto the delivery-round lifecycle, mirroring the
 // care-home groups board so the two modules feel like one system.
@@ -51,7 +52,7 @@ function formatTime(value: string | null) {
 export function DeliveryRoundDashboardPage() {
   const navigate = useNavigate()
   const { organisation } = useAuthStore()
-  const { rounds, redeliveryQueue, loading, error, fetchRounds, fetchRedeliveryQueue, clearError } = useDeliveryRoundStore()
+  const { rounds, redeliveryQueue, availableDrivers, loading, error, fetchRounds, fetchRedeliveryQueue, fetchAvailableDrivers, clearError } = useDeliveryRoundStore()
 
   const [search, setSearch] = useState('')
   const [showCompleted, setShowCompleted] = useState(false)
@@ -60,7 +61,8 @@ export function DeliveryRoundDashboardPage() {
     if (!organisation?.id) return
     fetchRounds(organisation.id)
     fetchRedeliveryQueue(organisation.id)
-  }, [organisation?.id, fetchRounds, fetchRedeliveryQueue])
+    fetchAvailableDrivers(organisation.id)
+  }, [organisation?.id, fetchRounds, fetchRedeliveryQueue, fetchAvailableDrivers])
 
   useEffect(() => { load() }, [load])
 
@@ -80,7 +82,9 @@ export function DeliveryRoundDashboardPage() {
 
   const renderCard = (round: DeliveryRound) => {
     const patientCount = round.patients?.length ?? 0
-    const driverName = (round.driver as { user_profile?: { full_name?: string } } | null)?.user_profile?.full_name
+    const driverName = round.driver_id
+      ? (availableDrivers.find((d) => d.id === round.driver_id)?.full_name ?? 'assigned')
+      : null
     return (
       <button
         key={round.id}
@@ -170,7 +174,7 @@ export function DeliveryRoundDashboardPage() {
         <div className="care-home-loading">Loading deliveries...</div>
       ) : rounds.length === 0 ? (
         <section className="care-home-empty">
-          <p className="care-home-empty-mark" aria-hidden="true">🚚</p>
+          <span className="ps-empty-icon" aria-hidden="true"><Truck size={26} strokeWidth={1.75} /></span>
           <h2>No deliveries yet</h2>
           <p>Create your first delivery to plan a route and pack medicines for your patients.</p>
           <button className="ps-btn ps-btn-primary" type="button" onClick={() => navigate('/deliveries/new')}>+ New delivery</button>

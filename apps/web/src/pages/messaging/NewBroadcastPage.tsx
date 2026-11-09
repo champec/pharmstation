@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { Lock } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useAuthStore, useMessagingStore } from '@pharmstation/core'
 import type { MessageChannel } from '@pharmstation/types'
@@ -31,12 +32,17 @@ export function NewBroadcastPage() {
 
   const [saving, setSaving] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
+  // Don't flash "SMS is not enabled" while settings are still loading.
+  const [settingsLoaded, setSettingsLoaded] = useState(false)
 
   useEffect(() => {
     if (organisation?.id) {
-      fetchRouting(organisation.id)
-      fetchSmsSettings(organisation.id)
-      fetchSettings(organisation.id) // NHS Notify (email/letter, NHS-affiliated orgs only)
+      setSettingsLoaded(false)
+      Promise.allSettled([
+        fetchRouting(organisation.id),
+        fetchSmsSettings(organisation.id),
+        fetchSettings(organisation.id), // NHS Notify (email/letter, NHS-affiliated orgs only)
+      ]).then(() => setSettingsLoaded(true))
       loadRecipientCount()
     }
   }, [organisation?.id])
@@ -110,12 +116,17 @@ export function NewBroadcastPage() {
     setSaving(false)
   }
 
+  // Email and letters are NHS Notify only; fall back to SMS for everyone else.
+  useEffect(() => {
+    if (settingsLoaded && !routing?.nhsChannelsEnabled && channel !== 'sms') setChannel('sms')
+  }, [settingsLoaded, routing?.nhsChannelsEnabled, channel])
+
   // Provider-aware availability:
   //  • SMS → platform SMS Works gateway (ps_sms_settings.is_active)
   //  • Email/Letter → NHS Notify, only for NHS-affiliated orgs (nhs_channels_enabled)
   const smsReady = !!smsSettings?.is_active
   const nhsReady = !!routing?.nhsChannelsEnabled && !!settings?.has_api_key && !!settings?.is_active
-  const isNotConfigured = channel === 'sms' ? !smsReady : !nhsReady
+  const isNotConfigured = settingsLoaded && (channel === 'sms' ? !smsReady : !nhsReady)
 
   const configureMessage = channel === 'sms'
     ? <>SMS is not enabled for this pharmacy. Enable it in <a href="/settings?tab=messaging" onClick={(e) => { e.preventDefault(); navigate('/settings?tab=messaging') }}>Settings → Messaging</a>.</>
@@ -137,6 +148,10 @@ export function NewBroadcastPage() {
         </div>
         <h1>New Broadcast</h1>
       </div>
+
+      {!settingsLoaded && (
+        <p className="text-muted" style={{ marginBottom: 'var(--ps-space-md)' }}>Checking your messaging settings…</p>
+      )}
 
       {isNotConfigured && (
         <div className="auth-error" style={{ marginBottom: 'var(--ps-space-md)' }}>
@@ -162,7 +177,7 @@ export function NewBroadcastPage() {
           <div style={{ marginBottom: 'var(--ps-space-lg)' }}>
             <label style={{ display: 'block', fontWeight: 600, marginBottom: 'var(--ps-space-sm)' }}>Channel</label>
             <div style={{ display: 'flex', gap: 'var(--ps-space-sm)' }}>
-              {CHANNELS.map((ch) => {
+              {CHANNELS.filter((ch) => ch.value === 'sms' || routing?.nhsChannelsEnabled).map((ch) => {
                 const unavailable = ch.value !== 'sms' && !routing?.nhsChannelsEnabled
                 return (
                   <button
@@ -172,7 +187,7 @@ export function NewBroadcastPage() {
                     style={unavailable ? { opacity: 0.5 } : undefined}
                     title={unavailable ? 'NHS-affiliated organisations only' : undefined}
                   >
-                    {ch.icon} {ch.label}{unavailable ? ' 🔒' : ''}
+                    {ch.label}{unavailable && <Lock size={12} aria-label="Not available" style={{ marginLeft: 4 }} />}
                   </button>
                 )
               })}

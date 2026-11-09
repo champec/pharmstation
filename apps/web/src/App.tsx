@@ -9,6 +9,7 @@ import { UserLoginPage } from './pages/auth/UserLoginPage'
 import { ForgotPasswordPage } from './pages/auth/ForgotPasswordPage'
 import { ResetPasswordPage } from './pages/auth/ResetPasswordPage'
 import { PersonalLoginPage } from './pages/auth/PersonalLoginPage'
+import { PersonalSignupPage } from './pages/auth/PersonalSignupPage'
 import { PersonalProfilePage } from './pages/PersonalProfilePage'
 import { LocumApprovalsPage } from './pages/admin/LocumApprovalsPage'
 import { AnnouncementsPage } from './pages/admin/AnnouncementsPage'
@@ -113,6 +114,8 @@ import { PrivacyNoticePage } from './pages/public/PrivacyNoticePage'
 import { LandingPage } from './pages/public/LandingPage'
 import { ModernShopHomePage } from './pages/public/ModernShopHomePage'
 import { ShopPaymentResultPage } from './pages/public/ShopPaymentResultPage'
+import { ShopOrderTrackingPage } from './pages/public/ShopOrderTrackingPage'
+import { ShopTermsPage } from './pages/public/ShopTermsPage'
 import { PublicShopOrgPage } from './pages/public/PublicShopOrgPage'
 import { ShopProductsPage } from './pages/shop/ShopProductsPage'
 import { ShopOrdersPage } from './pages/shop/ShopOrdersPage'
@@ -208,6 +211,9 @@ export function App() {
       <Route path="/book/:orgSlug/payment-result" element={<PaymentResultPage />} />
       <Route path="/booking/manage/:token" element={<ManageBookingPage />} />
       <Route path="/shop" element={<ModernShopHomePage />} />
+      <Route path="/shop/order" element={<ShopOrderTrackingPage />} />
+      <Route path="/shop/order/:orderNumber" element={<ShopOrderTrackingPage />} />
+      <Route path="/shop/terms" element={<ShopTermsPage />} />
       <Route path="/shop/:orgSlug" element={<PublicShopOrgPage />} />
       <Route path="/shop/:orgSlug/payment-result" element={<ShopPaymentResultPage />} />
       <Route path="/about" element={<AboutPage />} />
@@ -293,6 +299,10 @@ export function App() {
         <Route
           path="/me/login"
           element={isUserLoggedIn ? <Navigate to="/me" replace /> : <PersonalLoginPage />}
+        />
+        <Route
+          path="/me/signup"
+          element={isUserLoggedIn ? <Navigate to="/me" replace /> : <PersonalSignupPage />}
         />
       </Route>
 

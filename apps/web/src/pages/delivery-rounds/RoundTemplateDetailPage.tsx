@@ -159,7 +159,7 @@ export function RoundTemplateDetailPage() {
                   onMouseLeave={(e) => { (e.currentTarget as HTMLDivElement).style.background = '' }}
                 >
                   <span>{p.first_name} {p.last_name} — {p.postcode}</span>
-                  <span style={{ color: 'var(--ps-primary)', fontSize: 'var(--ps-font-sm)' }}>+ Add</span>
+                  <span style={{ color: 'var(--ps-deep-blue)', fontSize: 'var(--ps-font-sm)' }}>+ Add</span>
                 </div>
               ))}
           </div>
@@ -177,7 +177,7 @@ export function RoundTemplateDetailPage() {
                       {tp.include_all_active_meds ? 'All active meds' : `${tp.medications?.length ?? 0} specific med(s)`}
                     </span>
                   </div>
-                  <button className="ps-btn ps-btn-ghost ps-btn-sm" onClick={() => handleRemovePatient(tp.id)} style={{ color: 'var(--ps-red)' }}>Remove</button>
+                  <button className="ps-btn ps-btn-ghost ps-btn-sm" onClick={() => handleRemovePatient(tp.id)} style={{ color: 'var(--ps-error)' }}>Remove</button>
                 </div>
               ))}
           </div>

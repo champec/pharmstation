@@ -27,6 +27,7 @@ import { useNavigate } from 'react-router-dom'
 import { getUserClient } from '@pharmstation/supabase-client'
 import { useAuthStore, useNetworkStore } from '@pharmstation/core'
 import { useMapboxToken } from '../../hooks/useMapboxToken'
+import { Home } from 'lucide-react'
 
 // ── Types ───────────────────────────────────────────────────
 
@@ -848,7 +849,7 @@ export function PharmacyMapModal({ isOpen, onClose, onAddToOutreach, trackedPhar
                     boxShadow: '0 0 0 2px rgba(0,0,0,.1)',
                   }}
                 >
-                  🏠
+                  <Home size={16} aria-hidden="true" />
                 </button>
               </div>
             )}

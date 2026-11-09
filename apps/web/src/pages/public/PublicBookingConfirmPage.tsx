@@ -6,6 +6,9 @@ import { orgSlugOrIdFilter } from '../../lib/orgSlugFilter'
 import { PublicFooter } from '../../components/public/PublicFooter'
 import { Turnstile, turnstileEnabled } from '../../components/public/Turnstile'
 
+// Anonymous visitors may only read these columns (column grants on ps_organisations).
+const PUBLIC_ORG_COLUMNS = 'id, name, slug, address, public_description, public_logo_url, is_public, is_active, organisation_type'
+
 /** Dig the real message out of an edge function error response. */
 async function functionError(err: unknown, data: any): Promise<string | undefined> {
   if (data?.error) return data.error as string
@@ -54,12 +57,12 @@ export function PublicBookingConfirmPage() {
     }
     const client = getUserClient()
     Promise.all([
-      client.from('ps_organisations').select('*').eq('is_public', true).or(orgSlugOrIdFilter(orgSlug)).limit(1).single(),
+      client.from('ps_organisations').select(PUBLIC_ORG_COLUMNS).eq('is_public', true).or(orgSlugOrIdFilter(orgSlug)).limit(1).single(),
       client.from('ps_services').select('*').eq('id', serviceId).single(),
       client.from('ps_appointment_slots').select('*').eq('id', slotId).single(),
       client.from('ps_service_forms').select('*, fields:ps_service_form_fields(*)').eq('service_id', serviceId).eq('is_default', true).limit(1).maybeSingle(),
     ]).then(([orgRes, svcRes, slotRes, formRes]) => {
-      if (orgRes.data) setOrg(orgRes.data as Organisation)
+      if (orgRes.data) setOrg(orgRes.data as unknown as Organisation)
       if (svcRes.data) setService(svcRes.data as Service)
       if (slotRes.data) setSlot(slotRes.data as AppointmentSlot)
       if (formRes.data) {
@@ -156,7 +159,7 @@ export function PublicBookingConfirmPage() {
         <div className="booking-confirm-layout">
           <aside className="booking-confirm-summary"><span className="booking-eyebrow">Appointment summary</span><h2>{service?.name}</h2><dl><div><dt>Pharmacy</dt><dd>{org?.name}</dd></div>{slot && <><div><dt>Date</dt><dd>{new Date(slot.start_time).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })}</dd></div><div><dt>Time</dt><dd>{new Date(slot.start_time).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })} – {new Date(slot.end_time).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}</dd></div></>}{service?.is_chargeable && service.price_pence != null && service.price_pence > 0 && <div><dt>Payment</dt><dd>£{(service.price_pence / 100).toFixed(2)} paid securely online to confirm your slot</dd></div>}</dl><p>Your details are sent securely to the pharmacy handling this appointment.</p></aside>
           <div className="booking-confirm-form">
-            <section><header><span>01</span><div><h2>Your details</h2><p>Fields marked * are required. Give a mobile number to get your confirmation by text.</p></div></header><div className="booking-form-grid">
+            <section><header><span>01</span><div><h2>Your details</h2><p>Fields marked * are required. Give a mobile number or an email address. With a mobile number you also get your confirmation and reminder by text.</p></div></header><div className="booking-form-grid">
           <div className="form-group">
             <label>First Name *</label>
             <input className="ps-input" value={firstName} onChange={(e) => setFirstName(e.target.value)} />

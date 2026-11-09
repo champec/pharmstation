@@ -31,6 +31,7 @@ import { Ionicons } from '@expo/vector-icons'
 import { userClient } from '@/lib/supabase'
 import { useAuthStore } from '@/stores/auth-store'
 import { palette, radius } from '@/theme/palette'
+import { EmptyState as SharedEmptyState } from '@/components/ui/EmptyState'
 
 export const SHOP_COLOR = '#DB2777'
 
@@ -72,7 +73,7 @@ const STATUS: Record<OrderStatus, { label: string; color: string }> = {
   new: { label: 'New', color: palette.brand },
   confirmed: { label: 'Confirmed', color: palette.warning },
   ready: { label: 'Ready', color: palette.success },
-  out_for_delivery: { label: 'Out for delivery', color: '#7C3AED' },
+  out_for_delivery: { label: 'Out for delivery', color: palette.brandDark },
   collected: { label: 'Collected', color: palette.success },
   completed: { label: 'Completed', color: palette.textMuted },
   cancelled: { label: 'Cancelled', color: palette.danger },
@@ -198,12 +199,12 @@ function OrdersScreen() {
         contentContainerStyle={{ padding: 16, paddingBottom: 40 }}
         ListEmptyComponent={
           loading ? null : (
-            <View style={styles.empty}>
-              <Ionicons name="bag-handle-outline" size={36} color={SHOP_COLOR} />
-              <Text style={styles.emptyText}>
-                {filter === 'check' ? 'Nothing waiting for a pharmacist' : filter === 'done' ? 'No finished orders yet' : 'No open orders'}
-              </Text>
-            </View>
+            <SharedEmptyState
+              icon="bag-handle-outline"
+              color={SHOP_COLOR}
+              title={filter === 'check' ? 'Nothing waiting for a pharmacist' : filter === 'done' ? 'No finished orders yet' : 'No open orders'}
+              text={filter === 'active' ? 'New shop orders from patients will appear here.' : undefined}
+            />
           )
         }
         renderItem={({ item }) => <OrderCard order={item} onPress={() => setOpenId(item.id)} />}
@@ -399,7 +400,7 @@ function OrderSheet({ order, onClose, onChanged }: { order: Order | null; onClos
             const item = o.items.find((it) => it.product_id === r.product_id)
             return (
               <View key={r.id} style={[styles.block, styles.answers]}>
-                <Text style={[styles.label, { color: '#5B21B6' }]}>Consultation answers{item ? `: ${item.product_name}` : ''}</Text>
+                <Text style={styles.label}>Consultation answers{item ? `: ${item.product_name}` : ''}</Text>
                 {r.answers.map((a) => (
                   <View key={a.question_id} style={{ marginTop: 6 }}>
                     <Text style={styles.muted}>{a.label}</Text>
@@ -412,7 +413,7 @@ function OrderSheet({ order, onClose, onChanged }: { order: Order | null; onClos
 
           {o.review_status === 'pending' && o.status !== 'cancelled' ? (
             <View style={[styles.block, styles.check]}>
-              <Text style={[styles.label, { color: '#92400E' }]}>A pharmacist needs to check this order</Text>
+              <Text style={[styles.label, { color: palette.warning }]}>A pharmacist needs to check this order</Text>
               <Text style={styles.muted}>
                 Read the answers above. The order can't move on until a pharmacist approves it. Your name and GPhC number are recorded with the decision.
               </Text>
@@ -566,10 +567,12 @@ function StockScreen() {
         keyboardShouldPersistTaps="handled"
         ListEmptyComponent={
           loading ? null : (
-            <View style={styles.empty}>
-              <Ionicons name="cube-outline" size={36} color={SHOP_COLOR} />
-              <Text style={styles.emptyText}>{query ? 'No products match' : 'No products yet. Add them on the website under Shop › Products & Stock.'}</Text>
-            </View>
+            <SharedEmptyState
+              icon="cube-outline"
+              color={SHOP_COLOR}
+              title={query ? 'No products match' : 'No products yet'}
+              text={query ? 'Try a different name or barcode.' : 'Add products on the website under Shop › Products and stock.'}
+            />
           )
         }
         renderItem={({ item: p }) => (
@@ -667,7 +670,7 @@ const styles = StyleSheet.create({
   error: { color: palette.danger, paddingHorizontal: 16, paddingTop: 8 },
   pills: { flexDirection: 'row', gap: 8, paddingHorizontal: 16, paddingTop: 12 },
   pill: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: radius.pill, borderWidth: 1, borderColor: palette.border, backgroundColor: palette.surface },
-  pillOn: { backgroundColor: SHOP_COLOR, borderColor: SHOP_COLOR },
+  pillOn: { backgroundColor: palette.brand, borderColor: palette.brand },
   pillText: { fontSize: 14, fontWeight: '600', color: palette.text },
   pillTextOn: { color: palette.textInverse },
   empty: { alignItems: 'center', gap: 8, paddingTop: 80, paddingHorizontal: 24 },
@@ -688,9 +691,9 @@ const styles = StyleSheet.create({
   sheetTitle: { fontSize: 18, fontWeight: '700', color: palette.text, flex: 1, fontFamily: 'monospace' },
   block: { backgroundColor: palette.surface, borderRadius: radius.md, borderWidth: 1, borderColor: palette.border, padding: 14, gap: 4 },
   totalRow: { borderTopWidth: 1, borderColor: palette.border, paddingTop: 8, marginTop: 4 },
-  answers: { backgroundColor: '#FAF5FF', borderColor: '#EDE9FE' },
+  answers: { backgroundColor: palette.brandTint, borderColor: palette.brandTint },
   answer: { fontSize: 15, fontWeight: '600', color: palette.text },
-  check: { backgroundColor: '#FFFBEB', borderColor: '#FDE68A' },
+  check: { borderColor: palette.warning, borderWidth: 1.5 },
   input: { minHeight: 48, borderWidth: 1, borderColor: palette.border, borderRadius: radius.sm, backgroundColor: palette.surface, padding: 12, fontSize: 16, color: palette.text, textAlignVertical: 'top' },
   search: { height: 44, borderWidth: 1, borderColor: palette.border, borderRadius: radius.md, backgroundColor: palette.surface, paddingHorizontal: 12, fontSize: 16, color: palette.text },
   action: { paddingVertical: 13, borderRadius: radius.md, alignItems: 'center' },

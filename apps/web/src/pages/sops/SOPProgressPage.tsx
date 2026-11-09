@@ -1,7 +1,11 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useAuthStore, useSOPStore, canManageSOPs } from '@pharmstation/core'
-import type { SOPCompletion } from '@pharmstation/types'
+import type { SOPCompletion, SOPReview } from '@pharmstation/types'
+import { SOPReviewBadge, SOPReviewHistoryTable, formatReviewDate } from '../../components/sop/SOPReviewBar'
+import { PageHeader } from '../../components/ui/PageHeader'
+import { EmptyState } from '../../components/ui/EmptyState'
+import { Download, Users } from 'lucide-react'
 
 const ukDateTime = (iso: string) =>
   new Date(iso).toLocaleString('en-GB', { timeZone: 'Europe/London', dateStyle: 'medium', timeStyle: 'short' })
@@ -31,10 +35,16 @@ export function SOPProgressPage() {
     fetchDocument,
     fetchMemberProgress,
     fetchSignOffHistory,
+    fetchReviews,
     clearError,
   } = useSOPStore()
 
   const [history, setHistory] = useState<SOPCompletion[]>([])
+  const [reviews, setReviews] = useState<SOPReview[]>([])
+
+  useEffect(() => {
+    if (docId) fetchReviews(docId).then(setReviews).catch(() => setReviews([]))
+  }, [docId, fetchReviews])
 
   useEffect(() => {
     if (docId) fetchSignOffHistory(docId).then(setHistory).catch(() => setHistory([]))
@@ -89,54 +99,45 @@ export function SOPProgressPage() {
 
   const getStatusBadge = (p: (typeof memberProgress)[0]) => {
     if (p.is_current_version) return { label: '✓ Completed', color: 'var(--ps-success)', bg: 'var(--ps-success)20' }
-    if (p.completion) return { label: '⚠ Re-read required', color: 'var(--ps-warning)', bg: 'var(--ps-warning)20' }
+    if (p.completion) return { label: 'Re-read required', color: 'var(--ps-warning)', bg: 'var(--ps-warning)20' }
     return { label: '○ Not started', color: 'var(--ps-text-muted)', bg: 'transparent' }
   }
 
   return (
     <div>
-      <div className="page-header">
-        <div className="breadcrumbs">
-          <a href="/" onClick={(e) => { e.preventDefault(); navigate('/') }}>Dashboard</a>
-          <span className="separator">/</span>
-          <a href="/sops" onClick={(e) => { e.preventDefault(); navigate('/sops') }}>SOPs</a>
-          <span className="separator">/</span>
-          <a href={`/sops/${docId}/edit`} onClick={(e) => { e.preventDefault(); navigate(`/sops/${docId}/edit`) }}>
-            {doc?.title ?? 'Editor'}
-          </a>
-          <span className="separator">/</span>
-          <span>Progress</span>
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <div>
-            <h1>Staff Progress</h1>
-            {doc && (
-              <p style={{ margin: '4px 0 0', fontSize: 13, color: 'var(--ps-text-muted)' }}>
-                {doc.title} · v{currentVersion} ·{' '}
-                <span
-                  style={{
-                    color: doc.status === 'published' ? 'var(--ps-success)' : 'var(--ps-warning)',
-                    fontWeight: 600,
-                  }}
-                >
-                  {doc.status === 'published' ? 'Published' : doc.status === 'archived' ? 'Archived' : 'Draft'}
-                </span>
-              </p>
+      <PageHeader
+        breadcrumbs={[
+          { label: 'Dashboard', to: '/' },
+          { label: 'SOPs', to: '/sops' },
+          { label: doc?.title ?? 'Editor', to: `/sops/${docId}/edit` },
+          { label: 'Progress' },
+        ]}
+        title="Staff progress"
+        subtitle={doc ? (
+          <>
+            {doc.title} · v{currentVersion} ·{' '}
+            <span style={{ color: doc.status === 'published' ? 'var(--ps-success)' : 'var(--ps-warning)', fontWeight: 600 }}>
+              {doc.status === 'published' ? 'Published' : doc.status === 'archived' ? 'Archived' : 'Draft'}
+            </span>
+            {doc.next_review_due && doc.status === 'published' && (
+              <> · Next review {formatReviewDate(doc.next_review_due)} <SOPReviewBadge doc={doc} /></>
             )}
-          </div>
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }} className="no-print">
-            <button className="ps-btn ps-btn-secondary" onClick={exportCsv} disabled={!doc || history.length === 0}>
-              ⬇ Export sign-offs (CSV)
+          </>
+        ) : undefined}
+        actions={
+          <span className="no-print" style={{ display: 'contents' }}>
+            <button className="ps-btn ps-btn-secondary" onClick={() => navigate(`/sops/${docId}/edit`)}>
+              ← Back to editor
             </button>
             <button className="ps-btn ps-btn-secondary" onClick={() => window.print()}>
               Print
             </button>
-            <button className="ps-btn ps-btn-secondary" onClick={() => navigate(`/sops/${docId}/edit`)}>
-              ← Back to Editor
+            <button className="ps-btn ps-btn-secondary" onClick={exportCsv} disabled={!doc || history.length === 0} title={history.length === 0 ? 'No one has signed yet' : undefined}>
+              <Download size={16} strokeWidth={1.75} aria-hidden="true" /> Export sign-offs (CSV)
             </button>
-          </div>
-        </div>
-      </div>
+          </span>
+        }
+      />
 
       {error && (
         <div className="ps-alert ps-alert-error" style={{ marginBottom: 16 }}>
@@ -203,16 +204,17 @@ export function SOPProgressPage() {
 
           {/* Member table */}
           {memberProgress.length === 0 ? (
-            <div className="ps-empty-state">
-              <div style={{ fontSize: 40 }}>👥</div>
-              <h3>Not assigned to anyone yet</h3>
-              <p style={{ color: 'var(--ps-text-muted)' }}>
-                Assign this SOP to staff on the <strong>Assign</strong> page to track who has read it.
-              </p>
-              <button className="ps-btn ps-btn-secondary" onClick={() => navigate(`/sops/${docId}/assign`)}>
-                Go to Assign
-              </button>
-            </div>
+            <EmptyState
+              icon={Users}
+              title="Not assigned to anyone yet"
+              actions={
+                <button className="ps-btn ps-btn-primary" onClick={() => navigate(`/sops/${docId}/assign`)}>
+                  Assign staff
+                </button>
+              }
+            >
+              Assign this SOP to staff to track who has read and signed it.
+            </EmptyState>
           ) : (
             <div className="ps-card" style={{ overflow: 'hidden' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse' }}>
@@ -338,6 +340,15 @@ export function SOPProgressPage() {
                 </table>
               </div>
             )}
+          </div>
+
+          {/* Review history: scheduled reviews and new versions */}
+          <div className="ps-card" style={{ marginTop: 24, overflow: 'hidden' }}>
+            <h3 style={{ margin: '0 0 4px', fontSize: 15 }}>Review history</h3>
+            <p style={{ margin: '0 0 12px', fontSize: 12, color: 'var(--ps-text-muted)' }}>
+              Every time this SOP was reviewed: published as a new version, or checked and confirmed with no changes.
+            </p>
+            <SOPReviewHistoryTable reviews={reviews} />
           </div>
         </>
       )}

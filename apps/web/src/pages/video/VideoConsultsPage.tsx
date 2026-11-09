@@ -5,6 +5,7 @@ import { getUserClient } from '@pharmstation/supabase-client'
 import type { VideoConsultation, VideoConsultationStatus } from '@pharmstation/types'
 import { Modal } from '../../components/Modal'
 import { Drawer } from '../../components/Drawer'
+import { Copy } from 'lucide-react'
 
 /* ---- Status badge styling ---- */
 const STATUS_CONFIG: Record<VideoConsultationStatus, { label: string; cssClass: string }> = {
@@ -265,7 +266,7 @@ export function VideoConsultsPage() {
             className={`ps-btn ${tab === t ? 'ps-btn-primary' : 'ps-btn-secondary'}`}
             onClick={() => setTab(t)}
           >
-            {t === 'upcoming' ? '📅 Upcoming' : t === 'active' ? '🟢 Active' : '📋 Past'}
+            {t === 'upcoming' ? 'Upcoming' : t === 'active' ? 'Active' : 'Past'}
           </button>
         ))}
       </div>
@@ -331,7 +332,7 @@ export function VideoConsultsPage() {
                             style={{ padding: '2px 6px', fontSize: 'var(--ps-font-xs)' }}
                             onClick={() => copyToClipboard(c.patient_access_code)}
                             title="Copy code"
-                          >📋</button>
+                          ><Copy size={16} aria-hidden="true" /></button>
                         </span>
                       ) : '—'}
                     </td>
@@ -367,7 +368,7 @@ export function VideoConsultsPage() {
                                       : resendStates[c.id]?.error || 'Text the patient their consultation link and access code again'
                                   }
                                 >
-                                  {resendStates[c.id]?.status === 'sending' ? 'Sending…' : '📲 Resend Link'}
+                                  {resendStates[c.id]?.status === 'sending' ? 'Sending…' : 'Resend Link'}
                                 </button>
                                 {resendStates[c.id]?.status === 'sent' && (
                                   <span style={{ alignSelf: 'center', color: 'var(--ps-success)', fontSize: 'var(--ps-font-xs)', whiteSpace: 'nowrap' }}>✓ Sent</span>
@@ -564,7 +565,7 @@ export function VideoConsultsPage() {
               disabled={textState === 'sending'}
               title="Text the patient their consultation link and access code again"
             >
-              {textState === 'sending' ? 'Sending link…' : '📲 Resend Link'}
+              {textState === 'sending' ? 'Sending link…' : 'Resend Link'}
             </button>
             {textState === 'sent' && (
               <p style={{ color: 'var(--ps-success)', fontSize: 'var(--ps-font-sm)', margin: 0 }}>✓ Patient link sent by text.</p>

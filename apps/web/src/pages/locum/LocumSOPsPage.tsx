@@ -40,12 +40,12 @@ export function LocumSOPsPage() {
     const client = getUserClient()
 
     try {
-      // 1. Confirmed upcoming bookings → unique org_ids
+      // 1. Pharmacies you have a booking with (pending ones too, so you can read ahead)
       const { data: bookings, error: bErr } = await client
         .from('ps_locum_bookings')
         .select('shift:ps_locum_shifts(org_id, date)')
         .eq('locum_id', locumProfile.id)
-        .in('status', ['approved', 'completed'])
+        .in('status', ['pending', 'approved', 'completed'])
       if (bErr) throw bErr
 
       const orgIds = [...new Set(

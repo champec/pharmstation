@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useServiceStore, useAuthStore } from '@pharmstation/core'
 import type { ServiceFormField, FieldType } from '@pharmstation/types'
+import { ClipboardList, Trash2 } from 'lucide-react'
 
 /* ---- Constants ---- */
 
@@ -221,7 +222,7 @@ export function FormBuilderPage() {
                 className="ps-btn ps-btn-secondary ps-btn-sm"
                 onClick={() => setPreviewMode(!previewMode)}
               >
-                {previewMode ? '🔧 Edit' : '👁 Preview'}
+                {previewMode ? 'Edit' : 'Preview'}
               </button>
             )}
             {readOnly && <span className="ps-badge">Read only</span>}
@@ -293,7 +294,7 @@ export function FormBuilderPage() {
 
             {!loading && fields.length === 0 && (
               <div className="ps-card" style={{ padding: 'var(--ps-space-2xl)', textAlign: 'center' }}>
-                <div style={{ fontSize: 48, marginBottom: 'var(--ps-space-md)' }}>📋</div>
+                <span className="ps-empty-icon" aria-hidden="true"><ClipboardList size={26} strokeWidth={1.75} /></span>
                 <p style={{ color: 'var(--ps-slate)' }}>
                   No fields yet. Click a field type on the left to start building your form.
                 </p>
@@ -540,7 +541,7 @@ function FieldCard({
         style={{ color: 'var(--ps-error)', paddingTop: 4 }}
         title="Delete field"
       >
-        🗑
+        <Trash2 size={16} aria-hidden="true" />
       </button>
     </div>
   )
