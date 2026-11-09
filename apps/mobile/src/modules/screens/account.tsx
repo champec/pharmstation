@@ -238,7 +238,7 @@ function DeleteCard() {
   const submit = () => {
     Alert.alert(
       'Ask to delete your account?',
-      'PharmStation will delete your account and personal details. Records you made at a pharmacy (registers, logs) stay with that pharmacy, as the law requires.',
+      'PharmStation will delete your account and personal details. Records you made at a pharmacy (registers, logs) stay with that pharmacy, as the law requires, under “Deleted user”.',
       [
         { text: 'Keep my account', style: 'cancel' },
         {
