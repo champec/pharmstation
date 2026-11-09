@@ -35,6 +35,7 @@ import { CameraView, useCameraPermissions, type BarcodeScanningResult } from 'ex
 import { userClient } from '@/lib/supabase'
 import { useAuthStore } from '@/stores/auth-store'
 import { palette, radius } from '@/theme/palette'
+import { EmptyState as SharedEmptyState } from '@/components/ui/EmptyState'
 
 const WEB_URL = 'https://pharmstation.co.uk'
 
@@ -215,11 +216,7 @@ function Input(props: React.ComponentProps<typeof TextInput> & { label: string; 
 
 function Empty({ icon, title, body }: { icon: React.ComponentProps<typeof Ionicons>['name']; title: string; body?: string }) {
   return (
-    <View style={styles.empty}>
-      <Ionicons name={icon} size={36} color={palette.brand} />
-      <Text style={styles.emptyTitle}>{title}</Text>
-      {body ? <Text style={styles.emptyText}>{body}</Text> : null}
-    </View>
+    <SharedEmptyState icon={icon} title={title} text={body} />
   )
 }
 

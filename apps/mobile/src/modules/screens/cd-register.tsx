@@ -32,6 +32,7 @@ import { Field } from '@/components/ui/Field'
 import { userClient } from '@/lib/supabase'
 import { useAuthStore } from '@/stores/auth-store'
 import { palette, radius } from '@/theme/palette'
+import { EmptyState as SharedEmptyState } from '@/components/ui/EmptyState'
 
 const COLOR = '#DC2626'
 
@@ -286,11 +287,12 @@ function CdRegisterScreen() {
         {error ? <Banner tone="danger" text={error} /> : null}
 
         {!loading && filtered.length === 0 ? (
-          <View style={styles.empty}>
-            <Ionicons name="file-tray-outline" size={36} color={palette.textMuted} />
-            <Text style={styles.emptyTitle}>{registers.length === 0 ? 'No drugs on your register yet' : 'No matches'}</Text>
-            {registers.length === 0 && canWrite ? <Text style={styles.muted}>Tap “Add drug” to start a register with an opening balance.</Text> : null}
-          </View>
+          <SharedEmptyState
+            icon="file-tray-outline"
+            color={COLOR}
+            title={registers.length === 0 ? 'No drugs on your register yet' : 'No matches'}
+            text={registers.length === 0 ? (canWrite ? 'Tap “Add drug” to start a register with an opening balance.' : undefined) : 'Try another drug name, class or strength.'}
+          />
         ) : (
           filtered.map((r) => (
             <Pressable
