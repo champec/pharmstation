@@ -95,7 +95,7 @@ export function NotesPage() {
       {/* ── Toolbar ── */}
       <div className="notes-toolbar">
         <div className="notes-toolbar-left">
-          <h1 className="notes-title">📌 Notes</h1>
+          <h1 className="notes-title">Notes</h1>
           <span className="notes-hint">Double-click the canvas to add a note</span>
         </div>
         <div className="notes-toolbar-right">

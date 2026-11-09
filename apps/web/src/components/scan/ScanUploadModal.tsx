@@ -293,13 +293,13 @@ export function ScanUploadModal({ isOpen, onClose }: ScanUploadModalProps) {
                 className="ps-btn ps-btn-primary"
                 onClick={(e) => { e.stopPropagation(); fileInputRef.current?.click() }}
               >
-                📁 Browse Files
+                Browse Files
               </button>
               <button
                 className="ps-btn ps-btn-ghost"
                 onClick={(e) => { e.stopPropagation(); openCamera() }}
               >
-                📷 Camera
+                Camera
               </button>
             </div>
           </div>
@@ -311,7 +311,7 @@ export function ScanUploadModal({ isOpen, onClose }: ScanUploadModalProps) {
             </div>
             <div className="scan-capture-actions">
               <button className="ps-btn ps-btn-ghost" onClick={resetState}>↩ Retake</button>
-              <button className="ps-btn ps-btn-primary" onClick={handleSubmit}>✨ Add to scan queue</button>
+              <button className="ps-btn ps-btn-primary" onClick={handleSubmit}>Add to scan queue</button>
             </div>
           </div>
         )}

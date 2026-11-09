@@ -616,10 +616,10 @@ export function BalanceCheckModal({ isOpen, onClose }: BalanceCheckModalProps) {
 
             <div className="bc-landing-actions">
               <button className="ps-btn ps-btn-primary bc-start-btn" onClick={startSession}>
-                ✅ Start New Balance Check
+                Start New Balance Check
               </button>
               <button className="ps-btn ps-btn-ghost" onClick={handlePrint}>
-                🖨️ Print Check List
+                Print Check List
               </button>
               {pastSessions.some((s) => s.status === 'in_progress') && (
                 <button
@@ -642,7 +642,7 @@ export function BalanceCheckModal({ isOpen, onClose }: BalanceCheckModalProps) {
                   className="bc-history-toggle"
                   onClick={() => setShowHistory(!showHistory)}
                 >
-                  📜 Past Balance Checks ({pastSessions.length})
+                  Past Balance Checks ({pastSessions.length})
                   <span>{showHistory ? '▲' : '▼'}</span>
                 </button>
               </div>
@@ -753,7 +753,7 @@ export function BalanceCheckModal({ isOpen, onClose }: BalanceCheckModalProps) {
                 </div>
                 <div style={{ marginLeft: 'auto', display: 'flex', gap: '8px' }}>
                   <button className="ps-btn ps-btn-ghost ps-btn-sm" onClick={handlePrint}>
-                    🖨️ Print
+                    Print
                   </button>
                   {(() => {
                     const pendingWithCounts = registers.filter((r) => {
@@ -994,7 +994,7 @@ function BalanceCheckRow({
       case 'adjusted':
         return <span className="ps-badge ps-badge-amber">↕ Adjusted</span>
       case 'pending_reconciliation':
-        return <span className="ps-badge ps-badge-red">⏳ Pending</span>
+        return <span className="ps-badge ps-badge-red">Pending</span>
       default:
         return <span className="ps-badge">—</span>
     }

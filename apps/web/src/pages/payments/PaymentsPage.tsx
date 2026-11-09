@@ -107,7 +107,7 @@ export function PaymentsPage() {
           <span>Payments</span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <h1>💳 Payments</h1>
+          <h1>Payments</h1>
           <select
             className="ps-input"
             value={statusFilter}

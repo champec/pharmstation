@@ -279,7 +279,7 @@ export function PEPSWritePage() {
     return (
       <div>
         <div className="page-header">
-          <h1>✍️ Write Prescription</h1>
+          <h1>Write Prescription</h1>
         </div>
         <div className="ps-card" style={{ maxWidth: 560, padding: 'var(--ps-space-lg)' }}>
           <p style={{ marginTop: 0 }}>
@@ -303,7 +303,7 @@ export function PEPSWritePage() {
           <span className="separator">/</span>
           <span>Write Prescription</span>
         </div>
-        <h1>✍️ Write Prescription</h1>
+        <h1>Write Prescription</h1>
       </div>
 
       {error && <div className="ps-alert ps-alert-error" style={{ marginBottom: 'var(--ps-space-md)' }}>{error}</div>}

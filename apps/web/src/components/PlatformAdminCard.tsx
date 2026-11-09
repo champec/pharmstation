@@ -43,13 +43,16 @@ export function PlatformAdminCard() {
 
   return (
     <div className="ps-card" style={{ marginBottom: '1.25rem' }}>
-      <div className="ps-card-header"><h2 className="ps-card-title">🛡️ PharmStation admin</h2></div>
+      <div className="ps-card-header"><h2 className="ps-card-title">PharmStation admin</h2></div>
       <div className="ps-card-body">
         <Link to="/me/admin/pharmacies" className="ps-btn ps-btn-primary ps-btn-sm">
           Verify new pharmacies
         </Link>
         <Link to="/me/admin/announcements" className="ps-btn ps-btn-secondary ps-btn-sm" style={{ marginLeft: '0.5rem' }}>
           App announcements
+        </Link>
+        <Link to="/me/admin/support" className="ps-btn ps-btn-secondary ps-btn-sm" style={{ marginLeft: '0.5rem' }}>
+          Support inbox
         </Link>
 
         <h3 style={{ margin: '1.25rem 0 0.5rem', fontSize: '1rem' }}>Account deletion requests</h3>

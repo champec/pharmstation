@@ -66,9 +66,9 @@ export function ServiceRecordView({ deliveryId }: { deliveryId: string }) {
     <div className="service-record">
       <div className="service-record-actions no-print" style={{ display: 'flex', gap: 'var(--ps-space-sm)', justifyContent: 'flex-end', marginBottom: 'var(--ps-space-md)' }}>
         {canAmend && (
-          <button className="ps-btn ps-btn-secondary" onClick={() => setAmendOpen(true)}>✏️ Amend record</button>
+          <button className="ps-btn ps-btn-secondary" onClick={() => setAmendOpen(true)}>Amend record</button>
         )}
-        <button className="ps-btn ps-btn-primary" onClick={handlePrint}>🖨 Print / save PDF</button>
+        <button className="ps-btn ps-btn-primary" onClick={handlePrint}>Print / save PDF</button>
       </div>
 
       <div className="ps-card service-record-document" style={{ padding: 'var(--ps-space-lg)' }}>

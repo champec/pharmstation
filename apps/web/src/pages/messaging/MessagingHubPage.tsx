@@ -94,7 +94,7 @@ export function MessagingHubPage() {
           <span>Messaging</span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--ps-space-md)' }}>
-          <h1>💬 Messaging</h1>
+          <h1>Messaging</h1>
           <button className="ps-btn ps-btn-primary" onClick={() => navigate('/messaging/compose')}>
             + Compose Message
           </button>
@@ -117,7 +117,7 @@ export function MessagingHubPage() {
           background: 'var(--ps-off-white)',
           border: '2px solid var(--ps-electric-cyan)',
         }}>
-          <h3 style={{ margin: '0 0 var(--ps-space-sm)' }}>⚙️ Messaging Not Configured</h3>
+          <h3 style={{ margin: '0 0 var(--ps-space-sm)' }}>Messaging Not Configured</h3>
           <p style={{ color: 'var(--ps-slate)', margin: '0 0 var(--ps-space-md)' }}>
             To text patients, enable SMS in Settings → Messaging. SMS is sent through PharmStation's
             gateway — no account or API key needed.
@@ -162,22 +162,22 @@ export function MessagingHubPage() {
         flexWrap: 'wrap',
       }}>
         <button className="ps-btn ps-btn-primary" onClick={() => navigate('/messaging/inbox')}>
-          📥 Patient Inbox
+          Patient Inbox
         </button>
         <button className="ps-btn ps-btn-secondary" onClick={() => navigate('/messaging/compose?channel=sms')}>
-          📱 Send SMS
+          Send SMS
         </button>
         <button className="ps-btn ps-btn-secondary" onClick={() => navigate('/messaging/compose?channel=email')}>
-          📧 Send Email
+          Send Email
         </button>
         <button className="ps-btn ps-btn-secondary" onClick={() => navigate('/messaging/compose?channel=letter')}>
-          ✉️ Send Letter
+          Send Letter
         </button>
         <button className="ps-btn ps-btn-secondary" onClick={() => navigate('/messaging/broadcasts/new')}>
-          📢 New Broadcast
+          New Broadcast
         </button>
         <button className="ps-btn ps-btn-ghost" onClick={() => navigate('/messaging/history')}>
-          📋 Message History
+          Message History
         </button>
       </div>
 

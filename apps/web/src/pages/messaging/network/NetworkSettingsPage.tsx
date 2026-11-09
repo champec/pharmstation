@@ -124,7 +124,7 @@ export function NetworkSettingsPage() {
           <span className="separator">/</span>
           <span>Settings</span>
         </div>
-        <h1>⚙️ Network Settings</h1>
+        <h1>Network Settings</h1>
       </div>
 
       {error && (
@@ -159,7 +159,7 @@ export function NetworkSettingsPage() {
               style={{ marginTop: 3 }}
             />
             <div>
-              <div style={{ fontWeight: 600 }}>📱 Receive urgent text alerts</div>
+              <div style={{ fontWeight: 600 }}>Receive urgent text alerts</div>
               <div style={{ fontSize: '0.85rem', color: 'var(--ps-slate)' }}>
                 When another pharmacy marks a message as urgent, text the numbers below so nothing waits until someone
                 checks the screen. The text says who wrote and links to the message; it never contains the message itself.
@@ -180,7 +180,7 @@ export function NetworkSettingsPage() {
       <div className="ps-card" style={{ padding: 'var(--ps-space-lg)' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 'var(--ps-space-md)' }}>
           <div>
-            <h3 style={{ margin: '0 0 4px' }}>📱 SMS Notification Numbers</h3>
+            <h3 style={{ margin: '0 0 4px' }}>SMS Notification Numbers</h3>
             <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--ps-slate)' }}>
               UK mobiles that get urgent network alerts (up to 3 are texted each time). Each number has its own hours.
             </p>

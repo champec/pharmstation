@@ -69,7 +69,7 @@ export function StreakBadge({ streak }: { streak: number }) {
   if (streak < 2) return null
   return (
     <span className="log-streak" title={`${streak} required days in a row logged`}>
-      🔥 {streak} day streak
+      {streak} day streak
     </span>
   )
 }
