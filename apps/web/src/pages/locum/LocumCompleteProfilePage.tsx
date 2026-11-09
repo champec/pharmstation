@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { getUserClient } from '@pharmstation/supabase-client'
+import { groupServices } from '../../components/locum/services'
 import { useAuthStore } from '@pharmstation/core'
 
 interface ServiceOption {
@@ -9,11 +10,6 @@ interface ServiceOption {
   category: string
 }
 
-const CATEGORY_LABELS: Record<string, string> = {
-  consultation: 'Consultations',
-  nhs_advanced_service: 'NHS Advanced Services',
-  pharmacy_first: 'Pharmacy First',
-}
 
 type Step = 'compliance' | 'services'
 
@@ -50,10 +46,19 @@ export function LocumCompleteProfilePage() {
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  /* Pre-fill from localStorage if registration data is still there */
+  /* Pre-fill: what they typed before (kept across reloads), else the GPhC number from sign-up */
+  const [restored, setRestored] = useState(false)
   useEffect(() => {
-    const pending = localStorage.getItem('locum_pending_profile')
-    if (!pending) return
+    let pending: string | null = null
+    try { pending = localStorage.getItem('locum_pending_profile') } catch { /* storage blocked */ }
+    if (!pending) {
+      getUserClient().auth.getUser().then(({ data }) => {
+        const fromSignup = data.user?.user_metadata?.gphc_number
+        if (typeof fromSignup === 'string' && fromSignup) setGphcNumber((v) => v || fromSignup)
+      }).finally(() => setRestored(true))
+      return
+    }
+    setRestored(true)
     try {
       const p = JSON.parse(pending)
       if (p.gphcNumber) setGphcNumber(p.gphcNumber)
@@ -72,6 +77,18 @@ export function LocumCompleteProfilePage() {
     } catch { /* ignore */ }
   }, [])
 
+  /* Keep what's typed so a reload doesn't lose it */
+  useEffect(() => {
+    if (!restored) return
+    try {
+      localStorage.setItem('locum_pending_profile', JSON.stringify({
+        gphcNumber, indemnityProvider, indemnityExpiry, dbsNumber, dbsExpiry, niNumber, nhsEmail,
+        smartCardHeld, addressLine1, addressLine2, city, postcode, selectedServiceIds,
+      }))
+    } catch { /* storage blocked */ }
+  }, [restored, gphcNumber, indemnityProvider, indemnityExpiry, dbsNumber, dbsExpiry, niNumber, nhsEmail,
+      smartCardHeld, addressLine1, addressLine2, city, postcode, selectedServiceIds])
+
   /* Load services */
   useEffect(() => {
     if (step !== 'services' || serviceOptions.length > 0) return
@@ -79,6 +96,7 @@ export function LocumCompleteProfilePage() {
     getUserClient()
       .from('ps_service_library')
       .select('id, name, category')
+      .eq('is_active', true)
       .order('category').order('name')
       .then(({ data }) => {
         setServiceOptions((data as ServiceOption[]) ?? [])
@@ -91,10 +109,11 @@ export function LocumCompleteProfilePage() {
     return true
   }
 
-  function toggleService(id: string) {
-    setSelectedServiceIds((prev) =>
-      prev.includes(id) ? prev.filter((s) => s !== id) : [...prev, id]
-    )
+  function toggleService(ids: string[]) {
+    setSelectedServiceIds((prev) => {
+      const on = ids.some((id) => prev.includes(id))
+      return on ? prev.filter((s) => !ids.includes(s)) : [...new Set([...prev, ...ids])]
+    })
   }
 
   async function handleSubmit() {
@@ -136,7 +155,7 @@ export function LocumCompleteProfilePage() {
         }
       }
 
-      localStorage.removeItem('locum_pending_profile')
+      try { localStorage.removeItem('locum_pending_profile') } catch { /* ignore */ }
       await refreshProfile()
       navigate('/locum/dashboard', { replace: true })
     } catch (err) {
@@ -146,11 +165,7 @@ export function LocumCompleteProfilePage() {
     }
   }
 
-  const grouped = serviceOptions.reduce<Record<string, ServiceOption[]>>((acc, s) => {
-    if (!acc[s.category]) acc[s.category] = []
-    acc[s.category].push(s)
-    return acc
-  }, {})
+  const grouped = groupServices(serviceOptions)
 
   const displayName = userProfile?.first_name
     ? `${userProfile.first_name}${userProfile.last_name ? ' ' + userProfile.last_name : ''}`
@@ -360,17 +375,17 @@ export function LocumCompleteProfilePage() {
               <div className="loading-indicator">Loading services…</div>
             ) : (
               <div className="service-checklist">
-                {Object.entries(grouped).map(([cat, svcs]) => (
+                {grouped.map(([cat, svcs]) => (
                   <div key={cat} className="service-checklist-group">
                     <h4 className="service-checklist-heading">
-                      {CATEGORY_LABELS[cat] ?? cat}
+                      {cat}
                     </h4>
                     {svcs.map((svc) => (
-                      <label key={svc.id} className="ps-checkbox-label service-checklist-item">
+                      <label key={svc.key} className="ps-checkbox-label service-checklist-item">
                         <input
                           type="checkbox"
-                          checked={selectedServiceIds.includes(svc.id)}
-                          onChange={() => toggleService(svc.id)}
+                          checked={svc.ids.some((id) => selectedServiceIds.includes(id))}
+                          onChange={() => toggleService(svc.ids)}
                         />
                         {svc.name}
                       </label>
