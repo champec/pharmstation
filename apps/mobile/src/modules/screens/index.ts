@@ -11,6 +11,7 @@ import type { ComponentType } from 'react'
 
 import { accountScreens } from '@/modules/screens/account'
 import { billingScreens } from '@/modules/screens/billing'
+import { careHomesScreens } from '@/modules/screens/care-homes'
 import { communicationsScreens } from '@/modules/screens/communications'
 import { deliveriesScreens } from '@/modules/screens/deliveries'
 import { genieScreens } from '@/modules/screens/genie'
@@ -42,6 +43,7 @@ export const MODULE_SCREENS: Record<string, ModuleScreens> = {
   genie: genieScreens,
   billing: billingScreens,
   peps: pepsScreens,
+  'care-homes': careHomesScreens,
   video: videoScreens,
 }
 
