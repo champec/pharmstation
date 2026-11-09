@@ -16,6 +16,10 @@ function formatDate(dateStr: string | null): string {
   return new Date(dateStr).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })
 }
 
+function plural(n: number, word: string) {
+  return `${n} ${word}${n === 1 ? '' : 's'}`
+}
+
 function counts(round: DeliveryRound) {
   const stops = round.patients || []
   return {
@@ -167,7 +171,7 @@ export function DriverDashboardPage() {
               key={round.id}
               round={round}
               onOpen={() => navigate(`/driver/${round.id}`)}
-              details={[formatDate(round.scheduled_date), `${counts(round).total} stops`]}
+              details={[formatDate(round.scheduled_date), plural(counts(round).total, 'stop')]}
               action={<button type="button" className="ps-btn ps-btn-secondary ps-btn-sm">View route →</button>}
             />
           ))}
@@ -181,7 +185,7 @@ export function DriverDashboardPage() {
               key={round.id}
               round={round}
               badge={{ cls: 'ps-badge-outline', label: 'No driver' }}
-              details={[formatDate(round.scheduled_date), `${(round.patients || []).length} stops`]}
+              details={[formatDate(round.scheduled_date), plural((round.patients || []).length, 'stop')]}
               action={(
                 <button
                   type="button"
@@ -204,7 +208,7 @@ export function DriverDashboardPage() {
               key={round.id}
               round={round}
               onOpen={() => navigate(`/driver/${round.id}`)}
-              details={[`${counts(round).total} stops`, round.scheduled_date ? formatDate(round.scheduled_date) : 'Not scheduled yet']}
+              details={[plural(counts(round).total, 'stop'), round.scheduled_date ? formatDate(round.scheduled_date) : 'Not scheduled yet']}
             />
           ))}
         </Section>

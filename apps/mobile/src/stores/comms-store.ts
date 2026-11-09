@@ -70,6 +70,8 @@ export interface NetworkPharmacy {
 export interface NetworkLink {
   pharmacy_id: number
   linked_at: string
+  /** False while our team checks a link whose postcode/ODS didn't match the NHS record. */
+  is_verified: boolean
   pharmacy: { id: number; ods_code: string | null; organisation_name: string; address1: string | null; city: string | null; postcode: string | null } | null
 }
 
@@ -199,6 +201,8 @@ interface CommsState {
   searchOds: (query: string) => Promise<void>
   linkPharmacy: (pharmacyId: number) => Promise<void>
   unlinkPharmacy: () => Promise<void>
+  /** "This is ours" for a pharmacy another account has linked. Returns the case reference. */
+  disputeLink: (pharmacyId: number, message: string) => Promise<string>
   saveNetworkSettings: (patch: { network_enabled?: boolean; sms_pings_enabled?: boolean }) => Promise<void>
   addContact: (input: { phone: string; label: string | null; start: string; end: string }) => Promise<void>
   updateContact: (id: string, patch: Partial<Pick<NetworkContact, 'is_enabled' | 'pause_until'>>) => Promise<void>
@@ -426,7 +430,7 @@ export const useCommsStore = create<CommsState>((set, get) => ({
     const [orgRes, linkRes, settingsRes, contactsRes] = await Promise.all([
       userClient.from('ps_organisations').select('verification_status, verification_note').eq('id', org).maybeSingle(),
       userClient.from('ps_org_pharmacy_link')
-        .select('pharmacy_id, linked_at, pharmacy:pharmacy_id(id, ods_code, organisation_name, address1, city, postcode)')
+        .select('pharmacy_id, linked_at, is_verified, pharmacy:pharmacy_id(id, ods_code, organisation_name, address1, city, postcode)')
         .eq('org_id', org).maybeSingle(),
       userClient.from('ps_network_settings').select('network_enabled, sms_pings_enabled').eq('org_id', org).maybeSingle(),
       userClient.from('ps_network_sms_contacts')
@@ -477,17 +481,28 @@ export const useCommsStore = create<CommsState>((set, get) => ({
       .upsert({ org_id: org, pharmacy_id: pharmacyId }, { onConflict: 'org_id' })
     if (error) {
       if (error.code === '23505') throw new Error('Another PharmStation account has already linked this pharmacy. If it is yours, contact hello@pharmstation.co.uk.')
-      if (error.code === '42501') throw new Error('Your pharmacy needs to be verified before it can join the network.')
+      if (error.code === '42501') throw new Error('Only owners and managers can change the linked pharmacy, and your pharmacy must be verified first.')
       throw new Error(error.message)
     }
     await get().loadSetup()
   },
 
+  disputeLink: async (pharmacyId, message) => {
+    const org = orgId()
+    if (!org) throw new Error('Connect a pharmacy first.')
+    const { data, error } = await userClient.rpc('ps_network_dispute_link', {
+      p_org_id: org, p_pharmacy_id: pharmacyId, p_message: message,
+    })
+    if (error) throw new Error(error.message)
+    return data as string
+  },
+
   unlinkPharmacy: async () => {
     const org = orgId()
     if (!org) return
-    const { error } = await userClient.from('ps_org_pharmacy_link').delete().eq('org_id', org)
+    const { data, error } = await userClient.from('ps_org_pharmacy_link').delete().eq('org_id', org).select('id')
     if (error) throw new Error(error.message)
+    if (!data?.length) throw new Error('Only owners and managers can unlink the pharmacy.')
     await get().loadSetup()
   },
 

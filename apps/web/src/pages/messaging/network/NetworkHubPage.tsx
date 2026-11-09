@@ -29,7 +29,8 @@ interface Conversation {
 
 export function NetworkHubPage() {
   const navigate = useNavigate()
-  const { organisation } = useAuthStore()
+  const { organisation, permissions } = useAuthStore()
+  const canManageLink = permissions?.org_settings === true
   const {
     inbox, sent, loading, error,
     myLink, settings,
@@ -62,6 +63,8 @@ export function NetworkHubPage() {
   const isNetworkEnabled = settings?.network_enabled !== false
   const verification = organisation?.verification_status
   const awaitingVerification = verification === 'pending' || verification === 'rejected'
+  // A link whose postcode/ODS didn't match the NHS record waits for our team to check it.
+  const linkPending = !!myLink && !myLink.is_verified
 
   const conversations = useMemo<Conversation[]>(() => {
     const unreadThreads = new Set(inbox.filter((m) => !m.is_read).map((m) => m.thread_id))
@@ -145,8 +148,8 @@ export function NetworkHubPage() {
           <button
             className="ps-btn ps-btn-primary"
             onClick={() => navigate('/messaging/network/compose')}
-            disabled={!isNetworkEnabled || !myLink || awaitingVerification}
-            title={awaitingVerification ? 'Available once your pharmacy is verified' : !myLink ? 'Link your pharmacy first' : !isNetworkEnabled ? 'Turn the network back on in Settings' : undefined}
+            disabled={!isNetworkEnabled || !myLink || awaitingVerification || linkPending}
+            title={awaitingVerification ? 'Available once your pharmacy is verified' : !myLink ? 'Link your pharmacy first' : linkPending ? 'Available once we have checked your linked pharmacy' : !isNetworkEnabled ? 'Turn the network back on in Settings' : undefined}
           >
             + New message
           </button>
@@ -177,6 +180,16 @@ export function NetworkHubPage() {
         </div>
       )}
 
+      {linkPending && !awaitingVerification && (
+        <div className="ps-alert ps-alert-info" style={{ marginBottom: 'var(--ps-space-lg)' }}>
+          <span>
+            <strong>We&rsquo;re checking your linked pharmacy.</strong> Your address doesn&rsquo;t match the NHS record for{' '}
+            {myLink?.pharmacy?.organisation_name ?? 'this pharmacy'}, so our team will confirm it before other pharmacies can find
+            or message you. This usually takes one working day.
+          </span>
+        </div>
+      )}
+
       {/* Onboarding prompt */}
       {!myLink && !awaitingVerification && (
         <div className="ps-card" style={{
@@ -185,13 +198,17 @@ export function NetworkHubPage() {
           background: 'var(--ps-off-white)',
           border: '2px solid var(--ps-electric-cyan)',
         }}>
-          <h3 style={{ margin: '0 0 var(--ps-space-sm)' }}>Link Your Pharmacy</h3>
+          <h3 style={{ margin: '0 0 var(--ps-space-sm)' }}>Link your pharmacy</h3>
           <p style={{ color: 'var(--ps-slate)', margin: '0 0 var(--ps-space-md)' }}>
             Before you can send or receive network messages, link your PharmStation account to your NHS ODS pharmacy entry. This lets other pharmacies find and message you.
           </p>
-          <button className="ps-btn ps-btn-primary" onClick={() => navigate('/messaging/network/onboarding')}>
-            Link Pharmacy →
-          </button>
+          {canManageLink ? (
+            <button className="ps-btn ps-btn-primary" onClick={() => navigate('/messaging/network/onboarding')}>
+              Link pharmacy
+            </button>
+          ) : (
+            <p style={{ margin: 0, fontSize: '0.9rem' }}>Ask an owner or manager to link your pharmacy.</p>
+          )}
         </div>
       )}
 
@@ -229,10 +246,13 @@ export function NetworkHubPage() {
             <span style={{ color: 'var(--ps-slate)', fontSize: '0.85rem' }}>
               · {myLink.pharmacy?.ods_code}
             </span>
+            {linkPending && <span className="ps-badge" style={{ marginLeft: 8 }}>Being checked</span>}
           </div>
-          <button className="ps-btn ps-btn-ghost" onClick={() => navigate('/messaging/network/onboarding')}>
-            Change link
-          </button>
+          {canManageLink && (
+            <button className="ps-btn ps-btn-ghost" onClick={() => navigate('/messaging/network/onboarding')}>
+              Change link
+            </button>
+          )}
         </div>
       )}
 
