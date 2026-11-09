@@ -331,10 +331,16 @@ export const MODULES: MobileModule[] = [
     icon: 'videocam-outline',
     color: '#475569',
     tier: 'org',
-    platform: 'web',
+    platform: 'both',
     visible: (ctx) => ctx.isOrgConnected,
-    webHint: 'Video consultations run in the web app on a desktop browser.',
-    tabs: [],
+    tabs: [
+      {
+        id: 'consultations',
+        title: 'Calls',
+        icon: 'videocam-outline',
+        blurb: 'Book, text the link and join patient video calls',
+      },
+    ],
   },
 ]
 

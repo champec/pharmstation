@@ -19,6 +19,7 @@ import { productScannerScreens } from '@/modules/screens/product-scanner'
 import { scanningScreens } from '@/modules/screens/scanning'
 import { servicesScreens } from '@/modules/screens/services'
 import { shopScreens } from '@/modules/screens/shop'
+import { videoScreens } from '@/modules/screens/video'
 
 export type ModuleScreens = Record<string, ComponentType>
 
@@ -33,6 +34,7 @@ export const MODULE_SCREENS: Record<string, ModuleScreens> = {
   services: servicesScreens,
   shop: shopScreens,
   billing: billingScreens,
+  video: videoScreens,
 }
 
 export function getTabComponent(
