@@ -105,6 +105,8 @@ export interface NetworkState {
   fetchMyLink:  (orgId: string) => Promise<void>
   linkPharmacy: (orgId: string, pharmacyId: number) => Promise<void>
   unlinkPharmacy: (orgId: string) => Promise<void>
+  /** "This is our pharmacy" when someone else has claimed it. Returns the support reference. */
+  disputeLink: (orgId: string, pharmacyId: number, message: string) => Promise<string>
 
   // Actions — settings
   fetchSettings:     (orgId: string) => Promise<void>
@@ -373,7 +375,7 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
         .single()
       if (error) {
         if (error.code === '23505') throw new Error('Another PharmStation account has already linked this pharmacy. If it is yours, contact hello@pharmstation.co.uk.')
-        if (error.code === '42501') throw new Error('Your pharmacy needs to be verified before it can join the network.')
+        if (error.code === '42501') throw new Error('Only owners and managers can change the linked pharmacy, and your pharmacy must be verified first.')
         throw error
       }
       set({ myLink: data as OrgPharmacyLink, loading: false })
@@ -383,15 +385,26 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
     }
   },
 
+  disputeLink: async (orgId, pharmacyId, message) => {
+    const client = getUserClient()
+    const { data, error } = await client.rpc('ps_network_dispute_link', {
+      p_org_id: orgId, p_pharmacy_id: pharmacyId, p_message: message,
+    })
+    if (error) throw error
+    return data as string
+  },
+
   unlinkPharmacy: async (orgId) => {
     set({ loading: true, error: null })
     try {
       const client = getUserClient()
-      const { error } = await client
+      const { data, error } = await client
         .from('ps_org_pharmacy_link')
         .delete()
         .eq('org_id', orgId)
+        .select('id')
       if (error) throw error
+      if (!data?.length) throw new Error('Only owners and managers can unlink the pharmacy.')
       set({ myLink: null, loading: false })
     } catch (e: unknown) {
       set({ error: (e as Error).message, loading: false })

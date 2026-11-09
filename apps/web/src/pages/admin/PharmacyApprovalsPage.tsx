@@ -31,6 +31,79 @@ function formatAddress(a: OrganisationAddress | null) {
   return [a.line_1, a.line_2, a.city, a.postcode].filter(Boolean).join(', ') || 'No address'
 }
 
+type LinkRow = {
+  org_id: string
+  org_name: string
+  org_postcode: string | null
+  org_gphc: string | null
+  org_verification: string | null
+  pharmacy_id: number
+  pharmacy_name: string
+  pharmacy_ods: string
+  pharmacy_postcode: string | null
+  pharmacy_city: string | null
+  is_verified: boolean
+  linked_at: string
+}
+
+// Pharmacy Network links whose postcode/ODS didn't match the NHS record.
+// They stay off the network until an admin confirms the account really is
+// that pharmacy. Disputes ("This is ours") arrive in the support inbox.
+function PendingNetworkLinks() {
+  const [rows, setRows] = useState<LinkRow[]>([])
+  const [error, setError] = useState<string | null>(null)
+  const [busy, setBusy] = useState<string | null>(null)
+
+  const load = useCallback(async () => {
+    const { data, error } = await getUserClient().rpc('ps_admin_list_network_links', { p_pending_only: true })
+    if (error) setError(error.message)
+    else { setError(null); setRows((data ?? []) as LinkRow[]) }
+  }, [])
+
+  useEffect(() => { load() }, [load])
+
+  const review = async (row: LinkRow, approve: boolean) => {
+    const question = approve
+      ? `Confirm ${row.org_name} is ${row.pharmacy_name} (${row.pharmacy_ods}, ${row.pharmacy_postcode ?? 'no postcode'})?\n\nCheck the GPhC register entry for premises ${row.org_gphc ?? '(none given)'} shows this address.`
+      : `Remove ${row.org_name}'s link to ${row.pharmacy_name}? They can link the right pharmacy afterwards.`
+    if (!window.confirm(question)) return
+    setBusy(row.org_id)
+    const { error } = await getUserClient().rpc('ps_admin_review_network_link', { p_org_id: row.org_id, p_approve: approve })
+    setBusy(null)
+    if (error) setError(error.message)
+    else load()
+  }
+
+  if (!error && rows.length === 0) return null
+
+  return (
+    <section style={{ marginBottom: 'var(--ps-space-lg)' }}>
+      <h2 style={{ fontSize: '1.1rem', margin: '0 0 var(--ps-space-sm)' }}>Network links to check</h2>
+      <p className="text-muted" style={{ margin: '0 0 var(--ps-space-sm)', fontSize: 'var(--ps-font-sm)' }}>
+        These accounts linked an NHS pharmacy whose postcode doesn&rsquo;t match their own address.
+      </p>
+      {error && <div className="ps-alert ps-alert-error" style={{ marginBottom: 'var(--ps-space-sm)' }}>{error}</div>}
+      {rows.map((row) => (
+        <div key={row.org_id} className="ps-card" style={{ marginBottom: 'var(--ps-space-sm)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 'var(--ps-space-md)', flexWrap: 'wrap' }}>
+            <div style={{ minWidth: 0, fontSize: 'var(--ps-font-sm)' }}>
+              <div><strong>{row.org_name}</strong> · postcode {row.org_postcode ?? 'none'} · GPhC {row.org_gphc ?? 'not given'} · {row.org_verification}</div>
+              <div style={{ color: 'var(--ps-slate)' }}>
+                wants to be {row.pharmacy_name} ({row.pharmacy_ods}) · {[row.pharmacy_city, row.pharmacy_postcode].filter(Boolean).join(' ')}
+                {' '}· linked {new Date(row.linked_at).toLocaleDateString('en-GB')}
+              </div>
+            </div>
+            <div style={{ display: 'flex', gap: 'var(--ps-space-xs, 4px)', alignItems: 'center' }}>
+              <button className="ps-btn ps-btn-ghost ps-btn-sm" disabled={busy === row.org_id} onClick={() => review(row, false)}>Remove link</button>
+              <button className="ps-btn ps-btn-primary ps-btn-sm" disabled={busy === row.org_id} onClick={() => review(row, true)}>Confirm</button>
+            </div>
+          </div>
+        </div>
+      ))}
+    </section>
+  )
+}
+
 export function PharmacyApprovalsPage() {
   const navigate = useNavigate()
   const [filter, setFilter] = useState<(typeof STATUSES)[number]>('pending')
@@ -115,6 +188,8 @@ export function PharmacyApprovalsPage() {
           and check the name and address match before verifying.
         </p>
       </div>
+
+      <PendingNetworkLinks />
 
       <div style={{ display: 'flex', gap: 'var(--ps-space-sm)', marginBottom: 'var(--ps-space-md)', flexWrap: 'wrap' }}>
         {STATUSES.map((s) => (
