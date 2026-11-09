@@ -1,4 +1,4 @@
--- Rollback for 20261105190000_genie_production_readiness.sql
+-- Rollback for 20261109120000_genie_production_readiness.sql
 -- Leaves the Claude Haiku 5.5 model row in place (harmless) but restores GLM
 -- as the default standard model.
 

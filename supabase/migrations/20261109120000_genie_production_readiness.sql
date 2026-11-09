@@ -13,7 +13,7 @@
 --    ps_genie_claim_message (atomic cap + per-user rate limit) and
 --    ps_genie_record_usage (tokens, refunds).
 --
--- Rollback: supabase/rollbacks/rollback_20261105190000_genie_production_readiness.sql
+-- Rollback: supabase/rollbacks/rollback_20261109120000_genie_production_readiness.sql
 
 begin;
 
