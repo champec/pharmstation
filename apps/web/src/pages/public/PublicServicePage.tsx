@@ -5,6 +5,9 @@ import type { Organisation, Service, AppointmentSlot } from '@pharmstation/types
 import { orgSlugOrIdFilter } from '../../lib/orgSlugFilter'
 import { PublicFooter } from '../../components/public/PublicFooter'
 
+// Anonymous visitors may only read these columns (column grants on ps_organisations).
+const PUBLIC_ORG_COLUMNS = 'id, name, slug, address, public_description, public_logo_url, is_public, is_active, organisation_type'
+
 /** YYYY-MM-DD in the visitor's own time zone (UTC would show the wrong day around midnight in BST). */
 function localDay(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
@@ -26,7 +29,7 @@ export function PublicServicePage() {
     setLoading(true)
     getUserClient()
       .from('ps_organisations')
-      .select('*')
+      .select(PUBLIC_ORG_COLUMNS)
       .eq('is_public', true)
       .or(orgSlugOrIdFilter(orgSlug))
       .limit(1)
