@@ -13,6 +13,7 @@ import {
 } from '@pharmstation/types'
 import { Autocomplete } from '../../components/forms/Autocomplete'
 import { Modal } from '../../components/Modal'
+import { PageHeader } from '../../components/ui'
 
 interface DraftItem {
   key: string
@@ -323,9 +324,7 @@ export function PEPSWritePage() {
   if (!myPrescriber || myPrescriber.status !== 'active') {
     return (
       <div>
-        <div className="page-header">
-          <h1>Write Prescription</h1>
-        </div>
+        <PageHeader breadcrumbs={[{ label: 'PEPS', to: '/peps' }, { label: 'Write prescription' }]} title="Write prescription" />
         <div className="ps-card" style={{ maxWidth: 560, padding: 'var(--ps-space-lg)' }}>
           <p style={{ marginTop: 0 }}>
             {!myPrescriber
@@ -333,7 +332,7 @@ export function PEPSWritePage() {
               : 'Your prescriber account is not active yet.'}
           </p>
           <button className="ps-btn ps-btn-primary" onClick={() => navigate('/me/prescriber')}>
-            Go to Prescriber Setup →
+            Go to prescriber setup →
           </button>
         </div>
       </div>
@@ -342,14 +341,11 @@ export function PEPSWritePage() {
 
   return (
     <div>
-      <div className="page-header">
-        <div className="breadcrumbs">
-          <a href="/peps" onClick={(e) => { e.preventDefault(); navigate('/peps') }}>PEPS</a>
-          <span className="separator">/</span>
-          <span>Write Prescription</span>
-        </div>
-        <h1>Write Prescription</h1>
-      </div>
+      <PageHeader
+        breadcrumbs={[{ label: 'PEPS', to: '/peps' }, { label: 'Write prescription' }]}
+        title="Write prescription"
+        subtitle="Write a private or veterinary prescription, sign it with your PIN and send it to a pharmacy."
+      />
 
       {error && <div className="ps-alert ps-alert-error" style={{ marginBottom: 'var(--ps-space-md)' }}>{error}</div>}
 

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
 import { getUserClient } from '@pharmstation/supabase-client'
 import { PEPS_REGISTER_LINKS, PEPS_PRESCRIBER_TYPE_LABELS, type PepsPrescriberType } from '@pharmstation/types'
+import { PageHeader } from '../../components/ui'
 
 // PharmStation platform admins verify each prescriber's registration with the
 // regulator before activating them. Access is enforced in the database
@@ -33,7 +33,6 @@ const REGISTERS: { label: string; url: string }[] = [
 ]
 
 export function PrescriberApprovalsPage() {
-  const navigate = useNavigate()
   const [filter, setFilter] = useState<(typeof STATUSES)[number]>('pending')
   const [rows, setRows] = useState<Row[]>([])
   const [loading, setLoading] = useState(true)
@@ -77,17 +76,11 @@ export function PrescriberApprovalsPage() {
 
   return (
     <div>
-      <div className="page-header">
-        <div className="breadcrumbs">
-          <a href="/me" onClick={(e) => { e.preventDefault(); navigate('/me') }}>My Account</a>
-          <span className="separator">/</span>
-          <span>Approve prescribers</span>
-        </div>
-        <h1>Approve prescribers</h1>
-        <p style={{ color: 'var(--ps-slate)', marginTop: '4px' }}>
-          Check each registration number and name on the regulator's register before activating.
-        </p>
-      </div>
+      <PageHeader
+        breadcrumbs={[{ label: 'My account', to: '/me' }, { label: 'Approve prescribers' }]}
+        title="Approve prescribers"
+        subtitle="Check each registration number and name on the regulator's register before activating."
+      />
 
       <div className="ps-card" style={{ marginBottom: 'var(--ps-space-md)' }}>
         <strong>Registers:</strong>{' '}

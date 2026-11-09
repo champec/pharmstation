@@ -5,6 +5,7 @@ import { pepsCdSchedule, PEPS_CD_LABELS, type PepsEvent, type PepsVerifyResult }
 import { getUserClient } from '@pharmstation/supabase-client'
 import { Autocomplete } from '../../components/forms/Autocomplete'
 import { Modal } from '../../components/Modal'
+import { PageHeader } from '../../components/ui'
 
 const EVENT_LABELS: Record<PepsEvent['event_type'], string> = {
   created: 'Created',
@@ -138,24 +139,20 @@ export function PEPSPrescriptionDetailPage() {
 
   return (
     <div>
-      <div className="page-header">
-        <div className="breadcrumbs">
-          <a href="/peps" onClick={(e) => { e.preventDefault(); navigate('/peps') }}>PEPS</a>
-          <span className="separator">/</span>
-          <span>{rx.prescription_ref}</span>
-        </div>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <h1>{rx.prescription_ref}</h1>
+      <PageHeader
+        breadcrumbs={[{ label: 'PEPS', to: '/peps' }, { label: rx.prescription_ref }]}
+        title={rx.prescription_ref}
+        subtitle={rx.expires_at && rx.status !== 'cancelled'
+          ? <span style={{ color: expired ? 'var(--ps-error)' : undefined }}>
+              {expired ? 'Expired' : 'Valid until'} {new Date(rx.expires_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+            </span>
+          : undefined}
+        actions={
           <span className={`ps-badge ${rx.status === 'held' && !expired ? 'ps-badge-success' : ''}`}>
-            {expired && rx.status !== 'dispensed' && rx.status !== 'cancelled' ? 'EXPIRED' : rx.status.toUpperCase()}
+            {expired && rx.status !== 'dispensed' && rx.status !== 'cancelled' ? 'Expired' : rx.status[0].toUpperCase() + rx.status.slice(1)}
           </span>
-        </div>
-        {rx.expires_at && rx.status !== 'cancelled' && (
-          <p style={{ color: expired ? 'var(--ps-danger, #b91c1c)' : 'var(--ps-slate)', margin: '4px 0 0', fontSize: 'var(--ps-font-sm)' }}>
-            {expired ? 'Expired' : 'Valid until'} {new Date(rx.expires_at).toLocaleDateString('en-GB')}
-          </p>
-        )}
-      </div>
+        }
+      />
 
       {rx.status === 'cancelled' && (
         <div className="ps-alert ps-alert-error" style={{ marginBottom: 'var(--ps-space-md)' }}>
@@ -234,7 +231,7 @@ export function PEPSPrescriptionDetailPage() {
                   ✓ Electronically signed{verify.signed_at ? ` ${new Date(verify.signed_at).toLocaleString('en-GB')}` : ''} · unchanged since signing
                 </span>
               )}
-              {verify.status === 'altered' && <span className="ps-badge">⚠ Changed since signing</span>}
+              {verify.status === 'altered' && <span className="ps-badge ps-badge-danger">Changed since signing</span>}
               {verify.status === 'unsigned' && <span className="ps-badge">Not sealed (written before PIN signing)</span>}
             </div>
           )}

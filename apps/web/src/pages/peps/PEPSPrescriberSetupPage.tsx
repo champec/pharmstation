@@ -6,6 +6,7 @@ import {
   type PepsPrescriberType,
 } from '@pharmstation/types'
 import { CanvasField } from '../../components/forms/CanvasField'
+import { PageHeader } from '../../components/ui'
 
 export function PEPSPrescriberSetupPage() {
   const navigate = useNavigate()
@@ -138,17 +139,11 @@ export function PEPSPrescriberSetupPage() {
 
   return (
     <div>
-      <div className="page-header">
-        <div className="breadcrumbs">
-          <a href="/me" onClick={(e) => { e.preventDefault(); navigate('/me') }}>My Account</a>
-          <span className="separator">/</span>
-          <span>Prescriber Setup</span>
-        </div>
-        <h1>Prescriber Setup</h1>
-        <p style={{ color: 'var(--ps-slate)', marginTop: '4px' }}>
-          Your prescriber identity is global across PharmStation — any pharmacy can verify your registration.
-        </p>
-      </div>
+      <PageHeader
+        breadcrumbs={[{ label: 'My account', to: '/me' }, { label: 'Prescriber setup' }]}
+        title="Prescriber setup"
+        subtitle="Your prescriber identity works across PharmStation, so any pharmacy can check your registration."
+      />
 
       {myPrescriber && (
         <div className="ps-card" style={{ marginBottom: 'var(--ps-space-md)', display: 'flex', alignItems: 'center', gap: 'var(--ps-space-sm)' }}>
@@ -239,7 +234,7 @@ export function PEPSPrescriberSetupPage() {
 
       {myPrescriber && (
         <div className="ps-card" style={{ maxWidth: 640, marginTop: 'var(--ps-space-md)' }}>
-          <h3 style={{ marginTop: 0 }}>🔐 Signing PIN</h3>
+          <h3 style={{ marginTop: 0 }}>Signing PIN</h3>
           <p style={{ fontSize: 'var(--ps-font-sm)', color: 'var(--ps-slate)', marginTop: 0 }}>
             You enter this 6-digit PIN each time you send a prescription. It is your electronic signature:
             PharmStation records that you signed and seals the prescription so any later change can be detected.
