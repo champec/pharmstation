@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuthStore, useNetworkStore } from '@pharmstation/core'
 import { getUserClient } from '@pharmstation/supabase-client'
+import { PageHeader } from '../../../components/ui/PageHeader'
 
 interface OdsPharmacy {
   id: number
@@ -25,6 +26,9 @@ export function NetworkOnboardingPage() {
   const [searching, setSearching]   = useState(false)
   const [unlinking, setUnlinking]   = useState(false)
   const [searchError, setSearchError] = useState<string | null>(null)
+  const [takenIds, setTakenIds]     = useState<Set<number>>(new Set())
+  const verification = organisation?.verification_status
+  const canLink = verification === undefined || verification === 'verified'
 
   useEffect(() => {
     if (organisation?.id) fetchMyLink(organisation.id)
@@ -43,18 +47,32 @@ export function NetworkOnboardingPage() {
         .order('organisation_name')
         .limit(20)
       if (error) throw error
-      setResults((data ?? []) as OdsPharmacy[])
+      const found = (data ?? []) as OdsPharmacy[]
+      setResults(found)
+      // Pharmacies another PharmStation account has already linked can't be claimed again.
+      if (found.length) {
+        const { data: links } = await client
+          .from('ps_org_pharmacy_link').select('pharmacy_id, org_id')
+          .in('pharmacy_id', found.map((p) => p.id))
+        setTakenIds(new Set((links ?? []).filter((l) => l.org_id !== organisation?.id).map((l) => l.pharmacy_id as number)))
+      } else {
+        setTakenIds(new Set())
+      }
     } catch (e: unknown) {
       setSearchError((e as Error).message)
     } finally {
       setSearching(false)
     }
-  }, [searchTerm])
+  }, [searchTerm, organisation?.id])
 
   async function handleLink(pharmacy: OdsPharmacy) {
     if (!organisation?.id) return
-    await linkPharmacy(organisation.id, pharmacy.id)
-    navigate('/messaging/network')
+    try {
+      await linkPharmacy(organisation.id, pharmacy.id)
+      navigate('/messaging/network')
+    } catch {
+      // shown via the store's error banner
+    }
   }
 
   async function handleUnlink() {
@@ -66,16 +84,11 @@ export function NetworkOnboardingPage() {
 
   return (
     <div>
-      <div className="page-header">
-        <div className="breadcrumbs">
-          <a href="/" onClick={(e) => { e.preventDefault(); navigate('/') }}>Dashboard</a>
-          <span className="separator">/</span>
-          <a href="/messaging/network" onClick={(e) => { e.preventDefault(); navigate('/messaging/network') }}>Pharmacy Network</a>
-          <span className="separator">/</span>
-          <span>Link Pharmacy</span>
-        </div>
-        <h1>🔗 Link Your Pharmacy</h1>
-      </div>
+      <PageHeader
+        breadcrumbs={[{ label: 'Dashboard', to: '/' }, { label: 'Messaging', to: '/messaging' }, { label: 'Pharmacy Network', to: '/messaging/network' }, { label: 'Link pharmacy' }]}
+        title="Link your pharmacy"
+        subtitle="Choose your NHS pharmacy record once so other pharmacies can find and message you."
+      />
 
       {(error || searchError) && (
         <div className="auth-error" style={{ marginBottom: 'var(--ps-space-md)' }}>
@@ -99,7 +112,7 @@ export function NetworkOnboardingPage() {
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--ps-space-md)', flexWrap: 'wrap' }}>
             <div>
               <div style={{ fontWeight: 700, fontSize: '1.05rem', marginBottom: 4 }}>
-                ✅ Currently linked
+                Currently linked
               </div>
               <div style={{ fontWeight: 600 }}>
                 {myLink.pharmacy?.organisation_name ?? `Pharmacy #${myLink.pharmacy_id}`}
@@ -119,7 +132,7 @@ export function NetworkOnboardingPage() {
               onClick={handleUnlink}
               disabled={unlinking}
             >
-              {unlinking ? 'Removing…' : '🔓 Unlink'}
+              {unlinking ? 'Removing…' : 'Unlink'}
             </button>
           </div>
         </div>
@@ -144,7 +157,7 @@ export function NetworkOnboardingPage() {
             style={{ flex: 1 }}
           />
           <button className="ps-btn ps-btn-primary" onClick={doSearch} disabled={searching || !searchTerm.trim()}>
-            {searching ? '…' : '🔍 Search'}
+            {searching ? 'Searching…' : 'Search'}
           </button>
         </div>
 
@@ -174,6 +187,10 @@ export function NetworkOnboardingPage() {
                   </div>
                   {isCurrent ? (
                     <span className="ps-badge ps-badge-green">Current</span>
+                  ) : takenIds.has(ph.id) ? (
+                    <span className="ps-badge" title="Another PharmStation account has linked this pharmacy">Already on PharmStation</span>
+                  ) : !canLink ? (
+                    <span className="ps-badge" title="Available once your pharmacy is verified">Awaiting verification</span>
                   ) : (
                     <button
                       className="ps-btn ps-btn-secondary"

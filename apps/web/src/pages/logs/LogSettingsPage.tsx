@@ -102,7 +102,7 @@ export function LogSettingsPage() {
           <span>Settings</span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <h1>⚙️ Log Settings</h1>
+          <h1>Log Settings</h1>
           <button className="ps-btn ps-btn-secondary" onClick={() => navigate(subscriptionId ? `/logs/${subscriptionId}` : '/logs')}>
             ← Back
           </button>
@@ -140,7 +140,7 @@ export function LogSettingsPage() {
                 {activeFields.length} fields
               </span>
               {activeTemplate.is_library && (
-                <span className="ps-badge ps-badge-amber" style={{ fontSize: 'var(--ps-font-xs)' }}>📚 Library</span>
+                <span className="ps-badge ps-badge-amber" style={{ fontSize: 'var(--ps-font-xs)' }}>Library</span>
               )}
             </div>
           </div>
@@ -210,7 +210,7 @@ export function LogSettingsPage() {
                 className="ps-btn ps-btn-secondary"
                 onClick={() => navigate(`/logs/new?edit=${activeTemplate.id}`)}
               >
-                ✏️ Edit Template
+                Edit Template
               </button>
             </div>
           )}

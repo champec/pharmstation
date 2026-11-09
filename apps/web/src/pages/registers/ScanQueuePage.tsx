@@ -91,12 +91,12 @@ export function ScanQueuePage() {
         </div>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--ps-space-md)' }}>
           <div>
-            <h1 style={{ margin: 0 }}>📸 Scan Queue</h1>
+            <h1 style={{ margin: 0 }}>Scan Queue</h1>
             {(processingCount > 0 || readyCount > 0) && (
               <p style={{ margin: '4px 0 0', fontSize: 'var(--ps-font-sm)', color: 'var(--ps-slate)' }}>
-                {processingCount > 0 && <span>⏳ {processingCount} processing</span>}
+                {processingCount > 0 && <span>{processingCount} processing</span>}
                 {processingCount > 0 && readyCount > 0 && ' · '}
-                {readyCount > 0 && <span>📋 {readyCount} ready for review</span>}
+                {readyCount > 0 && <span>{readyCount} ready for review</span>}
               </p>
             )}
           </div>
@@ -105,7 +105,7 @@ export function ScanQueuePage() {
               ▦ Barcode Scan
             </button>
             <button className="ps-btn ps-btn-primary" onClick={() => setUploadModalOpen(true)}>
-              📷 Scan Document
+              Scan Document
             </button>
           </div>
         </div>
@@ -139,7 +139,7 @@ export function ScanQueuePage() {
               ▦ Barcode Scan
             </button>
             <button className="ps-btn ps-btn-primary" onClick={() => setUploadModalOpen(true)}>
-              📷 Scan Document
+              Scan Document
             </button>
           </div>
         </div>
@@ -229,9 +229,9 @@ function ScanQueueRow({
       {/* Content */}
       <div className="sq-content">
         <div className="sq-top-row">
-          {isProcessing && <span className="sq-status-pill sq-pill-processing">⏳ Processing...</span>}
+          {isProcessing && <span className="sq-status-pill sq-pill-processing">Processing...</span>}
           {isError && <span className="sq-status-pill sq-pill-error">⚠️ Error</span>}
-          {isRejected && <span className="sq-status-pill sq-pill-rejected">🚫 Rejected</span>}
+          {isRejected && <span className="sq-status-pill sq-pill-rejected">Rejected</span>}
           {isReady && conf && (
             <span className="sq-confidence-dot" style={{ background: conf.dot }} title={`Confidence: ${conf.label}`} />
           )}

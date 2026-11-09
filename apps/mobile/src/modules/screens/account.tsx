@@ -19,6 +19,7 @@ import {
   type DeletionRequest,
 } from '@/lib/account'
 import { SecurityTab } from '@/modules/screens/authenticator'
+import { HelpTab } from '@/modules/screens/help'
 import { useAuthStore } from '@/stores/auth-store'
 import { palette, radius } from '@/theme/palette'
 
@@ -338,6 +339,7 @@ export const accountScreens: Record<string, ComponentType> = {
   profile: ProfileTab,
   pharmacies: PharmaciesTab,
   security: SecurityTab,
+  help: HelpTab,
 }
 
 const styles = StyleSheet.create({

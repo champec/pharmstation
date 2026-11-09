@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuthStore, useServiceStore, useNHSStore } from '@pharmstation/core'
 import type { GPSearchResult } from '@pharmstation/core'
 import { getUserClient } from '@pharmstation/supabase-client'
@@ -7,6 +7,7 @@ import type { Patient, ServiceForm, ServiceFormField } from '@pharmstation/types
 import { MedicationPrescriber, createEmptyMedication, type PrescribedMedication } from '../../components/outcomes/MedicationPrescriber'
 import { ServicePrescribingField } from '../../components/forms/ServicePrescribingField'
 import { NHS_SERVICES_ENABLED } from '../../lib/features'
+import { SignatureCapture, type SignatureCaptureRef } from '../../components/SignatureCapture'
 
 /* ---- Human-readable labels for NHS field option codes ---- */
 const NHS_OPTION_LABELS: Record<string, string> = {
@@ -137,6 +138,11 @@ function hasFieldValue(field: ServiceFormField, value: unknown): boolean {
 export function ServiceDeliveryPage() {
   const { serviceId } = useParams<{ serviceId: string }>()
   const navigate = useNavigate()
+  // Started from an appointment ("Start service"): the patient is filled in
+  // and the finished record is linked back to the booking.
+  const [searchParams] = useSearchParams()
+  const appointmentId = searchParams.get('appointment')
+  const [appointmentLinkError, setAppointmentLinkError] = useState<string | null>(null)
   const { organisation, activeUser } = useAuthStore()
   const {
     activeService,
@@ -187,6 +193,13 @@ export function ServiceDeliveryPage() {
   const [medications, setMedications] = useState<PrescribedMedication[]>([])
   const [showMedModal, setShowMedModal] = useState(false)
 
+  /* ---- Outcome (starts from the form's OUTCOME answer, can be changed) ---- */
+  const [outcomeChoice, setOutcomeChoice] = useState<OutcomeKind | null>(null)
+  const [referralTo, setReferralTo] = useState('')
+  const [referralReason, setReferralReason] = useState('')
+  const [referralUrgency, setReferralUrgency] = useState<'routine' | 'urgent' | 'emergency'>('routine')
+  const [adviceGiven, setAdviceGiven] = useState('')
+
   /* ---- Submission ---- */
   const [submitting, setSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState<string | null>(null)
@@ -221,6 +234,11 @@ export function ServiceDeliveryPage() {
     setFormData({})
     setNotes('')
     setMedications([])
+    setOutcomeChoice(null)
+    setReferralTo('')
+    setReferralReason('')
+    setReferralUrgency('routine')
+    setAdviceGiven('')
     setStep('patient')
     setCompleted(false)
     setSubmitError(null)
@@ -228,6 +246,23 @@ export function ServiceDeliveryPage() {
     setDraftId(null)
     setDraftSavedAt(null)
   }, [serviceId])
+
+  // Prefill the booked patient when started from an appointment.
+  useEffect(() => {
+    if (!appointmentId || !organisation?.id) return
+    let cancelled = false
+    getUserClient()
+      .from('ps_appointments')
+      .select('patient:ps_patients(id, first_name, last_name, nhs_number, dob, phone)')
+      .eq('id', appointmentId)
+      .eq('org_id', organisation.id)
+      .maybeSingle()
+      .then(({ data }) => {
+        const patient = (data as { patient: PatientOption | null } | null)?.patient
+        if (!cancelled && patient) setSelectedPatient(patient)
+      })
+    return () => { cancelled = true }
+  }, [appointmentId, organisation?.id, serviceId])
 
   /* ---- Load this person's unfinished drafts for this service ---- */
   const loadMyDrafts = useCallback(async () => {
@@ -420,10 +455,18 @@ export function ServiceDeliveryPage() {
   }, [activeFields, formData])
 
   /* ---- Derive whether medicine was supplied from form data ---- */
-  const medicineSupplied =
+  const derivedOutcome: OutcomeKind =
     formData.OUTCOME === 'MEDICINE_SUPPLIED' || formData.MEDICINE_SUPPLIED === true
+      ? 'prescription'
+      : formData.OUTCOME === 'REFERRAL_TO_GP' || formData.OUTCOME === 'REFERRAL_TO_ED'
+        ? 'referral'
+        : 'advice'
+  const outcomeType: OutcomeKind = outcomeChoice ?? derivedOutcome
+  const medicineSupplied = outcomeType === 'prescription'
+  const defaultReferralTo = formData.OUTCOME === 'REFERRAL_TO_GP' ? 'GP' : formData.OUTCOME === 'REFERRAL_TO_ED' ? 'Emergency department' : ''
 
-  const canSubmit = (selectedPatient || skipPatient) && requiredFieldsMissing.length === 0
+  const referralMissing = outcomeType === 'referral' && !(referralTo.trim() || defaultReferralTo)
+  const canSubmit = (selectedPatient || skipPatient) && requiredFieldsMissing.length === 0 && !referralMissing
 
   /* ---- Patients found by NHS number get a local record ---- */
   // A PDS lookup gives a patient with no local id. Link the record to an
@@ -565,15 +608,6 @@ export function ServiceDeliveryPage() {
       for (let i = 0; i < 50 && draftSaving.current; i++) {
         await new Promise((r) => setTimeout(r, 100))
       }
-      // Derive outcome_type from form data OUTCOME field
-      const outcomeField = formData.OUTCOME as string | undefined
-      let outcomeType: 'prescription' | 'referral' | 'advice' | 'no_treatment' = 'advice'
-      if (outcomeField === 'MEDICINE_SUPPLIED' || formData.MEDICINE_SUPPLIED === true) {
-        outcomeType = 'prescription'
-      } else if (outcomeField === 'REFERRAL_TO_GP' || outcomeField === 'REFERRAL_TO_ED') {
-        outcomeType = 'referral'
-      }
-
       // Delivery, outcome and medicines are saved together in one transaction.
       const filteredMeds = medications.filter((m) => m.drug_name.trim())
       const saved = await completeDelivery({
@@ -585,8 +619,14 @@ export function ServiceDeliveryPage() {
         draftId: draftIdRef.current,
         formData,
         notes,
-        outcome: { outcome_type: outcomeType },
-        medications: filteredMeds.map((m, i) => ({
+        outcome: {
+          outcome_type: outcomeType,
+          referral_to: outcomeType === 'referral' ? (referralTo.trim() || defaultReferralTo || null) : null,
+          referral_reason: outcomeType === 'referral' ? referralReason.trim() || null : null,
+          referral_urgency: outcomeType === 'referral' ? referralUrgency : null,
+          advice_given: adviceGiven.trim() || null,
+        },
+        medications: (outcomeType === 'prescription' ? filteredMeds : []).map((m, i) => ({
           drug_id: m.drug?.id || null,
           drug_name: m.drug_name,
           drug_form: m.drug_form,
@@ -599,6 +639,15 @@ export function ServiceDeliveryPage() {
         })),
       })
 
+      if (appointmentId) {
+        const { error: linkErr } = await getUserClient().rpc('ps_link_delivery_to_appointment', {
+          p_delivery_id: saved.id,
+          p_appointment_id: appointmentId,
+        })
+        setAppointmentLinkError(linkErr
+          ? `The record was saved, but it could not be linked to the appointment: ${linkErr.message}`
+          : null)
+      }
       setCompletedId(saved.id)
       setCompleted(true)
       setDraftId(null)
@@ -613,7 +662,7 @@ export function ServiceDeliveryPage() {
     return (
       <div>
         <div className="page-header">
-          <h1>✅ Service Delivered</h1>
+          <h1>Service Delivered</h1>
         </div>
         <div className="ps-card" style={{ padding: 'var(--ps-space-2xl)', textAlign: 'center' }}>
           <div style={{ fontSize: '64px', marginBottom: 'var(--ps-space-md)' }}>🎉</div>
@@ -625,9 +674,20 @@ export function ServiceDeliveryPage() {
               Patient: {selectedPatient.first_name} {selectedPatient.last_name}
             </p>
           )}
+          {appointmentId && !appointmentLinkError && (
+            <p style={{ color: 'var(--ps-slate)', marginBottom: 'var(--ps-space-lg)' }}>
+              The appointment has been marked completed.
+            </p>
+          )}
+          {appointmentLinkError && (
+            <div className="ps-alert ps-alert-error" style={{ marginBottom: 'var(--ps-space-lg)' }}>{appointmentLinkError}</div>
+          )}
           <div style={{ display: 'flex', gap: 'var(--ps-space-sm)', justifyContent: 'center' }}>
             <button className="ps-btn ps-btn-primary" onClick={() => {
-              // Reset for another delivery of the same service
+              // Reset for another delivery of the same service. The next one
+              // is not for the booked appointment, so drop the link.
+              if (appointmentId) navigate(`/services/${serviceId}/deliver`, { replace: true })
+              setAppointmentLinkError(null)
               setStep('patient')
               setSelectedPatient(null)
               setSkipPatient(false)
@@ -649,6 +709,11 @@ export function ServiceDeliveryPage() {
             {completedId && (
               <button className="ps-btn ps-btn-secondary" onClick={() => navigate(`/services/deliveries/${completedId}`)}>
                 View / print record
+              </button>
+            )}
+            {appointmentId && (
+              <button className="ps-btn ps-btn-secondary" onClick={() => navigate(`/appointments/${appointmentId}`)}>
+                Back to appointment
               </button>
             )}
             <button className="ps-btn ps-btn-secondary" onClick={() => navigate('/services')}>
@@ -674,7 +739,7 @@ export function ServiceDeliveryPage() {
           <span>Deliver</span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <h1>🩺 Deliver: {activeService?.name || 'Loading…'}</h1>
+          <h1>Deliver: {activeService?.name || 'Loading…'}</h1>
           <button className="ps-btn ps-btn-secondary" onClick={() => navigate(-1 as any)}>
             ← Cancel
           </button>
@@ -772,7 +837,7 @@ export function ServiceDeliveryPage() {
       {!nhsLocked && step === 'patient' && (
         <div className="ps-card" style={{ padding: 'var(--ps-space-lg)' }}>
           <h2 style={{ fontSize: 'var(--ps-font-lg)', fontWeight: 600, color: 'var(--ps-midnight)', marginBottom: 'var(--ps-space-md)' }}>
-            👤 Select Patient
+            Select Patient
           </h2>
 
           <div className="form-group">
@@ -884,7 +949,7 @@ export function ServiceDeliveryPage() {
               </p>
               {/* Sandbox test NHS numbers */}
               <details style={{ fontSize: 'var(--ps-font-xs)', color: 'var(--ps-slate)', marginBottom: 'var(--ps-space-sm)' }}>
-                <summary style={{ cursor: 'pointer', color: '#005eb8', fontWeight: 500 }}>🧪 Sandbox test NHS numbers</summary>
+                <summary style={{ cursor: 'pointer', color: '#005eb8', fontWeight: 500 }}>Sandbox test NHS numbers</summary>
                 <div style={{ marginTop: 'var(--ps-space-xs)', display: 'flex', flexWrap: 'wrap', gap: 'var(--ps-space-xs)' }}>
                   {[
                     { nhs: '9000000009', label: 'Standard patient' },
@@ -973,7 +1038,7 @@ export function ServiceDeliveryPage() {
         <div className="ps-card" style={{ padding: 'var(--ps-space-lg)' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 'var(--ps-space-lg)' }}>
             <h2 style={{ fontSize: 'var(--ps-font-lg)', fontWeight: 600, color: 'var(--ps-midnight)', margin: 0 }}>
-              📝 {selectedForm?.name || 'Service Form'}
+              {selectedForm?.name || 'Service Form'}
             </h2>
             {activeForms.length > 1 && (
               <select
@@ -1012,7 +1077,7 @@ export function ServiceDeliveryPage() {
                   fontSize: 'var(--ps-font-xs)',
                   color: 'var(--ps-slate)',
                 }}>
-                  ℹ️ Some fields have been auto-populated from the PDS lookup and your profile. You can still edit them if needed.
+                  Some fields have been auto-populated from the PDS lookup and your profile. You can still edit them if needed.
                 </div>
               )}
 
@@ -1147,12 +1212,57 @@ export function ServiceDeliveryPage() {
             </div>
           )}
 
-          {/* Medications — shown when outcome indicates medicine supplied */}
+          {/* Outcome */}
+          <div style={{ marginTop: 'var(--ps-space-lg)', borderTop: '1px solid var(--ps-off-white)', paddingTop: 'var(--ps-space-md)' }}>
+            <div className="form-group">
+              <label>Outcome</label>
+              <div role="radiogroup" aria-label="Outcome" style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--ps-space-sm)' }}>
+                {OUTCOME_OPTIONS.map((o) => (
+                  <button
+                    key={o.value}
+                    type="button"
+                    role="radio"
+                    aria-checked={outcomeType === o.value}
+                    className={`ps-btn ps-btn-sm ${outcomeType === o.value ? 'ps-btn-primary' : 'ps-btn-secondary'}`}
+                    onClick={() => setOutcomeChoice(o.value)}
+                  >
+                    {o.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+            {outcomeType === 'referral' && (
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 'var(--ps-space-md)' }}>
+                <div className="form-group">
+                  <label>Referred to *</label>
+                  <input className="ps-input" value={referralTo} placeholder={defaultReferralTo || 'e.g. GP, A&E, optician'} onChange={(e) => setReferralTo(e.target.value)} />
+                </div>
+                <div className="form-group">
+                  <label>Urgency</label>
+                  <select className="ps-input" value={referralUrgency} onChange={(e) => setReferralUrgency(e.target.value as typeof referralUrgency)}>
+                    <option value="routine">Routine</option>
+                    <option value="urgent">Urgent</option>
+                    <option value="emergency">Emergency</option>
+                  </select>
+                </div>
+                <div className="form-group" style={{ gridColumn: '1 / -1' }}>
+                  <label>Reason for referral</label>
+                  <textarea className="ps-input" rows={2} value={referralReason} onChange={(e) => setReferralReason(e.target.value)} />
+                </div>
+              </div>
+            )}
+            <div className="form-group">
+              <label>Advice given (optional)</label>
+              <textarea className="ps-input" rows={2} value={adviceGiven} onChange={(e) => setAdviceGiven(e.target.value)} placeholder="Self-care, safety-netting and follow-up advice" />
+            </div>
+          </div>
+
+          {/* Medications — shown when the outcome is medicine supplied */}
           {medicineSupplied && (
             <div style={{ marginTop: 'var(--ps-space-lg)', borderTop: '1px solid var(--ps-off-white)', paddingTop: 'var(--ps-space-md)' }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 'var(--ps-space-sm)' }}>
                 <label style={{ fontWeight: 600, color: 'var(--ps-midnight)' }}>
-                  💊 Medications Supplied
+                  Medications Supplied
                   {medications.filter(m => m.drug_name.trim()).length > 0 && (
                     <span style={{ fontWeight: 400, color: 'var(--ps-slate)', marginLeft: 8 }}>
                       ({medications.filter(m => m.drug_name.trim()).length} item{medications.filter(m => m.drug_name.trim()).length !== 1 ? 's' : ''})
@@ -1250,7 +1360,7 @@ export function ServiceDeliveryPage() {
           >
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 'var(--ps-space-lg)' }}>
               <h2 style={{ fontSize: 'var(--ps-font-lg)', fontWeight: 600, color: 'var(--ps-midnight)', margin: 0 }}>
-                💊 Medications Supplied
+                Medications Supplied
               </h2>
               <button
                 type="button"
@@ -1284,7 +1394,7 @@ export function ServiceDeliveryPage() {
       {!nhsLocked && step === 'review' && (
         <div className="ps-card" style={{ padding: 'var(--ps-space-lg)' }}>
           <h2 style={{ fontSize: 'var(--ps-font-lg)', fontWeight: 600, color: 'var(--ps-midnight)', marginBottom: 'var(--ps-space-lg)' }}>
-            ✅ Review & Complete
+            Review & Complete
           </h2>
 
           {/* Summary */}
@@ -1340,6 +1450,16 @@ export function ServiceDeliveryPage() {
             </div>
           )}
 
+          <div style={{ marginBottom: 'var(--ps-space-lg)' }}>
+            <h3 style={{ fontSize: 'var(--ps-font-md)', fontWeight: 600, marginBottom: 'var(--ps-space-xs)' }}>Outcome</h3>
+            <p style={{ color: 'var(--ps-slate)', fontSize: 'var(--ps-font-sm)', margin: 0 }}>
+              {OUTCOME_OPTIONS.find((o) => o.value === outcomeType)?.label}
+              {outcomeType === 'referral' && ` to ${referralTo.trim() || defaultReferralTo || '…'} (${referralUrgency})${referralReason.trim() ? `: ${referralReason.trim()}` : ''}`}
+            </p>
+            {adviceGiven.trim() && <p style={{ color: 'var(--ps-slate)', fontSize: 'var(--ps-font-sm)', margin: '4px 0 0' }}>Advice: {adviceGiven.trim()}</p>}
+            {referralMissing && <p style={{ color: 'var(--ps-error)', fontSize: 'var(--ps-font-sm)', margin: '4px 0 0' }}>Say who the patient was referred to — go back to the form.</p>}
+          </div>
+
           {notes && (
             <div style={{ marginBottom: 'var(--ps-space-lg)' }}>
               <h3 style={{ fontSize: 'var(--ps-font-md)', fontWeight: 600, marginBottom: 'var(--ps-space-xs)' }}>Notes</h3>
@@ -1350,7 +1470,7 @@ export function ServiceDeliveryPage() {
           {/* Medications summary */}
           {medications.filter(m => m.drug_name.trim()).length > 0 && (
             <div style={{ marginBottom: 'var(--ps-space-lg)' }}>
-              <h3 style={{ fontSize: 'var(--ps-font-md)', fontWeight: 600, marginBottom: 'var(--ps-space-sm)' }}>💊 Medications Supplied</h3>
+              <h3 style={{ fontSize: 'var(--ps-font-md)', fontWeight: 600, marginBottom: 'var(--ps-space-sm)' }}>Medications Supplied</h3>
               <div style={{ background: 'var(--ps-off-white)', borderRadius: 'var(--ps-radius-md)', padding: 'var(--ps-space-md)' }}>
                 {medications.filter(m => m.drug_name.trim()).map((m, i) => (
                   <div key={m.localId} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: 'var(--ps-space-xs) 0', borderBottom: '1px solid var(--ps-white)', fontSize: 'var(--ps-font-sm)' }}>
@@ -1538,28 +1658,7 @@ function DynamicField({
       )}
 
       {field.field_type === 'signature' && (
-        <div style={{
-          border: '2px dashed var(--ps-cloud-blue)',
-          borderRadius: 'var(--ps-radius-md)',
-          padding: 'var(--ps-space-lg)',
-          textAlign: 'center',
-          color: 'var(--ps-mist)',
-          fontSize: 'var(--ps-font-sm)',
-          cursor: 'pointer',
-        }}
-          onClick={() => {
-            const name = window.prompt('Type name for signature:')
-            if (name) onChange(name)
-          }}
-        >
-          {value ? (
-            <span style={{ color: 'var(--ps-midnight)', fontStyle: 'italic', fontSize: 'var(--ps-font-lg)' }}>
-              {value as string}
-            </span>
-          ) : (
-            'Click to sign'
-          )}
-        </div>
+        <SignatureField value={value} onChange={onChange} />
       )}
     </div>
   )
@@ -1641,6 +1740,7 @@ function RepeatableTableField({ field, value, onChange }: {
 /* ==== Value formatter for review ==== */
 
 function formatValue(field: ServiceFormField, val: unknown): string {
+  if (field.field_type === 'signature') return typeof val === 'string' && val.startsWith('data:image/') ? 'Signed' : String(val)
   if (field.field_type === 'boolean') return val ? 'Yes' : 'No'
   if (field.field_type === 'select' && typeof val === 'string') return optionLabel(val)
   if (field.field_type === 'table' && Array.isArray(val)) {
@@ -1657,4 +1757,52 @@ function formatValue(field: ServiceFormField, val: unknown): string {
   }
   if (Array.isArray(val)) return val.map((v) => optionLabel(String(v))).join(', ')
   return String(val)
+}
+
+/* ==== Outcome ==== */
+
+type OutcomeKind = 'prescription' | 'referral' | 'advice' | 'no_treatment'
+
+const OUTCOME_OPTIONS: Array<{ value: OutcomeKind; label: string }> = [
+  { value: 'advice', label: 'Advice given' },
+  { value: 'prescription', label: 'Medicine supplied' },
+  { value: 'referral', label: 'Referred' },
+  { value: 'no_treatment', label: 'No treatment' },
+]
+
+/* ==== Drawn signature (stored as a PNG data URL) ==== */
+
+function SignatureField({ value, onChange }: { value: unknown; onChange: (val: unknown) => void }) {
+  const padRef = useRef<SignatureCaptureRef>(null)
+  const signed = typeof value === 'string' && value.length > 0
+  if (signed) {
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--ps-space-md)', flexWrap: 'wrap' }}>
+        {(value as string).startsWith('data:image/')
+          ? <img src={value as string} alt="Signature" style={{ maxWidth: 240, maxHeight: 100, border: '1px solid var(--ps-off-white)', borderRadius: 'var(--ps-radius-md)', background: '#fff' }} />
+          : <span style={{ color: 'var(--ps-midnight)', fontStyle: 'italic', fontSize: 'var(--ps-font-lg)' }}>{value as string}</span>}
+        <button type="button" className="ps-btn ps-btn-secondary ps-btn-sm" onClick={() => onChange(null)}>Sign again</button>
+      </div>
+    )
+  }
+  return (
+    <div>
+      <div style={{ border: '1px solid var(--ps-cloud-blue)', borderRadius: 'var(--ps-radius-md)', overflow: 'hidden', maxWidth: 376, background: '#fff' }}>
+        <SignatureCapture ref={padRef} />
+      </div>
+      <div style={{ display: 'flex', gap: 'var(--ps-space-sm)', marginTop: 'var(--ps-space-xs)' }}>
+        <button type="button" className="ps-btn ps-btn-secondary ps-btn-sm" onClick={() => padRef.current?.clear()}>Clear</button>
+        <button
+          type="button"
+          className="ps-btn ps-btn-primary ps-btn-sm"
+          onClick={() => {
+            if (!padRef.current || padRef.current.isEmpty()) return
+            onChange(padRef.current.getDataUrl())
+          }}
+        >
+          Use signature
+        </button>
+      </div>
+    </div>
+  )
 }

@@ -13,6 +13,7 @@ import { PersonalSignupPage } from './pages/auth/PersonalSignupPage'
 import { PersonalProfilePage } from './pages/PersonalProfilePage'
 import { LocumApprovalsPage } from './pages/admin/LocumApprovalsPage'
 import { AnnouncementsPage } from './pages/admin/AnnouncementsPage'
+import { SupportInboxPage } from './pages/admin/SupportInboxPage'
 import { PrescriberApprovalsPage } from './pages/peps/PrescriberApprovalsPage'
 import { PharmacySignupPage } from './pages/onboarding/PharmacySignupPage'
 import { OwnerSetupPage } from './pages/onboarding/OwnerSetupPage'
@@ -312,6 +313,10 @@ export function App() {
       <Route
         path="/me/admin/locums"
         element={isUserLoggedIn ? <LocumApprovalsPage /> : <Navigate to="/me/login" replace />}
+      />
+      <Route
+        path="/me/admin/support"
+        element={isUserLoggedIn ? <SupportInboxPage /> : <Navigate to="/me/login" replace />}
       />
       <Route
         path="/me/admin/announcements"

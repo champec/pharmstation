@@ -109,7 +109,7 @@ export function OrgLoginPage() {
 
       <div style={{ marginTop: '16px', textAlign: 'center' }}>
         <Link to="/me/login" style={{ fontSize: 'var(--ps-font-sm)' }}>
-          👤 Personal account sign in instead
+          Personal account sign in instead
         </Link>
       </div>
     </div>

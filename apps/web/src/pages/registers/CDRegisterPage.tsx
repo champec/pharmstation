@@ -144,7 +144,7 @@ export function CDRegisterPage() {
           <span>CD Register</span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <h1>💊 CD Register</h1>
+          <h1>CD Register</h1>
           <div style={{ display: 'flex', gap: 'var(--ps-space-sm)', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
             <button
               className="ps-btn ps-btn-ghost"
@@ -152,14 +152,14 @@ export function CDRegisterPage() {
               disabled={!canWrite}
               title="Perform a CD balance check across all registers"
             >
-              📋 Balance Check
+              Balance Check
             </button>
             <button
               className="ps-btn ps-btn-ghost"
               onClick={() => navigate('/registers/scan')}
               title="Scan a prescription or invoice with AI"
             >
-              📸 AI Scan
+              AI Scan
             </button>
             <button
               className="ps-btn ps-btn-ghost"

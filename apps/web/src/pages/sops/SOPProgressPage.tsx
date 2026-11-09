@@ -109,7 +109,7 @@ export function SOPProgressPage() {
         </div>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div>
-            <h1>📊 Staff Progress</h1>
+            <h1>Staff Progress</h1>
             {doc && (
               <p style={{ margin: '4px 0 0', fontSize: 13, color: 'var(--ps-text-muted)' }}>
                 {doc.title} · v{currentVersion} ·{' '}
@@ -129,7 +129,7 @@ export function SOPProgressPage() {
               ⬇ Export sign-offs (CSV)
             </button>
             <button className="ps-btn ps-btn-secondary" onClick={() => window.print()}>
-              🖨 Print
+              Print
             </button>
             <button className="ps-btn ps-btn-secondary" onClick={() => navigate(`/sops/${docId}/edit`)}>
               ← Back to Editor

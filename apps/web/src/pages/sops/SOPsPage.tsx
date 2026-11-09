@@ -96,7 +96,7 @@ export function SOPsPage() {
           <span>SOPs</span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--ps-space-md)' }}>
-          <h1>📋 SOP Library</h1>
+          <h1>SOP Library</h1>
           {isManager && tab === 'manage' && (
             <button className="ps-btn ps-btn-primary" onClick={() => setShowCreate(true)}>
               + New SOP
@@ -111,14 +111,14 @@ export function SOPsPage() {
           className={`ps-tab ${tab === 'my-sops' ? 'active' : ''}`}
           onClick={() => setTab('my-sops')}
         >
-          📖 My SOPs
+          My SOPs
         </button>
         {isManager && (
           <button
             className={`ps-tab ${tab === 'manage' ? 'active' : ''}`}
             onClick={() => setTab('manage')}
           >
-            ⚙️ Manage SOPs
+            Manage SOPs
           </button>
         )}
       </div>
@@ -208,21 +208,21 @@ export function SOPsPage() {
                       style={{ fontSize: 12, padding: '4px 12px' }}
                       onClick={() => navigate(`/sops/${doc.id}/edit`)}
                     >
-                      ✏️ Edit
+                      Edit
                     </button>
                     <button
                       className="ps-btn ps-btn-secondary"
                       style={{ fontSize: 12, padding: '4px 12px' }}
                       onClick={() => navigate(`/sops/${doc.id}/assign`)}
                     >
-                      👥 Assign
+                      Assign
                     </button>
                     <button
                       className="ps-btn ps-btn-secondary"
                       style={{ fontSize: 12, padding: '4px 12px' }}
                       onClick={() => navigate(`/sops/${doc.id}/progress`)}
                     >
-                      📊 Progress
+                      Progress
                     </button>
                     <button
                       className="ps-btn"

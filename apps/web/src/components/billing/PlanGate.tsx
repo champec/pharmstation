@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import { Link, useLocation } from 'react-router-dom'
+import { Lock } from 'lucide-react'
 import {
   useSubscriptionStore,
   featureForPath,
@@ -28,7 +29,7 @@ export function PlanGate({ children }: { children: ReactNode }) {
   const needed = PLANS[minimumPlanFor(feature)]
   return (
     <div className="ps-card plan-gate">
-      <div className="plan-gate-icon" aria-hidden="true">🔒</div>
+      <div className="plan-gate-icon" aria-hidden="true"><Lock size={26} strokeWidth={1.75} /></div>
       <h2>This is part of the {needed.name} plan</h2>
       <p>
         Your pharmacy is on the {PLANS[plan].name} plan. Upgrade to {needed.name} for{' '}

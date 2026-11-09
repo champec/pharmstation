@@ -127,7 +127,7 @@ export function LocumApprovalsPage() {
           <span className="separator">/</span>
           <span>Review locums</span>
         </div>
-        <h1>🩺 Review locums</h1>
+        <h1>Review locums</h1>
         <p style={{ color: 'var(--ps-slate)', marginTop: '4px' }}>
           Check each GPhC number on the{' '}
           <a href="https://www.pharmacyregulation.org/registers" target="_blank" rel="noopener noreferrer">GPhC register</a>{' '}
@@ -187,7 +187,7 @@ export function LocumApprovalsPage() {
                       onClick={() => openDoc(d)}
                       title={`Uploaded ${fmt(d.uploaded_at)}${d.expiry_date ? `, expires ${fmt(d.expiry_date)}` : ''}`}
                     >
-                      📄 {d.label || DOC_LABELS[d.doc_type] || d.doc_type}
+                      {d.label || DOC_LABELS[d.doc_type] || d.doc_type}
                       {isPast(d.expiry_date) && ' (expired)'}
                     </button>
                   ))}

@@ -116,7 +116,7 @@ export function ReferralQueuePage() {
         </div>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 'var(--ps-space-sm)' }}>
           <h1 style={{ display: 'flex', alignItems: 'center', gap: 'var(--ps-space-sm)' }}>
-            📞 NHS 111 Referrals
+            NHS 111 Referrals
             {unreadCount > 0 && (
               <span className="ps-badge ps-badge-red" style={{ fontSize: '0.75rem' }}>
                 {unreadCount} new
@@ -272,7 +272,7 @@ export function ReferralQueuePage() {
                     </span>
                     {r.event_type === 'discharge_details' && (
                       <span className="ps-badge" style={{ fontSize: '0.7rem' }}>
-                        ℹ️ Discharge
+                        Discharge
                       </span>
                     )}
                   </div>

@@ -50,7 +50,7 @@ export function AppointmentSlotsPage() {
         </div>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--ps-space-md)', flexWrap: 'wrap' }}>
           <div>
-            <h1 style={{ marginBottom: 'var(--ps-space-xs)' }}>⏰ Appointment Slots</h1>
+            <h1 style={{ marginBottom: 'var(--ps-space-xs)' }}>Appointment Slots</h1>
             <p style={{ margin: 0, color: 'var(--ps-slate)' }}>
               Pick a service first, then manage its slots on a focused page with date and recurrence controls.
             </p>
