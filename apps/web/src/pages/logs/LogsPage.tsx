@@ -4,7 +4,7 @@ import { useAuthStore, useLogStore } from '@pharmstation/core'
 import type { LogEntry, LogSubscription } from '@pharmstation/types'
 import { Drawer } from '../../components/Drawer'
 import { LogEntryForm } from './LogEntryForm'
-import { NotebookPen, Trophy } from 'lucide-react'
+import { NotebookPen, Settings, Trophy } from 'lucide-react'
 import { PageHeader } from '../../components/ui/PageHeader'
 import { EmptyState } from '../../components/ui/EmptyState'
 import { Celebration, CategoryIcon, ProgressRing, StreakBadge, useCelebration } from './LogBits'
@@ -296,7 +296,7 @@ export function LogsPage() {
                       {cat.cta}
                     </button>
                   )}
-                  <button className="ps-btn ps-btn-ghost ps-btn-sm" onClick={() => navigate(`/logs/${sub.id}/settings`)} aria-label="Log settings">⚙️</button>
+                  <button className="ps-btn ps-btn-ghost ps-btn-sm" onClick={() => navigate(`/logs/${sub.id}/settings`)} aria-label="Log settings"><Settings size={16} aria-hidden="true" /></button>
                 </div>
               </article>
             )

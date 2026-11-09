@@ -14991,3 +14991,10 @@ textarea.form-input {
 .patient-pharmacy-results button { display: grid; gap: 2px; padding: 10px 12px; border: 1px solid var(--ps-off-white); border-radius: var(--ps-radius-md); background: var(--ps-white); text-align: left; cursor: pointer; }
 .patient-pharmacy-results button:hover, .patient-pharmacy-results button:focus-visible { border-color: var(--ps-deep-blue); }
 .patient-pharmacy-results button span, .patient-pharmacy-hint { color: var(--ps-slate); font-size: var(--ps-font-sm); }
+
+/* Inside the staff shell the content area already has the page gutter;
+   .page-container (Shifts, Outreach, admin pages) shouldn't add a second one */
+.dashboard-content .page-container {
+  padding: 0;
+  max-width: none;
+}

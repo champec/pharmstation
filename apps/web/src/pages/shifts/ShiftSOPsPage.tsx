@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { getUserClient } from '@pharmstation/supabase-client'
 import { useAuthStore, canManageLocumSOPs } from '@pharmstation/core'
 import { confirmDialog } from '../../components/ui/dialog'
+import { PageHeader } from '../../components/ui'
 
 const MAX_FILE_BYTES = 20 * 1024 * 1024
 const ALLOWED_TYPES = ['application/pdf', 'image/jpeg', 'image/png']
@@ -210,20 +211,19 @@ export function ShiftSOPsPage() {
 
   return (
     <div className="page-container">
-      <div className="page-header">
-        <div>
-          <h1 className="page-title">SOP Documents</h1>
-          <p className="page-subtitle">Standard operating procedures locums must read and sign</p>
-        </div>
-        <div style={{ display: 'flex', gap: '0.5rem' }}>
-          <button className="ps-btn ps-btn-ghost ps-btn-sm" onClick={load} disabled={loading}>Refresh</button>
+      <PageHeader
+        breadcrumbs={[{ label: 'Dashboard', to: '/' }, { label: 'Shifts', to: '/shifts' }, { label: 'Locum SOPs' }]}
+        title="Locum SOPs"
+        subtitle="Standard operating procedures locums must read and sign before working here."
+        actions={<>
+          <button className="ps-btn ps-btn-secondary" onClick={load} disabled={loading}>Refresh</button>
           {isManager && (
-            <button className="ps-btn ps-btn-primary ps-btn-sm" onClick={() => setShowAddForm((v) => !v)}>
+            <button className={`ps-btn ${showAddForm ? 'ps-btn-secondary' : 'ps-btn-primary'}`} onClick={() => setShowAddForm((v) => !v)}>
               {showAddForm ? 'Cancel' : '+ Add SOP'}
             </button>
           )}
-        </div>
-      </div>
+        </>}
+      />
 
       {error && <div className="ps-alert ps-alert-error" style={{ marginBottom: '1rem' }}>{error}</div>}
 

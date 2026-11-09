@@ -11,6 +11,7 @@ import { AppointmentSettingsTab } from './settings/AppointmentSettingsTab'
 import { SignInActivityCard } from '../components/account/SignInActivityCard'
 import { canManageBilling } from '../lib/billing'
 import { PageHeader } from '../components/ui'
+import { Circle, CircleCheck } from 'lucide-react'
 
 type Tab = 'general' | 'team' | 'ai' | 'messaging' | 'alerts' | 'appointments' | 'nhs' | 'payments' | 'billing'
 
@@ -519,7 +520,7 @@ function NHSSettingsTab() {
           ].map((item, i) => (
             <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 'var(--ps-space-sm)', fontSize: '0.9rem' }}>
               <span style={{ color: item.done ? 'var(--ps-success)' : 'var(--ps-slate)', fontSize: '1.1rem' }}>
-                {item.done ? '✅' : '⬜'}
+                {item.done ? <CircleCheck size={18} aria-label="Done" /> : <Circle size={18} aria-label="Not done" />}
               </span>
               <span style={{ color: item.done ? 'var(--ps-midnight)' : 'var(--ps-slate)' }}>{item.label}</span>
             </div>

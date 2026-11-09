@@ -9,6 +9,7 @@ import { ServicePrescribingField } from '../../components/forms/ServicePrescribi
 import { NHS_SERVICES_ENABLED } from '../../lib/features'
 import { SignatureCapture, type SignatureCaptureRef } from '../../components/SignatureCapture'
 import { confirmDialog } from '../../components/ui/dialog'
+import { CircleCheck } from 'lucide-react'
 
 /* ---- Human-readable labels for NHS field option codes ---- */
 const NHS_OPTION_LABELS: Record<string, string> = {
@@ -745,7 +746,7 @@ export function ServiceDeliveryPage() {
           <h1>Service Delivered</h1>
         </div>
         <div className="ps-card" style={{ padding: 'var(--ps-space-2xl)', textAlign: 'center' }}>
-          <div style={{ fontSize: '64px', marginBottom: 'var(--ps-space-md)' }}>🎉</div>
+          <span className="ps-empty-icon success" aria-hidden="true"><CircleCheck size={26} strokeWidth={1.75} /></span>
           <h2 style={{ color: 'var(--ps-midnight)', marginBottom: 'var(--ps-space-sm)' }}>
             {activeService?.name} — Complete
           </h2>

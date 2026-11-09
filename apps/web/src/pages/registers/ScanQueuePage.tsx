@@ -11,7 +11,7 @@ import type { ScanQueueItem } from '@pharmstation/types'
 import { ScanUploadModal } from '../../components/scan/ScanUploadModal'
 import { ScanReviewModal } from '../../components/scan/ScanReviewModal'
 import { BarcodeScanModal } from '../../components/scan/BarcodeScanModal'
-import { ScanLine, Trash2 } from 'lucide-react'
+import { FileText, Loader2, ScanLine, Trash2 } from 'lucide-react'
 import { confirmDialog } from '../../components/ui/dialog'
 
 const CONFIDENCE_CONFIG: Record<number, { label: string; dot: string; border: string }> = {
@@ -314,7 +314,7 @@ function ScanQueueThumbnail({
   }, [isProcessing, scan.id, scan.image_path, scan.image_url, refreshImageUrl])
 
   if (!imageUrl || imageFailed) {
-    return <span className="sq-thumb-icon">{isProcessing ? '⏳' : '📄'}</span>
+    return <span className="sq-thumb-icon">{isProcessing ? <Loader2 size={20} aria-hidden="true" /> : <FileText size={20} aria-hidden="true" />}</span>
   }
 
   return (

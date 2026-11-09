@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { getUserClient } from '@pharmstation/supabase-client'
 import { useAuthStore } from '@pharmstation/core'
+import { PageHeader } from '../../components/ui'
 
 interface LocumEntry {
   locum_id: string
@@ -190,13 +191,12 @@ export function ShiftLocumDirectoryPage() {
 
   return (
     <div className="page-container">
-      <div className="page-header">
-        <div>
-          <h1 className="page-title">Locum Directory</h1>
-          <p className="page-subtitle">All locums who have worked with your pharmacy</p>
-        </div>
-        <button className="ps-btn ps-btn-ghost ps-btn-sm" onClick={load} disabled={loading}>Refresh</button>
-      </div>
+      <PageHeader
+        breadcrumbs={[{ label: 'Dashboard', to: '/' }, { label: 'Shifts', to: '/shifts' }, { label: 'Locum directory' }]}
+        title="Locum directory"
+        subtitle="Every locum who has worked at your pharmacy."
+        actions={<button className="ps-btn ps-btn-secondary" onClick={load} disabled={loading}>Refresh</button>}
+      />
 
       {error && <div className="ps-alert ps-alert-error" style={{ marginBottom: '1rem' }}>{error}</div>}
 

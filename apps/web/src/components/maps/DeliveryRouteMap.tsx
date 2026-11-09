@@ -5,6 +5,7 @@ import type { DeliveryRoundPatient, DeliveryLocationUpdate } from '@pharmstation
 import { getUserClient } from '@pharmstation/supabase-client'
 import { useMapboxToken } from '../../hooks/useMapboxToken'
 import { stopAddress } from '@pharmstation/core'
+import { Car } from 'lucide-react'
 
 // UK default center
 const DEFAULT_CENTER = { latitude: 53.5, longitude: -1.5, zoom: 6 }
@@ -252,7 +253,7 @@ export function DeliveryRouteMap({ patients, roundId, driverId, height = 400, sh
                 boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
               }}
             >
-              🚗
+              <Car size={18} aria-hidden="true" />
             </div>
           </Marker>
         )}

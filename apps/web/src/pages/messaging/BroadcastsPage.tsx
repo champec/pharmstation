@@ -98,7 +98,7 @@ export function BroadcastsPage() {
                   <td style={{ fontWeight: 500 }}>{b.name}</td>
                   <td>
                     <span style={{ textTransform: 'uppercase', fontSize: '0.85rem' }}>
-                      {b.channel === 'sms' ? '📱' : b.channel === 'email' ? '📧' : '✉️'} {b.channel}
+                      {b.channel}
                     </span>
                   </td>
                   <td>

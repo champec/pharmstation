@@ -37,7 +37,6 @@ export const STATUS_LABELS: Record<string, string> = {
 
 export const FAILED_STATUSES = ['failed', 'permanent-failure', 'temporary-failure', 'technical-failure']
 
-const CHANNEL_ICON: Record<string, string> = { sms: '📱', email: '📧', letter: '✉️' }
 
 function formatDate(d: string | null | undefined) {
   if (!d) return '—'
@@ -123,7 +122,7 @@ export function MessageDetailModal({ message, onClose, onChanged }: Props) {
     <Modal
       isOpen={!!m}
       onClose={close}
-      title={m ? `${CHANNEL_ICON[m.channel] || ''} ${m.channel.toUpperCase()} Message` : ''}
+      title={m ? `${m.channel.toUpperCase()} message` : ''}
       width="680px"
     >
       {m && (

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate, useSearchParams, Link } from 'react-router-dom'
 import { getUserClient } from '@pharmstation/supabase-client'
 import { useAuthStore } from '@pharmstation/core'
+import { PageHeader } from '../../components/ui'
 
 interface ServiceOption {
   id: string
@@ -130,15 +131,11 @@ export function NewShiftPage() {
 
   return (
     <div className="page-container">
-      <div className="page-header">
-        <div className="breadcrumbs">
-          <Link to="/shifts">Shifts</Link>
-          <span className="separator">/</span>
-          <span>Post New Shift</span>
-        </div>
-        <h1 className="page-title">Post a Locum Shift</h1>
-        <p className="page-subtitle">Shifts are published immediately and visible to eligible locums.</p>
-      </div>
+      <PageHeader
+        breadcrumbs={[{ label: 'Dashboard', to: '/' }, { label: 'Shifts', to: '/shifts' }, { label: 'Post shift' }]}
+        title="Post a locum shift"
+        subtitle="Shifts are published straight away and shown to eligible locums."
+      />
 
       {error && (
         <div className="ps-alert ps-alert-error" style={{ marginBottom: '1.5rem' }}>{error}</div>

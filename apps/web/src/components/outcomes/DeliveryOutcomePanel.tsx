@@ -5,6 +5,7 @@ import {
   createEmptyMedication,
   type PrescribedMedication,
 } from './MedicationPrescriber'
+import { CircleSlash, MessageSquare, Pill, Send, type LucideIcon } from 'lucide-react'
 
 export interface OutcomeData {
   outcome_type: OutcomeType
@@ -23,11 +24,11 @@ export interface DeliveryOutcomePanelProps {
   readOnly?: boolean
 }
 
-const OUTCOME_OPTIONS: { value: OutcomeType; label: string; icon: string; desc: string }[] = [
-  { value: 'prescription', label: 'Prescription / Supply', icon: '💊', desc: 'Medication was prescribed or dispensed' },
-  { value: 'referral', label: 'Referral', icon: '📋', desc: 'Patient referred to GP, A&E, or another service' },
-  { value: 'advice', label: 'Advice Given', icon: '💬', desc: 'Patient received advice or information' },
-  { value: 'no_treatment', label: 'No Treatment', icon: '🚫', desc: 'No treatment required or patient declined' },
+const OUTCOME_OPTIONS: { value: OutcomeType; label: string; icon: LucideIcon; desc: string }[] = [
+  { value: 'prescription', label: 'Prescription / Supply', icon: Pill, desc: 'Medication was prescribed or dispensed' },
+  { value: 'referral', label: 'Referral', icon: Send, desc: 'Patient referred to GP, A&E, or another service' },
+  { value: 'advice', label: 'Advice Given', icon: MessageSquare, desc: 'Patient received advice or information' },
+  { value: 'no_treatment', label: 'No Treatment', icon: CircleSlash, desc: 'No treatment required or patient declined' },
 ]
 
 export function createEmptyOutcome(): OutcomeData {
@@ -79,7 +80,7 @@ export function DeliveryOutcomePanel({
                 transition: 'all 0.15s ease',
               }}
             >
-              <div style={{ fontSize: '20px', marginBottom: '4px' }}>{opt.icon}</div>
+              <div style={{ marginBottom: '6px', color: 'var(--ps-deep-blue)' }}><opt.icon size={20} strokeWidth={1.75} aria-hidden="true" /></div>
               <div style={{ fontWeight: 600, fontSize: '13px', color: 'var(--ps-midnight)' }}>{opt.label}</div>
               <div style={{ fontSize: '12px', color: 'var(--ps-slate)', marginTop: '2px' }}>{opt.desc}</div>
             </div>
