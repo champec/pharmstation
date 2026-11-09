@@ -473,7 +473,7 @@ export function Labelled({ label, children }: { label: string; children: React.R
 export function Chip({ label, selected, onPress }: { label: string; selected: boolean; onPress: () => void }) {
   return (
     <Pressable onPress={onPress} accessibilityRole="button" accessibilityState={{ selected }}
-      style={[styles.chip, selected && { backgroundColor: COLOR, borderColor: COLOR }]}>
+      style={[styles.chip, selected && { backgroundColor: palette.brand, borderColor: palette.brand }]}>
       <Text style={[styles.chipText, selected && { color: palette.textInverse }]}>{label}</Text>
     </Pressable>
   )

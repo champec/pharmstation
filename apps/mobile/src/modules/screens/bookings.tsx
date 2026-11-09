@@ -290,7 +290,7 @@ const styles = StyleSheet.create({
   action: { paddingVertical: 13, borderRadius: radius.md, alignItems: 'center' },
   tabs: { flexDirection: 'row', gap: 8, paddingHorizontal: 16, paddingTop: 12 },
   tab: { flex: 1, paddingVertical: 9, borderRadius: radius.md, borderWidth: 1, borderColor: palette.border, alignItems: 'center' },
-  tabOn: { backgroundColor: COLOR, borderColor: COLOR },
+  tabOn: { backgroundColor: palette.brand, borderColor: palette.brand },
   tabText: { fontSize: 14, fontWeight: '600', color: palette.text },
   tabTextOn: { color: palette.textInverse },
   actionText: { fontSize: 15, fontWeight: '700' },

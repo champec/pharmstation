@@ -393,7 +393,7 @@ const styles = StyleSheet.create({
   segmentActive: { backgroundColor: palette.surface },
   segmentText: { color: palette.textMuted, fontWeight: '700' },
   segmentTextActive: { color: palette.text },
-  newButton: { minHeight: 48, borderRadius: radius.md, backgroundColor: COLOR, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, marginBottom: 12 },
+  newButton: { minHeight: 48, borderRadius: radius.md, backgroundColor: palette.brand, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, marginBottom: 12 },
   newButtonText: { color: '#FFFFFF', fontWeight: '800', fontSize: 15 },
   error: { color: palette.danger, marginBottom: 8 },
   listContent: { paddingBottom: 24, gap: 10, flexGrow: 1 },

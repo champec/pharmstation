@@ -5,15 +5,17 @@ import type { ServiceLibraryItem } from '@pharmstation/types'
 import { NHS_SERVICES_ENABLED } from '../../lib/features'
 
 const CATEGORY_LABELS: Record<string, string> = {
-  nhs_advanced_service: 'NHS Advanced Services',
   vaccination: 'Vaccinations',
   screening: 'Screening',
   consultation: 'Consultations',
-  pharmacy_first: 'Pharmacy First — Pathways',
+  minor_illness: 'Minor illness consultations',
+  pharmacy_first: 'Minor illness consultations',
   general: 'General',
+  nhs_advanced_service: 'NHS services',
 }
 
-const CATEGORY_ORDER = ['nhs_advanced_service', 'vaccination', 'screening', 'consultation', 'pharmacy_first', 'general']
+// Private services first: NHS services stay "Coming soon" until NHS approval.
+const CATEGORY_ORDER = ['vaccination', 'screening', 'consultation', 'minor_illness', 'pharmacy_first', 'general', 'nhs_advanced_service']
 
 export function ServiceLibraryPage() {
   const navigate = useNavigate()
@@ -61,7 +63,7 @@ export function ServiceLibraryPage() {
 
     const groups: Record<string, ServiceLibraryItem[]> = {}
     for (const item of filtered) {
-      const cat = item.category || 'general'
+      const cat = item.category && CATEGORY_LABELS[item.category] ? item.category : 'general'
       if (!groups[cat]) groups[cat] = []
       groups[cat].push(item)
     }
