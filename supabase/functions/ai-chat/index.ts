@@ -371,6 +371,19 @@ function localiseDates(node: unknown, key = ''): unknown {
   return localiseValue(key, node)
 }
 
+/** The unit CD quantities are counted in, from the ledger's form (e.g. oral solution -> ml). */
+function unitForForm(form: string | null | undefined): string {
+  const f = (form ?? '').toLowerCase()
+  if (/ampoule|vial|injection|infusion/.test(f)) return 'ampoules or vials'
+  if (/solution|liquid|syrup|suspension|linctus|elixir|mixture|drops|concentrate/.test(f)) return 'ml'
+  if (/patch/.test(f)) return 'patches'
+  if (/capsule/.test(f)) return 'capsules'
+  if (/tablet|lozenge|film/.test(f)) return 'tablets'
+  if (/suppositor/.test(f)) return 'suppositories'
+  if (/spray/.test(f)) return 'sprays or bottles'
+  return 'units as recorded in the register'
+}
+
 async function executeTool(toolName: string, args: Record<string, unknown>, ctx: ToolContext): Promise<string> {
   const raw = await executeToolRaw(toolName, args, ctx)
   try {
@@ -402,6 +415,7 @@ async function executeToolRaw(toolName: string, args: Record<string, unknown>, c
 
         const drugName = textArg(args.drug_name)
         let ledgerNames = new Map<string, string>()
+        const ledgerUnits = new Map<string, string>()
         if (drugName) {
           const { data: ledgers, error } = await ctx.userClient
             .from('ps_register_ledgers')
@@ -415,6 +429,7 @@ async function executeToolRaw(toolName: string, args: Record<string, unknown>, c
           }
           ledgerNames = new Map(ledgers.map((l: { id: string; drug_name: string; drug_strength: string | null; drug_form: string | null }) =>
             [l.id, [l.drug_name, l.drug_strength, l.drug_form].filter(Boolean).join(' ')]))
+          for (const l of ledgers as { id: string; drug_form: string | null }[]) ledgerUnits.set(l.id, unitForForm(l.drug_form))
           query = query.in('ledger_id', ledgers.map((l: { id: string }) => l.id))
         }
 
@@ -441,6 +456,7 @@ async function executeToolRaw(toolName: string, args: Record<string, unknown>, c
             .in('id', missing)
           for (const l of (ledgers ?? []) as { id: string; drug_name: string; drug_strength: string | null; drug_form: string | null }[]) {
             ledgerNames.set(l.id, [l.drug_name, l.drug_strength, l.drug_form].filter(Boolean).join(' '))
+            ledgerUnits.set(l.id, unitForForm(l.drug_form))
           }
         }
         // Who made each entry (staff names, not patient data).
@@ -459,6 +475,7 @@ async function executeToolRaw(toolName: string, args: Record<string, unknown>, c
           const { ledger_id, entered_by, ...rest } = e
           return {
             drug: ledgerNames.get(ledger_id as string) ?? undefined,
+            quantity_unit: ledgerUnits.get(ledger_id as string) ?? undefined,
             ...rest,
             entered_by: staffNames.get(entered_by as string) ?? (entered_by ? 'Not recorded' : undefined),
           }
@@ -557,7 +574,8 @@ async function executeToolRaw(toolName: string, args: Record<string, unknown>, c
         if (!data || data.length === 0) {
           return JSON.stringify({ ledgers: [], count: 0, note: `No CD register in this pharmacy matches "${drugName}".` })
         }
-        return JSON.stringify({ ledgers: data, count: data.length })
+        const ledgers = (data as { drug_form: string | null }[]).map((l) => ({ ...l, balance_unit: unitForForm(l.drug_form) }))
+        return JSON.stringify({ ledgers, count: ledgers.length })
       }
 
       default:
@@ -631,6 +649,7 @@ Rules:
 - Be concise. Use short Markdown tables or lists for register data.
 - Write dates the UK way ("9 Nov 2026") and times in 24-hour UK local time ("14:06"). Tool results are already in UK local time; never convert them or call them UTC.
 - CD entries include entered_by, the staff member who made the entry. You may name staff.
+- Always state CD quantities and balances with their unit (quantity_unit or balance_unit), e.g. "30 ml" or "28 capsules", never just "units".
 - If you are unsure, say so. For clinical decisions, tell the user to check an authoritative source (BNF, SPC) and use professional judgement.
 ${opts.patientData
     ? '- Patient details are available. Only show patient information that the question needs.'
