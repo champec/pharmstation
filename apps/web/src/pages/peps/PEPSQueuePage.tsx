@@ -177,7 +177,7 @@ export function PEPSQueuePage() {
           </p>
         </div>
         <button className="ps-btn ps-btn-primary" onClick={handleFetch} disabled={!verified || fetching || available.length === 0}>
-          {fetching ? 'Downloading…' : `📥 Download ${available.length || ''}`}
+          {fetching ? 'Downloading…' : `Download ${available.length || ''}`}
         </button>
       </div>
 

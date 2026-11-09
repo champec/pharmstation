@@ -217,7 +217,7 @@ export function MessagingSettingsTab() {
             Enable SMS
           </label>
           <button className="ps-btn ps-btn-secondary" disabled={testing} onClick={handleTest}>
-            {testing ? 'Testing…' : '🔌 Test Connection'}
+            {testing ? 'Testing…' : 'Test Connection'}
           </button>
         </div>
         {testResult && (
@@ -313,7 +313,7 @@ export function MessagingSettingsTab() {
           </div>
         ) : (
           <button className="ps-btn ps-btn-secondary" disabled={replyBusy} onClick={handleRequestReplyNumber}>
-            {replyBusy ? 'Requesting…' : '📞 Request a reply number'}
+            {replyBusy ? 'Requesting…' : 'Request a reply number'}
           </button>
         )}
         {replyNotice && <div style={{ marginTop: 'var(--ps-space-sm)', fontSize: '0.9rem', color: 'var(--ps-slate)' }}>{replyNotice}</div>}
@@ -660,7 +660,7 @@ function NhsNotifySection() {
             disabled={testing || (!apiKey.trim() && !settings?.has_api_key)}
             onClick={handleTestConnection}
           >
-            {testing ? 'Testing...' : '🔌 Test Connection'}
+            {testing ? 'Testing...' : 'Test Connection'}
           </button>
         </div>
         {testResult && (

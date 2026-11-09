@@ -140,7 +140,7 @@ export function ReferralDetailPage() {
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 'var(--ps-space-sm)' }}>
           <h1 style={{ display: 'flex', alignItems: 'center', gap: 'var(--ps-space-sm)' }}>
             {referral.patient_name ?? 'Unknown Patient'}
-            <span className={urgency.cls}>{urgency.icon} {urgency.label}</span>
+            <span className={urgency.cls}>{urgency.label}</span>
             <span className={status.cls}>{status.label}</span>
           </h1>
           <button className="ps-btn ps-btn-ghost" onClick={() => navigate('/services/111-referrals')}>

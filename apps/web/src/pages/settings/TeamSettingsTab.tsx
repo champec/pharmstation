@@ -57,7 +57,7 @@ export function TeamSettingsTab() {
   const [inviteRole, setInviteRole] = useState<InvitableRole>('dispenser')
   const [inviting, setInviting] = useState(false)
   const [inviteError, setInviteError] = useState<string | null>(null)
-  const [newInvite, setNewInvite] = useState<{ email: string; role: InvitableRole; link: string; expiresAt: string } | null>(null)
+  const [newInvite, setNewInvite] = useState<{ email: string; role: InvitableRole; link: string; expiresAt: string; emailed: boolean } | null>(null)
   const [copied, setCopied] = useState(false)
 
   const load = useCallback(async () => {
@@ -89,7 +89,7 @@ export function TeamSettingsTab() {
     try {
       const email = inviteEmail.trim().toLowerCase()
       const res = await createInvite(orgId, email, inviteRole)
-      setNewInvite({ email, role: inviteRole, link: inviteLink(res.token), expiresAt: res.expiresAt })
+      setNewInvite({ email, role: inviteRole, link: inviteLink(res.token), expiresAt: res.expiresAt, emailed: res.emailed })
       setInviteEmail('')
       load()
     } catch (err) {
@@ -210,10 +210,17 @@ export function TeamSettingsTab() {
 
           {newInvite && (
             <div className="team-invite-result" role="status">
-              <p>
-                Invite ready for <strong>{newInvite.email}</strong>. Send them this link. It&rsquo;s shown once, so
-                copy it now. If it&rsquo;s lost, just invite them again.
-              </p>
+              {newInvite.emailed ? (
+                <p>
+                  We&rsquo;ve emailed an invite to <strong>{newInvite.email}</strong>. If it doesn&rsquo;t arrive, ask
+                  them to check their spam folder, or send them this link yourself.
+                </p>
+              ) : (
+                <p>
+                  Invite ready for <strong>{newInvite.email}</strong>, but we couldn&rsquo;t email it. Send them this
+                  link. It&rsquo;s shown once, so copy it now. If it&rsquo;s lost, just invite them again.
+                </p>
+              )}
               <div className="team-invite-link">
                 <input className="ps-input" readOnly value={newInvite.link} aria-label="Invite link"
                   onFocus={(e) => e.currentTarget.select()} />

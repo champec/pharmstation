@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { getUserClient } from '@pharmstation/supabase-client'
+import { CalendarClock } from 'lucide-react'
+import { EmptyState } from '../ui'
 
 /**
  * Weekly timesheets for locum shifts (Mon–Sun). One sheet per pharmacy (locum
@@ -166,9 +168,11 @@ export function WeeklyTimesheets({ mode }: { mode: Mode }) {
       {error && <div className="ps-alert ps-alert-error no-print">{error}</div>}
       {loading && <div className="loading-indicator no-print">Loading…</div>}
       {!loading && !error && sheets.length === 0 && (
-        <div className="ps-card no-print"><div className="ps-card-body" style={{ padding: '2rem', textAlign: 'center' }}>
-          <p className="text-muted">No completed shifts this week. Shifts appear here once the locum signs out or the pharmacy confirms the shift was worked.</p>
-        </div></div>
+        <div className="no-print">
+          <EmptyState icon={CalendarClock} title="No completed shifts this week">
+            Shifts appear here once the locum signs out or the pharmacy confirms the shift was worked.
+          </EmptyState>
+        </div>
       )}
 
       {sheets.map((sheet) => {

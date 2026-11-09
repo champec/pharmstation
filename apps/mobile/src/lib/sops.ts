@@ -6,7 +6,7 @@
 // (userClient), so the database's RLS decides what each person sees:
 //   - staff see published SOPs of their pharmacy and sign their own copy
 //   - SOP managers (owner, manager, pharmacist or sop_upload) see progress
-//   - locums see SOPs of pharmacies they have a booking with
+//   (Locum shift SOPs live in Locum Shifts → Profile.)
 // Sign-offs are insert-only; the database sets the time and signer.
 // ============================================
 
@@ -253,64 +253,4 @@ export async function markReviewed(docId: string, notes?: string): Promise<SOPDo
   })
   if (error) throw error
   return data as SOPDoc
-}
-
-// ── Locums ────────────────────────────────────────────────────
-
-export type LocumSOP = {
-  id: string
-  org_id: string
-  org_name: string
-  title: string
-  description: string | null
-  file_url: string | null
-  version: number
-  is_required: boolean
-  signed_at: string | null
-}
-
-export async function fetchLocumSOPs(locumId: string): Promise<LocumSOP[]> {
-  const { data: bookings, error: bErr } = await userClient
-    .from('ps_locum_bookings')
-    .select('shift:ps_locum_shifts(org_id)')
-    .eq('locum_id', locumId)
-    .in('status', ['pending', 'approved', 'completed'])
-  if (bErr) throw bErr
-  const orgIds = [
-    ...new Set(
-      ((bookings ?? []) as unknown as { shift: { org_id: string } | null }[]).flatMap((b) => (b.shift ? [b.shift.org_id] : [])),
-    ),
-  ]
-  if (orgIds.length === 0) return []
-
-  const [sopRes, signRes, orgRes] = await Promise.all([
-    userClient
-      .from('ps_locum_sop_documents')
-      .select('id, title, description, file_url, version, is_required, org_id')
-      .in('org_id', orgIds)
-      .eq('is_active', true)
-      .order('title'),
-    userClient.from('ps_locum_sop_signoffs').select('sop_id, sop_version, signed_at').eq('locum_id', locumId),
-    userClient.rpc('ps_locum_shift_orgs', { p_org_ids: orgIds }),
-  ])
-  if (sopRes.error) throw sopRes.error
-  if (signRes.error) throw signRes.error
-  const names: Record<string, string> = {}
-  for (const o of (orgRes.data ?? []) as { id: string; name: string }[]) names[o.id] = o.name
-  const signs = (signRes.data ?? []) as { sop_id: string; sop_version: number; signed_at: string }[]
-
-  return ((sopRes.data ?? []) as Omit<LocumSOP, 'org_name' | 'signed_at'>[])
-    .map((s) => ({
-      ...s,
-      org_name: names[s.org_id] ?? 'Pharmacy',
-      signed_at: signs.find((x) => x.sop_id === s.id && x.sop_version === s.version)?.signed_at ?? null,
-    }))
-    .sort((a, b) => a.org_name.localeCompare(b.org_name) || Number(!!a.signed_at) - Number(!!b.signed_at) || a.title.localeCompare(b.title))
-}
-
-export async function signLocumSOP(sop: LocumSOP, locumId: string): Promise<void> {
-  const { error } = await userClient
-    .from('ps_locum_sop_signoffs')
-    .insert({ sop_id: sop.id, locum_id: locumId, sop_version: sop.version, signed_at: new Date().toISOString() })
-  if (error && error.code !== '23505') throw error
 }

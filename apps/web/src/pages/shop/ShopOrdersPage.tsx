@@ -215,7 +215,7 @@ export function ShopOrdersPage() {
                   <span className="ps-badge" style={{ background: '#fee2e2', color: '#991b1b' }}>Rejected by pharmacist</span>
                 )}
                 <span style={{ color: 'var(--ps-slate)', fontSize: 'var(--ps-font-sm)' }}>
-                  {o.fulfilment_method === 'delivery' ? '🚚 Delivery' : '🏪 Collection'}
+                  {o.fulfilment_method === 'delivery' ? 'Delivery' : 'Collection'}
                 </span>
                 <span style={{ flex: 1, color: 'var(--ps-slate)', fontSize: 'var(--ps-font-sm)' }}>
                   {o.guest_name || 'Registered patient'}{o.guest_phone ? ` · ${o.guest_phone}` : ''}

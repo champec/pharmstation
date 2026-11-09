@@ -35,6 +35,7 @@ import {
   schedule6Params,
   type CollectorType,
 } from '../../utils/cdRegisterExport'
+import { CircleCheck } from 'lucide-react'
 
 const columnHelper = createColumnHelper<RegisterEntry>()
 
@@ -1508,7 +1509,7 @@ export function CDLedgerPage() {
             {/* Direction indicator based on current entry mode */}
             {entryMode && (
               <span className={`entry-direction-badge ${entryMode === 'in' ? 'entry-in' : 'entry-out'}`}>
-                {entryMode === 'in' ? '📥 IN' : '📤 OUT'}
+                {entryMode === 'in' ? 'IN' : 'OUT'}
               </span>
             )}
             <button
@@ -1683,7 +1684,7 @@ export function CDLedgerPage() {
       <Drawer
         isOpen={drawerOpen}
         onClose={() => setDrawerOpen(false)}
-        title={entryDirection === 'in' ? '📥 Receive Stock IN' : '📤 Supply Stock OUT'}
+        title={entryDirection === 'in' ? 'Receive Stock IN' : 'Supply Stock OUT'}
         width="560px"
       >
         <CDEntryForm
@@ -1737,7 +1738,7 @@ export function CDLedgerPage() {
       <Modal
         isOpen={bcModalOpen}
         onClose={() => setBcModalOpen(false)}
-        title="📋 Balance Check"
+        title="Balance Check"
         width="460px"
       >
         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--ps-space-md)' }}>
@@ -1758,7 +1759,7 @@ export function CDLedgerPage() {
           {bcDone ? (
             /* Success state */
             <div style={{ textAlign: 'center', padding: 'var(--ps-space-lg) 0' }}>
-              <div style={{ fontSize: '48px', marginBottom: 'var(--ps-space-sm)' }}>✅</div>
+              <span className="ps-empty-icon success" aria-hidden="true"><CircleCheck size={26} strokeWidth={1.75} /></span>
               <p style={{ fontWeight: 600, fontSize: 'var(--ps-font-md)' }}>Balance check recorded</p>
               <p style={{ color: 'var(--ps-slate)', fontSize: 'var(--ps-font-sm)', marginTop: '4px' }}>
                 Entry added to the register.

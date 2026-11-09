@@ -68,21 +68,36 @@ export async function startOwnerClaim(ownerEmail: string): Promise<string> {
 
 // ---------- Invites (user session) ----------
 
+/** Creates the invite (database rules decide who may invite whom) and emails
+ *  the link to the invitee through the team-invite edge function. */
 export async function createInvite(
   orgId: string,
   email: string,
   role: InvitableRole,
   permissions?: Permissions,
-): Promise<{ inviteId: string; token: string; expiresAt: string }> {
-  const rows = unwrap(await getUserClient().rpc('ps_org_create_invite', {
-    p_org_id: orgId,
-    p_email: email,
-    p_role: role,
-    p_permissions: permissions && Object.keys(permissions).length ? permissions : null,
-  })) as { invite_id: string; token: string; expires_at: string }[]
-  const row = rows?.[0]
-  if (!row) throw new Error('Could not create the invite')
-  return { inviteId: row.invite_id, token: row.token, expiresAt: row.expires_at }
+): Promise<{ inviteId: string; token: string; expiresAt: string; emailed: boolean }> {
+  const { data, error } = await getUserClient().functions.invoke('team-invite', {
+    body: {
+      org_id: orgId,
+      email,
+      role,
+      permissions: permissions && Object.keys(permissions).length ? permissions : null,
+    },
+  })
+  if (error) {
+    let message = 'Could not create the invite'
+    try {
+      const ctx = (error as { context?: Response }).context
+      const parsed = ctx ? await ctx.json() : null
+      if (parsed?.error) message = parsed.error
+    } catch {
+      // keep the default
+    }
+    throw new Error(message)
+  }
+  const row = data as { invite_id: string; token: string; expires_at: string; emailed: boolean } | null
+  if (!row?.token) throw new Error('Could not create the invite')
+  return { inviteId: row.invite_id, token: row.token, expiresAt: row.expires_at, emailed: !!row.emailed }
 }
 
 export async function listInvites(orgId: string): Promise<OrganisationInvite[]> {

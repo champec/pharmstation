@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuthStore, useNetworkStore } from '@pharmstation/core'
 import { getUserClient } from '@pharmstation/supabase-client'
+import { PageHeader } from '../../../components/ui/PageHeader'
 
 interface OdsPharmacy {
   id: number
@@ -83,16 +84,11 @@ export function NetworkOnboardingPage() {
 
   return (
     <div>
-      <div className="page-header">
-        <div className="breadcrumbs">
-          <a href="/" onClick={(e) => { e.preventDefault(); navigate('/') }}>Dashboard</a>
-          <span className="separator">/</span>
-          <a href="/messaging/network" onClick={(e) => { e.preventDefault(); navigate('/messaging/network') }}>Pharmacy Network</a>
-          <span className="separator">/</span>
-          <span>Link Pharmacy</span>
-        </div>
-        <h1>Link Your Pharmacy</h1>
-      </div>
+      <PageHeader
+        breadcrumbs={[{ label: 'Dashboard', to: '/' }, { label: 'Messaging', to: '/messaging' }, { label: 'Pharmacy Network', to: '/messaging/network' }, { label: 'Link pharmacy' }]}
+        title="Link your pharmacy"
+        subtitle="Choose your NHS pharmacy record once so other pharmacies can find and message you."
+      />
 
       {(error || searchError) && (
         <div className="auth-error" style={{ marginBottom: 'var(--ps-space-md)' }}>
@@ -136,7 +132,7 @@ export function NetworkOnboardingPage() {
               onClick={handleUnlink}
               disabled={unlinking}
             >
-              {unlinking ? 'Removing…' : '🔓 Unlink'}
+              {unlinking ? 'Removing…' : 'Unlink'}
             </button>
           </div>
         </div>
@@ -161,7 +157,7 @@ export function NetworkOnboardingPage() {
             style={{ flex: 1 }}
           />
           <button className="ps-btn ps-btn-primary" onClick={doSearch} disabled={searching || !searchTerm.trim()}>
-            {searching ? '…' : '🔍 Search'}
+            {searching ? 'Searching…' : 'Search'}
           </button>
         </div>
 

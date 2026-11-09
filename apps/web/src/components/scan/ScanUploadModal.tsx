@@ -6,6 +6,7 @@
 import { useState, useRef, useCallback, useEffect } from 'react'
 import { useAuthStore, useScanStore } from '@pharmstation/core'
 import { Modal } from '../Modal'
+import { FileUp } from 'lucide-react'
 
 interface ScanUploadModalProps {
   isOpen: boolean
@@ -250,7 +251,7 @@ export function ScanUploadModal({ isOpen, onClose }: ScanUploadModalProps) {
   }
 
   return (
-    <Modal isOpen={isOpen} onClose={handleClose} title="📸 Scan Document" width="480px">
+    <Modal isOpen={isOpen} onClose={handleClose} title="Scan Document" width="480px">
       <div className="scan-upload-modal">
         {error && <div className="auth-error">{error}</div>}
         {cameraError && <div className="auth-error">{cameraError}</div>}
@@ -285,7 +286,7 @@ export function ScanUploadModal({ isOpen, onClose }: ScanUploadModalProps) {
             onDragLeave={handleDragLeave}
             onClick={() => fileInputRef.current?.click()}
           >
-            <div className="scan-drop-icon">📄</div>
+            <span className="ps-empty-icon" aria-hidden="true"><FileUp size={26} strokeWidth={1.75} /></span>
             <p className="scan-drop-text">Drag & drop an image here, or click to browse</p>
             <p className="scan-drop-hint">JPEG, PNG, WebP or HEIC — max 10MB · optimised before upload</p>
             <div className="scan-drop-actions">

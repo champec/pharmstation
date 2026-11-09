@@ -4,6 +4,7 @@ import { useAuthStore, useServiceStore } from '@pharmstation/core'
 import { NHS_SERVICES_ENABLED } from '../../lib/features'
 import type { Service } from '@pharmstation/types'
 import { Modal } from '../../components/Modal'
+import { Stethoscope } from 'lucide-react'
 
 export function ServicesPage() {
   const navigate = useNavigate()
@@ -127,7 +128,7 @@ export function ServicesPage() {
       {/* Empty state */}
       {!loading && services.length === 0 && (
         <div className="ps-card" style={{ padding: 'var(--ps-space-2xl)', textAlign: 'center' }}>
-          <div style={{ fontSize: '48px', marginBottom: 'var(--ps-space-md)' }}>🩺</div>
+          <span className="ps-empty-icon" aria-hidden="true"><Stethoscope size={26} strokeWidth={1.75} /></span>
           <h2 style={{ color: 'var(--ps-midnight)', marginBottom: 'var(--ps-space-sm)' }}>No services yet</h2>
           <p style={{ color: 'var(--ps-slate)', marginBottom: 'var(--ps-space-lg)', maxWidth: 400, margin: '0 auto var(--ps-space-lg)' }}>
             Get started by browsing the service library or creating a custom service.
