@@ -328,7 +328,7 @@ const styles = StyleSheet.create({
   field: { gap: 4 },
   fieldLabel: { fontSize: 13, fontWeight: '600', color: palette.text },
   input: { borderWidth: 1, borderColor: palette.border, borderRadius: radius.md, paddingHorizontal: 12, paddingVertical: 10, fontSize: 15, color: palette.text, backgroundColor: palette.bg },
-  primary: { backgroundColor: ACCENT, borderRadius: radius.md, paddingVertical: 12, alignItems: 'center', marginTop: 4 },
+  primary: { backgroundColor: palette.brand, borderRadius: radius.md, paddingVertical: 12, alignItems: 'center', marginTop: 4 },
   primaryText: { color: '#fff', fontWeight: '700', fontSize: 15 },
   row: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 6 },
   rowCopy: { flex: 1 },

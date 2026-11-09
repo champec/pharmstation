@@ -31,6 +31,7 @@ import { Ionicons } from '@expo/vector-icons'
 import { userClient } from '@/lib/supabase'
 import { useAuthStore } from '@/stores/auth-store'
 import { palette, radius } from '@/theme/palette'
+import { EmptyState as SharedEmptyState } from '@/components/ui/EmptyState'
 
 export const SHOP_COLOR = '#DB2777'
 
@@ -198,12 +199,12 @@ function OrdersScreen() {
         contentContainerStyle={{ padding: 16, paddingBottom: 40 }}
         ListEmptyComponent={
           loading ? null : (
-            <View style={styles.empty}>
-              <Ionicons name="bag-handle-outline" size={36} color={SHOP_COLOR} />
-              <Text style={styles.emptyText}>
-                {filter === 'check' ? 'Nothing waiting for a pharmacist' : filter === 'done' ? 'No finished orders yet' : 'No open orders'}
-              </Text>
-            </View>
+            <SharedEmptyState
+              icon="bag-handle-outline"
+              color={SHOP_COLOR}
+              title={filter === 'check' ? 'Nothing waiting for a pharmacist' : filter === 'done' ? 'No finished orders yet' : 'No open orders'}
+              text={filter === 'active' ? 'New shop orders from patients will appear here.' : undefined}
+            />
           )
         }
         renderItem={({ item }) => <OrderCard order={item} onPress={() => setOpenId(item.id)} />}
@@ -566,10 +567,12 @@ function StockScreen() {
         keyboardShouldPersistTaps="handled"
         ListEmptyComponent={
           loading ? null : (
-            <View style={styles.empty}>
-              <Ionicons name="cube-outline" size={36} color={SHOP_COLOR} />
-              <Text style={styles.emptyText}>{query ? 'No products match' : 'No products yet. Add them on the website under Shop › Products & Stock.'}</Text>
-            </View>
+            <SharedEmptyState
+              icon="cube-outline"
+              color={SHOP_COLOR}
+              title={query ? 'No products match' : 'No products yet'}
+              text={query ? 'Try a different name or barcode.' : 'Add products on the website under Shop › Products and stock.'}
+            />
           )
         }
         renderItem={({ item: p }) => (
@@ -667,7 +670,7 @@ const styles = StyleSheet.create({
   error: { color: palette.danger, paddingHorizontal: 16, paddingTop: 8 },
   pills: { flexDirection: 'row', gap: 8, paddingHorizontal: 16, paddingTop: 12 },
   pill: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: radius.pill, borderWidth: 1, borderColor: palette.border, backgroundColor: palette.surface },
-  pillOn: { backgroundColor: SHOP_COLOR, borderColor: SHOP_COLOR },
+  pillOn: { backgroundColor: palette.brand, borderColor: palette.brand },
   pillText: { fontSize: 14, fontWeight: '600', color: palette.text },
   pillTextOn: { color: palette.textInverse },
   empty: { alignItems: 'center', gap: 8, paddingTop: 80, paddingHorizontal: 24 },

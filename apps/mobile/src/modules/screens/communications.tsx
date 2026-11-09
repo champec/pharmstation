@@ -34,6 +34,7 @@ import { useAuthStore } from '@/stores/auth-store'
 import { NetworkSetupModal, NetworkStatusBanner, networkBlocker } from '@/modules/screens/network-setup'
 import { userClient } from '@/lib/supabase'
 import { palette, radius } from '@/theme/palette'
+import { EmptyState as SharedEmptyState } from '@/components/ui/EmptyState'
 
 const COLOR = '#0EA5E9'
 const COLOR_TINT = '#E0F2FE'
@@ -759,11 +760,7 @@ function Loading() {
 
 function Empty({ icon, title, text }: { icon: keyof typeof Ionicons.glyphMap; title: string; text: string }) {
   return (
-    <View style={styles.empty}>
-      <View style={styles.emptyIcon}><Ionicons name={icon} size={26} color={COLOR} /></View>
-      <Text style={styles.emptyTitle}>{title}</Text>
-      <Text style={styles.emptyText}>{text}</Text>
-    </View>
+    <SharedEmptyState icon={icon} title={title} text={text} color={COLOR} />
   )
 }
 
@@ -787,7 +784,7 @@ const styles = StyleSheet.create({
   countBadge: { minWidth: 20, height: 20, borderRadius: 10, backgroundColor: COLOR, paddingHorizontal: 6, alignItems: 'center', justifyContent: 'center' },
   countText: { color: '#FFFFFF', fontSize: 11, fontWeight: '800' },
 
-  newButton: { minHeight: 48, borderRadius: radius.md, backgroundColor: COLOR, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, marginBottom: 12 },
+  newButton: { minHeight: 48, borderRadius: radius.md, backgroundColor: palette.brand, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, marginBottom: 12 },
   newButtonText: { color: '#FFFFFF', fontWeight: '800', fontSize: 15 },
   actionsRow: { flexDirection: 'row', gap: 8 },
   iconButton: { width: 48, height: 48, borderRadius: radius.md, borderWidth: 1, borderColor: palette.border, backgroundColor: palette.surface, alignItems: 'center', justifyContent: 'center' },
@@ -821,7 +818,7 @@ const styles = StyleSheet.create({
   bubbleLeft: { alignSelf: 'flex-start' },
   bubbleRight: { alignSelf: 'flex-end', alignItems: 'flex-end' },
   bubble: { borderRadius: 16, paddingHorizontal: 13, paddingVertical: 9 },
-  bubbleMine: { backgroundColor: COLOR, borderBottomRightRadius: 4 },
+  bubbleMine: { backgroundColor: palette.brand, borderBottomRightRadius: 4 },
   bubbleSms: { backgroundColor: palette.success, borderBottomRightRadius: 4 },
   bubbleTheirs: { backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.border, borderBottomLeftRadius: 4 },
   bubbleText: { color: palette.text, fontSize: 15, lineHeight: 20 },

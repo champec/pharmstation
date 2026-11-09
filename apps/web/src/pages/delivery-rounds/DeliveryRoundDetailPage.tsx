@@ -59,6 +59,8 @@ export function DeliveryRoundDetailPage() {
     subscribeToRound,
     addMedicationToRoundPatient,
     removeMedicationFromRoundPatient,
+    availableDrivers,
+    fetchAvailableDrivers,
     clearError,
   } = useDeliveryRoundStore()
 
@@ -98,6 +100,10 @@ export function DeliveryRoundDetailPage() {
   }, [organisation?.id, links.length, fetchLinks])
 
   useEffect(() => { load() }, [load])
+
+  useEffect(() => {
+    if (organisation?.id) void fetchAvailableDrivers(organisation.id)
+  }, [organisation?.id, fetchAvailableDrivers])
 
   useEffect(() => {
     const paths = round?.patients?.flatMap((patient) => patient.proof_photo_paths ?? []) ?? []
@@ -359,7 +365,7 @@ export function DeliveryRoundDetailPage() {
           </>
         )}
         {['draft', 'scheduled'].includes(round.status) && (
-          <button className="ps-btn ps-btn-ghost" type="button" onClick={handleCancel} disabled={saving} style={{ color: 'var(--ps-red)' }}>Cancel delivery</button>
+          <button className="ps-btn ps-btn-ghost" type="button" onClick={handleCancel} disabled={saving} style={{ color: 'var(--ps-error)' }}>Cancel delivery</button>
         )}
       </div>
 
@@ -387,11 +393,13 @@ export function DeliveryRoundDetailPage() {
         <article><span>Pending</span><strong>{pending}</strong><small>awaiting delivery</small></article>
       </div>
 
-      {round.driver && (
-        <p className="care-home-subtitle">Driver: {(round.driver as any).user_profile?.full_name}</p>
-      )}
+      <p className="care-home-subtitle">
+        Driver: {round.driver_id
+          ? (availableDrivers.find((d) => d.id === round.driver_id)?.full_name ?? 'Assigned')
+          : 'No driver yet (any driver can take it)'}
+      </p>
       {round.notes && (
-        <p className="care-home-subtitle">{round.notes}</p>
+        <p className="care-home-subtitle">Notes: {round.notes}</p>
       )}
 
       {patients.length > 0 && (
@@ -441,8 +449,8 @@ export function DeliveryRoundDetailPage() {
                       </span>
                     )}
                     {rp.notes && <small>{rp.notes}</small>}
-                    {rp.failure_reason && <small style={{ color: 'var(--ps-red)' }}>⚠️ {rp.failure_reason}</small>}
-                    {rp.delivered_at && <small style={{ color: 'var(--ps-green)' }}>✓ Delivered {formatDatetime(rp.delivered_at)}</small>}
+                    {rp.failure_reason && <small style={{ color: 'var(--ps-error)' }}>Reason: {rp.failure_reason}</small>}
+                    {rp.delivered_at && <small style={{ color: 'var(--ps-success)' }}>✓ Delivered {formatDatetime(rp.delivered_at)}</small>}
                     {rp.signature_data && <small>Signature captured</small>}
                     {rp.delivery_method && (
                       <small>
