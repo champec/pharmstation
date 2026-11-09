@@ -15,7 +15,9 @@ export const palette = {
   danger: '#DC2626',
   dangerTint: '#FEE2E2',
   success: '#059669',
+  successTint: '#ECFDF5',
   warning: '#D97706',
+  warningTint: '#FFFBEB',
 
   overlay: 'rgba(15, 23, 42, 0.45)',
 } as const

@@ -135,9 +135,13 @@ export function missedDays(
   loggedDates: Set<string>,
   start: string,
   today = ukDate(),
+  /** First day the log was in use (yyyy-mm-dd); days before it are never "missed" */
+  startedOn?: string | null,
 ): string[] {
   if (!isScheduled(template)) return []
-  return dateList(start, addDays(today, -1)).filter((d) => isRequiredOn(template, d) && !loggedDates.has(d))
+  const from = startedOn && startedOn > start ? startedOn : start
+  if (from > addDays(today, -1)) return []
+  return dateList(from, addDays(today, -1)).filter((d) => isRequiredOn(template, d) && !loggedDates.has(d))
 }
 
 /* ---- Fields, ranges and validation ---- */

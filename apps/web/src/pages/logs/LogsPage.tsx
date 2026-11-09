@@ -95,7 +95,10 @@ export function LogsPage() {
         lastEntry,
         dueToday: isRequiredOn(sub.template, today),
         streak: computeStreak(sub.template, dates, today, WINDOW_DAYS),
-        missedThisWeek: missedDays(sub.template, dates, addDays(today, -7), today).length,
+        missedThisWeek: missedDays(
+          sub.template, dates, addDays(today, -7), today,
+          [sub.subscribed_at ? ukDate(new Date(sub.subscribed_at)) : null, ...[...dates].sort()].filter((d): d is string => !!d).sort()[0] ?? null,
+        ).length,
       }
     })
   }, [subscriptions, orgEntries, today])

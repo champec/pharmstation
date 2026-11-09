@@ -4,6 +4,7 @@
 import type { ComponentType } from 'react'
 import { makeTab } from '@/components/module/TabPlaceholder'
 import { HandoverScreen } from './handover'
+import { LogsScreen } from './logs'
 import { RpLogScreen } from './rp-log'
 
 const COLOR = '#DC2626'
@@ -17,4 +18,5 @@ export const pharmacyScreens: Record<string, ComponentType> = {
   }),
   'rp-log': RpLogScreen,
   handover: HandoverScreen,
+  logs: LogsScreen,
 }

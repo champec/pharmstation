@@ -108,8 +108,15 @@ export function LogViewPage() {
   const dates = useMemo(() => dateList(range.start, range.end > today ? today : range.end), [range, today])
   const inRange = (e: LogEntry) => e.entry_date >= range.start && e.entry_date <= range.end
 
+  // Days before the log was added (or before the first entry, if earlier) can't be "missed".
+  const startedOn = useMemo(() => {
+    const added = subscription?.subscribed_at ? ukDate(new Date(subscription.subscribed_at)) : null
+    const first = liveEntries.reduce<string | null>((m, e) => (m === null || e.entry_date < m ? e.entry_date : m), null)
+    return [added, first].filter((d): d is string => !!d).sort()[0] ?? null
+  }, [subscription?.subscribed_at, liveEntries])
+
   const stats = useMemo(() => {
-    const requiredDates = dates.filter((d) => isRequiredOn(template, d) && d !== today)
+    const requiredDates = dates.filter((d) => isRequiredOn(template, d) && d !== today && (!startedOn || d >= startedOn))
     const logged = requiredDates.filter((d) => loggedDates.has(d)).length
     const warnings = liveEntries.filter((e) => inRange(e) && entryHasWarning(fields, e)).length
     return {
@@ -121,7 +128,7 @@ export function LogViewPage() {
       count: liveEntries.filter(inRange).length,
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dates, template, loggedDates, liveEntries, fields, today, range])
+  }, [dates, template, loggedDates, liveEntries, fields, today, range, startedOn])
 
   const todayDue = scheduled && isRequiredOn(template, today) && !entryByDate[today]
 
@@ -339,7 +346,7 @@ export function LogViewPage() {
                 const required = isRequiredOn(template, date)
                 const entry = entryByDate[date]
                 const isToday = date === today
-                const missing = required && !entry && !isToday
+                const missing = required && !entry && !isToday && (!startedOn || date >= startedOn)
                 return (
                   <tr key={date} className={`${isToday ? 'is-today' : ''}${!required ? ' is-off' : ''}${missing ? ' is-missing' : ''}`}>
                     <td className="log-day">

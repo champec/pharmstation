@@ -289,10 +289,18 @@ export function RPLogPage() {
     return map
   }, [filtered])
 
+  // Don't list days before the pharmacy existed (or its earliest RP record, if older).
+  const firstDay = useMemo(() => {
+    const opened = organisation?.created_at ? ukDate(new Date(organisation.created_at)) : null
+    const earliest = sessions.reduce<string | null>((m, s) => (m === null || s.date < m ? s.date : m), null)
+    return [opened, earliest].filter((d): d is string => !!d).sort()[0] ?? null
+  }, [organisation?.created_at, sessions])
+
   const days = useMemo(() => {
-    const all = dateList(since, today)
+    const from = firstDay && firstDay > since ? firstDay : since
+    const all = from > today ? [today] : dateList(from, today)
     return search.trim() ? all.filter((d) => byDate.has(d)) : all
-  }, [since, today, byDate, search])
+  }, [since, today, byDate, search, firstDay])
 
   // Runs of past days with no RP collapse into one line.
   const dayBlocks = useMemo(() => {

@@ -7,12 +7,12 @@ import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'r
 import { Ionicons } from '@expo/vector-icons'
 
 import { Button } from '@/components/ui/Button'
+import { CategoryIcon } from '@/components/pharmacy/CategoryIcon'
 import { LogEntrySheet } from '@/components/pharmacy/LogEntrySheet'
 import { RpStatusCard } from '@/components/pharmacy/RpStatusCard'
 import { useAuthStore } from '@/stores/auth-store'
 import { palette, radius } from '@/theme/palette'
 import {
-  CATEGORY_LOOK,
   HANDOVER_TEMPLATE_ID,
   addDays,
   ensureLibrarySubscription,
@@ -105,7 +105,7 @@ export function HandoverScreen() {
   }
 
   const onSaved = () => {
-    setToast(sheet?.kind === 'handover' ? 'Handover saved. The next shift will see it here.' : 'Logged. Nice work!')
+    setToast(sheet?.kind === 'handover' ? 'Handover saved. The next shift will see it here.' : 'Logged. Thanks!')
     setSheet(null)
     load()
   }
@@ -140,7 +140,6 @@ export function HandoverScreen() {
           <Text style={styles.empty}>No daily logs due today. Add logs like the fridge temperature log on the website.</Text>
         ) : null}
         {checks.map(({ sub, done }) => {
-          const look = CATEGORY_LOOK[sub.template?.category ?? 'custom'] ?? CATEGORY_LOOK.custom
           return (
             <Pressable
               key={sub.id}
@@ -148,7 +147,7 @@ export function HandoverScreen() {
               disabled={!!done}
               onPress={() => setSheet({ kind: 'log', sub })}
             >
-              <Text style={styles.emoji}>{look.emoji}</Text>
+              <CategoryIcon category={sub.template?.category} />
               <View style={styles.flex1}>
                 <Text style={styles.checkTitle}>{sub.custom_title || sub.template?.title}</Text>
                 <Text style={styles.meta}>
@@ -185,7 +184,7 @@ export function HandoverScreen() {
 
       {toast ? (
         <View style={styles.toast} pointerEvents="none">
-          <Ionicons name="sparkles" size={18} color={palette.textInverse} />
+          <Ionicons name="checkmark-circle" size={18} color={palette.textInverse} />
           <Text style={styles.toastText}>{toast}</Text>
         </View>
       ) : null}
@@ -249,8 +248,7 @@ const styles = StyleSheet.create({
     borderLeftWidth: 4,
     borderLeftColor: palette.warning,
   },
-  checkDone: { borderLeftColor: palette.success, backgroundColor: '#F7FEFB' },
-  emoji: { fontSize: 24 },
+  checkDone: { borderLeftColor: palette.success, backgroundColor: palette.successTint },
   checkTitle: { fontSize: 16, fontWeight: '700', color: palette.text },
   meta: { fontSize: 13, color: palette.textMuted, lineHeight: 18, flexShrink: 1 },
   note: {
@@ -261,10 +259,10 @@ const styles = StyleSheet.create({
     padding: 14,
     gap: 8,
   },
-  noteUrgent: { borderColor: palette.danger, backgroundColor: '#FFF7F7' },
+  noteUrgent: { borderColor: palette.danger, backgroundColor: palette.dangerTint },
   noteHead: { flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' },
   noteText: { fontSize: 15, lineHeight: 21, color: palette.text },
-  todo: { backgroundColor: '#FFFBEB', borderRadius: radius.sm, padding: 10, gap: 2 },
+  todo: { backgroundColor: palette.warningTint, borderRadius: radius.sm, padding: 10, gap: 2 },
   todoLabel: { fontSize: 12, fontWeight: '800', color: palette.warning, textTransform: 'uppercase' },
   badge: { fontSize: 11, fontWeight: '800', paddingHorizontal: 8, paddingVertical: 2, borderRadius: radius.pill, overflow: 'hidden' },
   badgeUrgent: { color: palette.danger, backgroundColor: palette.dangerTint },

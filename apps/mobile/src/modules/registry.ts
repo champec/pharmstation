@@ -176,7 +176,7 @@ export const MODULES: MobileModule[] = [
   {
     id: 'pharmacy',
     title: 'Pharmacy Management',
-    description: 'Registers, handover and team tasks',
+    description: 'RP log, handover, daily logs and registers',
     icon: 'business-outline',
     color: '#DC2626',
     tier: 'org',
@@ -203,6 +203,12 @@ export const MODULES: MobileModule[] = [
         icon: 'reader-outline',
         visible: (ctx) => has(ctx.permissions, 'handover_all'),
         blurb: 'RP on duty, today’s checks and handover notes',
+      },
+      {
+        id: 'logs',
+        title: 'Logs',
+        icon: 'list-outline',
+        blurb: 'Fridge temperatures, cleaning, visitors and other logs',
       },
       {
         id: 'team',

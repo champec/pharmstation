@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import type { FieldType, LogEntry, LogField } from '@pharmstation/types'
 import { CanvasField } from '../../components/forms/CanvasField'
 import {
@@ -174,6 +174,23 @@ export function LogEntryForm({ fields, entry, date, userName, saving, error, sub
   })
   const [reason, setReason] = useState('')
   const [touched, setTouched] = useState(false)
+
+  // Fill "Checked by" style fields with the signed-in person's name once the
+  // fields and the name have loaded (they can arrive after the form opens).
+  useEffect(() => {
+    if (isEdit || !userName) return
+    setData((d) => {
+      let changed = false
+      const next = { ...d }
+      for (const f of fs) {
+        if (isPersonField(f) && (next[f.field_key] === undefined || next[f.field_key] === '')) {
+          next[f.field_key] = userName
+          changed = true
+        }
+      }
+      return changed ? next : d
+    })
+  }, [fs, userName, isEdit])
 
   const errors = validateEntry(fs, data)
   const reasonError = isEdit && reason.trim().length < 3 ? 'Say why you are changing this entry' : null
