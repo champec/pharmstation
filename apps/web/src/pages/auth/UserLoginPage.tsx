@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { useAuthStore } from '@pharmstation/core'
 import { logAuthEvent, orgNeedsOwner } from '@pharmstation/supabase-client'
 import { IDLE_SIGNOUT_FLAG } from '../../components/IdleLock'
@@ -7,6 +7,7 @@ import { MfaCodeForm } from '../../components/mfa/MfaCodeForm'
 import { PasswordInput } from '../../components/PasswordInput'
 
 export function UserLoginPage() {
+  const navigateToSetup = useNavigate()
   const { organisation, userLogin, orgLogout, mfaPendingFactorId } = useAuthStore()
   // Test credentials are prefilled in local dev only
   const [email, setEmail] = useState(import.meta.env.DEV ? 'testuser@pharmstation.dev' : '')
@@ -33,8 +34,12 @@ export function UserLoginPage() {
   // A pharmacy that signed up but hasn't linked its owner yet (e.g. the
   // sign-up paused for email confirmation) has nobody who can sign in here.
   useEffect(() => {
-    orgNeedsOwner().then(setNeedsOwner)
-  }, [])
+    // Nobody can sign in as staff until the owner is set up, so go straight there.
+    orgNeedsOwner().then((needs) => {
+      setNeedsOwner(needs)
+      if (needs) navigateToSetup('/setup/owner', { replace: true })
+    })
+  }, [navigateToSetup])
 
   // Load saved staff emails from localStorage
   // Recent staff for THIS pharmacy only (the old device-wide list showed people from other pharmacies)
