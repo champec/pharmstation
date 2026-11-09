@@ -107,6 +107,8 @@ export interface NetworkState {
   unlinkPharmacy: (orgId: string) => Promise<void>
   /** "This is our pharmacy" when someone else has claimed it. Returns the support reference. */
   disputeLink: (orgId: string, pharmacyId: number, message: string) => Promise<string>
+  /** Open dispute cases for this org, by ODS code. */
+  fetchOpenDisputes: (orgId: string) => Promise<Record<string, string>>
 
   // Actions — settings
   fetchSettings:     (orgId: string) => Promise<void>
@@ -391,7 +393,17 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
       p_org_id: orgId, p_pharmacy_id: pharmacyId, p_message: message,
     })
     if (error) throw error
-    return data as string
+    const reference = data as string
+    // Email the case to the support inbox (best effort; the ticket is saved either way).
+    void client.functions.invoke('support-request', { body: { action: 'forward', reference } }).catch(() => undefined)
+    return reference
+  },
+
+  fetchOpenDisputes: async (orgId) => {
+    const { data } = await getUserClient().rpc('ps_network_open_disputes', { p_org_id: orgId })
+    const out: Record<string, string> = {}
+    for (const r of (data ?? []) as { ods_code: string; reference: string }[]) out[r.ods_code] = r.reference
+    return out
   },
 
   unlinkPharmacy: async (orgId) => {

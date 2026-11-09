@@ -11,6 +11,12 @@ function timeLabel(t: string) {
 }
 
 /** UK mobile in any common format → "+447xxxxxxxxx", or null if it isn't one. */
+/** "+447700900123" -> "07700 900123" for display. */
+function formatUkMobile(n: string): string {
+  const local = n.replace(/^\+44/, '0').replace(/\s/g, '')
+  return /^07\d{9}$/.test(local) ? `${local.slice(0, 5)} ${local.slice(5)}` : n
+}
+
 function normaliseUkMobile(raw: string): string | null {
   let n = raw.replace(/[^\d+]/g, '')
   if (n.startsWith('+')) n = n.slice(1)
@@ -274,7 +280,7 @@ export function NetworkSettingsPage() {
                   }} />
 
                   <div style={{ flex: 1, minWidth: 180 }}>
-                    <div style={{ fontWeight: 600 }}>{c.phone_number}</div>
+                    <div style={{ fontWeight: 600 }}>{formatUkMobile(c.phone_number)}</div>
                     <div style={{ fontSize: '0.8rem', color: 'var(--ps-slate)' }}>
                       {c.label && <>{c.label} · </>}
                       Active: {timeLabel(c.notify_start)} – {timeLabel(c.notify_end)}
@@ -332,8 +338,8 @@ export function NetworkSettingsPage() {
                     <button
                       className="ps-btn ps-btn-ghost"
                       style={{ fontSize: '0.8rem', padding: '4px 8px', color: 'var(--ps-red, crimson)' }}
-                      onClick={async () => { if (await confirmDialog(`Remove ${c.phone_number} from urgent text alerts?`)) deleteSmsContact(c.id) }}
-                      aria-label={`Remove ${c.phone_number}`}
+                      onClick={async () => { if (await confirmDialog(`Remove ${formatUkMobile(c.phone_number)} from urgent text alerts?`)) deleteSmsContact(c.id) }}
+                      aria-label={`Remove ${formatUkMobile(c.phone_number)}`}
                       title="Remove number"
                     >
                       <Trash2 size={16} strokeWidth={1.75} aria-hidden="true" />

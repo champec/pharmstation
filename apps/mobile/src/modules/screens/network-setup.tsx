@@ -21,6 +21,12 @@ import { useCommsStore, type NetworkContact, type NetworkSetup } from '@/stores/
 import { useAuthStore } from '@/stores/auth-store'
 import { palette, radius } from '@/theme/palette'
 
+/** "+447700900123" -> "07700 900123" for display. */
+function formatUkMobile(n: string): string {
+  const local = n.replace(/^\+44/, '0').replace(/\s/g, '')
+  return /^07\d{9}$/.test(local) ? `${local.slice(0, 5)} ${local.slice(5)}` : n
+}
+
 const COLOR = '#0EA5E9'
 const COLOR_TINT = '#E0F2FE'
 
@@ -190,11 +196,17 @@ function LinkSearch({ onDone }: { onDone: () => void }) {
   const currentId = useCommsStore((s) => s.setup?.link?.pharmacy_id)
   const [query, setQuery] = useState('')
   const [busyId, setBusyId] = useState<number | null>(null)
+  const [openCases, setOpenCases] = useState<Record<string, string>>({})
 
-  const dispute = (p: { id: number; organisation_name: string }) => {
+  useEffect(() => {
+    void useCommsStore.getState().fetchOpenDisputes().then(setOpenCases)
+  }, [])
+
+  const dispute = (p: { id: number; organisation_name: string; ods_code: string | null }) => {
     const send = async (message: string) => {
       try {
         const ref = await useCommsStore.getState().disputeLink(p.id, message)
+        if (p.ods_code) setOpenCases((prev) => ({ ...prev, [p.ods_code as string]: ref }))
         Alert.alert('Sent to PharmStation', `Case ${ref}. We’ll check who owns ${p.organisation_name}, usually within one working day.`)
       } catch (e) {
         Alert.alert('Not sent', (e as Error).message)
@@ -264,7 +276,9 @@ function LinkSearch({ onDone }: { onDone: () => void }) {
               ) : p.taken ? (
                 <>
                   <Text style={styles.tagMuted}>Already on PharmStation</Text>
-                  <SmallButton label="This is ours" onPress={() => dispute(p)} />
+                  {p.ods_code && openCases[p.ods_code]
+                    ? <Text style={styles.tagMuted}>Case {openCases[p.ods_code]} is open</Text>
+                    : <SmallButton label="This is ours" onPress={() => dispute(p)} />}
                 </>
               ) : (
                 <SmallButton label={busyId === p.id ? 'Linking…' : 'This is my pharmacy'} onPress={() => void link(p.id)} disabled={busyId !== null} />
@@ -312,7 +326,7 @@ function ContactsSection({ contacts }: { contacts: NetworkContact[] }) {
           <View style={styles.contactTop}>
             <View style={[styles.statusDot, { backgroundColor: !c.is_enabled ? palette.textMuted : paused(c) ? '#F59E0B' : palette.success }]} />
             <View style={styles.flex}>
-              <Text style={styles.cardTitle}>{c.phone_number.replace(/^\+44/, '0')}</Text>
+              <Text style={styles.cardTitle}>{formatUkMobile(c.phone_number)}</Text>
               <Text style={styles.cardMeta}>
                 {[c.label, `${c.notify_start.slice(0, 5)}–${c.notify_end.slice(0, 5)}`].filter(Boolean).join(' · ')}
                 {!c.is_enabled ? ' · Off' : paused(c) ? ` · Paused until ${new Date(c.pause_until!).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}` : ''}
@@ -332,7 +346,7 @@ function ContactsSection({ contacts }: { contacts: NetworkContact[] }) {
             <SmallButton
               label="Remove"
               danger
-              onPress={() => Alert.alert('Remove this number?', c.phone_number, [
+              onPress={() => Alert.alert('Remove this number?', formatUkMobile(c.phone_number), [
                 { text: 'Cancel', style: 'cancel' },
                 { text: 'Remove', style: 'destructive', onPress: () => act(useCommsStore.getState().deleteContact(c.id)) },
               ])}

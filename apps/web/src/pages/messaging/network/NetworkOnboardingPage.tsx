@@ -20,7 +20,7 @@ interface OdsPharmacy {
 export function NetworkOnboardingPage() {
   const navigate = useNavigate()
   const { organisation, permissions } = useAuthStore()
-  const { myLink, fetchMyLink, linkPharmacy, unlinkPharmacy, disputeLink, loading, error, clearError } = useNetworkStore()
+  const { myLink, fetchMyLink, linkPharmacy, unlinkPharmacy, disputeLink, fetchOpenDisputes, loading, error, clearError } = useNetworkStore()
   const canManage = permissions?.org_settings === true
 
   const [searchTerm, setSearchTerm] = useState('')
@@ -33,11 +33,15 @@ export function NetworkOnboardingPage() {
   const [disputeText, setDisputeText] = useState('')
   const [disputeRef, setDisputeRef] = useState<string | null>(null)
   const [disputeBusy, setDisputeBusy] = useState(false)
+  const [openCases, setOpenCases] = useState<Record<string, string>>({})
   const verification = organisation?.verification_status
   const canLink = verification === undefined || verification === 'verified'
 
   useEffect(() => {
-    if (organisation?.id) fetchMyLink(organisation.id)
+    if (organisation?.id) {
+      fetchMyLink(organisation.id)
+      fetchOpenDisputes(organisation.id).then(setOpenCases).catch(() => undefined)
+    }
   }, [organisation?.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const doSearch = useCallback(async () => {
@@ -96,6 +100,7 @@ export function NetworkOnboardingPage() {
     try {
       const ref = await disputeLink(organisation.id, disputing.id, disputeText)
       setDisputeRef(ref)
+      setOpenCases((prev) => ({ ...prev, [disputing.ods_code]: ref }))
       setDisputing(null)
       setDisputeText('')
     } catch (e: unknown) {
@@ -231,9 +236,13 @@ export function NetworkOnboardingPage() {
                   ) : takenIds.has(ph.id) ? (
                     <span style={{ display: 'flex', alignItems: 'center', gap: 'var(--ps-space-sm)', flexShrink: 0 }}>
                       <span className="ps-badge" title="Another PharmStation account has linked this pharmacy">Already on PharmStation</span>
-                      <button className="ps-btn ps-btn-ghost" onClick={() => { setDisputing(ph); setDisputeRef(null) }}>
-                        This is ours
-                      </button>
+                      {openCases[ph.ods_code] ? (
+                        <span className="ps-badge" title="Our team is checking who owns this pharmacy">Case {openCases[ph.ods_code]} is open</span>
+                      ) : (
+                        <button className="ps-btn ps-btn-ghost" onClick={() => { setDisputing(ph); setDisputeRef(null) }}>
+                          This is ours
+                        </button>
+                      )}
                     </span>
                   ) : !canManage ? (
                     <span className="ps-badge" title="Only owners and managers can link the pharmacy">Owners and managers only</span>
