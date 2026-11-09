@@ -5,6 +5,15 @@ import { AudienceSwitch } from '../../components/public/AudienceSwitch'
 import { useShopStore } from '@pharmstation/core'
 import { PublicFooter } from '../../components/public/PublicFooter'
 
+const HERO_SLIDES = [
+  { key: 'everyday', image: '/images/shop-hero.webp', label: 'Everyday essentials', match: null },
+  { key: 'vitamins', image: '/images/hero-vitamins.webp', label: 'Vitamins and supplements', match: /vitamin|supplement/i },
+  { key: 'skincare', image: '/images/hero-skincare.webp', label: 'Skin care', match: /skin|toiletries|personal care/i },
+  { key: 'coldflu', image: '/images/hero-coldflu.webp', label: 'Cold, flu and allergy', match: /cold|flu|allerg|hay ?fever/i },
+  { key: 'baby', image: '/images/hero-baby.webp', label: 'Baby and child', match: /baby|child/i },
+] as const
+const HERO_INTERVAL_MS = 6000
+
 const formatPrice = (pence: number) => `£${(pence / 100).toFixed(2)}`
 
 async function geocodePostcode(postcode: string): Promise<{ lat: number; lng: number } | null> {
@@ -37,6 +46,8 @@ export function ModernShopHomePage() {
   const [deliveryOnly, setDeliveryOnly] = useState(false)
   const [view, setView] = useState<'products' | 'pharmacies'>('products')
   const [basketOpen, setBasketOpen] = useState(false)
+  const [heroIndex, setHeroIndex] = useState(0)
+  const [heroPaused, setHeroPaused] = useState(false)
 
   useEffect(() => {
     fetchShopOrgs(location?.lat ?? null, location?.lng ?? null)
@@ -99,7 +110,28 @@ export function ModernShopHomePage() {
     return !query || `${org.name} ${org.address?.city || ''} ${org.address?.postcode || ''}`.toLowerCase().includes(query)
   }), [shopOrgs, deliveryOnly, search])
   const rootCategories = categories.filter((category) => !category.parent_id)
-  const heroProducts = products.filter((product) => product.image_url).slice(0, 3)
+  const categoryById = useMemo(() => new Map(categories.map((category) => [category.id, category])), [categories])
+  const heroSlides = useMemo(() => {
+    const withImages = products.filter((product) => product.image_url)
+    const categoryText = (categoryId: string | null) => {
+      const category = categoryId ? categoryById.get(categoryId) : undefined
+      const parent = category?.parent_id ? categoryById.get(category.parent_id) : undefined
+      return `${category?.name ?? ''} ${parent?.name ?? ''}`
+    }
+    return HERO_SLIDES.map((slide) => {
+      const matched = slide.match ? withImages.filter((product) => slide.match!.test(categoryText(product.category_id))) : []
+      const filler = withImages.filter((product) => !matched.includes(product))
+      return { ...slide, products: [...matched, ...(slide.match ? [] : filler)].slice(0, 3) }
+    }).filter((slide, index) => index === 0 || slide.products.length > 0)
+  }, [products, categoryById])
+  const activeHeroIndex = heroIndex % heroSlides.length
+  const heroProducts = heroSlides[activeHeroIndex]?.products ?? []
+  useEffect(() => {
+    if (heroPaused || heroSlides.length < 2) return
+    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return
+    const timer = window.setInterval(() => setHeroIndex((index) => (index + 1) % heroSlides.length), HERO_INTERVAL_MS)
+    return () => window.clearInterval(timer)
+  }, [heroPaused, heroSlides.length])
   const cartCount = cart.reduce((total, item) => total + item.quantity, 0)
   const cartSubtotal = cart.reduce((total, item) => total + item.product.price_pence * item.quantity, 0)
   const cartOrg = cartOrgId ? orgById.get(cartOrgId) : undefined
@@ -156,8 +188,10 @@ export function ModernShopHomePage() {
       {!search && !categoryId && view === 'products' && <>
         <section className="modern-shop-hero">
           <div className="modern-shop-hero-copy"><span>Local pharmacy, made effortless</span><h1>Health essentials.<br />Ready when you are.</h1><p>Browse nearby pharmacy stock, choose collection or delivery, and get pharmacist-led support for products that need it.</p><div><button type="button" onClick={() => document.getElementById('shop-products')?.scrollIntoView({ behavior: 'smooth' })}>Shop essentials</button><button type="button" onClick={() => setView('pharmacies')}>Choose a pharmacy</button></div></div>
-          <div className="modern-shop-hero-products" aria-label="Featured products">
-            {heroProducts.length ? heroProducts.map((product, index) => <button type="button" key={product.id} className={`item-${index + 1}`} onClick={() => navigate(`/shop/${orgById.get(product.org_id)?.slug || product.org_id}/${product.id}`)}><img src={product.image_url!} alt={product.name} /><span>{product.name}</span><b>{formatPrice(product.price_pence)}</b></button>) : <div className="modern-shop-hero-placeholder"><b>Everyday care</b><small>Products from pharmacies near you</small></div>}
+          <div className="modern-shop-hero-products" aria-roledescription="carousel" aria-label="Featured products" onMouseEnter={() => setHeroPaused(true)} onMouseLeave={() => setHeroPaused(false)} onFocus={() => setHeroPaused(true)} onBlur={() => setHeroPaused(false)}>
+            {heroSlides.map((slide, index) => <div key={slide.key} className={`modern-shop-hero-slide${index === activeHeroIndex ? ' is-active' : ''}`} style={{ backgroundImage: `url(${slide.image})` }} aria-hidden="true" />)}
+            {heroProducts.length ? heroProducts.map((product, index) => <button type="button" key={`${heroSlides[activeHeroIndex]?.key}-${product.id}`} className={`modern-shop-hero-card item-${index + 1}`} onClick={() => navigate(`/shop/${orgById.get(product.org_id)?.slug || product.org_id}/${product.id}`)}><img src={product.image_url!} alt={product.name} /><span>{product.name}</span><b>{formatPrice(product.price_pence)}</b></button>) : <div className="modern-shop-hero-placeholder"><b>Everyday care</b><small>Products from pharmacies near you</small></div>}
+            {heroSlides.length > 1 && <div className="modern-shop-hero-dots" role="tablist" aria-label="Choose a featured range">{heroSlides.map((slide, index) => <button type="button" role="tab" key={slide.key} aria-selected={index === activeHeroIndex} aria-label={slide.label} className={index === activeHeroIndex ? 'is-active' : ''} onClick={() => setHeroIndex(index)} />)}</div>}
           </div>
         </section>
 

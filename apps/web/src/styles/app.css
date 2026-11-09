@@ -514,17 +514,26 @@
 .modern-shop-hero-copy button { min-height: 46px; padding: 0 19px; border: 1px solid var(--ms-ink); border-radius: 5px; background: transparent; font-size: 14px; font-weight: 800; cursor: pointer; }
 .modern-shop-hero-copy button:first-child { background: var(--ms-ink); color: #fff; }
 .modern-shop-hero-copy button:hover { border-color: var(--ms-coral); background: var(--ms-coral); color: #fff; }
-.modern-shop-hero-products { position: relative; min-height: 530px; overflow: hidden; background: var(--ms-yellow) url('/images/shop-hero.webp') center / cover no-repeat; }
-.modern-shop-hero-products::before { position: absolute; inset: 0; background: linear-gradient(90deg, rgba(220, 239, 235, 0.55) 0%, rgba(220, 239, 235, 0) 28%); content: ''; pointer-events: none; }
-.modern-shop-hero-products > button { position: absolute; display: grid; width: 27%; max-width: 210px; padding: 10px; border: 0; border-radius: 8px; background: #fff; box-shadow: 0 22px 38px rgba(70, 60, 20, 0.18); text-align: left; cursor: pointer; transition: transform 180ms ease; }
+.modern-shop-hero-products { position: relative; min-height: 530px; overflow: hidden; background: #dcefeb; }
+.modern-shop-hero-slide { position: absolute; inset: 0; background-position: center; background-size: cover; opacity: 0; transition: opacity 900ms ease; }
+.modern-shop-hero-slide.is-active { opacity: 1; }
+.modern-shop-hero-products::before { position: absolute; inset: 0; z-index: 1; background: linear-gradient(90deg, rgba(220, 239, 235, 0.55) 0%, rgba(220, 239, 235, 0) 28%); content: ''; pointer-events: none; }
+.modern-shop-hero-products > button { position: absolute; z-index: 2; animation: modern-shop-hero-card-in 600ms ease both; display: grid; width: 27%; max-width: 210px; padding: 10px; border: 0; border-radius: 8px; background: #fff; box-shadow: 0 22px 38px rgba(70, 60, 20, 0.18); text-align: left; cursor: pointer; transition: transform 180ms ease; }
 .modern-shop-hero-products > button:hover { transform: translateY(-6px) rotate(0deg) !important; }
 .modern-shop-hero-products .item-1 { left: 8%; top: 15%; transform: rotate(-5deg); }
-.modern-shop-hero-products .item-2 { left: 37%; top: 37%; z-index: 2; transform: rotate(3deg); }
+.modern-shop-hero-products .item-2 { left: 37%; top: 37%; z-index: 3; transform: rotate(3deg); }
 .modern-shop-hero-products .item-3 { right: 6%; top: 12%; transform: rotate(7deg); }
 .modern-shop-hero-products img { width: 100%; aspect-ratio: 1; object-fit: contain; background: var(--ms-canvas); }
 .modern-shop-hero-products button span { display: -webkit-box; overflow: hidden; margin: 9px 2px 3px; font-size: 13px; font-weight: 700; line-height: 1.35; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
 .modern-shop-hero-products button b { margin: 0 2px 3px; color: var(--ms-teal); font-size: 15px; }
 .modern-shop-hero-placeholder { display: none; }
+.modern-shop-hero-products .item-2 { animation-delay: 90ms; }
+.modern-shop-hero-products .item-3 { animation-delay: 180ms; }
+@keyframes modern-shop-hero-card-in { from { opacity: 0; translate: 0 16px; } to { opacity: 1; translate: 0 0; } }
+.modern-shop-hero-dots { position: absolute; bottom: 18px; left: 50%; z-index: 4; display: flex; gap: 8px; padding: 6px 10px; border-radius: 999px; background: rgba(255, 255, 255, 0.82); transform: translateX(-50%); }
+.modern-shop-hero-dots button { width: 9px; height: 9px; padding: 0; border: 0; border-radius: 999px; background: rgba(21, 35, 33, 0.3); cursor: pointer; transition: width 200ms ease, background 200ms ease; }
+.modern-shop-hero-dots button.is-active { width: 24px; background: var(--ms-teal); }
+@media (prefers-reduced-motion: reduce) { .modern-shop-hero-slide, .modern-shop-hero-products > button { transition: none; animation: none; } }
 .modern-shop-hero-placeholder b { font-size: 19px; }
 .modern-shop-hero-placeholder small { margin-top: 5px; font-size: 13px; }
 
@@ -624,6 +633,7 @@
 }
 
 @media (max-width: 560px) {
+  .modern-shop-hero-dots { top: 12px; bottom: auto; }
   .modern-shop-offer { font-size: 12px; }
   .modern-shop-offer span { display: none; }
   .modern-shop-wordmark { font-size: 17px; }
