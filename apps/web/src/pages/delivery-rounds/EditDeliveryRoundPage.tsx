@@ -207,7 +207,7 @@ export function EditDeliveryRoundPage() {
                   onMouseLeave={(e) => { (e.currentTarget as HTMLDivElement).style.background = '' }}
                 >
                   <span>{p.first_name} {p.last_name} — {p.postcode}</span>
-                  <span style={{ color: 'var(--ps-primary)', fontSize: 'var(--ps-font-sm)' }}>+ Add</span>
+                  <span style={{ color: 'var(--ps-deep-blue)', fontSize: 'var(--ps-font-sm)' }}>+ Add</span>
                 </div>
               ))}
           </div>
@@ -225,7 +225,7 @@ export function EditDeliveryRoundPage() {
                       {rp.medications?.length ?? 0} med{(rp.medications?.length ?? 0) !== 1 ? 's' : ''}
                     </span>
                   </div>
-                  <button className="ps-btn ps-btn-ghost ps-btn-sm" onClick={() => handleRemovePatient(rp.id)} style={{ color: 'var(--ps-red)' }}>Remove</button>
+                  <button className="ps-btn ps-btn-ghost ps-btn-sm" onClick={() => handleRemovePatient(rp.id)} style={{ color: 'var(--ps-error)' }}>Remove</button>
                 </div>
               ))}
           </div>

@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
+import { Settings2, Trash2 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useAuthStore, useDeliveryRoundStore, usePatientMedicationStore, useAppointmentStore } from '@pharmstation/core'
 import type { Patient, PatientMedication, BnfDrugSearchResult } from '@pharmstation/types'
@@ -376,7 +377,7 @@ export function NewDeliveryRoundPage() {
                           {p.postcode || ''} {p.phone ? `· ${p.phone}` : ''}
                         </span>
                       </div>
-                      <span style={{ color: 'var(--ps-primary)', fontSize: 'var(--ps-font-sm)' }}>+ Add</span>
+                      <span style={{ color: 'var(--ps-deep-blue)', fontSize: 'var(--ps-font-sm)' }}>+ Add</span>
                     </div>
                   ))}
                 {/* Add New Patient — always at bottom */}
@@ -386,7 +387,7 @@ export function NewDeliveryRoundPage() {
                   onMouseEnter={(e) => { (e.currentTarget as HTMLDivElement).style.background = '#e8eaed' }}
                   onMouseLeave={(e) => { (e.currentTarget as HTMLDivElement).style.background = 'var(--ps-off-white)' }}
                 >
-                  <span style={{ fontWeight: 600, color: 'var(--ps-primary)' }}>
+                  <span style={{ fontWeight: 600, color: 'var(--ps-deep-blue)' }}>
                     ＋ Add new patient
                     {patientSearch.trim() && <span style={{ color: 'var(--ps-slate)', marginLeft: 'var(--ps-space-sm)', fontSize: 'var(--ps-font-sm)', fontWeight: 400 }}>"{patientSearch.trim()}"</span>}
                   </span>
@@ -413,16 +414,16 @@ export function NewDeliveryRoundPage() {
                         <span className={`ps-badge ${medCount > 0 ? 'ps-badge-blue' : 'ps-badge-amber'}`} style={{ fontSize: 'var(--ps-font-xs)' }}>
                           {medCount} med{medCount !== 1 ? 's' : ''}
                         </span>
-                        {/* ⚙️ Configure Meds gear button */}
+                        {/* Configure medicines */}
                         <button
                           className="ps-btn ps-btn-ghost ps-btn-sm"
                           title="Configure medications for this patient"
                           onClick={() => openConfigMeds(sp.patient.id, `${sp.patient.first_name} ${sp.patient.last_name}`)}
-                          style={{ fontSize: '18px', padding: '4px 8px', lineHeight: 1 }}
+                          aria-label="Choose medicines"
                         >
-                          ⚙️
+                          <Settings2 size={16} strokeWidth={1.75} aria-hidden="true" />
                         </button>
-                        <button className="ps-btn ps-btn-ghost ps-btn-sm" onClick={() => removePatient(sp.patient.id)} style={{ color: 'var(--ps-red)' }}>
+                        <button className="ps-btn ps-btn-ghost ps-btn-sm" onClick={() => removePatient(sp.patient.id)} style={{ color: 'var(--ps-error)' }}>
                           ✕
                         </button>
                       </div>
@@ -439,7 +440,7 @@ export function NewDeliveryRoundPage() {
                       </div>
                     ) : (
                       <div style={{ marginTop: 'var(--ps-space-xs)', fontSize: 'var(--ps-font-sm)', color: 'var(--ps-slate)' }}>
-                        No medications configured — click ⚙️ to add
+                        No medicines chosen yet. Use the settings button to add them.
                       </div>
                     )}
                   </div>
@@ -638,7 +639,7 @@ export function NewDeliveryRoundPage() {
                             padding: 'var(--ps-space-sm) var(--ps-space-md)',
                             background: isSelected ? '#f0f7ff' : 'var(--ps-off-white)',
                             borderRadius: 'var(--ps-radius-md)',
-                            border: isSelected ? '1px solid var(--ps-primary)' : '1px solid transparent',
+                            border: isSelected ? '1px solid var(--ps-deep-blue)' : '1px solid transparent',
                           }}
                         >
                           {/* Checkbox to include in this round */}
@@ -690,10 +691,11 @@ export function NewDeliveryRoundPage() {
                           <button
                             className="ps-btn ps-btn-ghost ps-btn-sm"
                             onClick={() => handleRemoveMedFromPatient(med.id)}
-                            style={{ color: 'var(--ps-red)', fontSize: 'var(--ps-font-sm)', padding: '2px 6px' }}
+                            style={{ color: 'var(--ps-error)', fontSize: 'var(--ps-font-sm)', padding: '2px 6px' }}
                             title="Remove medication"
+                            aria-label="Remove medication"
                           >
-                            🗑️
+                            <Trash2 size={16} strokeWidth={1.75} aria-hidden="true" />
                           </button>
                         </div>
                       )
@@ -739,7 +741,7 @@ export function NewDeliveryRoundPage() {
                                 {drug.form && <span>{drug.form}</span>}
                                 {drug.manufacturer && <span> · {drug.manufacturer}</span>}
                                 {drug.controlledDrugSchedule && (
-                                  <span style={{ marginLeft: 'var(--ps-space-xs)', color: 'var(--ps-red)', fontWeight: 600 }}>CD {drug.controlledDrugSchedule}</span>
+                                  <span style={{ marginLeft: 'var(--ps-space-xs)', color: 'var(--ps-error)', fontWeight: 600 }}>CD {drug.controlledDrugSchedule}</span>
                                 )}
                               </div>
                             </div>
@@ -756,11 +758,11 @@ export function NewDeliveryRoundPage() {
                           <div style={{ fontSize: 'var(--ps-font-xs)', color: 'var(--ps-slate)' }}>
                             {selectedDrug.form}{selectedDrug.manufacturer && ` · ${selectedDrug.manufacturer}`}
                             {selectedDrug.controlledDrugSchedule && (
-                              <span style={{ marginLeft: 'var(--ps-space-xs)', color: 'var(--ps-red)', fontWeight: 600 }}>CD {selectedDrug.controlledDrugSchedule}</span>
+                              <span style={{ marginLeft: 'var(--ps-space-xs)', color: 'var(--ps-error)', fontWeight: 600 }}>CD {selectedDrug.controlledDrugSchedule}</span>
                             )}
                           </div>
                         </div>
-                        <button className="ps-btn ps-btn-ghost ps-btn-sm" style={{ color: 'var(--ps-primary)', fontSize: 'var(--ps-font-sm)' }} onClick={() => setSelectedDrug(null)}>Change</button>
+                        <button className="ps-btn ps-btn-ghost ps-btn-sm" style={{ color: 'var(--ps-deep-blue)', fontSize: 'var(--ps-font-sm)' }} onClick={() => setSelectedDrug(null)}>Change</button>
                       </div>
                       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--ps-space-sm)' }}>
                         <div className="form-group">

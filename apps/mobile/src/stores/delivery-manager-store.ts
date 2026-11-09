@@ -9,7 +9,6 @@
 import { create } from 'zustand'
 
 import { userClient } from '@/lib/supabase'
-import { resolvePermissions, type Permissions, type UserRole } from '@/types/auth'
 import type {
   DeliveryRound,
   DeliveryRoundStatus,
@@ -38,7 +37,7 @@ export interface PatientResult {
   id: string
   first_name: string
   last_name: string
-  date_of_birth: string | null
+  dob: string | null
   postcode: string | null
   address_line_1: string | null
 }
@@ -201,25 +200,14 @@ export const useDeliveryManagerStore = create<ManagerState>((set, get) => ({
 
   fetchDrivers: async (orgId) => {
     try {
-      const { data, error } = await userClient
-        .from('ps_organisation_members')
-        .select('id, role, permissions, user_profile:ps_user_profiles!user_id(full_name)')
-        .eq('organisation_id', orgId)
-        .eq('status', 'active')
+      // Staff can only read their own membership row, so the people who can
+      // drive come from a database function (id, name and role only).
+      const { data, error } = await userClient.rpc('ps_delivery_list_drivers', { p_org_id: orgId })
       if (error) throw error
-      const drivers = ((data ?? []) as unknown as Array<{
-        id: string
-        role: UserRole
-        permissions: Permissions | null
-        user_profile: { full_name: string | null } | Array<{ full_name: string | null }> | null
-      }>)
-        .filter((m) => resolvePermissions(m.role, m.permissions ?? {}).delivery_drive)
-        .map((m) => {
-          const profile = Array.isArray(m.user_profile) ? m.user_profile[0] : m.user_profile
-          return { id: m.id, name: profile?.full_name || 'Name not recorded' }
-        })
-        .sort((a, b) => a.name.localeCompare(b.name))
-      set({ drivers })
+      set({
+        drivers: ((data ?? []) as Array<{ member_id: string; full_name: string }>)
+          .map((d) => ({ id: d.member_id, name: d.full_name })),
+      })
     } catch (e) {
       set({ error: message(e) })
     }
@@ -361,7 +349,7 @@ export const useDeliveryManagerStore = create<ManagerState>((set, get) => ({
     if (!words.length) return []
     let qb = userClient
       .from('ps_patients')
-      .select('id, first_name, last_name, date_of_birth, postcode, address_line_1')
+      .select('id, first_name, last_name, dob, postcode, address_line_1')
       .eq('organisation_id', orgId)
     if (words.length === 1) {
       const w = words[0]
