@@ -24,3 +24,12 @@ export const complianceLabel = (v?: string | null) => pick({
   pending: 'Under review', approved: 'Approved', rejected: 'Not approved',
   changes_requested: 'Changes needed', suspended: 'Suspended',
 }, v)
+
+/** Friendly text for errors from locum profile saves. */
+export function locumErrorText(err: unknown, fallback: string) {
+  const msg = typeof err === 'object' && err && 'message' in err ? String((err as { message: unknown }).message) : ''
+  if (msg.includes('ps_locum_profiles_gphc_number_unique')) {
+    return 'That GPhC number is already registered to another PharmStation locum. Check the number, or contact support@pharmstation.co.uk if it is yours.'
+  }
+  return msg || fallback
+}

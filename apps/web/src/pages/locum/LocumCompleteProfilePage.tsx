@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { getUserClient } from '@pharmstation/supabase-client'
 import { groupServices } from '../../components/locum/services'
+import { locumErrorText } from '../../components/locum/labels'
 import { useAuthStore } from '@pharmstation/core'
 
 interface ServiceOption {
@@ -159,7 +160,7 @@ export function LocumCompleteProfilePage() {
       await refreshProfile()
       navigate('/locum/dashboard', { replace: true })
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Setup failed. Please try again.')
+      setError(locumErrorText(err, 'Setup failed. Please try again.'))
     } finally {
       setSubmitting(false)
     }

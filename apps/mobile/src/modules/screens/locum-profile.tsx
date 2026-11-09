@@ -151,7 +151,7 @@ export function LocumProfileScreen() {
       dbs_number: form.dbs_number.trim() || null, dbs_expiry: form.dbs_expiry || null,
     }).eq('id', locum.id)
     setBusy(null)
-    if (e) { setError(e.message); return }
+    if (e) { setError(e.message.includes('gphc_number_unique') ? 'That GPhC number is already registered to another PharmStation locum. Check the number, or contact support@pharmstation.co.uk.' : e.message); return }
     useAuthStore.setState({ locumProfile: { ...locum, gphc_number: form.gphc_number.trim() || null, gphc_expiry: form.gphc_expiry || null, indemnity_provider: form.indemnity_provider.trim() || null, indemnity_expiry: form.indemnity_expiry || null, dbs_number: form.dbs_number.trim() || null, dbs_expiry: form.dbs_expiry || null } })
     Alert.alert('Saved', 'Your details are saved. A change to your GPhC, DBS or indemnity goes back for a quick review.')
     void load()

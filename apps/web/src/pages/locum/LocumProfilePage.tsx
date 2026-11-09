@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { getUserClient } from '@pharmstation/supabase-client'
 import { groupServices } from '../../components/locum/services'
+import { locumErrorText } from '../../components/locum/labels'
 import { useAuthStore } from '@pharmstation/core'
 
 type Tab = 'profile' | 'services' | 'documents' | 'payments'
@@ -297,7 +298,7 @@ export function LocumProfilePage() {
       await refreshProfile()
       setProfileMsg({ type: 'success', text: 'Profile updated successfully.' })
     } catch (err) {
-      setProfileMsg({ type: 'error', text: err instanceof Error ? err.message : 'Save failed.' })
+      setProfileMsg({ type: 'error', text: locumErrorText(err, 'Save failed.') })
     } finally {
       setSavingProfile(false)
     }
