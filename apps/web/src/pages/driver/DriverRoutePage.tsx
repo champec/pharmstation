@@ -68,6 +68,7 @@ export function DriverRoutePage() {
     stopLocationTracking,
     subscribeToRoute,
     clearError,
+    locationError,
   } = useDriverStore()
 
   const [activeStop, setActiveStop] = useState<DeliveryRoundPatient | null>(null)
@@ -281,11 +282,13 @@ export function DriverRoutePage() {
             The pharmacy hasn't scheduled this round yet.
           </p>
         )}
-        {round.status === 'in_progress' && isMyRound && (
+        {round.status === 'in_progress' && isMyRound && (locationError ? (
+          <div className="auth-error" role="status" style={{ marginTop: 'var(--ps-space-sm)' }}>{locationError}</div>
+        ) : (
           <p style={{ marginTop: 'var(--ps-space-sm)', color: 'var(--ps-slate)', fontSize: 'var(--ps-font-xs)' }}>
             Your location is shared with the pharmacy until the round is finished.
           </p>
-        )}
+        ))}
         {round.status === 'completed' && (
           <div style={{ textAlign: 'center', marginTop: 'var(--ps-space-sm)', color: 'var(--ps-success)', fontWeight: 600 }}>
             Round complete

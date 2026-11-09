@@ -469,7 +469,13 @@ export function NewDeliveryRoundPage() {
                   {sp.patient.address_line_1}{sp.patient.postcode ? `, ${sp.patient.postcode}` : ''}
                 </div>
                 <div style={{ fontSize: 'var(--ps-font-sm)', marginTop: 4 }}>
-                  {sp.medications.filter((m) => m.selected).length} medication{sp.medications.filter((m) => m.selected).length !== 1 ? 's' : ''}:
+                  {sp.medications.filter((m) => m.selected).length === 0 ? (
+                    <span style={{ color: 'var(--ps-slate)' }}>
+                      No medicines listed. Go back to add them, or add them later from Manage medicines on the round.
+                    </span>
+                  ) : (
+                    <>{sp.medications.filter((m) => m.selected).length} medicine{sp.medications.filter((m) => m.selected).length !== 1 ? 's' : ''}:</>
+                  )}
                   {sp.medications.filter((m) => m.selected).map((m) => (
                     <span key={m.med.id} style={{ marginLeft: 'var(--ps-space-xs)', background: 'var(--ps-off-white)', padding: '2px 8px', borderRadius: 'var(--ps-radius-sm)', fontSize: 'var(--ps-font-xs)' }}>
                       {m.med.drug_name} ×{m.quantity}
