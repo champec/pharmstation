@@ -1,3 +1,4 @@
+import { CircleCheck, TriangleAlert } from 'lucide-react'
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useParams } from 'react-router-dom'
 
@@ -312,38 +313,28 @@ export function PatientVideoPage() {
     )
   }
 
-  /* ---- Joining screen ---- */
-  if (pageState === 'joining') {
+  /* ---- Joining / in-call screen ----
+     One container for both states: Daily puts its iframe inside it, so it
+     must not be unmounted when the call goes from joining to in_call. */
+  if (pageState === 'joining' || pageState === 'in_call') {
     return (
-      <div style={{
-        position: 'fixed',
-        inset: 0,
-        display: 'flex',
-        flexDirection: 'column',
-        background: '#111',
-      }}>
-        <div style={{
-          position: 'absolute',
-          inset: 0,
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 10,
-          color: 'white',
-        }}>
-          <div className="loading-spinner" style={{ marginBottom: 'var(--ps-space-md)' }} />
-          <p style={{ fontSize: 'var(--ps-font-lg)' }}>Joining your video consultation...</p>
-        </div>
-        <div ref={containerRef} style={{ width: '100%', height: '100%' }} />
-      </div>
-    )
-  }
-
-  /* ---- In-call screen ---- */
-  if (pageState === 'in_call') {
-    return (
-      <div style={{ position: 'fixed', inset: 0, background: '#111' }}>
+      <div style={{ position: 'fixed', inset: 0, display: 'flex', flexDirection: 'column', background: '#111' }}>
+        {pageState === 'joining' && (
+          <div style={{
+            position: 'absolute',
+            inset: 0,
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 10,
+            color: 'white',
+            pointerEvents: 'none',
+          }}>
+            <div className="loading-spinner" style={{ marginBottom: 'var(--ps-space-md)' }} />
+            <p style={{ fontSize: 'var(--ps-font-lg)' }}>Joining your video consultation...</p>
+          </div>
+        )}
         <div ref={containerRef} style={{ width: '100%', height: '100%' }} />
       </div>
     )
@@ -361,9 +352,9 @@ export function PatientVideoPage() {
         padding: 'var(--ps-space-lg)',
       }}>
         <div style={{ maxWidth: '480px', width: '100%', textAlign: 'center' }}>
-          <div style={{ fontSize: '3rem', marginBottom: 'var(--ps-space-md)' }}>✅</div>
+          <CircleCheck size={40} strokeWidth={1.75} aria-hidden="true" style={{ color: 'var(--ps-success)', marginBottom: 'var(--ps-space-md)' }} />
           <h1 style={{ fontSize: 'var(--ps-font-2xl)', fontWeight: 700, color: 'var(--ps-midnight)', marginBottom: 'var(--ps-space-md)' }}>
-            Call Ended
+            Call ended
           </h1>
           <p style={{ color: 'var(--ps-slate)', fontSize: 'var(--ps-font-base)', lineHeight: 1.6 }}>
             Your video consultation has ended. If you need to speak with the pharmacy again, please call them directly.
@@ -387,7 +378,7 @@ export function PatientVideoPage() {
       padding: 'var(--ps-space-lg)',
     }}>
       <div style={{ maxWidth: '480px', width: '100%', textAlign: 'center' }}>
-        <div style={{ fontSize: '3rem', marginBottom: 'var(--ps-space-md)' }}>⚠️</div>
+        <TriangleAlert size={40} strokeWidth={1.75} aria-hidden="true" style={{ color: 'var(--ps-warning)', marginBottom: 'var(--ps-space-md)' }} />
         <h1 style={{ fontSize: 'var(--ps-font-2xl)', fontWeight: 700, color: 'var(--ps-midnight)', marginBottom: 'var(--ps-space-md)' }}>
           {errorMsg || 'Something went wrong'}
         </h1>

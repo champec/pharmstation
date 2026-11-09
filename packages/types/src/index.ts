@@ -1357,6 +1357,7 @@ export interface VideoConsultation {
   scheduled_for: string
   started_at: string | null
   ended_at: string | null
+  access_code_attempts?: number | null
   created_at: string
   // Joined
   patient?: Patient

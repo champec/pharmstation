@@ -44,6 +44,7 @@ type Consultation = {
   daily_room_url: string
   status: Status
   scheduled_for: string
+  access_code_attempts: number | null
 }
 type PatientHit = { id: string; first_name: string | null; last_name: string | null; phone: string | null }
 type View_ = 'upcoming' | 'past'
@@ -55,6 +56,15 @@ const STATUS_LABEL: Record<Status, string> = {
 const fmt = (iso: string) => new Date(iso).toLocaleString('en-GB', {
   weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit',
 })
+
+// Matches ps_verify_video_access_code: five wrong codes lock the link.
+const isLocked = (c: Consultation) => (c.access_code_attempts ?? 0) >= 5
+const newAccessCode = () => {
+  // Hermes may not have Web Crypto; the five-try lock limits guessing either way.
+  const c = (globalThis as { crypto?: { getRandomValues?: (a: Uint32Array) => Uint32Array } }).crypto
+  const n = c?.getRandomValues ? c.getRandomValues(new Uint32Array(1))[0] : Math.floor(Math.random() * 2 ** 32)
+  return String(100000 + (n % 900000))
+}
 
 const isExpired = (c: Consultation) =>
   c.status === 'scheduled' && new Date(c.scheduled_for).getTime() + ROOM_LIFETIME_MS < Date.now()
@@ -109,7 +119,7 @@ function VideoScreen() {
     setError(null)
     const cutoff = new Date(Date.now() - ROOM_LIFETIME_MS).toISOString()
     let q = userClient.from('ps_video_consultations')
-      .select('id, patient_id, patient_name, patient_phone, patient_access_code, daily_room_url, status, scheduled_for')
+      .select('id, patient_id, patient_name, patient_phone, patient_access_code, daily_room_url, status, scheduled_for, access_code_attempts')
       .eq('org_id', orgId)
     if (view === 'upcoming') {
       q = q.in('status', ['scheduled', 'active']).gte('scheduled_for', cutoff).order('scheduled_for', { ascending: true })
@@ -170,6 +180,25 @@ function VideoScreen() {
     ])
   }
 
+  const resetCode = async (c: Consultation) => {
+    setBusyId(c.id)
+    const code = newAccessCode()
+    const { error: err } = await userClient.from('ps_video_consultations')
+      .update({ patient_access_code: code, access_code_attempts: 0 }).eq('id', c.id)
+    setBusyId(null)
+    if (err) { Alert.alert('Could not make a new code', err.message); return }
+    await load()
+    const updated = { ...c, patient_access_code: code, access_code_attempts: 0 }
+    if (!c.patient_phone) {
+      Alert.alert('New code ready', `Give ${c.patient_name} the new access code ${code}.`)
+      return
+    }
+    Alert.alert('New code ready', `The new access code is ${code}. Text it to ${c.patient_name}?`, [
+      { text: 'Not now', style: 'cancel' },
+      { text: 'Text link', onPress: () => void resend(updated) },
+    ])
+  }
+
   const resend = async (c: Consultation) => {
     if (!orgId) return
     setBusyId(c.id)
@@ -220,16 +249,25 @@ function VideoScreen() {
             <View style={styles.card}>
               <View style={styles.cardTop}>
                 <Text style={styles.cardTitle} numberOfLines={1}>{c.patient_name}</Text>
-                <Text style={[styles.badge, c.status === 'active' && styles.badgeActive]}>
-                  {isExpired(c) ? 'Expired' : STATUS_LABEL[c.status]}
+                <Text style={[styles.badge, c.status === 'active' && styles.badgeActive, live && isLocked(c) && styles.badgeLocked]}>
+                  {isExpired(c) ? 'Expired' : live && isLocked(c) ? 'Locked' : STATUS_LABEL[c.status]}
                 </Text>
               </View>
               <Text style={styles.muted}>{fmt(c.scheduled_for)}{c.patient_phone ? ` · ${c.patient_phone}` : ''}</Text>
-              <Text style={styles.muted}>Patient access code: <Text style={styles.code}>{c.patient_access_code}</Text></Text>
+              {live && isLocked(c) ? (
+                <Text style={[styles.muted, { color: palette.danger }]}>Locked after too many wrong codes. Make a new code so the patient can join.</Text>
+              ) : (
+                <Text style={styles.muted}>Patient access code: <Text style={styles.code}>{c.patient_access_code}</Text></Text>
+              )}
               {live ? (
                 <View style={styles.actions}>
                   <Button label="Join call" onPress={() => join(c)} loading={busy} />
                   <View style={styles.actionRow}>
+                    {isLocked(c) && (
+                      <Pressable style={styles.linkButton} onPress={() => resetCode(c)} disabled={busy}>
+                        <Text style={styles.linkText}>New code</Text>
+                      </Pressable>
+                    )}
                     <Pressable style={styles.linkButton} onPress={() => resend(c)} disabled={busy}>
                       <Text style={styles.linkText}>Text link again</Text>
                     </Pressable>
@@ -402,6 +440,7 @@ const styles = StyleSheet.create({
   cardTitle: { flex: 1, color: palette.text, fontSize: 15, fontWeight: '700' },
   badge: { fontSize: 12, fontWeight: '700', color: palette.textMuted, backgroundColor: '#F1F5F9', borderRadius: radius.pill, paddingHorizontal: 8, paddingVertical: 3, overflow: 'hidden' },
   badgeActive: { color: palette.success, backgroundColor: '#ECFDF5' },
+  badgeLocked: { color: palette.danger, backgroundColor: '#FEF2F2' },
   muted: { fontSize: 13, lineHeight: 18, color: palette.textMuted },
   code: { fontWeight: '800', color: palette.text, letterSpacing: 1 },
   actions: { gap: 8, marginTop: 6 },

@@ -120,6 +120,20 @@ export function VideoConsultsPage() {
 
   useEffect(() => { load() }, [load])
 
+  // Five wrong codes lock the patient's link (ps_verify_video_access_code).
+  // A new code clears the count; staff then give or text it to the patient.
+  const resetAccessCode = async (c: VideoConsultation) => {
+    const n = crypto.getRandomValues(new Uint32Array(1))[0]
+    const code = String(100000 + (n % 900000))
+    const { error } = await getUserClient()
+      .from('ps_video_consultations')
+      .update({ patient_access_code: code, access_code_attempts: 0 })
+      .eq('id', c.id)
+    if (error) { window.alert(`Could not make a new code: ${error.message}`); return }
+    window.alert(`New access code: ${code}. Give it to the patient, or use "Resend link" to text it.`)
+    load()
+  }
+
   /* ---- Patient search ---- */
   const searchPatients = useCallback(async (query: string) => {
     if (!organisation?.id || query.trim().length < 2) { setPatientResults([]); return }
@@ -322,7 +336,16 @@ export function VideoConsultsPage() {
                       <span className={status.cssClass}>{status.label}</span>
                     </td>
                     <td style={{ padding: 'var(--ps-space-sm) var(--ps-space-md)' }}>
-                      {c.status !== 'completed' && c.status !== 'cancelled' && !isExpired ? (
+                      {c.status !== 'completed' && c.status !== 'cancelled' && !isExpired && (c.access_code_attempts ?? 0) >= 5 ? (
+                        <span style={{ display: 'flex', alignItems: 'center', gap: 'var(--ps-space-xs)', flexWrap: 'wrap' }}>
+                          <span style={{ color: 'var(--ps-error)', fontSize: 'var(--ps-font-sm)' }}>Locked, too many wrong codes</span>
+                          <button
+                            className="ps-btn ps-btn-ghost"
+                            style={{ padding: '2px 8px', fontSize: 'var(--ps-font-xs)' }}
+                            onClick={() => void resetAccessCode(c)}
+                          >New code</button>
+                        </span>
+                      ) : c.status !== 'completed' && c.status !== 'cancelled' && !isExpired ? (
                         <span style={{ display: 'flex', alignItems: 'center', gap: 'var(--ps-space-xs)' }}>
                           <code style={{ fontFamily: 'var(--ps-font-mono)', fontSize: 'var(--ps-font-base)', letterSpacing: '0.15em' }}>
                             {c.patient_access_code}
