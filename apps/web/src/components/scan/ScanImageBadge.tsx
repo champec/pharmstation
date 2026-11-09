@@ -6,6 +6,7 @@
 
 import { useState, useCallback } from 'react'
 import { getUserClient } from '@pharmstation/supabase-client'
+import { Camera, Loader2 } from 'lucide-react'
 
 interface ScanImageBadgeProps {
   imagePath: string
@@ -48,8 +49,9 @@ export function ScanImageBadge({ imagePath }: ScanImageBadgeProps) {
         className="scan-image-badge"
         onClick={handleClick}
         title="View scanned document"
+        aria-label="View scanned document"
       >
-        {loading ? '⏳' : '📷'}
+        {loading ? <Loader2 size={14} strokeWidth={1.75} aria-hidden="true" /> : <Camera size={14} strokeWidth={1.75} aria-hidden="true" />}
       </button>
 
       {viewing && imageUrl && (
