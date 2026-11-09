@@ -250,3 +250,37 @@ export const PEPS_PRESCRIBER_TYPE_LABELS: Record<PepsPrescriberType, string> = {
   veterinarian: 'Veterinarian (RCVS)',
   other: 'Other',
 }
+
+// UK date formats for prescriptions, whatever the browser locale.
+// Date-only values (YYYY-MM-DD) are formatted without a time zone shift.
+const PEPS_MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+
+export function pepsDate(value: string | null | undefined): string {
+  if (!value) return ''
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value)
+  if (m) return `${Number(m[3])} ${PEPS_MONTHS[Number(m[2]) - 1]} ${m[1]}`
+  const d = new Date(value)
+  if (Number.isNaN(d.getTime())) return value
+  return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Europe/London' })
+}
+
+export function pepsDateTime(value: string | null | undefined): string {
+  if (!value) return ''
+  const d = new Date(value)
+  if (Number.isNaN(d.getTime())) return value
+  return d.toLocaleString('en-GB', {
+    day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'Europe/London',
+  })
+}
+
+// dm+d search often returns many AMPs with the same name (one per supplier).
+// Keep one row per name, preferring the VMP.
+export function pepsDedupeDmd<T extends { name: string; dmd_type: string }>(rows: T[]): T[] {
+  const byName = new Map<string, T>()
+  for (const r of rows) {
+    const key = r.name.trim().toLowerCase()
+    const seen = byName.get(key)
+    if (!seen || (seen.dmd_type !== 'vmp' && r.dmd_type === 'vmp')) byName.set(key, r)
+  }
+  return rows.filter((r) => byName.get(r.name.trim().toLowerCase()) === r)
+}

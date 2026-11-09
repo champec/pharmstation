@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { usePepsStore } from '@pharmstation/core'
 import { PageHeader } from '../../components/ui'
+import { pepsDate } from '@pharmstation/types'
 
 export function PEPSMyPrescriptionsPage() {
   const navigate = useNavigate()
@@ -71,7 +72,7 @@ export function PEPSMyPrescriptionsPage() {
                   <td>{r.prescription_ref}</td>
                   <td>{r.patient_snapshot?.full_name ?? '—'}</td>
                   <td>{r.prescription_type === 'vet' ? 'Vet' : 'Private'}</td>
-                  <td>{r.prescription_date}</td>
+                  <td>{pepsDate(r.prescription_date)}</td>
                   <td>{r.repeats > 0 ? `${r.repeats_dispensed}/${r.repeats + 1}` : '—'}</td>
                   <td>{locationOf(r.status, r.assigned_org?.name, r.expires_at)}</td>
                 </tr>

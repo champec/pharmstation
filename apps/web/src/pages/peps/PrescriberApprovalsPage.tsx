@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { getUserClient } from '@pharmstation/supabase-client'
-import { PEPS_REGISTER_LINKS, PEPS_PRESCRIBER_TYPE_LABELS, type PepsPrescriberType } from '@pharmstation/types'
+import { pepsDate, PEPS_REGISTER_LINKS, PEPS_PRESCRIBER_TYPE_LABELS, type PepsPrescriberType } from '@pharmstation/types'
 import { PageHeader } from '../../components/ui'
 
 // PharmStation platform admins verify each prescriber's registration with the
@@ -120,8 +120,8 @@ export function PrescriberApprovalsPage() {
                 {row.phone && <> · {row.phone}</>}
               </div>
               <div style={{ color: 'var(--ps-slate)', fontSize: 'var(--ps-font-sm)' }}>
-                Registered {new Date(row.created_at).toLocaleDateString('en-GB')}
-                {row.approved_at && <> · approved {new Date(row.approved_at).toLocaleDateString('en-GB')}</>}
+                Registered {pepsDate(row.created_at)}
+                {row.approved_at && <> · approved {pepsDate(row.approved_at)}</>}
               </div>
               {PEPS_REGISTER_LINKS[row.prescriber_type as PepsPrescriberType] && (
                 <div style={{ fontSize: 'var(--ps-font-sm)', marginTop: 4 }}>

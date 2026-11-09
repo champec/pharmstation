@@ -2,10 +2,10 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, Navigate, useParams } from 'react-router-dom'
 import JsBarcode from 'jsbarcode'
 import { useAuthStore, usePepsStore } from '@pharmstation/core'
-import { pepsCdSchedule, PEPS_CD_LABELS, type PepsEvent } from '@pharmstation/types'
+import { pepsDate, pepsDateTime, pepsCdSchedule, PEPS_CD_LABELS, type PepsEvent } from '@pharmstation/types'
 
 function formatDateTime(value: string): string {
-  return new Date(value).toLocaleString()
+  return pepsDateTime(value)
 }
 
 export function PEPSPrintablePrescriptionPage() {
@@ -248,7 +248,7 @@ export function PEPSPrintablePrescriptionPage() {
           <div>
             <h1 className="peps-print-title">{rx.prescription_type === 'vet' ? 'Veterinary Prescription' : 'Private Prescription'}</h1>
             <p className="peps-print-meta">Reference: {rx.prescription_ref}</p>
-            <p className="peps-print-meta">Date: {rx.prescription_date}</p>
+            <p className="peps-print-meta">Date: {pepsDate(rx.prescription_date)}</p>
             {rx.prescription_type === 'vet' ? (
               <>
                 <p className="peps-print-meta">Animal: {rx.animal_name ?? '—'}</p>
@@ -257,11 +257,11 @@ export function PEPSPrintablePrescriptionPage() {
             ) : (
               <>
                 <p className="peps-print-meta">Patient: {rx.patient_snapshot?.full_name ?? 'Unknown patient'}</p>
-                {rx.patient_snapshot?.dob && <p className="peps-print-meta">DOB: {rx.patient_snapshot.dob}</p>}
+                {rx.patient_snapshot?.dob && <p className="peps-print-meta">DOB: {pepsDate(rx.patient_snapshot.dob)}</p>}
               </>
             )}
             {rx.patient_snapshot?.address && <p className="peps-print-meta">Address: {rx.patient_snapshot.address}</p>}
-            {rx.expires_at && <p className="peps-print-meta">Valid until: {new Date(rx.expires_at).toLocaleDateString('en-GB')}</p>}
+            {rx.expires_at && <p className="peps-print-meta">Valid until: {pepsDate(rx.expires_at)}</p>}
             <p className="peps-print-meta">
               <span className="peps-print-mode-copy">COPY — NOT VALID FOR DISPENSING</span>
             </p>
