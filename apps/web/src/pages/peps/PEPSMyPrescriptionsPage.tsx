@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { usePepsStore } from '@pharmstation/core'
+import { PageHeader } from '../../components/ui'
 
 export function PEPSMyPrescriptionsPage() {
   const navigate = useNavigate()
@@ -34,18 +35,12 @@ export function PEPSMyPrescriptionsPage() {
 
   return (
     <div>
-      <div className="page-header">
-        <div className="breadcrumbs">
-          <a href="/peps" onClick={(e) => { e.preventDefault(); navigate('/peps') }}>PEPS</a>
-          <span className="separator">/</span>
-          <span>My Prescriptions</span>
-        </div>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <h1>My Prescriptions</h1>
-          <button className="ps-btn ps-btn-primary" onClick={() => navigate('/peps/write')}>Write prescription</button>
-        </div>
-        <p style={{ color: 'var(--ps-slate)', marginTop: '4px' }}>Prescriptions you have written, and where they are now.</p>
-      </div>
+      <PageHeader
+        breadcrumbs={[{ label: 'PEPS', to: '/peps' }, { label: 'My prescriptions' }]}
+        title="My prescriptions"
+        subtitle="Prescriptions you have written, and where they are now."
+        actions={<button className="ps-btn ps-btn-primary" onClick={() => navigate('/peps/write')}>Write prescription</button>}
+      />
 
       {error && <div className="ps-alert ps-alert-error" style={{ marginBottom: 'var(--ps-space-md)' }}>{error}</div>}
 
