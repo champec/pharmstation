@@ -241,7 +241,7 @@ export function DriverRouteScreen() {
             </View>
             <View style={styles.progressMeta}>
               <Text style={styles.progressText}>
-                {resolvedCount} of {activeRound.patients.length} stops resolved
+                {resolvedCount} of {activeRound.patients.length} {activeRound.patients.length === 1 ? 'stop' : 'stops'} resolved
               </Text>
               {tracking ? (
                 <View style={styles.livePill}>
@@ -609,7 +609,7 @@ function RoundCard({ round, onPress }: { round: DeliveryRound; onPress: () => vo
         <StatusPill status={round.status} />
       </View>
       <View style={styles.cardBottom}>
-        <Text style={styles.cardMetric}>{round.patients.length} stops</Text>
+        <Text style={styles.cardMetric}>{round.patients.length} {round.patients.length === 1 ? 'stop' : 'stops'}</Text>
         <Text style={styles.cardMetric}>{resolved} resolved</Text>
         <Ionicons name="chevron-forward" size={19} color={palette.textMuted} />
       </View>
@@ -634,7 +634,7 @@ function OpenJobCard({
         </View>
         <View style={styles.flex}>
           <Text style={styles.roundTitle}>{round.title || 'Available delivery'}</Text>
-          <Text style={styles.roundMeta}>{formatRoundDate(round)} · {round.patients.length} stops</Text>
+          <Text style={styles.roundMeta}>{formatRoundDate(round)} · {round.patients.length} {round.patients.length === 1 ? 'stop' : 'stops'}</Text>
         </View>
       </View>
       <Button label="Claim job" variant="secondary" disabled={saving} onPress={onClaim} />

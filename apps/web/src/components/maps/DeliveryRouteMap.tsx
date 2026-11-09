@@ -48,6 +48,18 @@ export function DeliveryRouteMap({ patients, roundId, driverId, height = 400, sh
   const [patientCoords, setPatientCoords] = useState<Map<string, { lat: number; lng: number }>>(new Map())
   const [driverLocation, setDriverLocation] = useState<{ lat: number; lng: number } | null>(null)
   const [loading, setLoading] = useState(true)
+  const [mapReady, setMapReady] = useState(false)
+
+  // Fit the map to the stops once both the map and the postcodes are ready
+  // (the map only mounts after the map key has loaded).
+  useEffect(() => {
+    if (!mapReady || patientCoords.size === 0 || !mapRef.current) return
+    const lats = Array.from(patientCoords.values()).map((c) => c.lat)
+    const lngs = Array.from(patientCoords.values()).map((c) => c.lng)
+    const sw = { lng: Math.min(...lngs) - 0.01, lat: Math.min(...lats) - 0.01 }
+    const ne = { lng: Math.max(...lngs) + 0.01, lat: Math.max(...lats) + 0.01 }
+    mapRef.current.fitBounds([sw, ne], { padding: 60, maxZoom: 14, duration: 0 })
+  }, [mapReady, patientCoords])
   const { token: mapboxToken, loading: mapboxTokenLoading } = useMapboxToken()
 
   // Geocode all patient postcodes
@@ -92,14 +104,6 @@ export function DeliveryRouteMap({ patients, roundId, driverId, height = 400, sh
         setPatientCoords(coords)
         setLoading(false)
 
-        // Fit map to bounds
-        if (coords.size > 0 && mapRef.current) {
-          const lats = Array.from(coords.values()).map((c) => c.lat)
-          const lngs = Array.from(coords.values()).map((c) => c.lng)
-          const sw = { lng: Math.min(...lngs) - 0.01, lat: Math.min(...lats) - 0.01 }
-          const ne = { lng: Math.max(...lngs) + 0.01, lat: Math.max(...lats) + 0.01 }
-          mapRef.current.fitBounds([sw, ne], { padding: 60, maxZoom: 14 })
-        }
       }
     }
 
@@ -191,6 +195,7 @@ export function DeliveryRouteMap({ patients, roundId, driverId, height = 400, sh
         initialViewState={DEFAULT_CENTER}
         mapboxAccessToken={mapboxToken}
         mapStyle="mapbox://styles/mapbox/light-v11"
+        onLoad={() => setMapReady(true)}
         style={{ width: '100%', height: '100%' }}
       >
         <NavigationControl position="top-right" />

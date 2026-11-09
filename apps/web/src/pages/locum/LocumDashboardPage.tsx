@@ -205,7 +205,7 @@ export function LocumDashboardPage() {
             <div style={{ padding: '1.5rem', textAlign: 'center', color: 'var(--ps-slate)' }}>Loading…</div>
           ) : recentInvoices.length === 0 ? (
             <div style={{ padding: '1.5rem', textAlign: 'center' }}>
-              <p className="text-muted">No invoices yet. Invoices are generated the Wednesday after each working week.</p>
+              <p className="text-muted">Pharmacies pay you directly for your shifts. Print a weekly timesheet from Timesheets to send with your invoice.</p>
             </div>
           ) : (
             <table className="ps-table">

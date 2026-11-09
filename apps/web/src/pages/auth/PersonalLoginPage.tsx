@@ -27,7 +27,10 @@ export function PersonalLoginPage() {
       // Personal login never requires org membership — even on a browser
       // that has an org session (e.g. a pharmacy terminal).
       await userLogin(email, password, { requireOrgMembership: false })
-      if (useAuthStore.getState().isUserLoggedIn) navigate('/me', { replace: true })
+      if (useAuthStore.getState().isUserLoggedIn) {
+        // Locums go straight to their portal; everyone else to their account.
+        navigate(useAuthStore.getState().locumProfile ? '/locum/dashboard' : '/me', { replace: true })
+      }
     } catch (err: unknown) {
       const message =
         err instanceof Error

@@ -216,7 +216,7 @@ export function SOPReadPage() {
                   color: 'var(--ps-success)',
                 }}
               >
-                ✓ Completed {new Date(myCompletion!.completed_at).toLocaleDateString()}
+                ✓ Completed {new Date(myCompletion!.completed_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
               </span>
             )}
             {!activeVersion && activeDocument && (
