@@ -372,6 +372,33 @@ export const MODULES: MobileModule[] = [
   },
 
   {
+    id: 'care-homes',
+    title: 'Care Homes',
+    description: 'Residents, MAR doses, medication requests and delivery groups',
+    icon: 'home-outline',
+    color: '#0F766E',
+    tier: 'org',
+    platform: 'both',
+    visible: (ctx) => ctx.isOrgConnected && has(ctx.permissions, 'care_home_view'),
+    tabs: [
+      { id: 'residents', title: 'Residents', icon: 'people-outline', blurb: 'Resident records, allergies, medicines and notes' },
+      {
+        id: 'doses',
+        title: 'Doses',
+        icon: 'medkit-outline',
+        blurb: 'Today’s MAR rounds from published charts',
+      },
+      { id: 'requests', title: 'Requests', icon: 'clipboard-outline', blurb: 'Medication requests between the care home and pharmacy' },
+      {
+        id: 'groups',
+        title: 'Groups',
+        icon: 'albums-outline',
+        visible: (ctx) => !ctx.isCareHomeOrg,
+        blurb: 'Delivery groups and where each one is',
+      },
+    ],
+  },
+  {
     id: 'peps',
     title: 'Prescriptions',
     description: 'Private and vet e-prescriptions (PEPS)',
@@ -475,18 +502,22 @@ export const MODULES: MobileModule[] = [
 // ----------------------------------------------------------------------------
 
 /** All modules visible to this person (any platform). */
+/** A care home login only gets the care homes module plus personal (user tier) ones. */
+const fitsOrgType = (m: MobileModule, ctx: ModuleContext) =>
+  !ctx.isCareHomeOrg || m.tier === 'user' || m.id === 'care-homes'
+
 export function visibleModules(ctx: ModuleContext): MobileModule[] {
-  return MODULES.filter((m) => m.visible(ctx))
+  return MODULES.filter((m) => fitsOrgType(m, ctx) && m.visible(ctx))
 }
 
 /** Modules this device can actually open (mobile/both) and the user can see. */
 export function launchableModules(ctx: ModuleContext): MobileModule[] {
-  return MODULES.filter((m) => m.visible(ctx) && isLaunchable(m))
+  return MODULES.filter((m) => fitsOrgType(m, ctx) && m.visible(ctx) && isLaunchable(m))
 }
 
 /** Visible modules that live on the web — shown as "open on web" cards. */
 export function webOnlyModules(ctx: ModuleContext): MobileModule[] {
-  return MODULES.filter((m) => m.visible(ctx) && m.platform === 'web')
+  return MODULES.filter((m) => fitsOrgType(m, ctx) && m.visible(ctx) && m.platform === 'web')
 }
 
 export function findModule(id: string): MobileModule | undefined {

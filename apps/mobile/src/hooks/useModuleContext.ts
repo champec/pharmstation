@@ -17,9 +17,10 @@ export function useModuleContext(): ModuleContext {
   const isOrgConnected = useAuthStore((s) => s.isOrgConnected)
   const isLocumUser = useAuthStore((s) => s.isLocumUser())
   const sopManager = useAuthStore((s) => canManageSOPs(s.membership))
+  const isCareHomeOrg = useAuthStore((s) => s.organisation?.organisation_type === 'carehome')
 
   return useMemo(
-    () => ({ userProfile, permissions, isOrgConnected, isLocumUser, canManageSOPs: sopManager }),
-    [userProfile, permissions, isOrgConnected, isLocumUser, sopManager],
+    () => ({ userProfile, permissions, isOrgConnected, isLocumUser, canManageSOPs: sopManager, isCareHomeOrg }),
+    [userProfile, permissions, isOrgConnected, isLocumUser, sopManager, isCareHomeOrg],
   )
 }
