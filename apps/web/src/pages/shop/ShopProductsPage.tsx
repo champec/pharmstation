@@ -188,10 +188,16 @@ export function ShopProductsPage() {
         delivery_fee_pence: Math.round(parseFloat(sFee || '0') * 100) || 0,
         free_delivery_threshold_pence: sFreeOver.trim() ? Math.round(parseFloat(sFreeOver) * 100) : null,
         payment_methods: sPayment,
-        pharmacist_in_charge_name: sPicName.trim() || null,
-        pharmacist_in_charge_gphc: sPicGphc.replace(/\s/g, '') || null,
-        contact_phone: sPhone.trim() || null,
-        contact_email: sEmail.trim() || null,
+        // Only send the shop-front details once the database has them, so
+        // saving still works while the migration is being rolled out.
+        ...((settings && 'pharmacist_in_charge_name' in settings) || sPicName.trim() || sPicGphc.trim() || sPhone.trim() || sEmail.trim()
+          ? {
+              pharmacist_in_charge_name: sPicName.trim() || null,
+              pharmacist_in_charge_gphc: sPicGphc.replace(/\s/g, '') || null,
+              contact_phone: sPhone.trim() || null,
+              contact_email: sEmail.trim() || null,
+            }
+          : {}),
       })
       setShowSettingsModal(false)
     } catch (e: any) {
