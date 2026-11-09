@@ -7,7 +7,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuthStore, useShopStore } from '@pharmstation/core'
-import type { ShopProduct, ShopMedicineClass } from '@pharmstation/types'
+import type { ShopProduct, ShopMedicineClass, ShopPaymentMethods } from '@pharmstation/types'
 import { Modal } from '../../components/Modal'
 
 const formatPrice = (pence: number) => `£${(pence / 100).toFixed(2)}`
@@ -50,6 +50,8 @@ export function ShopProductsPage() {
   const [sRadius, setSRadius] = useState('5')
   const [sFee, setSFee] = useState('0')
   const [sFreeOver, setSFreeOver] = useState('')
+  const [sPayment, setSPayment] = useState<ShopPaymentMethods>('in_store')
+  const [cardReady, setCardReady] = useState<boolean | null>(null)
 
   const load = useCallback(() => {
     if (organisation?.id) {
@@ -155,6 +157,9 @@ export function ShopProductsPage() {
     setSRadius(String(settings?.delivery_radius_km ?? 5))
     setSFee(((settings?.delivery_fee_pence ?? 0) / 100).toFixed(2))
     setSFreeOver(settings?.free_delivery_threshold_pence != null ? (settings.free_delivery_threshold_pence / 100).toFixed(2) : '')
+    setSPayment(settings?.payment_methods ?? 'in_store')
+    setCardReady(null)
+    if (organisation?.id) useShopStore.getState().fetchCardReady(organisation.id).then(setCardReady)
     setShowSettingsModal(true)
   }
 
@@ -168,6 +173,7 @@ export function ShopProductsPage() {
         delivery_radius_km: parseFloat(sRadius || '5') || 5,
         delivery_fee_pence: Math.round(parseFloat(sFee || '0') * 100) || 0,
         free_delivery_threshold_pence: sFreeOver.trim() ? Math.round(parseFloat(sFreeOver) * 100) : null,
+        payment_methods: sPayment,
       })
       setShowSettingsModal(false)
     } catch { /* error shown via store */ } finally {
@@ -435,6 +441,24 @@ export function ShopProductsPage() {
               </label>
             </div>
           )}
+          <hr style={{ border: 'none', borderTop: '1px solid var(--ps-off-white)' }} />
+          <label>
+            How customers pay
+            <select className="ps-input" value={sPayment} onChange={(e) => setSPayment(e.target.value as ShopPaymentMethods)} style={{ width: '100%' }}>
+              <option value="in_store">In store or on delivery</option>
+              <option value="card">Card online at checkout</option>
+              <option value="both">Customer chooses: card online, or in store / on delivery</option>
+            </select>
+            <span style={{ display: 'block', color: 'var(--ps-slate)', fontSize: 'var(--ps-font-sm)', marginTop: 4 }}>
+              Card payments go straight to your pharmacy's bank account through Stripe. Cancelling a paid order, or a pharmacist rejecting it, refunds the customer automatically.
+            </span>
+            {sPayment !== 'in_store' && cardReady === false && (
+              <span style={{ display: 'block', color: '#b45309', fontSize: 'var(--ps-font-sm)', marginTop: 4 }}>
+                Card payments aren't set up yet, so customers will only see pay in store until you finish Stripe setup on the{' '}
+                <a href="/payments" onClick={(e) => { e.preventDefault(); navigate('/payments') }}>Payments page</a>.
+              </span>
+            )}
+          </label>
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 'var(--ps-space-sm)' }}>
             <button className="ps-btn ps-btn-secondary" onClick={() => setShowSettingsModal(false)}>Cancel</button>
             <button className="ps-btn ps-btn-primary" disabled={saving} onClick={handleSaveSettings}>

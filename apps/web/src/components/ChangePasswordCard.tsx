@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import { changeUserPassword, friendlyAuthError, logAuthEvent, passwordProblem } from '@pharmstation/supabase-client'
 import { useAuthStore } from '@pharmstation/core'
+import { PasswordInput } from './PasswordInput'
 
 /** Change the signed-in person's password. Asks for the current one first. */
 export function ChangePasswordCard() {
@@ -40,18 +41,18 @@ export function ChangePasswordCard() {
           {msg && <div className={`ps-alert ps-alert-${msg.type}`} style={{ marginBottom: '1rem' }}>{msg.text}</div>}
           <div className="form-group">
             <label className="form-label" htmlFor="pw-current">Current password</label>
-            <input id="pw-current" className="form-input" type="password" autoComplete="current-password"
+            <PasswordInput id="pw-current" className="form-input" autoComplete="current-password"
               value={current} onChange={(e) => setCurrent(e.target.value)} required />
           </div>
           <div className="form-row">
             <div className="form-group">
               <label className="form-label" htmlFor="pw-new">New password</label>
-              <input id="pw-new" className="form-input" type="password" autoComplete="new-password"
+              <PasswordInput id="pw-new" className="form-input" autoComplete="new-password"
                 value={next} onChange={(e) => setNext(e.target.value)} required />
             </div>
             <div className="form-group">
               <label className="form-label" htmlFor="pw-confirm">Type it again</label>
-              <input id="pw-confirm" className="form-input" type="password" autoComplete="new-password"
+              <PasswordInput id="pw-confirm" className="form-input" autoComplete="new-password"
                 value={confirm} onChange={(e) => setConfirm(e.target.value)} required />
             </div>
           </div>

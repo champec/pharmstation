@@ -1,19 +1,24 @@
 import { useState, type FormEvent } from 'react'
 import { useAuthStore } from '@pharmstation/core'
+import { sendMfaRecoveryEmail } from '@pharmstation/supabase-client'
 
 /** Second step of sign-in for accounts with an authenticator app. */
 export function MfaCodeForm() {
-  const { verifyUserMfa, cancelUserMfa } = useAuthStore()
+  const { verifyUserMfa, recoverUserMfaByEmail, cancelUserMfa } = useAuthStore()
   const [code, setCode] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+  // Set once a recovery code has been emailed: the code box then takes that code.
+  const [emailedTo, setEmailedTo] = useState<string | null>(null)
+  const [sending, setSending] = useState(false)
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
     setError(null)
     setLoading(true)
     try {
-      await verifyUserMfa(code)
+      if (emailedTo) await recoverUserMfaByEmail(code)
+      else await verifyUserMfa(code)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'That code didn’t work. Try again.')
       setCode('')
@@ -22,14 +27,32 @@ export function MfaCodeForm() {
     }
   }
 
+  const emailMeACode = async () => {
+    setError(null)
+    setSending(true)
+    try {
+      const to = await sendMfaRecoveryEmail()
+      setEmailedTo(to ?? 'your email')
+      setCode('')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Couldn’t send the email. Try again.')
+    } finally {
+      setSending(false)
+    }
+  }
+
   return (
     <>
-      <h1>Enter your code</h1>
-      <p className="subtitle">Open the PharmStation app (My Account &gt; Security) or your authenticator app and type the 6-digit code.</p>
+      <h1>{emailedTo ? 'Check your email' : 'Enter your code'}</h1>
+      <p className="subtitle">
+        {emailedTo
+          ? `We’ve emailed a 6-digit code to ${emailedTo}. It lasts 10 minutes. Entering it turns off two-step sign-in so you can set it up again.`
+          : 'Open the PharmStation app (My Account > Security) or your authenticator app and type the 6-digit code.'}
+      </p>
       {error && <div className="auth-error">{error}</div>}
       <form onSubmit={handleSubmit}>
         <div className="form-group">
-          <label htmlFor="mfa-code">6-digit code</label>
+          <label htmlFor="mfa-code">{emailedTo ? 'Code from the email' : '6-digit code'}</label>
           <input
             id="mfa-code"
             className="ps-input mfa-code-input"
@@ -52,10 +75,20 @@ export function MfaCodeForm() {
           {loading ? 'Checking…' : 'Verify'}
         </button>
       </form>
-      <p className="onboarding-footer">
-        Lost your phone? Ask the pharmacy owner to reset your two-step sign-in.
-      </p>
-      <div style={{ marginTop: '8px', textAlign: 'center' }}>
+      <div style={{ marginTop: '12px', textAlign: 'center', display: 'grid', gap: '4px' }}>
+        <button type="button" className="ps-btn ps-btn-ghost" onClick={emailMeACode} disabled={sending} style={{ fontSize: 'var(--ps-font-sm)' }}>
+          {sending ? 'Sending…' : emailedTo ? 'Send a new email code' : 'Can’t get your code? Email me one instead'}
+        </button>
+        {emailedTo && (
+          <button
+            type="button"
+            className="ps-btn ps-btn-ghost"
+            onClick={() => { setEmailedTo(null); setCode(''); setError(null) }}
+            style={{ fontSize: 'var(--ps-font-sm)' }}
+          >
+            Use my authenticator code after all
+          </button>
+        )}
         <button type="button" className="ps-btn ps-btn-ghost" onClick={() => cancelUserMfa()} style={{ fontSize: 'var(--ps-font-sm)' }}>
           ← Use a different account
         </button>

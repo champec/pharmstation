@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { PublicSiteShell } from '../../components/public/PublicSiteShell'
 import { usePatientStore } from '@pharmstation/core'
+import { PasswordInput } from '../../components/PasswordInput'
 
 export function PatientLoginPage() {
   const navigate = useNavigate()
@@ -45,7 +46,7 @@ export function PatientLoginPage() {
           </div>
           <div className="form-group">
             <label>Password</label>
-            <input className="ps-input" type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Enter your password" />
+            <PasswordInput className="ps-input" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Enter your password" />
           </div>
           <div className="auth-forgot-link">
             <Link to="/forgot-password/patient">Forgot password?</Link>

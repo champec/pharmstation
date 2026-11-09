@@ -42,17 +42,31 @@ export async function startTotpEnrollment(): Promise<TotpEnrollment> {
     factorType: 'totp',
     friendlyName: `Authenticator app ${new Date().toISOString().slice(0, 10)}`,
   })
-  if (error) throw error
+  if (error) throw new Error(mfaErrorMessage(error))
   return { factorId: data.id, qrCode: data.totp.qr_code, secret: data.totp.secret }
+}
+
+/** Plain-English versions of the MFA errors people actually hit. */
+export function mfaErrorMessage(err: { message?: string; code?: string } | null | undefined): string {
+  const msg = `${err?.code ?? ''} ${err?.message ?? ''}`
+  // Turning on two-step sign-in (here or on another device) signs out every
+  // other session, so a page left open loses its session.
+  if (/session.?missing|session_not_found|not.?authenticated|jwt|refresh.?token/i.test(msg)) {
+    return 'You’ve been signed out. This happens when two-step sign-in is turned on from another device. Sign in again, then use the code from your app.'
+  }
+  if (/factor.*not.?found|mfa_factor_not_found/i.test(msg)) {
+    return 'This set-up was replaced from another device. If two-step sign-in is already on, sign in again; otherwise start set-up again.'
+  }
+  if (/invalid|expired|code/i.test(msg)) {
+    return 'That code didn’t work. Check the time on your phone is right, then try the newest code.'
+  }
+  return err?.message || 'Something went wrong. Try again.'
 }
 
 /** Check a 6-digit code. Finishes enrolment, or completes a sign-in. */
 export async function verifyTotpCode(factorId: string, code: string) {
   const { error } = await getUserClient().auth.mfa.challengeAndVerify({ factorId, code: code.replace(/\s/g, '') })
-  if (error) {
-    if (/invalid|expired|code/i.test(error.message)) throw new Error('That code didn’t work. Check the time on your phone is right, then try the newest code.')
-    throw error
-  }
+  if (error) throw new Error(mfaErrorMessage(error))
 }
 
 /** Remove an authenticator app. Needs a two-step session (aal2). */
@@ -75,4 +89,36 @@ export async function getMfaStatus(): Promise<{ needsCode: boolean; factorId: st
     factorId = factors[0]?.id ?? null
   }
   return { needsCode, factorId, hasFactor }
+}
+
+async function callEmailRecovery(body: Record<string, unknown>) {
+  const client = getUserClient()
+  const { data, error } = await client.functions.invoke('mfa-email-recovery', { body })
+  if (error) {
+    let message = 'Something went wrong. Try again.'
+    try {
+      const ctx = (error as { context?: Response }).context
+      const parsed = ctx ? await ctx.json() : null
+      if (parsed?.error) message = parsed.error
+    } catch {
+      // keep the default
+    }
+    throw new Error(message)
+  }
+  return data as { ok: boolean; sentTo?: string }
+}
+
+/** Lost authenticator: email a 6-digit code to the signed-in (password only) account. */
+export async function sendMfaRecoveryEmail(): Promise<string | null> {
+  const data = await callEmailRecovery({ action: 'send' })
+  return data.sentTo ?? null
+}
+
+/** Check the emailed code. On success two-step sign-in is turned off for the
+ *  account and the session is refreshed, so sign-in can continue and the
+ *  person is asked to set two-step sign-in up again. */
+export async function recoverMfaByEmail(code: string) {
+  await callEmailRecovery({ action: 'verify', code: code.replace(/\s/g, '') })
+  const { error } = await getUserClient().auth.refreshSession()
+  if (error) throw new Error(mfaErrorMessage(error))
 }

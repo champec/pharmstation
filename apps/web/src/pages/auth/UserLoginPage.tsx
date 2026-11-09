@@ -4,6 +4,7 @@ import { useAuthStore } from '@pharmstation/core'
 import { logAuthEvent, orgNeedsOwner } from '@pharmstation/supabase-client'
 import { IDLE_SIGNOUT_FLAG } from '../../components/IdleLock'
 import { MfaCodeForm } from '../../components/mfa/MfaCodeForm'
+import { PasswordInput } from '../../components/PasswordInput'
 
 export function UserLoginPage() {
   const { organisation, userLogin, orgLogout, mfaPendingFactorId } = useAuthStore()
@@ -145,9 +146,8 @@ export function UserLoginPage() {
 
         <div className="form-group">
           <label htmlFor="user-password">Password</label>
-          <input
+          <PasswordInput
             id="user-password"
-            type="password"
             className="ps-input"
             placeholder="Enter your password"
             value={password}

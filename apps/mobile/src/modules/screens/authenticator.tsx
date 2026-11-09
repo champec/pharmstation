@@ -13,7 +13,7 @@
 // ============================================
 
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
+import { ActivityIndicator, Alert, Pressable, ScrollView, Share, StyleSheet, Text, View } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
 import { CameraView, type BarcodeScanningResult, useCameraPermissions } from 'expo-camera'
 import * as LocalAuthentication from 'expo-local-authentication'
@@ -103,7 +103,15 @@ export function SecurityTab() {
       }
       setAccounts(next)
       setAccountHasTotp(true)
-      Alert.alert('Two-step sign-in is on', 'When PharmStation asks for a code, open My Account > Security on this phone.')
+      const added = next.find((a) => a.factorId === factorId)
+      Alert.alert(
+        'Two-step sign-in is on',
+        'When PharmStation asks for a code, tap "Use the code on this phone", or open My Account > Security.\n\nIf you lose this phone or reinstall the app, the code goes with it. We recommend adding a backup to Google or Microsoft Authenticator now.',
+        [
+          { text: 'Later', style: 'cancel' },
+          ...(added ? [{ text: 'Add a backup', onPress: () => showBackupKey(added) }] : []),
+        ],
+      )
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Couldn’t turn on two-step sign-in.')
     } finally {
@@ -151,6 +159,32 @@ export function SecurityTab() {
     } catch (err) {
       setError(err instanceof Error ? err.message : 'That setup key isn’t valid.')
     }
+  }
+
+  /** Show the setup key so the same code can also live in Google or Microsoft Authenticator. */
+  const showBackupKey = (a: OtpAccount) => {
+    const grouped = a.secret.match(/.{1,4}/g)?.join(' ') ?? a.secret
+    Alert.alert(
+      'Add to another authenticator',
+      `In Google or Microsoft Authenticator, choose "Enter a setup key" and type:\n\n${grouped}\n\nAccount: ${a.label}\nType: time-based\n\nBoth apps will then show the same code, so you can still sign in if this phone is lost or the app is reinstalled. Keep this key private.`,
+      [
+        { text: 'Done', style: 'cancel' },
+        {
+          text: 'Share or copy',
+          onPress: () => {
+            Share.share({ message: a.secret }).catch(() => undefined)
+          },
+        },
+      ],
+    )
+  }
+
+  const accountOptions = (a: OtpAccount) => {
+    Alert.alert(a.label, undefined, [
+      { text: 'Add to another authenticator', onPress: () => showBackupKey(a) },
+      { text: 'Remove from this phone', style: 'destructive', onPress: () => confirmRemove(a) },
+      { text: 'Cancel', style: 'cancel' },
+    ])
   }
 
   const confirmRemove = (a: OtpAccount) => {
@@ -223,10 +257,10 @@ export function SecurityTab() {
       ) : accounts.length === 0 ? (
         <Text style={styles.muted}>None yet. Set up two-step sign-in above, or scan the QR code the website shows.</Text>
       ) : (
-        accounts.map((a) => <CodeCard key={a.id} account={a} now={now} onLongPress={() => confirmRemove(a)} />)
+        accounts.map((a) => <CodeCard key={a.id} account={a} now={now} onLongPress={() => accountOptions(a)} />)
       )}
       {accounts && accounts.length > 0 ? (
-        <Text style={styles.hint}>Press and hold a code to remove it.</Text>
+        <Text style={styles.hint}>Press and hold a code to back it up to another authenticator app, or to remove it.</Text>
       ) : null}
 
       {mode === 'manual' ? (

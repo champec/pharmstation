@@ -163,7 +163,15 @@ export async function getMfaStatus(): Promise<{ needsCode: boolean; factorId: st
 
 export async function verifyTotpCode(factorId: string, code: string) {
   const { error } = await userClient.auth.mfa.challengeAndVerify({ factorId, code: code.replace(/\s/g, '') })
-  if (error) throw new Error('That code didn\u2019t work. Check the time on your phone is right, then try the newest code.')
+  if (!error) return
+  const msg = `${(error as { code?: string }).code ?? ''} ${error.message}`
+  if (/session.?missing|session_not_found|not.?authenticated|jwt|refresh.?token/i.test(msg)) {
+    throw new Error('You\u2019ve been signed out. This happens when two-step sign-in is turned on from another device. Tap \u201cUse a different account\u201d and sign in again.')
+  }
+  if (/factor.*not.?found/i.test(msg)) {
+    throw new Error('Two-step sign-in was set up again from another device. Sign in again to use the new code.')
+  }
+  throw new Error('That code didn\u2019t work. Check the time on your phone is right, then try the newest code.')
 }
 
 /** Turn on two-step sign-in using this phone as the authenticator.
@@ -206,3 +214,33 @@ export async function claimLocumShiftAccess(orgId: string): Promise<boolean> {
 
 /** Where people reset a forgotten password (the web app handles it). */
 export const FORGOT_PASSWORD_URL = 'https://pharmstation.co.uk/forgot-password/me'
+
+async function callEmailRecovery(body: Record<string, unknown>) {
+  const { data, error } = await userClient.functions.invoke('mfa-email-recovery', { body })
+  if (error) {
+    let message = 'Something went wrong. Try again.'
+    try {
+      const ctx = (error as { context?: Response }).context
+      const parsed = ctx ? await ctx.json() : null
+      if (parsed?.error) message = parsed.error
+    } catch {
+      // keep the default
+    }
+    throw new Error(message)
+  }
+  return data as { ok: boolean; sentTo?: string }
+}
+
+/** Lost authenticator: email a 6-digit code to the signed-in (password only) account. */
+export async function sendMfaRecoveryEmail(): Promise<string | null> {
+  const data = await callEmailRecovery({ action: 'send' })
+  return data.sentTo ?? null
+}
+
+/** Check the emailed code. On success two-step sign-in is off for the account
+ *  and the session is refreshed, so sign-in can carry on. */
+export async function recoverMfaByEmail(code: string) {
+  await callEmailRecovery({ action: 'verify', code: code.replace(/\s/g, '') })
+  const { error } = await userClient.auth.refreshSession()
+  if (error) throw new Error('You’ve been signed out. Sign in again with your email and password.')
+}

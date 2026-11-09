@@ -1,11 +1,12 @@
-import { useState } from 'react'
-import { Pressable, StyleSheet, Text, View } from 'react-native'
+import { useEffect, useState } from 'react'
+import { Alert, Pressable, StyleSheet, Switch, Text, View } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
 import { useRouter } from 'expo-router'
 
 import { Button } from '@/components/ui/Button'
 import { Field } from '@/components/ui/Field'
 import { Screen } from '@/components/ui/Screen'
+import { forgetPharmacy, loadSavedPharmacies, savePharmacy, type SavedPharmacy } from '@/lib/saved-pharmacies'
 import { useAuthStore } from '@/stores/auth-store'
 import { palette, radius } from '@/theme/palette'
 
@@ -21,15 +22,32 @@ export default function ConnectPharmacyScreen() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
+  const [remember, setRemember] = useState(true)
+  const [saved, setSaved] = useState<SavedPharmacy[]>([])
 
-  const onConnect = async () => {
+  useEffect(() => {
+    loadSavedPharmacies().then(setSaved)
+  }, [])
+
+  const connect = async (e: string, p: string, keep: boolean) => {
     setError(null)
     try {
-      await connectOrg(email, password)
+      await connectOrg(e, p)
+      const name = useAuthStore.getState().organisation?.name ?? e
+      if (keep) await savePharmacy(e, p, name)
       router.back()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not connect')
     }
+  }
+
+  const onConnect = () => connect(email, password, remember)
+
+  const onForget = (p: SavedPharmacy) => {
+    Alert.alert(`Forget ${p.name}?`, 'You’ll need the pharmacy login to connect again.', [
+      { text: 'Keep', style: 'cancel' },
+      { text: 'Forget', style: 'destructive', onPress: async () => setSaved(await forgetPharmacy(p.email)) },
+    ])
   }
 
   const onDisconnect = async () => {
@@ -77,13 +95,40 @@ export default function ConnectPharmacyScreen() {
             </Text>
           </View>
 
+          {saved.length > 0 ? (
+            <View style={styles.form}>
+              <Text style={styles.section}>Your pharmacies</Text>
+              {saved.map((p) => (
+                <Pressable
+                  key={p.email}
+                  style={styles.savedRow}
+                  onPress={() => connect(p.email, p.password, true)}
+                  onLongPress={() => onForget(p)}
+                  disabled={busy}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Connect to ${p.name}`}
+                >
+                  <Ionicons name="business-outline" size={22} color={palette.brand} />
+                  <View style={styles.flex}>
+                    <Text style={styles.savedName}>{p.name}</Text>
+                    <Text style={styles.savedEmail}>{p.email}</Text>
+                  </View>
+                  <Ionicons name="chevron-forward" size={20} color={palette.textMuted} />
+                </Pressable>
+              ))}
+              <Text style={styles.hint}>Tap to connect. Press and hold to forget.</Text>
+              <Text style={styles.section}>Another pharmacy</Text>
+            </View>
+          ) : null}
+
           <View style={styles.form}>
             <Field
               label="Pharmacy email"
               value={email}
               onChangeText={setEmail}
               autoCapitalize="none"
-              autoComplete="email"
+              autoComplete="username"
+              textContentType="username"
               keyboardType="email-address"
               placeholder="pharmacy@example.com"
             />
@@ -92,8 +137,15 @@ export default function ConnectPharmacyScreen() {
               value={password}
               onChangeText={setPassword}
               secureTextEntry
+              autoComplete="current-password"
+              textContentType="password"
               placeholder="••••••••"
             />
+
+            <View style={styles.rememberRow}>
+              <Text style={styles.rememberText}>Remember this pharmacy on this phone</Text>
+              <Switch value={remember} onValueChange={setRemember} />
+            </View>
 
             {error ? <Text style={styles.error}>{error}</Text> : null}
 
@@ -127,4 +179,21 @@ const styles = StyleSheet.create({
   subtitle: { fontSize: 15, lineHeight: 22, color: palette.textMuted },
   form: { gap: 16 },
   error: { color: palette.danger, fontSize: 14, fontWeight: '600' },
+  flex: { flex: 1 },
+  section: { fontSize: 13, fontWeight: '700', color: palette.textMuted, textTransform: 'uppercase', letterSpacing: 0.5 },
+  savedRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    backgroundColor: palette.surface,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: palette.border,
+    padding: 14,
+  },
+  savedName: { fontSize: 16, fontWeight: '700', color: palette.text },
+  savedEmail: { fontSize: 13, color: palette.textMuted },
+  hint: { fontSize: 12, color: palette.textMuted },
+  rememberRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
+  rememberText: { fontSize: 14, color: palette.text, flex: 1 },
 })

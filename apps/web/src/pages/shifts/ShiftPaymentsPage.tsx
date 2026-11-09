@@ -90,12 +90,9 @@ export function ShiftPaymentsPage() {
     const list = (data ?? []) as Invoice[]
     const locumIds = [...new Set(list.map((i) => i.locum_id))]
     if (locumIds.length > 0) {
-      const { data: profiles } = await client.from('ps_locum_profiles').select('id, user_id').in('id', locumIds)
-      const userIds = ((profiles ?? []) as { id: string; user_id: string }[]).map((p) => p.user_id)
-      const { data: users } = await client.from('ps_user_profiles').select('id, full_name').in('id', userIds)
-      const userMap = new Map(((users ?? []) as { id: string; full_name: string }[]).map((u) => [u.id, u.full_name]))
-      const profileMap = new Map(((profiles ?? []) as { id: string; user_id: string }[]).map((p) => [p.id, p.user_id]))
-      for (const inv of list) inv.locum_name = userMap.get(profileMap.get(inv.locum_id) ?? '') ?? 'Locum'
+      const { data: locums } = await client.rpc('ps_org_shift_locums', { p_org_id: orgId, p_locum_ids: locumIds })
+      const nameMap = new Map(((locums ?? []) as { locum_id: string; full_name: string }[]).map((l) => [l.locum_id, l.full_name]))
+      for (const inv of list) inv.locum_name = nameMap.get(inv.locum_id) ?? 'Locum'
     }
     setInvoices(list)
     setLoadingInvoices(false)

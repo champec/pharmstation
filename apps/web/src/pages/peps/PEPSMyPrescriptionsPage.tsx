@@ -24,9 +24,10 @@ export function PEPSMyPrescriptionsPage() {
     return list
   }, [myPrescriptions, statusFilter, search])
 
-  const locationOf = (status: string, assignedName?: string | null) => {
+  const locationOf = (status: string, assignedName?: string | null, expiresAt?: string | null) => {
     if (status === 'dispensed') return 'Dispensed'
     if (status === 'cancelled') return 'Cancelled'
+    if (expiresAt && new Date(expiresAt).getTime() < Date.now()) return 'Expired'
     if (assignedName) return assignedName
     return 'Spine (unclaimed)'
   }
@@ -77,7 +78,7 @@ export function PEPSMyPrescriptionsPage() {
                   <td>{r.prescription_type === 'vet' ? 'Vet' : 'Private'}</td>
                   <td>{r.prescription_date}</td>
                   <td>{r.repeats > 0 ? `${r.repeats_dispensed}/${r.repeats + 1}` : '—'}</td>
-                  <td>{locationOf(r.status, r.assigned_org?.name)}</td>
+                  <td>{locationOf(r.status, r.assigned_org?.name, r.expires_at)}</td>
                 </tr>
               ))}
             </tbody>

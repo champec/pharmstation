@@ -2697,9 +2697,16 @@ export interface ShopSettings {
   delivery_fee_pence: number
   free_delivery_threshold_pence: number | null
   collection_enabled: boolean
+  /** How shop customers can pay: in store / on delivery, card online, or either. */
+  payment_methods: ShopPaymentMethods
   created_at: string
   updated_at: string
 }
+
+export type ShopPaymentMethods = 'in_store' | 'card' | 'both'
+export type ShopOrderPaymentMethod = 'in_store' | 'card'
+export type ShopOrderPaymentStatus =
+  | 'not_required' | 'awaiting_payment' | 'paid' | 'refunded' | 'partially_refunded' | 'expired'
 
 export interface ShopCategory {
   id: string
@@ -2810,6 +2817,9 @@ export interface ShopOrder {
   delivery_round_id: string | null
   delivery_round_patient_id: string | null
   review_status: ShopReviewStatus
+  payment_method: ShopOrderPaymentMethod
+  payment_status: ShopOrderPaymentStatus
+  payment_id: string | null
   reviewed_by: string | null
   reviewed_by_name: string | null
   reviewed_by_gphc: string | null
@@ -2848,5 +2858,6 @@ export interface ShopPlaceOrderResult {
   subtotal_pence: number
   delivery_fee_pence: number
   total_pence: number
+  payment_method?: ShopOrderPaymentMethod
 }
 

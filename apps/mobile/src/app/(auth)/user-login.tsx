@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Alert, Linking, Pressable, StyleSheet, Text, View } from 'react-native'
+import { Alert, Linking, Pressable, StyleSheet, Switch, Text, View } from 'react-native'
 import { useRouter } from 'expo-router'
 
 import { Button } from '@/components/ui/Button'
@@ -16,7 +16,7 @@ import {
   rememberEmail,
   rememberedEmail,
 } from '@/lib/biometric-login'
-import { FORGOT_PASSWORD_URL } from '@/lib/supabase'
+import { FORGOT_PASSWORD_URL, sendMfaRecoveryEmail } from '@/lib/supabase'
 import { totp } from '@/lib/totp'
 import * as LocalAuthentication from 'expo-local-authentication'
 import { useAuthStore } from '@/stores/auth-store'
@@ -28,9 +28,13 @@ export default function UserLoginScreen() {
   const busy = useAuthStore((s) => s.busy)
   const mfaPendingFactorId = useAuthStore((s) => s.mfaPendingFactorId)
   const verifyMfa = useAuthStore((s) => s.verifyMfa)
+  const recoverMfaByEmail = useAuthStore((s) => s.recoverMfaByEmail)
   const userLogout = useAuthStore((s) => s.userLogout)
   const [code, setCode] = useState('')
   const [phoneCodes, setPhoneCodes] = useState(false)
+  // Set once a recovery code has been emailed: the code box then takes that code.
+  const [emailedTo, setEmailedTo] = useState<string | null>(null)
+  const [sending, setSending] = useState(false)
 
   useEffect(() => {
     if (mfaPendingFactorId) loadOtpAccounts().then((a) => setPhoneCodes(a.length > 0))
@@ -66,13 +70,14 @@ export default function UserLoginScreen() {
     useAuthStore.setState({ error: null })
     setError(
       'The code saved on this phone doesn’t match this account any more, probably because two-step sign-in was set up again since. ' +
-        'Use the code from the app you set it up with most recently, or ask the pharmacy owner to reset your two-step sign-in, then set it up again.',
+        'Tap “Can’t get your code? Email me one instead” below to get back in, then set two-step sign-in up again.',
     )
   }
 
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
+  const [remember, setRemember] = useState(true)
   const [bioLabel, setBioLabel] = useState<string | null>(null)
   const [bioEmail, setBioEmail] = useState<string | null>(null)
   // The login being signed in with, so we can offer quick sign-in once it
@@ -95,24 +100,17 @@ export default function UserLoginScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // Offer quick sign-in after a successful password sign-in, then go home.
+  // After a full sign-in (including the two-step code): with "Remember me"
+  // on, keep the email and, when the phone has a fingerprint or face, turn
+  // on quick sign-in (the phone confirms with its own prompt). Then go home.
   const finishSignIn = async () => {
     const p = pending.current
     pending.current = null
-    if (p) await rememberEmail(p.email)
-    if (p && !p.viaBio && bioLabel && bioEmail?.toLowerCase() !== p.email.trim().toLowerCase()) {
-      const turnOn = await new Promise<boolean>((resolve) =>
-        Alert.alert(
-          `Sign in with ${bioLabel} next time?`,
-          `Your login is kept in this phone's secure storage and only unlocked by your ${bioLabel}.`,
-          [
-            { text: 'Not now', style: 'cancel', onPress: () => resolve(false) },
-            { text: 'Turn on', onPress: () => resolve(true) },
-          ],
-          { cancelable: true, onDismiss: () => resolve(false) },
-        ),
-      )
-      if (turnOn && (await enableBiometricLogin(p.email, p.password))) setBioEmail(p.email.trim())
+    if (p && remember) {
+      await rememberEmail(p.email)
+      if (!p.viaBio && bioLabel && bioEmail?.toLowerCase() !== p.email.trim().toLowerCase()) {
+        if (await enableBiometricLogin(p.email, p.password)) setBioEmail(p.email.trim())
+      }
     }
     router.replace('/(app)/home')
   }
@@ -157,9 +155,32 @@ export default function UserLoginScreen() {
     }
   }
 
+  const emailMeACode = async () => {
+    setError(null)
+    setSending(true)
+    try {
+      const to = await sendMfaRecoveryEmail()
+      setEmailedTo(to ?? 'your email')
+      setCode('')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Couldn’t send the email. Try again.')
+    } finally {
+      setSending(false)
+    }
+  }
+
   const onVerify = async () => {
     setError(null)
     try {
+      if (emailedTo) {
+        await recoverMfaByEmail(code)
+        await finishSignIn()
+        Alert.alert(
+          'Two-step sign-in is off',
+          'You’re signed in. Turn two-step sign-in back on now in My Account > Security, and add a backup to Google or Microsoft Authenticator so this doesn’t happen again.',
+        )
+        return
+      }
       await verifyMfa(code)
       await finishSignIn()
     } catch (err) {
@@ -173,14 +194,16 @@ export default function UserLoginScreen() {
       <Screen scroll contentStyle={styles.content}>
         <View style={styles.header}>
           <BrandLogo size={36} wordmark="row" />
-          <Text style={styles.title}>Enter your code</Text>
+          <Text style={styles.title}>{emailedTo ? 'Check your email' : 'Enter your code'}</Text>
           <Text style={styles.subtitle}>
-            This account has two-step sign-in, so every new sign-in needs a code as well as your password. If this phone holds your code, tap “Use the code on this phone”. Otherwise type the 6-digit code from your authenticator app.
+            {emailedTo
+              ? `We’ve emailed a 6-digit code to ${emailedTo}. It lasts 10 minutes. Entering it turns off two-step sign-in so you can set it up again.`
+              : 'This account has two-step sign-in, so every new sign-in needs a code as well as your password. If this phone holds your code, tap “Use the code on this phone”. Otherwise type the 6-digit code from your authenticator app.'}
           </Text>
         </View>
         <View style={styles.form}>
           <Field
-            label="6-digit code"
+            label={emailedTo ? 'Code from the email' : '6-digit code'}
             value={code}
             onChangeText={setCode}
             keyboardType="number-pad"
@@ -189,7 +212,7 @@ export default function UserLoginScreen() {
             placeholder="123456"
           />
           {error ? <Text style={styles.error}>{error}</Text> : null}
-          {phoneCodes ? (
+          {phoneCodes && !emailedTo ? (
             <Button label="Use the code on this phone" variant="secondary" onPress={useCodeFromPhone} loading={busy} />
           ) : null}
           <Button
@@ -198,13 +221,20 @@ export default function UserLoginScreen() {
             loading={busy}
             disabled={code.replace(/\s/g, '').length !== 6}
           />
+          <Pressable onPress={emailMeACode} disabled={sending} accessibilityRole="button">
+            <Text style={styles.link}>
+              {sending ? 'Sending…' : emailedTo ? 'Send a new email code' : 'Can’t get your code? Email me one instead'}
+            </Text>
+          </Pressable>
+          {emailedTo ? (
+            <Pressable onPress={() => { setEmailedTo(null); setCode(''); setError(null) }} accessibilityRole="button">
+              <Text style={styles.link}>Use my authenticator code after all</Text>
+            </Pressable>
+          ) : null}
           <Pressable onPress={() => userLogout()} accessibilityRole="button">
             <Text style={styles.link}>Use a different account</Text>
           </Pressable>
         </View>
-        <Text style={styles.footnote}>
-          Lost your phone? Ask the pharmacy owner to reset your two-step sign-in.
-        </Text>
       </Screen>
     )
   }
@@ -236,7 +266,8 @@ export default function UserLoginScreen() {
           value={email}
           onChangeText={setEmail}
           autoCapitalize="none"
-          autoComplete="email"
+          autoComplete="username"
+          textContentType="username"
           keyboardType="email-address"
           placeholder="you@example.com"
         />
@@ -245,8 +276,17 @@ export default function UserLoginScreen() {
           value={password}
           onChangeText={setPassword}
           secureTextEntry
+          autoComplete="current-password"
+          textContentType="password"
           placeholder="••••••••"
         />
+
+        <View style={styles.rememberRow}>
+          <Text style={styles.rememberText}>
+            {bioLabel ? `Remember me (sign in with ${bioLabel} next time)` : 'Remember my email'}
+          </Text>
+          <Switch value={remember} onValueChange={setRemember} />
+        </View>
 
         <Pressable onPress={() => Linking.openURL(FORGOT_PASSWORD_URL)} accessibilityRole="link">
           <Text style={styles.link}>Forgot password?</Text>
@@ -282,4 +322,6 @@ const styles = StyleSheet.create({
   error: { color: palette.danger, fontSize: 14, fontWeight: '600' },
   link: { color: palette.brandDark, fontSize: 14, fontWeight: '600', textAlign: 'right' },
   footnote: { fontSize: 13, lineHeight: 20, color: palette.textMuted },
+  rememberRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
+  rememberText: { fontSize: 14, color: palette.text, flex: 1 },
 })
