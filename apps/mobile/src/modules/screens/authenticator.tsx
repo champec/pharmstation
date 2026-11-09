@@ -21,6 +21,7 @@ import * as LocalAuthentication from 'expo-local-authentication'
 import { Button } from '@/components/ui/Button'
 import { Field } from '@/components/ui/Field'
 import { addOtpAccount, loadOtpAccounts, removeOtpAccount } from '@/lib/authenticator'
+import { listMyTotpFactors, logAuthEvent, removeMyTotpFactor } from '@/lib/account'
 import { hasVerifiedTotp, startPhoneTotpEnrollment, verifyTotpCode } from '@/lib/supabase'
 import { parseOtpauth, totp, type OtpAccount } from '@/lib/totp'
 import { useAuthStore } from '@/stores/auth-store'
@@ -55,6 +56,9 @@ async function deviceUnlock(): Promise<boolean> {
 
 export function SecurityTab() {
   const userProfile = useAuthStore((s) => s.userProfile)
+  const membership = useAuthStore((s) => s.membership)
+  const organisation = useAuthStore((s) => s.organisation)
+  const mfaRequired = membership?.role === 'owner' || membership?.role === 'manager'
   const [unlocked, setUnlocked] = useState(false)
   const [accounts, setAccounts] = useState<OtpAccount[] | null>(null)
   const [accountHasTotp, setAccountHasTotp] = useState<boolean | null>(null)
@@ -103,6 +107,7 @@ export function SecurityTab() {
       }
       setAccounts(next)
       setAccountHasTotp(true)
+      if (membership) void logAuthEvent(organisation?.id, 'two_step_on')
       const added = next.find((a) => a.factorId === factorId)
       Alert.alert(
         'Two-step sign-in is on',
@@ -159,6 +164,36 @@ export function SecurityTab() {
     } catch (err) {
       setError(err instanceof Error ? err.message : 'That setup key isn’t valid.')
     }
+  }
+
+  const turnOff = () => {
+    Alert.alert('Turn off two-step sign-in?', 'Your account will only be protected by your password.', [
+      { text: 'Keep it on', style: 'cancel' },
+      {
+        text: 'Turn off',
+        style: 'destructive',
+        onPress: async () => {
+          setBusy(true)
+          setError(null)
+          try {
+            for (const f of await listMyTotpFactors()) await removeMyTotpFactor(f.id)
+            if (membership) void logAuthEvent(organisation?.id, 'two_step_off')
+            setAccountHasTotp(false)
+            // Codes for this account are useless now.
+            let next = await loadOtpAccounts()
+            const email = (userProfile?.email ?? '').toLowerCase()
+            for (const a of next.filter((x) => x.label.toLowerCase() === email && x.issuer === 'PharmStation')) {
+              next = await removeOtpAccount(a.id)
+            }
+            setAccounts(next)
+          } catch (err) {
+            setError(err instanceof Error ? err.message : 'Couldn’t turn it off.')
+          } finally {
+            setBusy(false)
+          }
+        },
+      },
+    ])
   }
 
   /** Show the setup key so the same code can also live in Google or Microsoft Authenticator. */
@@ -234,10 +269,17 @@ export function SecurityTab() {
       <View style={styles.card}>
         <Text style={styles.title}>Two-step sign-in</Text>
         {accountHasTotp ? (
-          <Text style={styles.muted}>
-            On for {userProfile?.email ?? 'your account'}. When PharmStation asks for a code, use one below or your
-            other authenticator app.
-          </Text>
+          <>
+            <Text style={styles.muted}>
+              On for {userProfile?.email ?? 'your account'}. When PharmStation asks for a code, use one below or your
+              other authenticator app.
+            </Text>
+            {mfaRequired ? (
+              <Text style={styles.hint}>Owners and managers must keep two-step sign-in on.</Text>
+            ) : (
+              <Button label="Turn off two-step sign-in" variant="ghost" onPress={turnOff} loading={busy} />
+            )}
+          </>
         ) : (
           <>
             <Text style={styles.muted}>

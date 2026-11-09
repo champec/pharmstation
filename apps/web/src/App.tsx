@@ -9,6 +9,7 @@ import { UserLoginPage } from './pages/auth/UserLoginPage'
 import { ForgotPasswordPage } from './pages/auth/ForgotPasswordPage'
 import { ResetPasswordPage } from './pages/auth/ResetPasswordPage'
 import { PersonalLoginPage } from './pages/auth/PersonalLoginPage'
+import { PersonalSignupPage } from './pages/auth/PersonalSignupPage'
 import { PersonalProfilePage } from './pages/PersonalProfilePage'
 import { LocumApprovalsPage } from './pages/admin/LocumApprovalsPage'
 import { AnnouncementsPage } from './pages/admin/AnnouncementsPage'
@@ -293,6 +294,10 @@ export function App() {
         <Route
           path="/me/login"
           element={isUserLoggedIn ? <Navigate to="/me" replace /> : <PersonalLoginPage />}
+        />
+        <Route
+          path="/me/signup"
+          element={isUserLoggedIn ? <Navigate to="/me" replace /> : <PersonalSignupPage />}
         />
       </Route>
 
