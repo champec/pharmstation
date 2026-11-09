@@ -343,7 +343,44 @@ async function hasPermission(ctx: ToolContext, permission: string): Promise<bool
 const NO_PERMISSION = (what: string) =>
   JSON.stringify({ error: `This user does not have permission to view ${what}. Tell them to ask their pharmacy owner or manager.` })
 
+// Tool rows carry ISO dates and UTC timestamps. Turn them into UK formats ("9 Nov 2026",
+// "9 Nov 2026, 14:06" in UK local time) so Genie never quotes UTC or ISO dates to staff.
+const UK_DATE = new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/London', day: 'numeric', month: 'short', year: 'numeric' })
+const UK_DATE_TIME = new Intl.DateTimeFormat('en-GB', {
+  timeZone: 'Europe/London', day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false,
+})
+
+function localiseValue(key: string, value: unknown): unknown {
+  if (typeof value !== 'string') return value
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    const [y, m, d] = value.split('-').map(Number)
+    return UK_DATE.format(new Date(Date.UTC(y, m - 1, d, 12)))
+  }
+  if ((key.endsWith('_at') || key.startsWith('date')) && /^\d{4}-\d{2}-\d{2}T/.test(value)) {
+    const date = new Date(value)
+    return Number.isNaN(date.getTime()) ? value : UK_DATE_TIME.format(date)
+  }
+  return value
+}
+
+function localiseDates(node: unknown, key = ''): unknown {
+  if (Array.isArray(node)) return node.map((item) => localiseDates(item, key))
+  if (node && typeof node === 'object') {
+    return Object.fromEntries(Object.entries(node as Record<string, unknown>).map(([k, v]) => [k, localiseDates(v, k)]))
+  }
+  return localiseValue(key, node)
+}
+
 async function executeTool(toolName: string, args: Record<string, unknown>, ctx: ToolContext): Promise<string> {
+  const raw = await executeToolRaw(toolName, args, ctx)
+  try {
+    return JSON.stringify(localiseDates(JSON.parse(raw)))
+  } catch {
+    return raw
+  }
+}
+
+async function executeToolRaw(toolName: string, args: Record<string, unknown>, ctx: ToolContext): Promise<string> {
   try {
     switch (toolName) {
       case 'search_cd_register': {
@@ -351,7 +388,7 @@ async function executeTool(toolName: string, args: Record<string, unknown>, ctx:
 
         const columns = [
           'entry_number', 'date_of_transaction', 'transaction_type', 'supplier_name', 'invoice_number',
-          'quantity_received', 'quantity_deducted', 'running_balance', 'entered_at', 'source', 'ledger_id',
+          'quantity_received', 'quantity_deducted', 'running_balance', 'entered_at', 'source', 'ledger_id', 'entered_by',
         ]
         if (ctx.patientData) columns.push('patient_name', 'prescriber_name', 'notes')
 
@@ -406,9 +443,25 @@ async function executeTool(toolName: string, args: Record<string, unknown>, ctx:
             ledgerNames.set(l.id, [l.drug_name, l.drug_strength, l.drug_form].filter(Boolean).join(' '))
           }
         }
+        // Who made each entry (staff names, not patient data).
+        const staffIds = [...new Set<string>((data ?? []).map((e: Record<string, unknown>) => e.entered_by as string))].filter(Boolean)
+        const staffNames = new Map<string, string>()
+        if (staffIds.length) {
+          const { data: profiles } = await ctx.supabaseAdmin
+            .from('ps_user_profiles')
+            .select('id, full_name')
+            .in('id', staffIds)
+          for (const p of (profiles ?? []) as { id: string; full_name: string | null }[]) {
+            if (p.full_name) staffNames.set(p.id, p.full_name)
+          }
+        }
         const entries = (data ?? []).map((e: Record<string, unknown>) => {
-          const { ledger_id, ...rest } = e
-          return { drug: ledgerNames.get(ledger_id as string) ?? undefined, ...rest }
+          const { ledger_id, entered_by, ...rest } = e
+          return {
+            drug: ledgerNames.get(ledger_id as string) ?? undefined,
+            ...rest,
+            entered_by: staffNames.get(entered_by as string) ?? (entered_by ? 'Not recorded' : undefined),
+          }
         })
         return JSON.stringify({
           entries,
@@ -556,7 +609,7 @@ function historyToMessages(rows: HistoryRow[], replayToolResults: boolean): Open
 // ============================================
 
 function systemPrompt(opts: { orgName: string; userName: string; role: string; patientData: boolean }) {
-  const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/London' }).format(new Date())
+  const today = new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/London', weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).format(new Date())
   return `You are Genie, the AI assistant inside PharmStation, a pharmacy management system for UK community pharmacies.
 
 You are helping staff at "${opts.orgName}".
@@ -575,7 +628,9 @@ Rules:
 - Always use the tools for this pharmacy's data. Never guess or invent register entries, balances or names.
 - If a tool says the user lacks permission, tell them plainly. Do not try to work around it.
 - You can only read data. You cannot create, change or delete anything. If asked to, explain where in PharmStation the user can do it.
-- Be concise. Use short tables or lists for register data.
+- Be concise. Use short Markdown tables or lists for register data.
+- Write dates the UK way ("9 Nov 2026") and times in 24-hour UK local time ("14:06"). Tool results are already in UK local time; never convert them or call them UTC.
+- CD entries include entered_by, the staff member who made the entry. You may name staff.
 - If you are unsure, say so. For clinical decisions, tell the user to check an authoritative source (BNF, SPC) and use professional judgement.
 ${opts.patientData
     ? '- Patient details are available. Only show patient information that the question needs.'
@@ -651,15 +706,17 @@ Deno.serve(async (req) => {
     const patientData = orgSettings?.genie_patient_data === true
 
     // Plan
+    // The allowance follows the effective plan (including complimentary upgrades). Until plans
+    // are enforced, every pharmacy gets at least the Essential allowance.
     let plan: PlanId = 'essential'
-    if (plansEnforced()) {
-      const { data: effective, error: planError } = await supabaseAdmin.rpc('ps_org_effective_plan', { p_org_id: organisationId })
-      if (planError) {
-        console.error('Genie plan lookup failed', planError.message)
-        return json(503, { error: 'Genie could not check your plan. Please try again shortly.' })
-      }
+    const { data: effective, error: planError } = await supabaseAdmin.rpc('ps_org_effective_plan', { p_org_id: organisationId })
+    if (planError) {
+      console.error('Genie plan lookup failed', planError.message)
+      if (plansEnforced()) return json(503, { error: 'Genie could not check your plan. Please try again shortly.' })
+    } else {
       plan = (['network', 'essential', 'complete'].includes(effective) ? effective : 'network') as PlanId
     }
+    if (!plansEnforced() && plan === 'network') plan = 'essential'
     const monthlyLimit = GENIE_MONTHLY_MESSAGES[plan]
     if (monthlyLimit <= 0) {
       return json(403, { error: 'Genie is included in the Essential and Complete plans. Upgrade in Settings to use it.', code: 'plan_required' })

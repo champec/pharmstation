@@ -44,7 +44,11 @@ export function GeniePanel() {
   const plan = useSubscriptionStore((s) => s.plan)
   // Plan gate (only once billing is enforced). Before that every pharmacy gets the Essential allowance.
   const locked = PLANS_ENFORCED && planLoaded && PLANS[plan].genieMonthlyMessages <= 0
-  const monthlyLimit = PLANS_ENFORCED ? PLANS[plan].genieMonthlyMessages : PLANS.essential.genieMonthlyMessages
+  // Same rule as the server: the effective plan's allowance (complimentary upgrades included),
+  // and at least the Essential allowance until plans are enforced.
+  const monthlyLimit = PLANS_ENFORCED
+    ? PLANS[plan].genieMonthlyMessages
+    : Math.max(PLANS[plan].genieMonthlyMessages, PLANS.essential.genieMonthlyMessages)
   const [inputValue, setInputValue] = useState('')
   const inputRef = useRef<HTMLTextAreaElement>(null)
 

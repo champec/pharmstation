@@ -14398,6 +14398,10 @@ textarea.form-input {
 .md pre { padding: 8px 10px; border-radius: 8px; background: #0f172a; color: #e2e8f0; overflow-x: auto; }
 .md pre code { padding: 0; background: none; color: inherit; }
 .md a { color: var(--ps-deep-blue); text-decoration: underline; }
+.md-table-wrap { overflow-x: auto; max-width: 100%; }
+.md-table { border-collapse: collapse; font-size: 0.9em; width: 100%; }
+.md-table th, .md-table td { padding: 4px 8px; border-bottom: 1px solid var(--ps-mist); text-align: left; vertical-align: top; }
+.md-table th { font-weight: 600; color: var(--ps-slate); white-space: nowrap; }
 .md-heading { font-size: 1.02em; }
 
 @media (max-width: 800px) {

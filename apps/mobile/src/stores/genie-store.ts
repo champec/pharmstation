@@ -17,6 +17,7 @@ const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL!
 
 /** Monthly allowance shown before the server reports one (Essential plan). */
 export const DEFAULT_GENIE_LIMIT = 300
+export const COMPLETE_GENIE_LIMIT = 1500
 
 export interface GenieConversation {
   id: string
@@ -140,7 +141,7 @@ export const useGenieStore = create<GenieState>((set, get) => ({
   },
 
   loadOverview: async (orgId) => {
-    const [{ data: usageRow }, { data: settings }] = await Promise.all([
+    const [{ data: usageRow }, { data: settings }, { data: effectivePlan }] = await Promise.all([
       userClient
         .from('ps_ai_usage_monthly')
         .select('messages')
@@ -152,11 +153,15 @@ export const useGenieStore = create<GenieState>((set, get) => ({
         .select('genie_patient_data')
         .eq('organisation_id', orgId)
         .maybeSingle(),
+      userClient.rpc('ps_org_effective_plan', { p_org_id: orgId }),
     ])
+    // Same rule as the server: Complete (including complimentary upgrades) gets the larger
+    // allowance; everyone else gets at least the Essential allowance until plans are enforced.
+    const planLimit = effectivePlan === 'complete' ? COMPLETE_GENIE_LIMIT : DEFAULT_GENIE_LIMIT
     set({
       usage: {
         used: (usageRow as { messages: number } | null)?.messages ?? 0,
-        limit: get().usage?.limit ?? DEFAULT_GENIE_LIMIT,
+        limit: planLimit,
       },
       patientDataOn: (settings as { genie_patient_data?: boolean } | null)?.genie_patient_data === true,
     })

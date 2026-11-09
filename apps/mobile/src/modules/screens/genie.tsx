@@ -259,6 +259,13 @@ function AskScreen() {
 
   const usedUp = !!usage && usage.limit > 0 && usage.used >= usage.limit
 
+  const resetDate = (() => {
+    const now = new Date()
+    return new Date(now.getFullYear(), now.getMonth() + 1, 1).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
+  })()
+  const usedUpMessage = `Your pharmacy has used all ${usage?.limit ?? ''} Genie questions for this month. They reset on ${resetDate}.`
+  const showUsedUp = () => Alert.alert('Monthly Genie allowance used', usedUpMessage)
+
   const submit = (text: string) => {
     if (!orgId || !text.trim() || isStreaming || usedUp) return
     setInput('')
@@ -332,8 +339,7 @@ function AskScreen() {
                 <Pressable
                   key={s.label}
                   style={({ pressed }) => [styles.suggestion, pressed && styles.pressed]}
-                  onPress={() => submit(s.text)}
-                  disabled={usedUp}
+                  onPress={() => (usedUp ? showUsedUp() : submit(s.text))}
                 >
                   <Text style={styles.suggestionText}>{s.label}</Text>
                 </Pressable>
@@ -364,6 +370,12 @@ function AskScreen() {
       </ScrollView>
 
       <View style={styles.composer}>
+        {usedUp ? (
+          <View style={styles.usedUp}>
+            <Ionicons name="hourglass-outline" size={16} color={palette.warning} />
+            <Text style={styles.usedUpText}>{usedUpMessage}</Text>
+          </View>
+        ) : null}
         <View style={styles.inputRow}>
           <TextInput
             style={styles.input}
@@ -551,6 +563,8 @@ const styles = StyleSheet.create({
   },
   sendDisabled: { opacity: 0.4 },
   stop: { backgroundColor: palette.text },
+  usedUp: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, paddingVertical: 6 },
+  usedUpText: { flex: 1, fontSize: 13, lineHeight: 18, color: palette.text },
   footnote: { fontSize: 11, color: palette.textMuted, textAlign: 'center' },
 
   modal: { flex: 1, backgroundColor: palette.bg },
