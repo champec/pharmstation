@@ -27,6 +27,8 @@ import {
 } from '@/stores/locum-store'
 import { palette, radius } from '@/theme/palette'
 import { useAuthStore } from '@/stores/auth-store'
+import { LocumProfileScreen, saveShiftAlert } from '@/modules/screens/locum-profile'
+import { EmptyState as SharedEmptyState } from '@/components/ui/EmptyState'
 
 const ACCENT = '#6D28D9'
 const ACCENT_TINT = '#F1EAFE'
@@ -101,6 +103,22 @@ function FindShiftsScreen() {
     })
   }, [dateFilter, eligibleOnly, minimumRate, query, shifts])
 
+  const createAlert = () => {
+    const parts = [query.trim(), minimumRate ? `£${minimumRate}+/hr` : '', dateFilter === 'week' ? 'Next 7 days' : dateFilter === 'weekend' ? 'Weekends' : ''].filter(Boolean)
+    const name = parts.join(', ') || 'All shifts'
+    Alert.alert('Alert me about new shifts?', `We'll send a notification to this phone when a new shift matches: ${name}${eligibleOnly ? ', eligible only' : ''}. Manage alerts in the Profile tab.`, [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Create alert', onPress: async () => {
+        try {
+          await saveShiftAlert({ name, query: query.trim() || null, minimum_rate: minimumRate, date_filter: dateFilter, eligible_only: eligibleOnly })
+          Alert.alert('Alert created', 'You will be notified when a matching shift is posted.')
+        } catch (e) {
+          Alert.alert('Could not create the alert', e instanceof Error ? e.message : 'Try again.')
+        }
+      } },
+    ])
+  }
+
   return (
     <ScrollView style={styles.screen} contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled" refreshControl={<RefreshControl refreshing={loading} onRefresh={refresh} tintColor={ACCENT} />}>
       <View style={styles.hero}>
@@ -131,14 +149,20 @@ function FindShiftsScreen() {
           <Ionicons name="shield-checkmark-outline" size={18} color={palette.warning} />
           <Text style={styles.complianceText}>
             {compliance === 'rejected'
-              ? 'Your compliance documents were not approved. Update them on pharmstation.co.uk and we will review them again.'
+              ? 'Your compliance documents were not approved. Update them in the Profile tab and we will review them again.'
               : 'Your compliance documents are being reviewed. You can browse now and book once you are approved.'}
             {compliance === 'rejected' && complianceNotes ? `\n\nReason: ${complianceNotes}` : ''}
           </Text>
         </View>
       ) : null}
       <ErrorBanner message={error} />
-      <View style={styles.resultRow}><Text style={styles.sectionTitle}>Available shifts</Text><Text style={styles.resultCount}>{visible.length} found</Text></View>
+      <View style={styles.resultRow}>
+        <Text style={styles.sectionTitle}>Available shifts</Text>
+        <Pressable onPress={createAlert} style={styles.alertButton} accessibilityLabel="Alert me about shifts like these">
+          <Ionicons name="notifications-outline" size={15} color={ACCENT} /><Text style={styles.alertButtonText}>Alert me</Text>
+        </Pressable>
+        <Text style={styles.resultCount}>{visible.length} found</Text>
+      </View>
       {loading && shifts.length === 0 ? <LoadingState /> : null}
       {!loading && visible.length === 0 ? <EmptyState icon="search-outline" title="No matching shifts" text="Try widening your filters or check again soon." /> : null}
       {visible.map((shift) => <ShiftCard key={shift.id} shift={shift} eligibility={eligibilityFor(shift)} />)}
@@ -317,7 +341,7 @@ function EarningsScreen() {
     <ScrollView style={styles.screen} contentContainerStyle={styles.scrollContent} refreshControl={<RefreshControl refreshing={loading} onRefresh={refresh} tintColor={ACCENT} />}>
       <View style={styles.earningsHero}><Text style={styles.earningsLabel}>ESTIMATED SHIFT EARNINGS</Text><Text style={styles.earningsValue}>{money(total)}</Text><Text style={styles.earningsMeta}>{completed.length} completed shifts · {hours.toFixed(1)} hours</Text></View>
       <View style={styles.statGrid}><Stat label="Average shift" value={completed.length ? money(total / completed.length) : '£0.00'} icon="trending-up-outline" /><Stat label="Average rate" value={hours ? `${money(total / hours)}/hr` : '£0.00/hr'} icon="speedometer-outline" /></View>
-      <View style={styles.infoBanner}><Ionicons name="information-circle-outline" size={19} color={palette.brandDark} /><Text style={styles.infoText}>Final invoice and payment amounts may differ from estimates after recorded hours and platform fees are applied.</Text></View>
+      <View style={styles.infoBanner}><Ionicons name="information-circle-outline" size={19} color={palette.brandDark} /><Text style={styles.infoText}>Amounts use the booked hours at the agreed rate. The pharmacy pays you directly, so send them your invoice. Weekly timesheets are on the website under Timesheets.</Text></View>
       <Text style={styles.sectionTitle}>Completed work</Text>
       {completed.length === 0 ? <EmptyState icon="receipt-outline" title="No completed shifts" text="Your earnings history will build as shifts are completed." /> : null}
       {completed.map((booking) => booking.shift ? <View key={booking.id} style={styles.earningRow}><View style={styles.earningIcon}><Ionicons name="checkmark" size={18} color={palette.success} /></View><View style={styles.eventCopy}><Text style={styles.eventOrg}>{booking.shift.org_name}</Text><Text style={styles.metaText}>{dateLabel(booking.shift.date)} · {shiftHours(booking.shift).toFixed(1)}h</Text></View><Text style={styles.earningAmount}>{money(shiftTotal(booking.shift))}</Text></View> : null)}
@@ -362,7 +386,7 @@ function LoadingState() {
 }
 
 function EmptyState({ icon, title, text }: { icon: keyof typeof Ionicons.glyphMap; title: string; text: string }) {
-  return <View style={styles.empty}><View style={styles.emptyIcon}><Ionicons name={icon} size={25} color={ACCENT} /></View><Text style={styles.emptyTitle}>{title}</Text><Text style={styles.emptyText}>{text}</Text></View>
+  return <SharedEmptyState icon={icon} title={title} text={text} color={ACCENT} />
 }
 
 const calendarTheme = {
@@ -385,10 +409,13 @@ export const locumScreens: Record<string, ComponentType> = {
   calendar: CalendarScreen,
   bookings: BookingsScreen,
   earnings: EarningsScreen,
+  profile: LocumProfileScreen,
 }
 
 const styles = StyleSheet.create({
   screen: { flex: 1 },
+  alertButton: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 10, paddingVertical: 6, borderRadius: radius.pill, backgroundColor: ACCENT_TINT, marginLeft: 'auto', marginRight: 8 },
+  alertButtonText: { color: ACCENT, fontWeight: '700', fontSize: 13 },
   scrollContent: { paddingBottom: 28, gap: 12 },
   hero: { backgroundColor: '#17142B', borderRadius: radius.lg, padding: 18, flexDirection: 'row', alignItems: 'center', marginBottom: 2 },
   heroCopy: { flex: 1 },

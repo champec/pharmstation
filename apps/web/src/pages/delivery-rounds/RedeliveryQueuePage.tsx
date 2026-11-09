@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useAuthStore, useDeliveryRoundStore } from '@pharmstation/core'
 import type { DeliveryRoundPatient } from '@pharmstation/types'
 import { Modal } from '../../components/Modal'
+import { CircleCheck } from 'lucide-react'
 
 export function RedeliveryQueuePage() {
   const navigate = useNavigate()
@@ -125,7 +126,7 @@ export function RedeliveryQueuePage() {
 
       {!loading && redeliveryQueue.length === 0 && (
         <div className="ps-card" style={{ padding: 'var(--ps-space-2xl)', textAlign: 'center' }}>
-          <div style={{ fontSize: '48px', marginBottom: 'var(--ps-space-md)' }}>✅</div>
+          <span className="ps-empty-icon success" aria-hidden="true"><CircleCheck size={26} strokeWidth={1.75} /></span>
           <h2 style={{ color: 'var(--ps-midnight)', marginBottom: 'var(--ps-space-sm)' }}>Queue is empty</h2>
           <p style={{ color: 'var(--ps-slate)' }}>No failed deliveries awaiting redelivery.</p>
         </div>
@@ -150,7 +151,7 @@ export function RedeliveryQueuePage() {
                     {rp.delivery_postcode || (rp.patient as any)?.postcode ? `, ${rp.delivery_postcode || (rp.patient as any)?.postcode}` : ''}
                   </div>
                   {(rp.failure_reason || rp.status === 'skipped') && (
-                    <div style={{ fontSize: 'var(--ps-font-sm)', color: 'var(--ps-red)', marginTop: 2 }}>
+                    <div style={{ fontSize: 'var(--ps-font-sm)', color: 'var(--ps-error)', marginTop: 2 }}>
                       {rp.status === 'skipped' ? 'Skipped' : 'Failed'}{rp.failure_reason ? `: ${rp.failure_reason}` : ''}
                     </div>
                   )}
@@ -188,7 +189,7 @@ export function RedeliveryQueuePage() {
                     className="ps-btn ps-btn-ghost ps-btn-sm"
                     onClick={() => handleCancel(rp.id)}
                     disabled={saving}
-                    style={{ color: 'var(--ps-red)' }}
+                    style={{ color: 'var(--ps-error)' }}
                   >
                     Cancel
                   </button>

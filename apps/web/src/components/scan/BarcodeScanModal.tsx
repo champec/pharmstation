@@ -313,7 +313,7 @@ export function BarcodeScanModal({ isOpen, onClose }: BarcodeScanModalProps) {
           <div className="barcode-camera-actions">
             {torchAvailable && (
               <button className="ps-btn ps-btn-ghost ps-btn-sm" onClick={toggleTorch}>
-                {torchOn ? '🔦 Torch off' : '🔦 Torch on'}
+                {torchOn ? 'Torch off' : 'Torch on'}
               </button>
             )}
             {cameraStatus === 'stopped' && (

@@ -6,6 +6,9 @@ import { orgSlugOrIdFilter } from '../../lib/orgSlugFilter'
 import { PublicFooter } from '../../components/public/PublicFooter'
 import { Turnstile, turnstileEnabled } from '../../components/public/Turnstile'
 
+// Anonymous visitors may only read these columns (column grants on ps_organisations).
+const PUBLIC_ORG_COLUMNS = 'id, name, slug, address, public_description, public_logo_url, is_public, is_active, organisation_type'
+
 /** Dig the real message out of an edge function error response. */
 async function functionError(err: unknown, data: any): Promise<string | undefined> {
   if (data?.error) return data.error as string
@@ -54,12 +57,12 @@ export function PublicBookingConfirmPage() {
     }
     const client = getUserClient()
     Promise.all([
-      client.from('ps_organisations').select('*').eq('is_public', true).or(orgSlugOrIdFilter(orgSlug)).limit(1).single(),
+      client.from('ps_organisations').select(PUBLIC_ORG_COLUMNS).eq('is_public', true).or(orgSlugOrIdFilter(orgSlug)).limit(1).single(),
       client.from('ps_services').select('*').eq('id', serviceId).single(),
       client.from('ps_appointment_slots').select('*').eq('id', slotId).single(),
       client.from('ps_service_forms').select('*, fields:ps_service_form_fields(*)').eq('service_id', serviceId).eq('is_default', true).limit(1).maybeSingle(),
     ]).then(([orgRes, svcRes, slotRes, formRes]) => {
-      if (orgRes.data) setOrg(orgRes.data as Organisation)
+      if (orgRes.data) setOrg(orgRes.data as unknown as Organisation)
       if (svcRes.data) setService(svcRes.data as Service)
       if (slotRes.data) setSlot(slotRes.data as AppointmentSlot)
       if (formRes.data) {

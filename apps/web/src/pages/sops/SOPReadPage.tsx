@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { useAuthStore, useSOPStore, pickCompletion } from '@pharmstation/core'
 import type { SOPNode } from '@pharmstation/types'
 import { RichTextEditor } from '../../components/sop/RichTextEditor'
+import { FileText, Folder, Pencil } from 'lucide-react'
 
 // Flat tree node for read view sidebar
 function ReadTreeItem({
@@ -47,7 +48,7 @@ function ReadTreeItem({
           {hasChildren ? (expanded ? '▾' : '▸') : ''}
         </span>
         <span style={{ fontSize: 12, marginRight: 2 }}>
-          {node.content_type === 'pdf' ? '📄' : node.content_type === 'none' ? '📁' : '📝'}
+          {node.content_type === 'pdf' ? <FileText size={14} strokeWidth={1.75} aria-hidden="true" /> : node.content_type === 'none' ? <Folder size={14} strokeWidth={1.75} aria-hidden="true" /> : <Pencil size={14} strokeWidth={1.75} aria-hidden="true" />}
         </span>
         <span
           style={{
@@ -201,7 +202,7 @@ export function SOPReadPage() {
                   color: 'var(--ps-warning)',
                 }}
               >
-                ⚠ New version — please re-read
+                New version: please re-read
               </span>
             )}
             {isCurrentVersion && (
@@ -229,7 +230,7 @@ export function SOPReadPage() {
                 onClick={handleMarkComplete}
                 disabled={marking}
               >
-                {marking ? 'Saving…' : '✓ Mark as Read & Complete'}
+                {marking ? 'Saving…' : 'Sign as read'}
               </button>
             )}
           </div>
@@ -347,7 +348,7 @@ export function SOPReadPage() {
                       onClick={handleMarkComplete}
                       disabled={marking}
                     >
-                      {marking ? 'Saving…' : '✓ I have read this SOP — Mark Complete'}
+                      {marking ? 'Saving…' : 'I have read and understood this SOP'}
                     </button>
                   )
                 )}

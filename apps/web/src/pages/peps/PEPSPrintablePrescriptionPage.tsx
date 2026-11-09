@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, Navigate, useParams } from 'react-router-dom'
 import JsBarcode from 'jsbarcode'
 import { useAuthStore, usePepsStore } from '@pharmstation/core'
-import type { PepsEvent } from '@pharmstation/types'
+import { pepsCdSchedule, PEPS_CD_LABELS, type PepsEvent } from '@pharmstation/types'
 
 function formatDateTime(value: string): string {
   return new Date(value).toLocaleString()
@@ -246,10 +246,22 @@ export function PEPSPrintablePrescriptionPage() {
         <div className="peps-print-watermark">COPY</div>
         <header className="peps-print-head">
           <div>
-            <h1 className="peps-print-title">Private Prescription</h1>
+            <h1 className="peps-print-title">{rx.prescription_type === 'vet' ? 'Veterinary Prescription' : 'Private Prescription'}</h1>
             <p className="peps-print-meta">Reference: {rx.prescription_ref}</p>
             <p className="peps-print-meta">Date: {rx.prescription_date}</p>
-            <p className="peps-print-meta">Patient: {rx.patient_snapshot?.full_name ?? 'Unknown patient'}</p>
+            {rx.prescription_type === 'vet' ? (
+              <>
+                <p className="peps-print-meta">Animal: {rx.animal_name ?? '—'}</p>
+                <p className="peps-print-meta">Owner: {rx.animal_owner ?? rx.patient_snapshot?.full_name ?? '—'}</p>
+              </>
+            ) : (
+              <>
+                <p className="peps-print-meta">Patient: {rx.patient_snapshot?.full_name ?? 'Unknown patient'}</p>
+                {rx.patient_snapshot?.dob && <p className="peps-print-meta">DOB: {rx.patient_snapshot.dob}</p>}
+              </>
+            )}
+            {rx.patient_snapshot?.address && <p className="peps-print-meta">Address: {rx.patient_snapshot.address}</p>}
+            {rx.expires_at && <p className="peps-print-meta">Valid until: {new Date(rx.expires_at).toLocaleDateString('en-GB')}</p>}
             <p className="peps-print-meta">
               <span className="peps-print-mode-copy">COPY — NOT VALID FOR DISPENSING</span>
             </p>
@@ -263,6 +275,7 @@ export function PEPSPrintablePrescriptionPage() {
             <div><strong>{rx.prescriber_snapshot?.full_name}</strong></div>
             <p className="peps-print-meta">{rx.prescriber_snapshot?.registration_body} {rx.prescriber_snapshot?.registration_number}</p>
             <p className="peps-print-meta">{rx.prescribing_org_snapshot?.name ?? organisation?.name}</p>
+            {rx.prescriber_snapshot?.address && <p className="peps-print-meta">{rx.prescriber_snapshot.address}</p>}
             {rx.signature_data && <img src={rx.signature_data} alt="Signature" />}
           </div>
         </header>
@@ -274,9 +287,13 @@ export function PEPSPrintablePrescriptionPage() {
               <li key={item.id}>
                 <div><strong>{idx + 1}. {item.drug_name}</strong> - {item.quantity}</div>
                 {item.dosage && <div className="peps-print-dose">{item.dosage}</div>}
+                {item.cd_category && item.cd_category !== '0000' && (
+                  <div className="peps-print-dose">{PEPS_CD_LABELS[pepsCdSchedule(item.cd_category)]}</div>
+                )}
               </li>
             ))}
           </ol>
+          {rx.cascade_wording && <p className="peps-print-dose"><em>{rx.cascade_wording}</em></p>}
         </section>
 
         <section className="peps-print-barcode">

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { LifeBuoy } from 'lucide-react'
 import { getUserClient } from '@pharmstation/supabase-client'
+import { EmptyState, PageHeader } from '../../components/ui'
 
 // PharmStation platform admins triage messages from the contact page and the
 // in-app Help & support form. Each one is also emailed to the team inbox; reply
@@ -36,7 +37,6 @@ type Filter = typeof FILTERS[number]
 const fmt = (d: string) => new Date(d).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' })
 
 export function SupportInboxPage() {
-  const navigate = useNavigate()
   const [rows, setRows] = useState<Ticket[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -84,18 +84,12 @@ export function SupportInboxPage() {
     `mailto:${encodeURIComponent(t.email)}?subject=${encodeURIComponent(`Re: your message to PharmStation (${t.reference})`)}`
 
   return (
-    <div className="page-container" style={{ maxWidth: 900, margin: '0 auto', padding: '2rem 1rem' }}>
-      <div className="page-header">
-        <div className="breadcrumbs">
-          <a href="/me" onClick={(e) => { e.preventDefault(); navigate('/me') }}>My Account</a>
-          <span className="separator">/</span>
-          <span>Support inbox</span>
-        </div>
-        <h1>🛟 Support inbox</h1>
-        <p style={{ color: 'var(--ps-slate)', marginTop: '4px' }}>
-          Messages from the contact page and the in-app Help &amp; support form. Each one is also emailed to the team inbox.
-        </p>
-      </div>
+    <div className="page-container">
+      <PageHeader
+        breadcrumbs={[{ label: 'My Account', to: '/me' }, { label: 'Support inbox' }]}
+        title="Support inbox"
+        subtitle="Messages from the contact page and the in-app Help form. Each one is also emailed to the team inbox."
+      />
 
       {error && <div className="auth-error" style={{ marginBottom: '1rem' }}>{error}</div>}
 
@@ -119,7 +113,9 @@ export function SupportInboxPage() {
           </div>
 
           {loading ? <p className="text-muted">Loading…</p> : rows.length === 0 ? (
-            <p className="text-muted">Nothing here.</p>
+            <EmptyState icon={LifeBuoy} title={filter === 'active' ? 'No open support messages' : 'No messages match this filter'}>
+              New messages from the contact page and the app appear here.
+            </EmptyState>
           ) : rows.map((t) => (
             <div key={t.id} className={`ps-card support-ticket ${t.topic === 'safety' ? 'support-ticket-safety' : ''}`}>
               <div className="support-ticket-head">

@@ -330,7 +330,7 @@ export function CDEntryForm({ direction, packLabel, onSuccess, onCancel }: CDEnt
       </div>
 
       <div className={`entry-direction-badge ${direction === 'in' ? 'entry-in' : 'entry-out'}`}>
-        {direction === 'in' ? '📥 Received IN' : '📤 Supplied OUT'}
+        {direction === 'in' ? 'Received IN' : 'Supplied OUT'}
       </div>
 
       {submitError && <div className="auth-error">{submitError}</div>}
@@ -533,7 +533,7 @@ export function CDEntryForm({ direction, packLabel, onSuccess, onCancel }: CDEnt
           className={`ps-btn ${direction === 'in' ? 'ps-btn-success' : 'ps-btn-primary'}`}
           disabled={submitting}
         >
-          {submitting ? 'Saving...' : direction === 'in' ? '📥 Record Receipt' : '📤 Record Supply'}
+          {submitting ? 'Saving...' : direction === 'in' ? 'Record Receipt' : 'Record Supply'}
         </button>
       </div>
 

@@ -6,6 +6,9 @@ import { orgSlugOrIdFilter } from '../../lib/orgSlugFilter'
 import { PublicFooter } from '../../components/public/PublicFooter'
 import { usePageTitle } from '../../seo/RouteMeta'
 
+// Anonymous visitors may only read these columns (column grants on ps_organisations).
+const PUBLIC_ORG_COLUMNS = 'id, name, slug, address, public_description, public_logo_url, is_public, is_active, organisation_type'
+
 export function PublicOrgPage() {
   const { orgSlug } = useParams<{ orgSlug: string }>()
   const navigate = useNavigate()
@@ -22,7 +25,7 @@ export function PublicOrgPage() {
     // Try to find org by slug first, then by ID
     getUserClient()
       .from('ps_organisations')
-      .select('*')
+      .select(PUBLIC_ORG_COLUMNS)
       .eq('is_public', true)
       .or(orgSlugOrIdFilter(orgSlug))
       .limit(1)
@@ -33,7 +36,7 @@ export function PublicOrgPage() {
           setLoading(false)
           return
         }
-        const o = data as Organisation
+        const o = data as unknown as Organisation
         setOrg(o)
         // Fetch public services
         getUserClient()

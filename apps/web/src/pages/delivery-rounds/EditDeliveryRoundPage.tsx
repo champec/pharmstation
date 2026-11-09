@@ -2,7 +2,6 @@ import { useState, useEffect, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useAuthStore, useDeliveryRoundStore, usePatientMedicationStore, useAppointmentStore } from '@pharmstation/core'
 import type { Patient, PatientMedication } from '@pharmstation/types'
-import { resolvePermissions } from '@pharmstation/types'
 
 export function EditDeliveryRoundPage() {
   const { id } = useParams<{ id: string }>()
@@ -52,10 +51,7 @@ export function EditDeliveryRoundPage() {
     }
   }, [round])
 
-  const drivers = availableDrivers.filter((d) => {
-    const perms = resolvePermissions(d.role, d.permissions)
-    return perms.delivery_drive
-  })
+  const drivers = availableDrivers
 
   const handlePatientSearch = useCallback(async () => {
     if (!organisation?.id || patientSearch.length < 2) return
@@ -158,9 +154,9 @@ export function EditDeliveryRoundPage() {
             <label>Assign Driver</label>
             <select className="ps-input" value={driverId} onChange={(e) => setDriverId(e.target.value)}>
               <option value="">— Select Driver —</option>
-              {drivers.map((d: any) => (
+              {drivers.map((d) => (
                 <option key={d.id} value={d.id}>
-                  {d.user_profile?.full_name} ({d.role})
+                  {d.full_name} ({d.role})
                 </option>
               ))}
             </select>
@@ -211,7 +207,7 @@ export function EditDeliveryRoundPage() {
                   onMouseLeave={(e) => { (e.currentTarget as HTMLDivElement).style.background = '' }}
                 >
                   <span>{p.first_name} {p.last_name} — {p.postcode}</span>
-                  <span style={{ color: 'var(--ps-primary)', fontSize: 'var(--ps-font-sm)' }}>+ Add</span>
+                  <span style={{ color: 'var(--ps-deep-blue)', fontSize: 'var(--ps-font-sm)' }}>+ Add</span>
                 </div>
               ))}
           </div>
@@ -229,7 +225,7 @@ export function EditDeliveryRoundPage() {
                       {rp.medications?.length ?? 0} med{(rp.medications?.length ?? 0) !== 1 ? 's' : ''}
                     </span>
                   </div>
-                  <button className="ps-btn ps-btn-ghost ps-btn-sm" onClick={() => handleRemovePatient(rp.id)} style={{ color: 'var(--ps-red)' }}>Remove</button>
+                  <button className="ps-btn ps-btn-ghost ps-btn-sm" onClick={() => handleRemovePatient(rp.id)} style={{ color: 'var(--ps-error)' }}>Remove</button>
                 </div>
               ))}
           </div>
