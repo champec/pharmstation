@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { getUserClient } from '@pharmstation/supabase-client'
 import type { OrganisationAddress } from '@pharmstation/types'
+import { Modal } from '../../components/Modal'
 
 // PharmStation platform admins check each self-registered pharmacy against the
 // GPhC premises register before it can use network messaging or list itself
@@ -53,6 +54,7 @@ function PendingNetworkLinks() {
   const [rows, setRows] = useState<LinkRow[]>([])
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState<string | null>(null)
+  const [pending, setPending] = useState<{ row: LinkRow; approve: boolean } | null>(null)
 
   const load = useCallback(async () => {
     const { data, error } = await getUserClient().rpc('ps_admin_list_network_links', { p_pending_only: true })
@@ -63,10 +65,7 @@ function PendingNetworkLinks() {
   useEffect(() => { load() }, [load])
 
   const review = async (row: LinkRow, approve: boolean) => {
-    const question = approve
-      ? `Confirm ${row.org_name} is ${row.pharmacy_name} (${row.pharmacy_ods}, ${row.pharmacy_postcode ?? 'no postcode'})?\n\nCheck the GPhC register entry for premises ${row.org_gphc ?? '(none given)'} shows this address.`
-      : `Remove ${row.org_name}'s link to ${row.pharmacy_name}? They can link the right pharmacy afterwards.`
-    if (!window.confirm(question)) return
+    setPending(null)
     setBusy(row.org_id)
     const { error } = await getUserClient().rpc('ps_admin_review_network_link', { p_org_id: row.org_id, p_approve: approve })
     setBusy(null)
@@ -94,12 +93,40 @@ function PendingNetworkLinks() {
               </div>
             </div>
             <div style={{ display: 'flex', gap: 'var(--ps-space-xs, 4px)', alignItems: 'center' }}>
-              <button className="ps-btn ps-btn-ghost ps-btn-sm" disabled={busy === row.org_id} onClick={() => review(row, false)}>Remove link</button>
-              <button className="ps-btn ps-btn-primary ps-btn-sm" disabled={busy === row.org_id} onClick={() => review(row, true)}>Confirm</button>
+              <button className="ps-btn ps-btn-ghost ps-btn-sm" disabled={busy === row.org_id} onClick={() => setPending({ row, approve: false })}>Remove link</button>
+              <button className="ps-btn ps-btn-primary ps-btn-sm" disabled={busy === row.org_id} onClick={() => setPending({ row, approve: true })}>Confirm</button>
             </div>
           </div>
         </div>
       ))}
+
+      <Modal
+        isOpen={!!pending}
+        onClose={() => setPending(null)}
+        title={pending?.approve ? 'Confirm this network link?' : 'Remove this network link?'}
+        width="480px"
+      >
+        {pending && (
+          <>
+            <p style={{ marginTop: 0 }}>
+              {pending.approve ? (
+                <>Confirm <strong>{pending.row.org_name}</strong> is <strong>{pending.row.pharmacy_name}</strong> ({pending.row.pharmacy_ods}, {pending.row.pharmacy_postcode ?? 'no postcode'}). Only do this after the GPhC register entry for premises {pending.row.org_gphc ?? '(none given)'} shows this address.</>
+              ) : (
+                <>Remove <strong>{pending.row.org_name}</strong>&rsquo;s link to <strong>{pending.row.pharmacy_name}</strong>. They can link the right pharmacy afterwards.</>
+              )}
+            </p>
+            <div style={{ display: 'flex', gap: 'var(--ps-space-sm)', justifyContent: 'flex-end' }}>
+              <button className="ps-btn ps-btn-secondary" onClick={() => setPending(null)}>Cancel</button>
+              <button
+                className={`ps-btn ${pending.approve ? 'ps-btn-primary' : 'ps-btn-danger'}`}
+                onClick={() => review(pending.row, pending.approve)}
+              >
+                {pending.approve ? 'Confirm link' : 'Remove link'}
+              </button>
+            </div>
+          </>
+        )}
+      </Modal>
     </section>
   )
 }
