@@ -694,12 +694,6 @@ function StopCard({
         <View style={styles.quickActions}>
           <IconAction icon="navigate-outline" label="Navigate" onPress={onNavigate} />
           {stop.patient?.phone ? <IconAction icon="call-outline" label="Call" onPress={onCall} /> : null}
-          {roundActive && stop.status === 'pending' ? (
-            <IconAction icon="play-outline" label="Begin" onPress={() => onStatus('in_transit')} />
-          ) : null}
-          {roundActive && stop.status === 'in_transit' ? (
-            <IconAction icon="location-outline" label="Arrived" onPress={() => onStatus('arrived')} />
-          ) : null}
         </View>
       ) : null}
       {roundActive && !resolved ? (
@@ -712,18 +706,6 @@ function StopCard({
           />
           <Pressable accessibilityLabel="Delivery failed" style={styles.failButton} onPress={onFail}>
             <Ionicons name="close" size={21} color={palette.danger} />
-          </Pressable>
-          <Pressable
-            accessibilityLabel="Mark bags returned"
-            style={styles.returnButton}
-            onPress={() =>
-              Alert.alert('Mark as returned?', 'This records that the bags were returned to the pharmacy.', [
-                { text: 'Cancel', style: 'cancel' },
-                { text: 'Returned', onPress: () => onStatus('returned') },
-              ])
-            }
-          >
-            <Ionicons name="return-down-back" size={21} color={palette.textMuted} />
           </Pressable>
         </View>
       ) : null}
