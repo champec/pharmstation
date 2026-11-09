@@ -123,29 +123,31 @@ export function SOPAssignPage() {
       )}
 
       <div className="ps-card" style={{ marginBottom: 20 }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, cursor: 'pointer' }}>
           <div>
-            <h3 style={{ margin: '0 0 4px' }}>Assign to All Staff</h3>
+            <h3 style={{ margin: '0 0 4px' }}>Assign to all staff</h3>
             <p style={{ margin: 0, fontSize: 13, color: 'var(--ps-text-muted)' }}>
               All current and future active members of this organisation will see this SOP.
             </p>
           </div>
-          <label className="ps-toggle">
+          <span className="ps-toggle">
             <input
               type="checkbox"
+              role="switch"
+              aria-label="Assign to all staff"
               checked={isAllAssignment}
               onChange={handleToggleAll}
               disabled={saving}
             />
             <span className="ps-toggle-track" />
-          </label>
-        </div>
+          </span>
+        </label>
       </div>
 
       {!isAllAssignment && (
         <div className="ps-card">
           <div style={{ marginBottom: 16 }}>
-            <h3 style={{ margin: '0 0 4px' }}>Assign to Specific Members</h3>
+            <h3 style={{ margin: '0 0 4px' }}>Assign to specific members</h3>
             <p style={{ margin: 0, fontSize: 13, color: 'var(--ps-text-muted)' }}>
               Toggle individual staff members who should have access to this SOP.
             </p>
@@ -160,9 +162,10 @@ export function SOPAssignPage() {
               {members.map((m) => {
                 const assigned = assignedMemberIds.has(m.id)
                 return (
-                  <div
+                  <label
                     key={m.id}
                     style={{
+                      cursor: 'pointer',
                       display: 'flex',
                       alignItems: 'center',
                       gap: 12,
@@ -201,16 +204,18 @@ export function SOPAssignPage() {
                       </div>
                     </div>
 
-                    <label className="ps-toggle">
+                    <span className="ps-toggle">
                       <input
                         type="checkbox"
+                        role="switch"
+                        aria-label={`Assign to ${m.user_profile?.full_name ?? 'this member'}`}
                         checked={assigned}
                         onChange={() => handleToggleMember(m)}
                         disabled={saving}
                       />
                       <span className="ps-toggle-track" />
-                    </label>
-                  </div>
+                    </span>
+                  </label>
                 )
               })}
             </div>

@@ -210,7 +210,7 @@ export function SOPsPage() {
                     )}
                     {tab === 'manage' && <SOPReviewBadge doc={doc} />}
                     {doc.published_at && (
-                      <span>Published {new Date(doc.published_at).toLocaleDateString()}</span>
+                      <span>Published {new Date(doc.published_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
                     )}
                     {completion && (
                       <span style={{ color: completion.color, fontWeight: 600 }}>
