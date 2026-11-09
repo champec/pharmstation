@@ -37,6 +37,7 @@ import {
   userSignOut,
 } from '@/lib/supabase'
 import { unregisterPush } from '@/lib/push'
+import { logAuthEvent } from '@/lib/account'
 
 export interface AuthState {
   // --- User layer (primary) ---
@@ -230,6 +231,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   userLogout: async () => {
     set({ busy: true })
     try {
+      if (get().membership) await logAuthEvent(get().organisation?.id, 'sign_out')
       await unregisterPush()
       await orgSignOut().catch(() => {})
       await userSignOut()
@@ -303,6 +305,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         isOrgConnected: true,
         busy: false,
       })
+      void logAuthEvent(organisation.id, 'sign_in')
     } catch (err) {
       set({ busy: false, error: messageFrom(err) })
       throw err
@@ -331,7 +334,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   clearError: () => set({ error: null }),
 }))
 
-/** Load the profile once the password (and code, if any) are done. */
 /** Reconnect the pharmacy saved on this phone, if any. */
 async function restoreOrgLayer() {
   const set = useAuthStore.setState
@@ -357,6 +359,7 @@ async function restoreOrgLayer() {
   }
 }
 
+/** Load the profile once the password (and code, if any) are done. */
 async function loadUserLayer() {
   const set = useAuthStore.setState
   const session = await getUserSession()

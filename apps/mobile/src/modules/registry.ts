@@ -229,11 +229,10 @@ export const MODULES: MobileModule[] = [
         id: 'team',
         title: 'Team',
         icon: 'people-outline',
-        platform: 'web',
         visible: (ctx) =>
           has(ctx.permissions, 'manage_users') ||
           has(ctx.permissions, 'org_settings'),
-        blurb: 'Manage staff, roles and permissions',
+        blurb: 'Invite staff, change roles, reset two-step sign-in',
       },
     ],
   },
