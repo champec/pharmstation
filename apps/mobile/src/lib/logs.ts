@@ -53,13 +53,14 @@ export interface LogEntry {
 
 export const HANDOVER_TEMPLATE_ID = '00000000-0000-0000-0001-000000000006'
 
-export const CATEGORY_LOOK: Record<string, { emoji: string; color: string }> = {
-  fridge: { emoji: '🌡️', color: '#0891b2' },
-  cleaning: { emoji: '🧹', color: '#16a34a' },
-  cd: { emoji: '💊', color: '#9333ea' },
-  visitor: { emoji: '👤', color: '#d97706' },
-  date_check: { emoji: '📅', color: '#ea580c' },
-  custom: { emoji: '📋', color: '#475569' },
+/** Ionicons per log category (no emoji, see design rules). */
+export const CATEGORY_ICON: Record<string, string> = {
+  fridge: 'thermometer-outline',
+  cleaning: 'sparkles-outline',
+  cd: 'medkit-outline',
+  visitor: 'person-outline',
+  date_check: 'calendar-outline',
+  custom: 'clipboard-outline',
 }
 
 /* ---- UK dates ---- */
