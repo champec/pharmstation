@@ -388,15 +388,15 @@ export function DeliveryRoundDetailPage() {
       </div>
 
       {round.driver && (
-        <p className="care-home-subtitle">🚗 Driver: {(round.driver as any).user_profile?.full_name}</p>
+        <p className="care-home-subtitle">Driver: {(round.driver as any).user_profile?.full_name}</p>
       )}
       {round.notes && (
-        <p className="care-home-subtitle">📝 {round.notes}</p>
+        <p className="care-home-subtitle">{round.notes}</p>
       )}
 
       {patients.length > 0 && (
         <div className="ps-card" style={{ padding: 'var(--ps-space-md)', margin: 'var(--ps-space-md) 0' }}>
-          <h3 style={{ marginBottom: 'var(--ps-space-sm)' }}>🗺️ Route map</h3>
+          <h3 style={{ marginBottom: 'var(--ps-space-sm)' }}>Route map</h3>
           <DeliveryRouteMap
             patients={patients}
             roundId={round.id}
@@ -440,10 +440,10 @@ export function DeliveryRoundDetailPage() {
                         ))}
                       </span>
                     )}
-                    {rp.notes && <small>📝 {rp.notes}</small>}
+                    {rp.notes && <small>{rp.notes}</small>}
                     {rp.failure_reason && <small style={{ color: 'var(--ps-red)' }}>⚠️ {rp.failure_reason}</small>}
                     {rp.delivered_at && <small style={{ color: 'var(--ps-green)' }}>✓ Delivered {formatDatetime(rp.delivered_at)}</small>}
-                    {rp.signature_data && <small>✍️ Signature captured</small>}
+                    {rp.signature_data && <small>Signature captured</small>}
                     {rp.delivery_method && (
                       <small>
                         {DELIVERY_METHOD_LABELS[rp.delivery_method]}
@@ -483,9 +483,9 @@ export function DeliveryRoundDetailPage() {
       </div>
       <div className="ps-card" style={{ padding: 'var(--ps-space-md)' }}>
         <div style={{ fontSize: 'var(--ps-font-sm)', display: 'flex', flexDirection: 'column', gap: 'var(--ps-space-xs)' }}>
-          <div>📋 Created: {formatDatetime(round.created_at)}</div>
-          {round.started_at && <div>🚀 Started: {formatDatetime(round.started_at)}</div>}
-          {round.completed_at && <div>✅ Completed: {formatDatetime(round.completed_at)}</div>}
+          <div>Created: {formatDatetime(round.created_at)}</div>
+          {round.started_at && <div>Started: {formatDatetime(round.started_at)}</div>}
+          {round.completed_at && <div>Completed: {formatDatetime(round.completed_at)}</div>}
         </div>
       </div>
 

@@ -24,7 +24,7 @@ export function SettingsPage() {
   return (
     <div>
       <div className="page-header">
-        <h1>⚙ Settings</h1>
+        <h1>Settings</h1>
       </div>
 
       {/* Tab bar */}
@@ -281,8 +281,8 @@ function PaymentsSettingsTab() {
 
   const badge = (s: ConnectStatus['status']) => {
     switch (s) {
-      case 'active': return <span className="ps-badge ps-badge-green">✅ Active — payments route to your bank</span>
-      case 'pending': return <span className="ps-badge ps-badge-amber">⏳ Pending — verification in progress</span>
+      case 'active': return <span className="ps-badge ps-badge-green">Active — payments route to your bank</span>
+      case 'pending': return <span className="ps-badge ps-badge-amber">Pending — verification in progress</span>
       case 'restricted': return <span className="ps-badge ps-badge-red">⚠️ Restricted — action needed</span>
       default: return <span className="ps-badge">Not set up</span>
     }
@@ -326,7 +326,7 @@ function PaymentsSettingsTab() {
                 </button>
               )}
               <button className="ps-btn ps-btn-secondary" onClick={fetchStatus} disabled={loading}>
-                🔄 Refresh status
+                Refresh status
               </button>
             </div>
 

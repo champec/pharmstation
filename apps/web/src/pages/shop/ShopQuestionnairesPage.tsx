@@ -172,7 +172,7 @@ export function ShopQuestionnairesPage() {
           <span>Questionnaires</span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--ps-space-md)' }}>
-          <h1>📝 Consultation Questionnaires</h1>
+          <h1>Consultation Questionnaires</h1>
           <button className="ps-btn ps-btn-primary" onClick={() => openCreate()}>+ New Questionnaire</button>
         </div>
       </div>

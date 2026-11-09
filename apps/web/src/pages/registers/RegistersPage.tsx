@@ -42,7 +42,7 @@ export function RegistersPage() {
           <span className="separator">/</span>
           <span>Registers</span>
         </div>
-        <h1>📑 Registers</h1>
+        <h1>Registers</h1>
         <p style={{ color: 'var(--ps-slate)', marginTop: '4px' }}>
           Select a register to view or add entries
         </p>

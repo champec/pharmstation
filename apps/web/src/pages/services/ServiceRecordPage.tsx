@@ -18,7 +18,7 @@ export function ServiceRecordPage() {
           <span>Record</span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <h1>📄 Service Record</h1>
+          <h1>Service Record</h1>
           <button className="ps-btn ps-btn-secondary" onClick={() => navigate(-1)}>← Back</button>
         </div>
       </div>

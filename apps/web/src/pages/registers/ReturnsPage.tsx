@@ -795,7 +795,7 @@ export function ReturnsPage() {
           disabled={entriesLoading}
           title="Print or save the returns shown as a PDF"
         >
-          🖨️ Print / PDF
+          Print / PDF
         </button>
         <button
           className="ps-btn ps-btn-ghost"

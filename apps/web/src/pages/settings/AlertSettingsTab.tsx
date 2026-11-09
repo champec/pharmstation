@@ -85,7 +85,7 @@ export function AlertSettingsTab() {
       )}
 
       <div className="ps-card" style={cardStyle}>
-        <h3 style={{ margin: '0 0 var(--ps-space-sm)' }}>🔔 Alert Routing</h3>
+        <h3 style={{ margin: '0 0 var(--ps-space-sm)' }}>Alert Routing</h3>
         <p style={hintStyle}>
           Choose which channels are switched on for each kind of alert. <strong>Web</strong> shows up in the
           bell at the top of the dashboard for every signed-in team member. <strong>SMS</strong> also requires the

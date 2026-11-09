@@ -631,7 +631,7 @@ export function ServiceDeliveryPage() {
     return (
       <div>
         <div className="page-header">
-          <h1>✅ Service Delivered</h1>
+          <h1>Service Delivered</h1>
         </div>
         <div className="ps-card" style={{ padding: 'var(--ps-space-2xl)', textAlign: 'center' }}>
           <div style={{ fontSize: '64px', marginBottom: 'var(--ps-space-md)' }}>🎉</div>
@@ -692,7 +692,7 @@ export function ServiceDeliveryPage() {
           <span>Deliver</span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <h1>🩺 Deliver: {activeService?.name || 'Loading…'}</h1>
+          <h1>Deliver: {activeService?.name || 'Loading…'}</h1>
           <button className="ps-btn ps-btn-secondary" onClick={() => navigate(-1 as any)}>
             ← Cancel
           </button>
@@ -790,7 +790,7 @@ export function ServiceDeliveryPage() {
       {!nhsLocked && step === 'patient' && (
         <div className="ps-card" style={{ padding: 'var(--ps-space-lg)' }}>
           <h2 style={{ fontSize: 'var(--ps-font-lg)', fontWeight: 600, color: 'var(--ps-midnight)', marginBottom: 'var(--ps-space-md)' }}>
-            👤 Select Patient
+            Select Patient
           </h2>
 
           <div className="form-group">
@@ -902,7 +902,7 @@ export function ServiceDeliveryPage() {
               </p>
               {/* Sandbox test NHS numbers */}
               <details style={{ fontSize: 'var(--ps-font-xs)', color: 'var(--ps-slate)', marginBottom: 'var(--ps-space-sm)' }}>
-                <summary style={{ cursor: 'pointer', color: '#005eb8', fontWeight: 500 }}>🧪 Sandbox test NHS numbers</summary>
+                <summary style={{ cursor: 'pointer', color: '#005eb8', fontWeight: 500 }}>Sandbox test NHS numbers</summary>
                 <div style={{ marginTop: 'var(--ps-space-xs)', display: 'flex', flexWrap: 'wrap', gap: 'var(--ps-space-xs)' }}>
                   {[
                     { nhs: '9000000009', label: 'Standard patient' },
@@ -991,7 +991,7 @@ export function ServiceDeliveryPage() {
         <div className="ps-card" style={{ padding: 'var(--ps-space-lg)' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 'var(--ps-space-lg)' }}>
             <h2 style={{ fontSize: 'var(--ps-font-lg)', fontWeight: 600, color: 'var(--ps-midnight)', margin: 0 }}>
-              📝 {selectedForm?.name || 'Service Form'}
+              {selectedForm?.name || 'Service Form'}
             </h2>
             {activeForms.length > 1 && (
               <select
@@ -1030,7 +1030,7 @@ export function ServiceDeliveryPage() {
                   fontSize: 'var(--ps-font-xs)',
                   color: 'var(--ps-slate)',
                 }}>
-                  ℹ️ Some fields have been auto-populated from the PDS lookup and your profile. You can still edit them if needed.
+                  Some fields have been auto-populated from the PDS lookup and your profile. You can still edit them if needed.
                 </div>
               )}
 
@@ -1215,7 +1215,7 @@ export function ServiceDeliveryPage() {
             <div style={{ marginTop: 'var(--ps-space-lg)', borderTop: '1px solid var(--ps-off-white)', paddingTop: 'var(--ps-space-md)' }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 'var(--ps-space-sm)' }}>
                 <label style={{ fontWeight: 600, color: 'var(--ps-midnight)' }}>
-                  💊 Medications Supplied
+                  Medications Supplied
                   {medications.filter(m => m.drug_name.trim()).length > 0 && (
                     <span style={{ fontWeight: 400, color: 'var(--ps-slate)', marginLeft: 8 }}>
                       ({medications.filter(m => m.drug_name.trim()).length} item{medications.filter(m => m.drug_name.trim()).length !== 1 ? 's' : ''})
@@ -1313,7 +1313,7 @@ export function ServiceDeliveryPage() {
           >
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 'var(--ps-space-lg)' }}>
               <h2 style={{ fontSize: 'var(--ps-font-lg)', fontWeight: 600, color: 'var(--ps-midnight)', margin: 0 }}>
-                💊 Medications Supplied
+                Medications Supplied
               </h2>
               <button
                 type="button"
@@ -1347,7 +1347,7 @@ export function ServiceDeliveryPage() {
       {!nhsLocked && step === 'review' && (
         <div className="ps-card" style={{ padding: 'var(--ps-space-lg)' }}>
           <h2 style={{ fontSize: 'var(--ps-font-lg)', fontWeight: 600, color: 'var(--ps-midnight)', marginBottom: 'var(--ps-space-lg)' }}>
-            ✅ Review & Complete
+            Review & Complete
           </h2>
 
           {/* Summary */}
@@ -1423,7 +1423,7 @@ export function ServiceDeliveryPage() {
           {/* Medications summary */}
           {medications.filter(m => m.drug_name.trim()).length > 0 && (
             <div style={{ marginBottom: 'var(--ps-space-lg)' }}>
-              <h3 style={{ fontSize: 'var(--ps-font-md)', fontWeight: 600, marginBottom: 'var(--ps-space-sm)' }}>💊 Medications Supplied</h3>
+              <h3 style={{ fontSize: 'var(--ps-font-md)', fontWeight: 600, marginBottom: 'var(--ps-space-sm)' }}>Medications Supplied</h3>
               <div style={{ background: 'var(--ps-off-white)', borderRadius: 'var(--ps-radius-md)', padding: 'var(--ps-space-md)' }}>
                 {medications.filter(m => m.drug_name.trim()).map((m, i) => (
                   <div key={m.localId} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: 'var(--ps-space-xs) 0', borderBottom: '1px solid var(--ps-white)', fontSize: 'var(--ps-font-sm)' }}>

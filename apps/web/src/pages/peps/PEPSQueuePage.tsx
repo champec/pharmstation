@@ -133,8 +133,8 @@ export function PEPSQueuePage() {
           <span>PEPS Queue</span>
         </div>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <h1>℞ PEPS Queue</h1>
-          <button className="ps-btn ps-btn-primary" onClick={() => navigate('/peps/write')}>✍️ Write prescription</button>
+          <h1>PEPS Queue</h1>
+          <button className="ps-btn ps-btn-primary" onClick={() => navigate('/peps/write')}>Write prescription</button>
         </div>
         <p style={{ color: 'var(--ps-slate)', marginTop: '4px' }}>
           Prescriptions held by {organisation?.name ?? 'your pharmacy'}. Download ones sent to you, or claim a patient's spine prescription with their reference.

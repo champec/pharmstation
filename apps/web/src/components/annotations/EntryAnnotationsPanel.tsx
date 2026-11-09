@@ -167,7 +167,7 @@ export function EntryAnnotationsPanel({ entry, onAnnotationAdded }: EntryAnnotat
             className="ps-btn ps-btn-ghost annotation-btn"
             onClick={() => openAction('note')}
           >
-            📝 Add note
+            Add note
           </button>
           {isSupplyEntry && !flagged && (
             <button
@@ -176,7 +176,7 @@ export function EntryAnnotationsPanel({ entry, onAnnotationAdded }: EntryAnnotat
               onClick={() => openAction('part_supply')}
               title="Mark this entry as a part supply (balance owed to patient)"
             >
-              ⏳ Mark part supply
+              Mark part supply
             </button>
           )}
           {flagged && !closed && (

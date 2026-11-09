@@ -398,14 +398,14 @@ export function SOPEditorPage() {
               </>
             ) : (
               <>
-                <button className="ps-btn ps-btn-secondary" onClick={() => setEditingMeta(true)}>✏️ Edit Details</button>
-                <button className="ps-btn ps-btn-secondary" onClick={() => navigate(`/sops/${docId}/assign`)}>👥 Assign</button>
-                <button className="ps-btn ps-btn-secondary" onClick={() => navigate(`/sops/${docId}/progress`)}>📊 Progress</button>
+                <button className="ps-btn ps-btn-secondary" onClick={() => setEditingMeta(true)}>Edit Details</button>
+                <button className="ps-btn ps-btn-secondary" onClick={() => navigate(`/sops/${docId}/assign`)}>Assign</button>
+                <button className="ps-btn ps-btn-secondary" onClick={() => navigate(`/sops/${docId}/progress`)}>Progress</button>
                 {doc?.published_at && (
-                  <button className="ps-btn ps-btn-secondary" onClick={() => navigate(`/sops/${docId}/read`)}>👁 Staff view</button>
+                  <button className="ps-btn ps-btn-secondary" onClick={() => navigate(`/sops/${docId}/read`)}>Staff view</button>
                 )}
                 {doc?.status === 'published' && (
-                  <button className="ps-btn ps-btn-secondary" onClick={handleArchive} disabled={saving}>🗄 Archive</button>
+                  <button className="ps-btn ps-btn-secondary" onClick={handleArchive} disabled={saving}>Archive</button>
                 )}
                 {doc && (doc.status !== 'published' || hasChanges) && (
                   <button className="ps-btn ps-btn-primary" onClick={handlePublish} disabled={saving}>
@@ -580,7 +580,7 @@ export function SOPEditorPage() {
                         className="ps-btn ps-btn-secondary"
                         onClick={() => fileInputRef.current?.click()}
                       >
-                        📎 Upload PDF
+                        Upload PDF
                       </button>
                       {selectedNode.pdf_storage_path && (
                         <span style={{ fontSize: 12, color: 'var(--ps-success)' }}>

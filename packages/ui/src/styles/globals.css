@@ -23,6 +23,12 @@
   --ps-error: #EF4444;
   --ps-info: #3B82F6;
 
+  /* Aliases used by older pages (keep them pointing at the tokens above) */
+  --ps-primary: var(--ps-deep-blue);
+  --ps-red: var(--ps-error);
+  --ps-green: var(--ps-success);
+  --ps-amber: var(--ps-warning);
+
   /* Spacing */
   --ps-space-xs: 4px;
   --ps-space-sm: 8px;
@@ -37,6 +43,7 @@
   --ps-font-xs: 0.75rem;
   --ps-font-sm: 0.875rem;
   --ps-font-base: 1rem;
+  --ps-font-md: 1rem;
   --ps-font-lg: 1.125rem;
   --ps-font-xl: 1.25rem;
   --ps-font-2xl: 1.5rem;

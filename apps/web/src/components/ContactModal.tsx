@@ -394,7 +394,7 @@ export function ContactModal({
               disabled={saving || deleting || confirmDelete}
               style={{ color: 'var(--ps-error)' }}
             >
-              🗑 Delete
+              Delete
             </button>
           ) : (
             <span />
