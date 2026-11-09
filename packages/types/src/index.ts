@@ -1748,6 +1748,8 @@ export interface NetworkPharmacy {
   is_on_platform: boolean
   linked_org_id: string | null
   linked_org_name: string | null
+  /** The pharmacy has urgent text alerts turned on (ps_network_search only). */
+  accepts_sms_pings?: boolean
 }
 
 export interface NetworkSettings {

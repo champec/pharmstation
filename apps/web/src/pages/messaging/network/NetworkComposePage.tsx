@@ -4,7 +4,8 @@ import { useAuthStore, useNetworkStore } from '@pharmstation/core'
 import type { NetworkPharmacy, NetworkMessageLabel } from '@pharmstation/types'
 import { NETWORK_LABEL_CONFIG } from '@pharmstation/types'
 import type { MapRecipient } from '../../../components/maps/PharmacyMapModal'
-import { CircleCheck } from 'lucide-react'
+import { CheckCircle2, CheckSquare, Building2, Search } from 'lucide-react'
+import { PageHeader } from '../../../components/ui/PageHeader'
 
 type Step = 1 | 2 | 3
 
@@ -115,11 +116,9 @@ export function NetworkComposePage() {
   if (sent) {
     return (
       <div>
-        <div className="page-header">
-          <h1>Message Sent</h1>
-        </div>
+        <PageHeader breadcrumbs={[{ label: 'Dashboard', to: '/' }, { label: 'Messaging', to: '/messaging' }, { label: 'Pharmacy Network', to: '/messaging/network' }, { label: 'Message sent' }]} title="Message sent" />
         <div className="ps-card" style={{ padding: 'var(--ps-space-2xl)', textAlign: 'center' }}>
-          <span className="ps-empty-icon success" aria-hidden="true"><CircleCheck size={26} strokeWidth={1.75} /></span>
+          <CheckCircle2 size={40} strokeWidth={1.75} aria-hidden="true" style={{ color: 'var(--ps-success)', marginBottom: 'var(--ps-space-md)' }} />
           <h2 style={{ marginBottom: 'var(--ps-space-sm)' }}>
             Message sent to {recipients.length} {recipients.length === 1 ? 'pharmacy' : 'pharmacies'}
           </h2>
@@ -138,7 +137,7 @@ export function NetworkComposePage() {
             <button className="ps-btn ps-btn-primary" onClick={() => {
               setSent(false); setStep(1); setRecipients([]); setSubject(''); setBody(''); setLabel('other'); setRequestSmsPing(false)
             }}>
-              Send Another
+              Send another
             </button>
             <button className="ps-btn ps-btn-secondary" onClick={() => navigate('/messaging/network')}>
               Back to Inbox
@@ -151,16 +150,11 @@ export function NetworkComposePage() {
 
   return (
     <div>
-      <div className="page-header">
-        <div className="breadcrumbs">
-          <a href="/" onClick={(e) => { e.preventDefault(); navigate('/') }}>Dashboard</a>
-          <span className="separator">/</span>
-          <a href="/messaging/network" onClick={(e) => { e.preventDefault(); navigate('/messaging/network') }}>Pharmacy Network</a>
-          <span className="separator">/</span>
-          <span>New Message</span>
-        </div>
-        <h1>New Network Message</h1>
-      </div>
+      <PageHeader
+        breadcrumbs={[{ label: 'Dashboard', to: '/' }, { label: 'Messaging', to: '/messaging' }, { label: 'Pharmacy Network', to: '/messaging/network' }, { label: 'New message' }]}
+        title="New network message"
+        subtitle="Pick one or more pharmacies. Each gets its own private conversation."
+      />
 
       {/* Step indicator */}
       <div className="ps-steps" style={{ display: 'flex', gap: 'var(--ps-space-sm)', marginBottom: 'var(--ps-space-lg)', alignItems: 'center' }}>
@@ -237,7 +231,7 @@ export function NetworkComposePage() {
                   style={{ flex: 1 }}
                 />
                 <button className="ps-btn ps-btn-secondary" onClick={doSearch} disabled={searchLoading}>
-                  {searchLoading ? '…' : '🔍'}
+                  {searchLoading ? 'Searching…' : <><Search size={16} strokeWidth={1.75} aria-hidden="true" /> Search</>}
                 </button>
               </div>
 
@@ -271,9 +265,9 @@ export function NetworkComposePage() {
                         <div style={{ flexShrink: 0 }}>
                           {canSelect
                             ? (selected
-                              ? <span className="ps-empty-icon success" aria-hidden="true"><CircleCheck size={26} strokeWidth={1.75} /></span>
+                              ? <CheckSquare size={18} strokeWidth={1.75} aria-label="Selected" style={{ color: 'var(--ps-deep-blue)' }} />
                               : <span style={{ width: 18, height: 18, border: '2px solid var(--ps-slate)', borderRadius: 4, display: 'inline-block' }} />)
-                            : <span style={{ fontSize: '1rem' }}>🏥</span>}
+                            : <Building2 size={18} strokeWidth={1.75} aria-hidden="true" style={{ color: 'var(--ps-slate)' }} />}
                         </div>
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <div style={{ fontWeight: 600, fontSize: '0.9rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -290,8 +284,13 @@ export function NetworkComposePage() {
                             </div>
                           )}
                           {ph.is_on_platform
-                            ? <span className="ps-badge ps-badge-green" style={{ fontSize: '0.7rem' }}>On Platform</span>
+                            ? <span className="ps-badge ps-badge-green" style={{ fontSize: '0.7rem' }}>On PharmStation</span>
                             : <span className="ps-badge" style={{ fontSize: '0.7rem' }}>Not on PharmStation</span>}
+                          {ph.is_on_platform && ph.accepts_sms_pings && (
+                            <div style={{ fontSize: '0.7rem', color: 'var(--ps-slate)', marginTop: 2 }} title="This pharmacy gets a text for messages you mark urgent">
+                              Urgent texts on
+                            </div>
+                          )}
                         </div>
                       </div>
                     )

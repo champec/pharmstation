@@ -71,6 +71,16 @@ function usePush(ready: boolean) {
       if (handled.current === id) return
       handled.current = id
       const data = (response.notification.request.content.data ?? {}) as PushPayload
+      // Locum pushes (from locum-notify) open the locum module.
+      if (data.type === 'locum_booking' || data.type === 'locum_shift') {
+        router.push({ pathname: '/module/[id]', params: { id: 'locum', tab: data.type === 'locum_shift' ? 'find' : 'bookings' } })
+        return
+      }
+      // Pharmacy locum alerts open Locum Cover.
+      if (data.event_type === 'locum') {
+        router.push({ pathname: '/module/[id]', params: { id: 'locum-cover', tab: 'shifts' } })
+        return
+      }
       // Shop order alerts open the shop's order list.
       if (data.event_type === 'shop_order') {
         router.push({ pathname: '/module/[id]', params: { id: 'shop', tab: 'orders' } })

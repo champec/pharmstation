@@ -63,6 +63,60 @@ export interface NetworkPharmacy {
   is_on_platform: boolean
   linked_org_id: string | null
   linked_org_name: string | null
+  accepts_sms_pings?: boolean
+}
+
+/** The NHS pharmacy this org is linked to on the network. */
+export interface NetworkLink {
+  pharmacy_id: number
+  linked_at: string
+  pharmacy: { id: number; ods_code: string | null; organisation_name: string; address1: string | null; city: string | null; postcode: string | null } | null
+}
+
+export interface OdsPharmacy {
+  id: number
+  ods_code: string | null
+  organisation_name: string
+  address1: string | null
+  city: string | null
+  postcode: string | null
+  /** Already linked by another PharmStation account. */
+  taken: boolean
+}
+
+export interface NetworkContact {
+  id: string
+  label: string | null
+  phone_number: string
+  is_enabled: boolean
+  pause_until: string | null
+  notify_start: string
+  notify_end: string
+}
+
+export interface NetworkSetup {
+  verification: 'pending' | 'verified' | 'rejected' | null
+  verificationNote: string | null
+  link: NetworkLink | null
+  networkEnabled: boolean
+  smsPingsEnabled: boolean
+  contacts: NetworkContact[]
+}
+
+/** UK mobile in any common format → "+447xxxxxxxxx", or null. */
+export function normaliseUkMobile(raw: string): string | null {
+  let n = raw.replace(/[^\d+]/g, '')
+  if (n.startsWith('+')) n = n.slice(1)
+  else if (n.startsWith('00')) n = n.slice(2)
+  else if (n.startsWith('0')) n = `44${n.slice(1)}`
+  return /^447\d{9}$/.test(n) ? `+${n}` : null
+}
+
+const PING_STATUS_TEXT: Record<string, string> = {
+  recipient_disabled: 'they have text alerts turned off',
+  no_contacts_available: 'no numbers are available right now (quiet hours or paused)',
+  rate_limited: 'you already alerted them in the last 15 minutes',
+  failed: 'the text could not be delivered',
 }
 
 export interface SmsConversation {
@@ -109,6 +163,11 @@ interface CommsState {
   searchResults: NetworkPharmacy[]
   searchLoading: boolean
 
+  setup: NetworkSetup | null
+  setupLoading: boolean
+  odsResults: OdsPharmacy[]
+  odsLoading: boolean
+
   sms: SmsConversation[]
   smsLoading: boolean
   smsError: string | null
@@ -135,6 +194,15 @@ interface CommsState {
     urgent?: boolean
   }) => Promise<string | null>
   searchPharmacies: (search: string) => Promise<void>
+
+  loadSetup: () => Promise<void>
+  searchOds: (query: string) => Promise<void>
+  linkPharmacy: (pharmacyId: number) => Promise<void>
+  unlinkPharmacy: () => Promise<void>
+  saveNetworkSettings: (patch: { network_enabled?: boolean; sms_pings_enabled?: boolean }) => Promise<void>
+  addContact: (input: { phone: string; label: string | null; start: string; end: string }) => Promise<void>
+  updateContact: (id: string, patch: Partial<Pick<NetworkContact, 'is_enabled' | 'pause_until'>>) => Promise<void>
+  deleteContact: (id: string) => Promise<void>
 
   loadSms: () => Promise<void>
   openSmsThread: (phone: string) => Promise<void>
@@ -206,6 +274,10 @@ export const useCommsStore = create<CommsState>((set, get) => ({
   threadLoading: false,
   searchResults: [],
   searchLoading: false,
+  setup: null,
+  setupLoading: false,
+  odsResults: [],
+  odsLoading: false,
   sms: [],
   smsLoading: false,
   smsError: null,
@@ -310,7 +382,19 @@ export const useCommsStore = create<CommsState>((set, get) => ({
         body: { action: 'network_ping', org_id: org, message_ids: inserted.map((m) => m.id) },
       })
       const err = pingError?.message ?? (ping as { error?: string } | null)?.error
-      if (err) pingNote = `Message sent, but the text alert failed: ${err}`
+      if (err) {
+        pingNote = `Your message was delivered, but the text alert failed: ${err}`
+      } else {
+        const summary = ping as { sent: number; total: number; results: { status: string }[] }
+        if (summary.total === 1) {
+          const status = summary.results[0]?.status
+          pingNote = status === 'sent'
+            ? 'Message sent, and their phone has been texted.'
+            : `Message sent. No text alert: ${PING_STATUS_TEXT[status] ?? status}. They will still see it in PharmStation.`
+        } else {
+          pingNote = `Message sent to ${summary.total} pharmacies. ${summary.sent} of them were also texted; the rest have alerts off, are in quiet hours, or were alerted by you recently.`
+        }
+      }
     }
     void get().loadNetwork()
     return pingNote
@@ -320,7 +404,7 @@ export const useCommsStore = create<CommsState>((set, get) => ({
     const org = orgId()
     if (!org) return
     set({ searchLoading: true })
-    const { data, error } = await userClient.rpc('search_network_pharmacies', {
+    const { data, error } = await userClient.rpc('ps_network_search', {
       p_org_id: org,
       p_search: search,
       p_radius_km: search.trim() ? 500 : 15,
@@ -332,6 +416,134 @@ export const useCommsStore = create<CommsState>((set, get) => ({
       searchResults: error ? [] : ((data ?? []) as NetworkPharmacy[]).filter((p) => p.linked_org_id && p.linked_org_id !== org),
       networkError: error ? error.message : get().networkError,
     })
+  },
+
+  // ---------------------------------------------------------------- network setup
+  loadSetup: async () => {
+    const org = orgId()
+    if (!org) return
+    set({ setupLoading: true })
+    const [orgRes, linkRes, settingsRes, contactsRes] = await Promise.all([
+      userClient.from('ps_organisations').select('verification_status, verification_note').eq('id', org).maybeSingle(),
+      userClient.from('ps_org_pharmacy_link')
+        .select('pharmacy_id, linked_at, pharmacy:pharmacy_id(id, ods_code, organisation_name, address1, city, postcode)')
+        .eq('org_id', org).maybeSingle(),
+      userClient.from('ps_network_settings').select('network_enabled, sms_pings_enabled').eq('org_id', org).maybeSingle(),
+      userClient.from('ps_network_sms_contacts')
+        .select('id, label, phone_number, is_enabled, pause_until, notify_start, notify_end')
+        .eq('org_id', org).order('created_at', { ascending: true }),
+    ])
+    const link = linkRes.data as unknown as (Omit<NetworkLink, 'pharmacy'> & { pharmacy: NetworkLink['pharmacy'] | NetworkLink['pharmacy'][] }) | null
+    set({
+      setupLoading: false,
+      setup: {
+        verification: (orgRes.data?.verification_status as NetworkSetup['verification']) ?? null,
+        verificationNote: (orgRes.data?.verification_note as string | null) ?? null,
+        link: link ? { ...link, pharmacy: Array.isArray(link.pharmacy) ? link.pharmacy[0] ?? null : link.pharmacy } : null,
+        networkEnabled: settingsRes.data?.network_enabled ?? true,
+        smsPingsEnabled: settingsRes.data?.sms_pings_enabled ?? false,
+        contacts: (contactsRes.data ?? []) as NetworkContact[],
+      },
+    })
+  },
+
+  searchOds: async (query) => {
+    const q = query.trim().replace(/[,()%]/g, ' ')
+    if (q.length < 2) { set({ odsResults: [] }); return }
+    set({ odsLoading: true })
+    const { data, error } = await userClient
+      .from('pharmacies')
+      .select('id, ods_code, organisation_name, address1, city, postcode')
+      .or(`organisation_name.ilike.%${q}%,postcode.ilike.%${q}%,ods_code.ilike.%${q}%`)
+      .order('organisation_name')
+      .limit(25)
+    if (error) { set({ odsLoading: false, odsResults: [] }); return }
+    const rows = (data ?? []) as Omit<OdsPharmacy, 'taken'>[]
+    let taken = new Set<number>()
+    if (rows.length) {
+      const { data: links } = await userClient
+        .from('ps_org_pharmacy_link').select('pharmacy_id, org_id')
+        .in('pharmacy_id', rows.map((r) => r.id))
+      taken = new Set((links ?? []).filter((l) => l.org_id !== orgId()).map((l) => l.pharmacy_id as number))
+    }
+    set({ odsLoading: false, odsResults: rows.map((r) => ({ ...r, taken: taken.has(r.id) })) })
+  },
+
+  linkPharmacy: async (pharmacyId) => {
+    const org = orgId()
+    if (!org) throw new Error('Connect a pharmacy first.')
+    const { error } = await userClient
+      .from('ps_org_pharmacy_link')
+      .upsert({ org_id: org, pharmacy_id: pharmacyId }, { onConflict: 'org_id' })
+    if (error) {
+      if (error.code === '23505') throw new Error('Another PharmStation account has already linked this pharmacy. If it is yours, contact hello@pharmstation.co.uk.')
+      if (error.code === '42501') throw new Error('Your pharmacy needs to be verified before it can join the network.')
+      throw new Error(error.message)
+    }
+    await get().loadSetup()
+  },
+
+  unlinkPharmacy: async () => {
+    const org = orgId()
+    if (!org) return
+    const { error } = await userClient.from('ps_org_pharmacy_link').delete().eq('org_id', org)
+    if (error) throw new Error(error.message)
+    await get().loadSetup()
+  },
+
+  saveNetworkSettings: async (patch) => {
+    const org = orgId()
+    const cur = get().setup
+    if (!org || !cur) return
+    const next = {
+      network_enabled: patch.network_enabled ?? cur.networkEnabled,
+      sms_pings_enabled: patch.sms_pings_enabled ?? cur.smsPingsEnabled,
+    }
+    set({ setup: { ...cur, networkEnabled: next.network_enabled, smsPingsEnabled: next.sms_pings_enabled } })
+    const { error } = await userClient
+      .from('ps_network_settings')
+      .upsert({ org_id: org, ...next, updated_at: new Date().toISOString() }, { onConflict: 'org_id' })
+    if (error) {
+      set({ setup: cur })
+      throw new Error(error.message)
+    }
+  },
+
+  addContact: async ({ phone, label, start, end }) => {
+    const org = orgId()
+    const cur = get().setup
+    if (!org || !cur) return
+    const normalised = normaliseUkMobile(phone)
+    if (!normalised) throw new Error('Enter a UK mobile number, for example 07700 900123. Text alerts cannot go to landlines.')
+    if (cur.contacts.some((c) => normaliseUkMobile(c.phone_number) === normalised)) throw new Error('That number is already on the list.')
+    const { data, error } = await userClient
+      .from('ps_network_sms_contacts')
+      .insert({ org_id: org, phone_number: normalised, label, is_enabled: true, pause_until: null, notify_start: start, notify_end: end })
+      .select('id, label, phone_number, is_enabled, pause_until, notify_start, notify_end')
+      .single()
+    if (error) throw new Error(error.message)
+    set({ setup: { ...cur, contacts: [...cur.contacts, data as NetworkContact] } })
+  },
+
+  updateContact: async (id, patch) => {
+    const cur = get().setup
+    if (!cur) return
+    const { data, error } = await userClient
+      .from('ps_network_sms_contacts')
+      .update({ ...patch, updated_at: new Date().toISOString() })
+      .eq('id', id)
+      .select('id, label, phone_number, is_enabled, pause_until, notify_start, notify_end')
+      .single()
+    if (error) throw new Error(error.message)
+    set({ setup: { ...cur, contacts: cur.contacts.map((c) => (c.id === id ? (data as NetworkContact) : c)) } })
+  },
+
+  deleteContact: async (id) => {
+    const cur = get().setup
+    if (!cur) return
+    const { error } = await userClient.from('ps_network_sms_contacts').delete().eq('id', id)
+    if (error) throw new Error(error.message)
+    set({ setup: { ...cur, contacts: cur.contacts.filter((c) => c.id !== id) } })
   },
 
   // ---------------------------------------------------------------- SMS

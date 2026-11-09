@@ -4,6 +4,7 @@ import { useAuthStore, useNetworkStore } from '@pharmstation/core'
 import { NETWORK_LABEL_CONFIG, NETWORK_PING_STATUS_TEXT } from '@pharmstation/types'
 import type { NetworkMessageLabel } from '@pharmstation/types'
 import { ChatComposer, JumpToLatest, WithDayDividers, formatChatTime, useStickToBottom } from '../../../components/chat/chat'
+import { Smartphone } from 'lucide-react'
 
 const REPLY_LABELS: NetworkMessageLabel[] = ['other', 'stock_query', 'prescription_query', 'community_alert']
 
@@ -136,7 +137,7 @@ export function NetworkMessageDetailPage() {
                         <time dateTime={msg.created_at} title={new Date(msg.created_at).toLocaleString('en-GB')}>{formatChatTime(msg.created_at)}</time>
                         {msg.request_sms_ping && (
                           <span title={isFromMe && msg.sms_ping_status ? NETWORK_PING_STATUS_TEXT[msg.sms_ping_status] : 'Marked urgent with a text alert'}>
-                            📱{isFromMe && msg.sms_ping_status ? ` ${NETWORK_PING_STATUS_TEXT[msg.sms_ping_status]}` : ' Urgent'}
+                            <Smartphone size={13} strokeWidth={1.75} aria-hidden="true" style={{ verticalAlign: '-2px' }} />{isFromMe && msg.sms_ping_status ? ` ${NETWORK_PING_STATUS_TEXT[msg.sms_ping_status]}` : ' Urgent'}
                           </span>
                         )}
                         {isFromMe && (

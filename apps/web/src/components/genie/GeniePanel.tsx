@@ -4,12 +4,12 @@
 // ============================================
 
 import { useEffect, useRef, useState } from 'react'
+import { CircleCheck, History, Lock, Sparkles, SquarePen, Trash2, User, Wrench, X } from 'lucide-react'
 import { PLANS, useAuthStore, useChatStore, useSubscriptionStore } from '@pharmstation/core'
 import type { ChatMessage } from '@pharmstation/types'
 import { PLANS_ENFORCED } from '../../lib/billing'
 import { JumpToLatest, useAutoGrow, useStickToBottom } from '../chat/chat'
 import { Markdown } from '../chat/Markdown'
-import { Check, Lock, Sparkles, User, Wrench } from 'lucide-react'
 
 export function GeniePanel() {
   const {
@@ -127,7 +127,7 @@ export function GeniePanel() {
       {/* Header */}
       <div className="genie-header">
         <div className="genie-header-left">
-          <span className="genie-header-icon"><Sparkles size={18} aria-hidden="true" /></span>
+          <span className="genie-header-icon"><Sparkles size={18} strokeWidth={1.75} aria-hidden="true" /></span>
           <span className="genie-header-title">Genie</span>
           {activeModel && (
             <span className="genie-model-badge">{activeModel.display_name}</span>
@@ -138,18 +138,20 @@ export function GeniePanel() {
             className="genie-icon-btn"
             onClick={() => startNewConversation()}
             title="New chat"
+            aria-label="New chat"
           >
-            ✏️
+            <SquarePen size={16} strokeWidth={1.75} aria-hidden="true" />
           </button>
           <button
             className={`genie-icon-btn ${showHistory ? 'active' : ''}`}
             onClick={() => setShowHistory(!showHistory)}
             title="Chat history"
+            aria-label="Chat history"
           >
-            📋
+            <History size={16} strokeWidth={1.75} aria-hidden="true" />
           </button>
-          <button className="genie-icon-btn" onClick={toggleOpen} title="Close">
-            ✕
+          <button className="genie-icon-btn" onClick={toggleOpen} title="Close" aria-label="Close Genie">
+            <X size={16} strokeWidth={1.75} aria-hidden="true" />
           </button>
         </div>
       </div>
@@ -181,8 +183,9 @@ export function GeniePanel() {
                     className="genie-history-delete"
                     onClick={(e) => { e.stopPropagation(); deleteConversation(conv.id) }}
                     title="Delete"
+                    aria-label="Delete chat"
                   >
-                    🗑
+                    <Trash2 size={14} strokeWidth={1.75} aria-hidden="true" />
                   </button>
                 </div>
               ))
@@ -195,7 +198,7 @@ export function GeniePanel() {
       {!showHistory && locked && (
         <div className="genie-messages-wrap">
           <div className="genie-welcome">
-            <div className="genie-welcome-icon"><Lock size={18} aria-hidden="true" /></div>
+            <div className="genie-welcome-icon"><Lock size={26} strokeWidth={1.75} aria-hidden="true" /></div>
             <h3>Genie is part of the Essential plan</h3>
             <p>
               Upgrade to Essential or Complete in Settings to ask Genie about your registers, logs and team.
@@ -209,7 +212,7 @@ export function GeniePanel() {
         <div className="genie-messages" ref={messagesRef} onScroll={onScroll}>
           {messages.length === 0 && !isStreaming && (
             <div className="genie-welcome">
-              <div className="genie-welcome-icon"><Sparkles size={18} aria-hidden="true" /></div>
+              <div className="genie-welcome-icon"><Sparkles size={26} strokeWidth={1.75} aria-hidden="true" /></div>
               <h3>Hello! I'm Genie</h3>
               <p>
                 Your pharmacy assistant. I can search the CD register and RP
@@ -251,7 +254,7 @@ export function GeniePanel() {
           {/* Streaming message */}
           {isStreaming && (
             <div className="genie-message genie-message-assistant">
-              <div className="genie-message-avatar"><Sparkles size={18} aria-hidden="true" /></div>
+              <div className="genie-message-avatar"><Sparkles size={16} strokeWidth={1.75} aria-hidden="true" /></div>
               <div className="genie-message-content">
                 {streamingContent ? (
                   <div className="genie-message-text"><Markdown text={streamingContent} /></div>
@@ -266,7 +269,7 @@ export function GeniePanel() {
                   <div className="genie-tool-calls">
                     {streamingToolCalls.map((tc) => (
                       <div key={tc.id} className="genie-tool-call">
-                        <span className="genie-tool-icon"><Wrench size={14} aria-hidden="true" /></span>
+                        <span className="genie-tool-icon"><Wrench size={14} strokeWidth={1.75} aria-hidden="true" /></span>
                         <span className="genie-tool-name">{formatActiveToolName(tc.name)}</span>
                         <span className="genie-tool-spinner" />
                       </div>
@@ -338,7 +341,7 @@ function MessageBubble({ message, onRetry }: { message: ChatMessage; onRetry: ()
 
   return (
     <div className={`genie-message genie-message-${message.role} ${isError ? 'error' : ''}`}>
-      {!isUser && <div className="genie-message-avatar"><Sparkles size={18} aria-hidden="true" /></div>}
+      {!isUser && <div className="genie-message-avatar"><Sparkles size={16} strokeWidth={1.75} aria-hidden="true" /></div>}
       <div className="genie-message-content">
         <div className="genie-message-text">
           {isUser ? message.content : <Markdown text={message.content ?? ''} />}
@@ -347,7 +350,7 @@ function MessageBubble({ message, onRetry }: { message: ChatMessage; onRetry: ()
           <div className="genie-tool-calls">
             {(message.tool_calls as { id: string; name: string }[]).map((tc) => (
               <div key={tc.id} className="genie-tool-call completed">
-                <span className="genie-tool-icon"><Check size={14} aria-hidden="true" /></span>
+                <span className="genie-tool-icon"><CircleCheck size={14} strokeWidth={1.75} aria-hidden="true" /></span>
                 <span className="genie-tool-name">{formatToolName(tc.name)}</span>
               </div>
             ))}
@@ -361,7 +364,7 @@ function MessageBubble({ message, onRetry }: { message: ChatMessage; onRetry: ()
           {isError && <button type="button" onClick={onRetry}>Retry</button>}
         </div>
       </div>
-      {isUser && <div className="genie-message-avatar genie-avatar-user"><User size={18} aria-hidden="true" /></div>}
+      {isUser && <div className="genie-message-avatar genie-avatar-user"><User size={16} strokeWidth={1.75} aria-hidden="true" /></div>}
     </div>
   )
 }
