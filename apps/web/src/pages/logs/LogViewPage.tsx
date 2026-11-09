@@ -357,7 +357,7 @@ export function LogViewPage() {
                       const out = isOutOfRange(f, v)
                       return (
                         <td key={f.id} className={out ? 'log-out' : ''}>
-                          {entry ? (f.field_type === 'canvas' || f.field_type === 'signature' ? (v ? '✍️ Signed' : '—') : displayValue(f, v)) : ''}
+                          {entry ? (f.field_type === 'canvas' || f.field_type === 'signature' ? (v ? 'Signed' : '—') : displayValue(f, v)) : ''}
                           {out && <span className="log-out-flag" title="Out of range"> ⚠</span>}
                         </td>
                       )

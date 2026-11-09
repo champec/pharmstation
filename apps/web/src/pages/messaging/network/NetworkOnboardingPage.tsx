@@ -119,7 +119,7 @@ export function NetworkOnboardingPage() {
               onClick={handleUnlink}
               disabled={unlinking}
             >
-              {unlinking ? 'Removing…' : '🔓 Unlink'}
+              {unlinking ? 'Removing…' : 'Unlink'}
             </button>
           </div>
         </div>
@@ -144,7 +144,7 @@ export function NetworkOnboardingPage() {
             style={{ flex: 1 }}
           />
           <button className="ps-btn ps-btn-primary" onClick={doSearch} disabled={searching || !searchTerm.trim()}>
-            {searching ? '…' : '🔍 Search'}
+            {searching ? '…' : 'Search'}
           </button>
         </div>
 

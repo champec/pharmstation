@@ -410,7 +410,7 @@ export function AppointmentDetailPage() {
           )}
           {appt.manage_token && (appt.status === 'pending' || appt.status === 'confirmed') && (
             <button className="ps-btn ps-btn-ghost" onClick={copyManageLink} title="A link the patient can use to view or cancel this booking">
-              {copied ? 'Link copied' : '🔗 Copy patient link'}
+              {copied ? 'Link copied' : 'Copy patient link'}
             </button>
           )}
         </div>

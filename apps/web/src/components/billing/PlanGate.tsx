@@ -8,6 +8,7 @@ import {
   formatPence,
 } from '@pharmstation/core'
 import { PLANS_ENFORCED } from '../../lib/billing'
+import { Lock } from 'lucide-react'
 import './billing.css'
 
 /**
@@ -28,7 +29,7 @@ export function PlanGate({ children }: { children: ReactNode }) {
   const needed = PLANS[minimumPlanFor(feature)]
   return (
     <div className="ps-card plan-gate">
-      <div className="plan-gate-icon" aria-hidden="true">🔒</div>
+      <span className="ps-empty-icon" aria-hidden="true"><Lock size={26} strokeWidth={1.75} /></span>
       <h2>This is part of the {needed.name} plan</h2>
       <p>
         Your pharmacy is on the {PLANS[plan].name} plan. Upgrade to {needed.name} for{' '}

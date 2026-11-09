@@ -349,7 +349,7 @@ export function DeliveryRoundDetailPage() {
         )}
         {['scheduled', 'in_progress'].includes(round.status) && (
           <button className="ps-btn ps-btn-secondary" type="button" onClick={handleNotifyPatients} disabled={notifying}>
-            {notifying ? 'Sending…' : '📱 Notify patients'}
+            {notifying ? 'Sending…' : 'Notify patients'}
           </button>
         )}
         {round.status === 'completed' && (

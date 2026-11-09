@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuthStore, useDeliveryRoundStore } from '@pharmstation/core'
 import { Modal } from '../../components/Modal'
+import { LayoutTemplate } from 'lucide-react'
 
 export function RoundTemplatesPage() {
   const navigate = useNavigate()
@@ -101,7 +102,7 @@ export function RoundTemplatesPage() {
 
       {!loading && templates.length === 0 && (
         <div className="ps-card" style={{ padding: 'var(--ps-space-2xl)', textAlign: 'center' }}>
-          <div style={{ fontSize: '48px', marginBottom: 'var(--ps-space-md)' }}>📋</div>
+          <span className="ps-empty-icon" aria-hidden="true"><LayoutTemplate size={26} strokeWidth={1.75} /></span>
           <h2 style={{ color: 'var(--ps-midnight)', marginBottom: 'var(--ps-space-sm)' }}>No templates yet</h2>
           <p style={{ color: 'var(--ps-slate)', marginBottom: 'var(--ps-space-lg)' }}>
             Create a template for regular delivery rounds (e.g. weekly care home deliveries).

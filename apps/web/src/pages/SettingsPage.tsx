@@ -31,14 +31,14 @@ export function SettingsPage() {
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--ps-space-sm)', marginBottom: 'var(--ps-space-lg)', borderBottom: '2px solid var(--ps-mist)', paddingBottom: 'var(--ps-space-sm)' }}>
         {([
           { key: 'general' as Tab, label: 'General' },
-          { key: 'team' as Tab, label: '👥 Team' },
-          { key: 'ai' as Tab, label: '✨ AI' },
-          { key: 'messaging' as Tab, label: '📨 Messaging' },
-          { key: 'alerts' as Tab, label: '🔔 Alerts' },
-          { key: 'appointments' as Tab, label: '📅 Bookings' },
-          { key: 'nhs' as Tab, label: '🏥 NHS' },
-          { key: 'payments' as Tab, label: '💳 Payments' },
-          { key: 'billing' as Tab, label: '⭐ Plan & billing' },
+          { key: 'team' as Tab, label: 'Team' },
+          { key: 'ai' as Tab, label: 'AI' },
+          { key: 'messaging' as Tab, label: 'Messaging' },
+          { key: 'alerts' as Tab, label: 'Alerts' },
+          { key: 'appointments' as Tab, label: 'Bookings' },
+          { key: 'nhs' as Tab, label: 'NHS' },
+          { key: 'payments' as Tab, label: 'Payments' },
+          { key: 'billing' as Tab, label: 'Plan & billing' },
         ]).map((t) => (
           <button
             key={t.key}
@@ -322,7 +322,7 @@ function PaymentsSettingsTab() {
                   disabled={starting || !canManage}
                   title={canManage ? undefined : 'Only the pharmacy owner, or staff they give billing access, can set up payouts.'}
                 >
-                  {starting ? 'Redirecting to Stripe…' : status?.status === 'not_onboarded' ? '🚀 Set up payments' : '▶ Continue setup'}
+                  {starting ? 'Redirecting to Stripe…' : status?.status === 'not_onboarded' ? 'Set up payments' : '▶ Continue setup'}
                 </button>
               )}
               <button className="ps-btn ps-btn-secondary" onClick={fetchStatus} disabled={loading}>
@@ -462,7 +462,7 @@ function NHSSettingsTab() {
               />
               <div>
                 <div style={{ fontWeight: 600, textTransform: 'capitalize' }}>
-                  {env === 'staging' ? '🧪 Staging' : '🚀 Production'}
+                  {env === 'staging' ? 'Staging' : 'Production'}
                 </div>
                 <div style={{ fontSize: '0.8rem', color: 'var(--ps-slate)' }}>
                   {env === 'staging'
@@ -498,7 +498,7 @@ function NHSSettingsTab() {
           <span style={{ fontWeight: 600 }}>
             {settings.ipWhitelistRegistered
               ? '✓ IP address registered with NHSBSA'
-              : '⏳ Pending — IP registration with NHSBSA is not yet confirmed'}
+              : 'Pending — IP registration with NHSBSA is not yet confirmed'}
           </span>
         </div>
       </div>

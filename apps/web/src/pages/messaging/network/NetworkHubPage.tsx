@@ -75,7 +75,7 @@ export function NetworkHubPage() {
           {msg.subject && <strong>{msg.subject} · </strong>}
           <span style={{ color: 'var(--ps-slate)' }}>{msg.body.slice(0, 80)}{msg.body.length > 80 ? '…' : ''}</span>
         </td>
-        <td><span className={labelCfg.cssClass}>{labelCfg.icon} {labelCfg.label}</span></td>
+        <td><span className={labelCfg.cssClass}>{labelCfg.label}</span></td>
         {!isInbox && (
           <td>
             <span className={msg.is_read ? 'ps-badge ps-badge-green' : 'ps-badge ps-badge-blue'}>
@@ -198,16 +198,15 @@ export function NetworkHubPage() {
       )}
 
       {/* Quick stats */}
-      <div className="ps-stat-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 'var(--ps-space-md)', marginBottom: 'var(--ps-space-lg)' }}>
+      <div className="stats-grid">
         {[
-          { label: 'Inbox', value: inbox.length, icon: '📨' },
-          { label: 'Unread', value: unreadCount, icon: '🔵' },
-          { label: 'Sent', value: sent.length, icon: '📤' },
+          { label: 'Inbox', value: inbox.length },
+          { label: 'Unread', value: unreadCount },
+          { label: 'Sent', value: sent.length },
         ].map((card) => (
-          <div key={card.label} className="ps-card" style={{ padding: 'var(--ps-space-lg)', textAlign: 'center' }}>
-            <div style={{ fontSize: '1.4rem', marginBottom: 4 }}>{card.icon}</div>
-            <div style={{ fontSize: '1.75rem', fontWeight: 700, color: 'var(--ps-deep-blue)' }}>{card.value}</div>
-            <div style={{ fontSize: '0.85rem', color: 'var(--ps-slate)' }}>{card.label}</div>
+          <div key={card.label} className={`stat-card${card.label === 'Unread' && unreadCount > 0 ? ' stat-card-accent' : ''}`}>
+            <div className="stat-card-label">{card.label}</div>
+            <div className="stat-card-value">{card.value}</div>
           </div>
         ))}
       </div>
@@ -228,7 +227,7 @@ export function NetworkHubPage() {
               }}
               onClick={() => setTab(t)}
             >
-              {t === 'inbox' ? `📨 Inbox${unreadCount > 0 ? ` (${unreadCount})` : ''}` : '📤 Sent'}
+              {t === 'inbox' ? `Inbox${unreadCount > 0 ? ` (${unreadCount})` : ''}` : 'Sent'}
             </button>
           ))}
         </div>

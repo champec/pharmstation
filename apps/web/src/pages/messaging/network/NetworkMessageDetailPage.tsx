@@ -98,7 +98,7 @@ export function NetworkMessageDetailPage() {
             <h1>{title}</h1>
             <span>
               {rootMsg?.subject && <>{rootMsg.subject} · </>}
-              {rootLabel && <>{rootLabel.icon} {rootLabel.label}</>}
+              {rootLabel && <>{rootLabel.label}</>}
             </span>
           </div>
         </header>
@@ -129,7 +129,7 @@ export function NetworkMessageDetailPage() {
                   return (
                     <div className={`chat-msg ${isFromMe ? 'mine' : 'theirs'}${grouped ? ' grouped' : ''}`}>
                       {msg.label !== 'other' && labelCfg && (
-                        <span className={`chat-msg-tag ${labelCfg.cssClass}`}>{labelCfg.icon} {labelCfg.label}</span>
+                        <span className={`chat-msg-tag ${labelCfg.cssClass}`}>{labelCfg.label}</span>
                       )}
                       <div className="chat-bubble">{msg.body}</div>
                       <div className="chat-meta">
@@ -175,7 +175,7 @@ export function NetworkMessageDetailPage() {
                       className={replyLabel === l ? 'active' : undefined}
                       onClick={() => setReplyLabel(l)}
                     >
-                      {cfg.icon} {l === 'other' ? 'General' : cfg.label}
+                      {l === 'other' ? 'General' : cfg.label}
                     </button>
                   )
                 })}

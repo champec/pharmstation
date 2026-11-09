@@ -7,6 +7,7 @@ import type { Patient, ServiceForm, ServiceFormField } from '@pharmstation/types
 import { MedicationPrescriber, createEmptyMedication, type PrescribedMedication } from '../../components/outcomes/MedicationPrescriber'
 import { ServicePrescribingField } from '../../components/forms/ServicePrescribingField'
 import { NHS_SERVICES_ENABLED } from '../../lib/features'
+import { CircleCheck } from 'lucide-react'
 
 /* ---- Human-readable labels for NHS field option codes ---- */
 const NHS_OPTION_LABELS: Record<string, string> = {
@@ -616,7 +617,7 @@ export function ServiceDeliveryPage() {
           <h1>Service Delivered</h1>
         </div>
         <div className="ps-card" style={{ padding: 'var(--ps-space-2xl)', textAlign: 'center' }}>
-          <div style={{ fontSize: '64px', marginBottom: 'var(--ps-space-md)' }}>🎉</div>
+          <span className="ps-empty-icon success" aria-hidden="true"><CircleCheck size={26} strokeWidth={1.75} /></span>
           <h2 style={{ color: 'var(--ps-midnight)', marginBottom: 'var(--ps-space-sm)' }}>
             {activeService?.name} — Complete
           </h2>
@@ -922,7 +923,7 @@ export function ServiceDeliveryPage() {
                   disabled={pdsLoading || nhsNumberInput.replace(/\s/g, '').length < 10}
                   style={{ whiteSpace: 'nowrap' }}
                 >
-                  {pdsLoading ? 'Looking up…' : '🔍 PDS Lookup'}
+                  {pdsLoading ? 'Looking up…' : 'PDS Lookup'}
                 </button>
               </div>
               {pdsError && (
@@ -1167,7 +1168,7 @@ export function ServiceDeliveryPage() {
                     setShowMedModal(true)
                   }}
                 >
-                  {medications.filter(m => m.drug_name.trim()).length > 0 ? '✏️ Edit Medications' : '+ Add Medications'}
+                  {medications.filter(m => m.drug_name.trim()).length > 0 ? 'Edit Medications' : '+ Add Medications'}
                 </button>
               </div>
 

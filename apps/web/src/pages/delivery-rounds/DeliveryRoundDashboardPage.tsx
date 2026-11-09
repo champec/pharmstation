@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuthStore, useDeliveryRoundStore } from '@pharmstation/core'
 import type { DeliveryRound, DeliveryRoundStatus } from '@pharmstation/types'
+import { Truck } from 'lucide-react'
 
 // Kanban columns mapped onto the delivery-round lifecycle, mirroring the
 // care-home groups board so the two modules feel like one system.
@@ -170,7 +171,7 @@ export function DeliveryRoundDashboardPage() {
         <div className="care-home-loading">Loading deliveries...</div>
       ) : rounds.length === 0 ? (
         <section className="care-home-empty">
-          <p className="care-home-empty-mark" aria-hidden="true">🚚</p>
+          <span className="ps-empty-icon" aria-hidden="true"><Truck size={26} strokeWidth={1.75} /></span>
           <h2>No deliveries yet</h2>
           <p>Create your first delivery to plan a route and pack medicines for your patients.</p>
           <button className="ps-btn ps-btn-primary" type="button" onClick={() => navigate('/deliveries/new')}>+ New delivery</button>

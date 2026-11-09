@@ -4,6 +4,7 @@ import { useAuthStore, useNetworkStore } from '@pharmstation/core'
 import type { NetworkPharmacy, NetworkMessageLabel } from '@pharmstation/types'
 import { NETWORK_LABEL_CONFIG } from '@pharmstation/types'
 import type { MapRecipient } from '../../../components/maps/PharmacyMapModal'
+import { CircleCheck } from 'lucide-react'
 
 type Step = 1 | 2 | 3
 
@@ -118,7 +119,7 @@ export function NetworkComposePage() {
           <h1>Message Sent</h1>
         </div>
         <div className="ps-card" style={{ padding: 'var(--ps-space-2xl)', textAlign: 'center' }}>
-          <div style={{ fontSize: '3rem', marginBottom: 'var(--ps-space-md)' }}>✅</div>
+          <span className="ps-empty-icon success" aria-hidden="true"><CircleCheck size={26} strokeWidth={1.75} /></span>
           <h2 style={{ marginBottom: 'var(--ps-space-sm)' }}>
             Message sent to {recipients.length} {recipients.length === 1 ? 'pharmacy' : 'pharmacies'}
           </h2>
@@ -128,8 +129,8 @@ export function NetworkComposePage() {
                 ? `Your message was delivered, but the text alert could not be sent: ${lastPingError}`
                 : lastPing
                   ? lastPing.sent === lastPing.total
-                    ? `📱 Text alert sent to ${lastPing.sent === 1 ? 'the pharmacy' : `all ${lastPing.sent} pharmacies`}.`
-                    : `📱 Text alert sent to ${lastPing.sent} of ${lastPing.total} ${lastPing.total === 1 ? 'pharmacy' : 'pharmacies'}. The others have text alerts off, are in quiet hours, or were alerted by you in the last 15 minutes. They will still see your message in PharmStation.`
+                    ? `Text alert sent to ${lastPing.sent === 1 ? 'the pharmacy' : `all ${lastPing.sent} pharmacies`}.`
+                    : `Text alert sent to ${lastPing.sent} of ${lastPing.total} ${lastPing.total === 1 ? 'pharmacy' : 'pharmacies'}. The others have text alerts off, are in quiet hours, or were alerted by you in the last 15 minutes. They will still see your message in PharmStation.`
                   : 'Sending text alert…'}
             </p>
           )}
@@ -270,7 +271,7 @@ export function NetworkComposePage() {
                         <div style={{ flexShrink: 0 }}>
                           {canSelect
                             ? (selected
-                              ? <span style={{ fontSize: '1.1rem' }}>✅</span>
+                              ? <span className="ps-empty-icon success" aria-hidden="true"><CircleCheck size={26} strokeWidth={1.75} /></span>
                               : <span style={{ width: 18, height: 18, border: '2px solid var(--ps-slate)', borderRadius: 4, display: 'inline-block' }} />)
                             : <span style={{ fontSize: '1rem' }}>🏥</span>}
                         </div>
@@ -371,7 +372,7 @@ export function NetworkComposePage() {
                       style={{ fontSize: '0.85rem' }}
                       onClick={() => setLabel(l)}
                     >
-                      {cfg.icon} {cfg.label}
+                      {cfg.label}
                     </button>
                   )
                 })}
@@ -458,7 +459,7 @@ export function NetworkComposePage() {
               <span style={{ color: 'var(--ps-slate)', fontWeight: 600 }}>Type:</span>
               <span>
                 <span className={NETWORK_LABEL_CONFIG[label].cssClass}>
-                  {NETWORK_LABEL_CONFIG[label].icon} {NETWORK_LABEL_CONFIG[label].label}
+                  {NETWORK_LABEL_CONFIG[label].label}
                 </span>
               </span>
               {subject && <>
@@ -495,7 +496,7 @@ export function NetworkComposePage() {
               ← Edit
             </button>
             <button className="ps-btn ps-btn-primary" onClick={handleSend} disabled={sending}>
-              {sending ? 'Sending…' : `🚀 Send to ${recipients.length} ${recipients.length === 1 ? 'pharmacy' : 'pharmacies'}`}
+              {sending ? 'Sending…' : `Send to ${recipients.length} ${recipients.length === 1 ? 'pharmacy' : 'pharmacies'}`}
             </button>
           </div>
         </div>
