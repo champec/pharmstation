@@ -394,6 +394,18 @@ async function executeTool(toolName: string, args: Record<string, unknown>, ctx:
 
         const { data, error } = await query
         if (error) return JSON.stringify({ error: 'Could not search the CD register.' })
+        // Without a drug filter, look up the drug for each entry so answers can name it.
+        const missing = [...new Set<string>((data ?? []).map((e: Record<string, unknown>) => e.ledger_id as string))]
+          .filter((id) => id && !ledgerNames.has(id))
+        if (missing.length) {
+          const { data: ledgers } = await ctx.userClient
+            .from('ps_register_ledgers')
+            .select('id, drug_name, drug_strength, drug_form')
+            .in('id', missing)
+          for (const l of (ledgers ?? []) as { id: string; drug_name: string; drug_strength: string | null; drug_form: string | null }[]) {
+            ledgerNames.set(l.id, [l.drug_name, l.drug_strength, l.drug_form].filter(Boolean).join(' '))
+          }
+        }
         const entries = (data ?? []).map((e: Record<string, unknown>) => {
           const { ledger_id, ...rest } = e
           return { drug: ledgerNames.get(ledger_id as string) ?? undefined, ...rest }
