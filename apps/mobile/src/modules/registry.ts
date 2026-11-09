@@ -28,7 +28,7 @@ export const MODULES: MobileModule[] = [
   {
     id: 'account',
     title: 'My Account',
-    description: 'Your profile, pharmacies and security',
+    description: 'Your profile, pharmacies, security and help',
     icon: 'person-circle-outline',
     color: '#208AEF',
     tier: 'user',
@@ -42,6 +42,12 @@ export const MODULES: MobileModule[] = [
         title: 'Security',
         icon: 'shield-checkmark-outline',
         blurb: 'Two-step sign-in codes',
+      },
+      {
+        id: 'help',
+        title: 'Help',
+        icon: 'help-buoy-outline',
+        blurb: 'Contact PharmStation support',
       },
     ],
   },
