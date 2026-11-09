@@ -109,7 +109,7 @@ export function AnnouncementsPage() {
           <span className="separator">/</span>
           <span>App announcements</span>
         </div>
-        <h1>📣 App announcements</h1>
+        <h1>App announcements</h1>
         <p style={{ color: 'var(--ps-slate)', marginTop: '4px' }}>
           Live announcements pop up in the PharmStation phone app the next time someone opens it. People see each one once.
         </p>

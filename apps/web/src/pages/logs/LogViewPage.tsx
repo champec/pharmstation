@@ -260,7 +260,7 @@ export function LogViewPage() {
             {!scheduled && template && (
               <button className="ps-btn ps-btn-primary" onClick={() => openNew(today)}>+ {cat.cta}</button>
             )}
-            <button className="ps-btn ps-btn-secondary" onClick={handleLogPrint} disabled={!template}>🖨️ Print / PDF</button>
+            <button className="ps-btn ps-btn-secondary" onClick={handleLogPrint} disabled={!template}>Print / PDF</button>
             <button className="ps-btn ps-btn-secondary" onClick={handleLogCsv} disabled={!template}>⬇ CSV</button>
             <button className="ps-btn ps-btn-ghost" onClick={() => navigate(`/logs/${subscriptionId}/settings`)} aria-label="Settings">⚙️</button>
           </div>

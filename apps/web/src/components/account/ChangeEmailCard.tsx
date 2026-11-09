@@ -34,7 +34,7 @@ export function ChangeEmailCard() {
   return (
     <form onSubmit={handleSubmit}>
       <div className="ps-card" style={{ marginBottom: '1.25rem' }}>
-        <div className="ps-card-header"><h2 className="ps-card-title">✉️ Sign-in email</h2></div>
+        <div className="ps-card-header"><h2 className="ps-card-title">Sign-in email</h2></div>
         <div className="ps-card-body">
           <p style={{ fontSize: '0.875rem', marginBottom: '0.75rem' }}>
             You sign in with <strong>{currentEmail}</strong>.

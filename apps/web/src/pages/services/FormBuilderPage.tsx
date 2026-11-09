@@ -209,7 +209,7 @@ export function FormBuilderPage() {
           <span>{currentForm?.name || 'Form Builder'}</span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <h1>📝 Form Builder{currentForm ? ` — ${currentForm.name}` : ''}</h1>
+          <h1>Form Builder{currentForm ? ` — ${currentForm.name}` : ''}</h1>
           <div style={{ display: 'flex', gap: 'var(--ps-space-sm)', alignItems: 'center' }}>
             {saved && (
               <span style={{ color: 'var(--ps-success)', fontSize: 'var(--ps-font-sm)', fontWeight: 600 }}>

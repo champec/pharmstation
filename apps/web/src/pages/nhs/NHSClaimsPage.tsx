@@ -107,7 +107,7 @@ export function NHSClaimsPage() {
           <span>Claims</span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <h1>📋 NHS Claims</h1>
+          <h1>NHS Claims</h1>
           <button className="ps-btn ps-btn-secondary" onClick={() => navigate('/services')}>← Back</button>
         </div>
       </div>

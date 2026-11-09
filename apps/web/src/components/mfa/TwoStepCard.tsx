@@ -35,7 +35,7 @@ export function TwoStepCard() {
 
   return (
     <div className="ps-card" style={{ marginBottom: '1.25rem' }}>
-      <div className="ps-card-header"><h2 className="ps-card-title">🛡️ Two-step sign-in</h2></div>
+      <div className="ps-card-header"><h2 className="ps-card-title">Two-step sign-in</h2></div>
       <div className="ps-card-body">
         <p style={{ fontSize: '0.875rem', marginBottom: '0.75rem' }}>
           After your password, you&rsquo;ll also type a code from an authenticator app on your phone. Someone who

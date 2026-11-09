@@ -499,7 +499,7 @@ export function CDEntryForm({ direction, packLabel, onSuccess, onCancel }: CDEnt
           <div className="form-group">
             <label className="checkbox-label" title="Tick when only part of the prescribed quantity is being supplied — balance owed to patient. Recorded as an appended note under the entry.">
               <input type="checkbox" {...register('is_partial_supply')} />
-              <span>⏳ Part supply (balance owed to patient)</span>
+              <span>Part supply (balance owed to patient)</span>
             </label>
           </div>
         </>

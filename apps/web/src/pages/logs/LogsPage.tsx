@@ -114,11 +114,11 @@ export function LogsPage() {
         </div>
         <div className="logs-header">
           <div>
-            <h1>📒 Logs</h1>
+            <h1>Logs</h1>
             <p className="log-muted">{formatDay(today, { weekday: 'long', day: 'numeric', month: 'long' })}</p>
           </div>
           <div className="logs-header-actions">
-            <button className="ps-btn ps-btn-secondary" onClick={() => navigate('/logs/library')}>📚 Library</button>
+            <button className="ps-btn ps-btn-secondary" onClick={() => navigate('/logs/library')}>Library</button>
             <button className="ps-btn ps-btn-primary" onClick={() => navigate('/logs/new')}>+ New log</button>
           </div>
         </div>
@@ -181,7 +181,7 @@ export function LogsPage() {
             or build your own.
           </p>
           <div className="logs-header-actions" style={{ justifyContent: 'center' }}>
-            <button className="ps-btn ps-btn-primary" onClick={() => navigate('/logs/library')}>📚 Browse the library</button>
+            <button className="ps-btn ps-btn-primary" onClick={() => navigate('/logs/library')}>Browse the library</button>
             <button className="ps-btn ps-btn-secondary" onClick={() => navigate('/logs/new')}>+ Build your own</button>
           </div>
         </div>

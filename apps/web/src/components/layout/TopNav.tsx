@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useIsMobile } from '../../hooks/useIsMobile'
 import { useAuthStore, useUIStore, useNetworkStore, useNHS111Store, useAlertStore } from '@pharmstation/core'
 import type { NotificationReceipt } from '@pharmstation/types'
+import { Bell, LogOut, Menu, Network, PhoneIncoming, RefreshCw } from 'lucide-react'
 
 export function TopNav() {
   const navigate = useNavigate()
@@ -96,151 +97,103 @@ export function TopNav() {
     return `${Math.floor(h / 24)}d ago`
   }
 
+  const initials = (activeUser?.full_name ?? '?')
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase())
+    .join('')
+
   return (
     <nav className="top-nav" data-sidenav={sideNavMode}>
       <div className="top-nav-left">
         <button
-          className="ps-btn ps-btn-ghost"
+          className="top-nav-icon-btn"
           onClick={() => (isMobile ? setMobileNavOpen(!mobileNavOpen) : toggleSideNav())}
           title={isMobile ? 'Menu' : 'Toggle sidebar'}
           aria-label={isMobile ? 'Menu' : 'Toggle sidebar'}
           aria-expanded={isMobile ? mobileNavOpen : undefined}
         >
-          ☰
+          <Menu size={20} aria-hidden="true" />
         </button>
         <span className="top-nav-brand">Pharm<span>Station</span></span>
       </div>
 
       <div className="top-nav-right">
-        {organisation && <span className="top-nav-org">{organisation.name}</span>}
+        {organisation && <span className="top-nav-org" title="Signed-in pharmacy">{organisation.name}</span>}
 
         {/* Network message notification bell */}
-        <div ref={bellRef} style={{ position: 'relative' }}>
+        <div ref={bellRef} className="top-nav-menu-anchor">
           <button
-            className="ps-btn ps-btn-ghost"
-            style={{ position: 'relative' }}
+            className="top-nav-icon-btn"
             onClick={() => setBellOpen((v) => !v)}
             title="Pharmacy Network messages"
-            aria-label="Pharmacy Network messages"
+            aria-label={`Pharmacy Network messages${unreadCount > 0 ? `, ${unreadCount} unread` : ''}`}
+            aria-expanded={bellOpen}
           >
-            🏥
-            {unreadCount > 0 && (
-              <span style={{
-                position: 'absolute', top: 2, right: 2,
-                background: 'var(--ps-red, #ef4444)', color: '#fff',
-                borderRadius: '50%', width: 16, height: 16,
-                fontSize: '0.65rem', fontWeight: 700,
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                lineHeight: 1, pointerEvents: 'none',
-              }}>
-                {unreadCount > 9 ? '9+' : unreadCount}
-              </span>
-            )}
+            <Network size={19} aria-hidden="true" />
+            {unreadCount > 0 && <span className="top-nav-badge">{unreadCount > 9 ? '9+' : unreadCount}</span>}
           </button>
 
-          {/* Dropdown */}
           {bellOpen && (
-            <div className="top-nav-dropdown" style={{
-              position: 'absolute', top: '100%', right: 0, zIndex: 200,
-              width: 320, background: '#fff',
-              boxShadow: '0 4px 24px rgba(0,0,0,0.12)',
-              borderRadius: 'var(--ps-radius)',
-              border: '1px solid var(--ps-off-white)',
-              overflow: 'hidden',
-            }}>
-              <div style={{
-                padding: 'var(--ps-space-sm) var(--ps-space-md)',
-                borderBottom: '1px solid var(--ps-off-white)',
-                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-              }}>
-                <strong style={{ fontSize: '0.9rem' }}>🏥 Pharmacy Network</strong>
+            <div className="top-nav-dropdown">
+              <div className="top-nav-dropdown-header">
+                <strong>Pharmacy Network</strong>
                 <button
-                  className="ps-btn ps-btn-ghost"
-                  style={{ fontSize: '0.8rem', padding: '2px 8px' }}
+                  className="ps-btn ps-btn-ghost ps-btn-sm"
                   onClick={() => { setBellOpen(false); navigate('/messaging/network') }}
                 >
                   View all →
                 </button>
               </div>
 
-              {unreadMessages.length === 0 ? (
-                <div style={{ padding: 'var(--ps-space-lg)', textAlign: 'center', color: 'var(--ps-slate)', fontSize: '0.85rem' }}>
-                  No unread messages
-                </div>
-              ) : (
-                unreadMessages.map((msg) => (
-                  <div
-                    key={msg.id}
-                    style={{
-                      padding: 'var(--ps-space-sm) var(--ps-space-md)',
-                      borderBottom: '1px solid var(--ps-off-white)',
-                      cursor: 'pointer',
-                      background: '#f8fdff',
-                    }}
-                    onClick={() => {
-                      setBellOpen(false)
-                      navigate(`/messaging/network/thread/${msg.thread_id}`)
-                    }}
-                  >
-                    <div style={{ fontWeight: 600, fontSize: '0.85rem', marginBottom: 2 }}>
-                      {msg.from_org?.name ?? 'Unknown pharmacy'}
-                    </div>
-                    <div style={{ fontSize: '0.8rem', color: 'var(--ps-slate)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {msg.subject && <>{msg.subject} · </>}{msg.body.slice(0, 60)}{msg.body.length > 60 ? '…' : ''}
-                    </div>
-                    <div style={{ fontSize: '0.73rem', color: 'var(--ps-slate)', marginTop: 2 }}>
-                      {relativeTime(msg.created_at)}
-                    </div>
-                  </div>
-                ))
-              )}
+              <div className="top-nav-dropdown-list">
+                {unreadMessages.length === 0 ? (
+                  <div className="top-nav-dropdown-empty">No unread messages</div>
+                ) : (
+                  unreadMessages.map((msg) => (
+                    <button
+                      type="button"
+                      key={msg.id}
+                      className="top-nav-dropdown-item unread"
+                      onClick={() => {
+                        setBellOpen(false)
+                        navigate(`/messaging/network/thread/${msg.thread_id}`)
+                      }}
+                    >
+                      <span className="top-nav-dropdown-title">{msg.from_org?.name ?? 'Unknown pharmacy'}</span>
+                      <span className="top-nav-dropdown-body">
+                        {msg.subject && <>{msg.subject} · </>}{msg.body.slice(0, 60)}{msg.body.length > 60 ? '…' : ''}
+                      </span>
+                      <span className="top-nav-dropdown-time">{relativeTime(msg.created_at)}</span>
+                    </button>
+                  ))
+                )}
+              </div>
             </div>
           )}
         </div>
 
         {/* Staff alerts (appointments / PEPS / network / system / patient message) */}
-        <div ref={alertBellRef} style={{ position: 'relative' }}>
+        <div ref={alertBellRef} className="top-nav-menu-anchor">
           <button
-            className="ps-btn ps-btn-ghost"
-            style={{ position: 'relative' }}
+            className="top-nav-icon-btn"
             onClick={() => setAlertBellOpen((v) => !v)}
             title="Alerts"
-            aria-label="Alerts"
+            aria-label={`Alerts${alertUnread > 0 ? `, ${alertUnread} unread` : ''}`}
+            aria-expanded={alertBellOpen}
           >
-            🔔
-            {alertUnread > 0 && (
-              <span style={{
-                position: 'absolute', top: 2, right: 2,
-                background: 'var(--ps-red, #ef4444)', color: '#fff',
-                borderRadius: '50%', width: 16, height: 16,
-                fontSize: '0.65rem', fontWeight: 700,
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                lineHeight: 1, pointerEvents: 'none',
-              }}>
-                {alertUnread > 9 ? '9+' : alertUnread}
-              </span>
-            )}
+            <Bell size={19} aria-hidden="true" />
+            {alertUnread > 0 && <span className="top-nav-badge">{alertUnread > 9 ? '9+' : alertUnread}</span>}
           </button>
 
           {alertBellOpen && (
-            <div className="top-nav-dropdown" style={{
-              position: 'absolute', top: '100%', right: 0, zIndex: 200,
-              width: 340, background: '#fff',
-              boxShadow: '0 4px 24px rgba(0,0,0,0.12)',
-              borderRadius: 'var(--ps-radius)',
-              border: '1px solid var(--ps-off-white)',
-              overflow: 'hidden',
-            }}>
-              <div style={{
-                padding: 'var(--ps-space-sm) var(--ps-space-md)',
-                borderBottom: '1px solid var(--ps-off-white)',
-                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-              }}>
-                <strong style={{ fontSize: '0.9rem' }}>🔔 Alerts</strong>
+            <div className="top-nav-dropdown">
+              <div className="top-nav-dropdown-header">
+                <strong>Alerts</strong>
                 {alertUnread > 0 && (
                   <button
-                    className="ps-btn ps-btn-ghost"
-                    style={{ fontSize: '0.75rem', padding: '2px 8px' }}
+                    className="ps-btn ps-btn-ghost ps-btn-sm"
                     onClick={() => organisation?.id && activeUser?.id && useAlertStore.getState().markAllRead(organisation.id, activeUser.id)}
                   >
                     Mark all read
@@ -248,35 +201,21 @@ export function TopNav() {
                 )}
               </div>
 
-              <div style={{ maxHeight: 360, overflowY: 'auto' }}>
+              <div className="top-nav-dropdown-list">
                 {alerts.length === 0 ? (
-                  <div style={{ padding: 'var(--ps-space-lg)', textAlign: 'center', color: 'var(--ps-slate)', fontSize: '0.85rem' }}>
-                    No alerts yet
-                  </div>
+                  <div className="top-nav-dropdown-empty">No alerts yet</div>
                 ) : (
                   alerts.map((a) => (
-                    <div
+                    <button
+                      type="button"
                       key={a.id}
-                      style={{
-                        padding: 'var(--ps-space-sm) var(--ps-space-md)',
-                        borderBottom: '1px solid var(--ps-off-white)',
-                        cursor: 'pointer',
-                        background: a.is_read ? 'transparent' : '#f8fdff',
-                      }}
+                      className={`top-nav-dropdown-item ${a.is_read ? '' : 'unread'}`}
                       onClick={() => handleAlertClick(a)}
                     >
-                      <div style={{ fontWeight: 600, fontSize: '0.85rem', marginBottom: 2 }}>
-                        {a.notification?.title ?? 'Notification'}
-                      </div>
-                      {a.notification?.body && (
-                        <div style={{ fontSize: '0.8rem', color: 'var(--ps-slate)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                          {a.notification.body}
-                        </div>
-                      )}
-                      <div style={{ fontSize: '0.73rem', color: 'var(--ps-slate)', marginTop: 2 }}>
-                        {relativeTime(a.notification?.created_at ?? a.created_at)}
-                      </div>
-                    </div>
+                      <span className="top-nav-dropdown-title">{a.notification?.title ?? 'Notification'}</span>
+                      {a.notification?.body && <span className="top-nav-dropdown-body">{a.notification.body}</span>}
+                      <span className="top-nav-dropdown-time">{relativeTime(a.notification?.created_at ?? a.created_at)}</span>
+                    </button>
                   ))
                 )}
               </div>
@@ -286,49 +225,36 @@ export function TopNav() {
 
         {/* NHS 111 referral notification */}
         <button
-          className="ps-btn ps-btn-ghost"
-          style={{ position: 'relative' }}
+          className="top-nav-icon-btn"
           onClick={() => navigate('/services/111-referrals')}
           title="NHS 111 Referrals"
-          aria-label="NHS 111 Referrals"
+          aria-label={`NHS 111 Referrals${referralUnread > 0 ? `, ${referralUnread} new` : ''}`}
         >
-          📞
-          {referralUnread > 0 && (
-            <span style={{
-              position: 'absolute', top: 2, right: 2,
-              background: 'var(--ps-amber, #f59e0b)', color: '#fff',
-              borderRadius: '50%', width: 16, height: 16,
-              fontSize: '0.65rem', fontWeight: 700,
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              lineHeight: 1, pointerEvents: 'none',
-            }}>
-              {referralUnread > 9 ? '9+' : referralUnread}
-            </span>
-          )}
+          <PhoneIncoming size={19} aria-hidden="true" />
+          {referralUnread > 0 && <span className="top-nav-badge warning">{referralUnread > 9 ? '9+' : referralUnread}</span>}
         </button>
 
-        <div className="top-nav-user">
-          <strong>{activeUser?.full_name ?? 'Unknown'}</strong>
-        </div>
+        <span className="top-nav-divider" aria-hidden="true" />
 
         <button
-          className="ps-btn ps-btn-ghost"
+          type="button"
+          className="top-nav-user"
           onClick={() => navigate('/me')}
           title="My personal account"
-          aria-label="My personal account"
         >
-          👤
+          <span className="top-nav-avatar" aria-hidden="true">{initials}</span>
+          <span className="top-nav-user-name">{activeUser?.full_name ?? 'Unknown'}</span>
         </button>
 
-        <button className="ps-btn ps-btn-ghost" onClick={() => switchUser()} title="Switch user" aria-label="Switch user">
-          🔄<span className="top-nav-btn-text"> Switch</span>
+        <button className="top-nav-icon-btn with-text" onClick={() => switchUser()} title="Switch user" aria-label="Switch user">
+          <RefreshCw size={17} aria-hidden="true" />
+          <span className="top-nav-btn-text">Switch</span>
         </button>
 
-        <button className="ps-btn ps-btn-ghost" onClick={handleLogout} title="Log out pharmacy" aria-label="Log out pharmacy">
-          ⏻
+        <button className="top-nav-icon-btn" onClick={handleLogout} title="Log out pharmacy" aria-label="Log out pharmacy">
+          <LogOut size={18} aria-hidden="true" />
         </button>
       </div>
     </nav>
   )
 }
-

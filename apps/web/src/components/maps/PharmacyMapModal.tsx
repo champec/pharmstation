@@ -280,7 +280,7 @@ function PharmacyDetailPanel({
               {pharmacy.ods_code}
             </span>
             {pharmacy.is_on_platform && (
-              <span className="ps-badge ps-badge-cyan">✦ PharmStation</span>
+              <span className="ps-badge ps-badge-cyan">PharmStation</span>
             )}
           </div>
         </div>
@@ -290,7 +290,7 @@ function PharmacyDetailPanel({
       <div className="map-detail-body">
         {/* Address */}
         <div className="map-detail-section">
-          <div className="map-detail-label">📍 Address</div>
+          <div className="map-detail-label">Address</div>
           <div className="map-detail-value">
             {[pharmacy.address1, pharmacy.address2, pharmacy.city, pharmacy.postcode]
               .filter(Boolean).join(', ')}
@@ -323,19 +323,19 @@ function PharmacyDetailPanel({
             <>
               {phone && (
                 <div className="map-detail-section">
-                  <div className="map-detail-label">📞 Phone</div>
+                  <div className="map-detail-label">Phone</div>
                   <a href={`tel:${phone}`} className="map-detail-phone">{phone}</a>
                 </div>
               )}
               {email && (
                 <div className="map-detail-section">
-                  <div className="map-detail-label">✉ Email</div>
+                  <div className="map-detail-label">Email</div>
                   <a href={`mailto:${email}`} className="map-detail-phone">{email}</a>
                 </div>
               )}
               {url && (
                 <div className="map-detail-section">
-                  <div className="map-detail-label">🌐 Website</div>
+                  <div className="map-detail-label">Website</div>
                   <a href={url} target="_blank" rel="noopener noreferrer" className="map-detail-phone">
                     {url.replace(/^https?:\/\//, '').slice(0, 42)}
                   </a>
@@ -343,7 +343,7 @@ function PharmacyDetailPanel({
               )}
               {hasHours && (
                 <div className="map-detail-section">
-                  <div className="map-detail-label">🕐 Opening Hours</div>
+                  <div className="map-detail-label">Opening Hours</div>
                   <div className="pharmacy-hours-grid">
                     {renderRegularHours(nhs!.regular_hours!)}
                   </div>
@@ -351,7 +351,7 @@ function PharmacyDetailPanel({
               )}
               {!hasHours && localHours && localHours.length > 0 && (
                 <div className="map-detail-section">
-                  <div className="map-detail-label">🕐 Opening Hours</div>
+                  <div className="map-detail-label">Opening Hours</div>
                   <div className="pharmacy-hours-grid">
                     {localHours.map((slot, i) => (
                       <div key={i} className="pharmacy-hours-row">
@@ -393,7 +393,7 @@ function PharmacyDetailPanel({
               className="ps-btn ps-btn-secondary"
               style={{ textDecoration: 'none', textAlign: 'center' }}
             >
-              🧭 Get Directions
+              Get Directions
             </a>
           )}
           {pharmacy.is_on_platform && pharmacy.linked_org_id && (
@@ -739,7 +739,7 @@ export function PharmacyMapModal({ isOpen, onClose, onAddToOutreach, trackedPhar
         <div className="pharmacy-map-toolbar">
           <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--ps-space-sm)', flex: 1 }}>
             <span style={{ fontWeight: 700, fontSize: 'var(--ps-font-md)', color: 'var(--ps-deep-blue)', whiteSpace: 'nowrap' }}>
-              🗺 Pharmacy Map
+              Pharmacy Map
             </span>
             <input
               className="ps-input"
@@ -782,10 +782,10 @@ export function PharmacyMapModal({ isOpen, onClose, onAddToOutreach, trackedPhar
               <span style={{ color: 'var(--ps-slate)', fontSize: 'var(--ps-font-xs)' }}>Loading…</span>
             )}
             {locationStatus === 'requesting' && (
-              <span style={{ color: 'var(--ps-slate)', fontSize: 'var(--ps-font-xs)' }}>📍 Getting your location…</span>
+              <span style={{ color: 'var(--ps-slate)', fontSize: 'var(--ps-font-xs)' }}>Getting your location…</span>
             )}
             {locationStatus === 'denied' && (
-              <span style={{ color: 'var(--ps-slate)', fontSize: 'var(--ps-font-xs)' }} title="Enable location in your browser to start near you">📍 Location not available</span>
+              <span style={{ color: 'var(--ps-slate)', fontSize: 'var(--ps-font-xs)' }} title="Enable location in your browser to start near you">Location not available</span>
             )}
             {!mapLoaded && (
               <span style={{ color: 'var(--ps-slate)', fontSize: 'var(--ps-font-xs)' }}>Initialising map…</span>

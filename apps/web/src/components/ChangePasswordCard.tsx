@@ -36,7 +36,7 @@ export function ChangePasswordCard() {
   return (
     <form onSubmit={handleSubmit}>
       <div className="ps-card" style={{ marginBottom: '1.25rem' }}>
-        <div className="ps-card-header"><h2 className="ps-card-title">🔑 Password</h2></div>
+        <div className="ps-card-header"><h2 className="ps-card-title">Password</h2></div>
         <div className="ps-card-body">
           {msg && <div className={`ps-alert ps-alert-${msg.type}`} style={{ marginBottom: '1rem' }}>{msg.text}</div>}
           <div className="form-group">

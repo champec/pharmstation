@@ -13,6 +13,7 @@ import { accountScreens } from '@/modules/screens/account'
 import { billingScreens } from '@/modules/screens/billing'
 import { communicationsScreens } from '@/modules/screens/communications'
 import { deliveriesScreens } from '@/modules/screens/deliveries'
+import { genieScreens } from '@/modules/screens/genie'
 import { locumScreens } from '@/modules/screens/locum'
 import { pharmacyScreens } from '@/modules/screens/pharmacy'
 import { productScannerScreens } from '@/modules/screens/product-scanner'
@@ -33,6 +34,7 @@ export const MODULE_SCREENS: Record<string, ModuleScreens> = {
   communications: communicationsScreens,
   services: servicesScreens,
   shop: shopScreens,
+  genie: genieScreens,
   billing: billingScreens,
   video: videoScreens,
 }
