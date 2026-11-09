@@ -7893,6 +7893,21 @@
   }
 }
 
+.genie-welcome p.genie-privacy-note {
+  font-size: var(--ps-font-xs, 12px);
+  background: var(--ps-off-white);
+  border-radius: var(--ps-radius-sm, 6px);
+  padding: 6px 10px;
+}
+
+.genie-footnote {
+  margin-top: 6px;
+  font-size: var(--ps-font-xs, 12px);
+  color: var(--ps-slate);
+  text-align: center;
+  line-height: 1.4;
+}
+
 /* Input area */
 .genie-input-area {
   padding: var(--ps-space-sm) var(--ps-space-md) var(--ps-space-md);

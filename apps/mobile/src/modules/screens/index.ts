@@ -18,6 +18,7 @@ import { pharmacyScreens } from '@/modules/screens/pharmacy'
 import { productScannerScreens } from '@/modules/screens/product-scanner'
 import { scanningScreens } from '@/modules/screens/scanning'
 import { servicesScreens } from '@/modules/screens/services'
+import { shopScreens } from '@/modules/screens/shop'
 
 export type ModuleScreens = Record<string, ComponentType>
 
@@ -30,6 +31,7 @@ export const MODULE_SCREENS: Record<string, ModuleScreens> = {
   pharmacy: pharmacyScreens,
   communications: communicationsScreens,
   services: servicesScreens,
+  shop: shopScreens,
   billing: billingScreens,
 }
 

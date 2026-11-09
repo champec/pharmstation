@@ -11,6 +11,7 @@ import type {
   ChatMessage,
   ChatAttachment,
   ChatStreamEvent,
+  GenieUsage,
 } from '@pharmstation/types'
 import { getUserClient } from '@pharmstation/supabase-client'
 
@@ -36,6 +37,9 @@ export interface ChatState {
   abortController: AbortController | null
   lastError: string | null
 
+  /** This month's Genie messages for the pharmacy (null until known). */
+  usage: GenieUsage | null
+
   // UI
   isOpen: boolean
   showSettings: boolean
@@ -45,6 +49,8 @@ export interface ChatState {
   loadModels: () => Promise<void>
   loadOrgAISettings: (orgId: string) => Promise<void>
   loadConversations: (orgId: string) => Promise<void>
+  /** Reads this month's message count; limit is the plan allowance. */
+  loadUsage: (orgId: string, limit: number) => Promise<void>
   loadMessages: (conversationId: string) => Promise<void>
   setActiveConversation: (id: string | null) => void
   startNewConversation: () => void
@@ -83,6 +89,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
   streamingToolCalls: [],
   abortController: null,
   lastError: null,
+  usage: null,
 
   isOpen: false,
   showSettings: false,
@@ -147,6 +154,29 @@ export const useChatStore = create<ChatState>((set, get) => ({
       console.error('Failed to load conversations:', err)
     } finally {
       set({ conversationsLoading: false })
+    }
+  },
+
+  // ============================================
+  // Load this month's Genie usage
+  // ============================================
+  loadUsage: async (orgId: string, limit: number) => {
+    try {
+      const parts = new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/London', year: 'numeric', month: '2-digit' })
+        .formatToParts(new Date())
+      const year = parts.find((p) => p.type === 'year')?.value
+      const month = parts.find((p) => p.type === 'month')?.value
+      const { data, error } = await getUserClient()
+        .from('ps_ai_usage_monthly')
+        .select('messages')
+        .eq('organisation_id', orgId)
+        .eq('month', `${year}-${month}-01`)
+        .maybeSingle()
+      if (error) throw error
+      set({ usage: { used: (data as { messages: number } | null)?.messages ?? 0, limit } })
+    } catch (err) {
+      // Table not deployed yet: just don't show the meter.
+      console.error('Failed to load Genie usage:', err)
     }
   },
 
@@ -313,6 +343,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
         try {
           const parsed = JSON.parse(errText)
           if (typeof parsed.error === 'string') errorMessage = parsed.error
+          if (parsed.usage && typeof parsed.usage.used === 'number') set({ usage: parsed.usage as GenieUsage })
         } catch { /* use friendly fallback */ }
         throw new Error(errorMessage)
       }
@@ -388,6 +419,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
               streamingToolCalls: [],
               abortController: null,
               lastError: null,
+              ...(event.usage ? { usage: event.usage } : {}),
             })
             break
           }
@@ -497,6 +529,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
       streamingToolCalls: [],
       abortController: null,
       lastError: null,
+      usage: null,
       isOpen: false,
       showSettings: false,
       showHistory: false,

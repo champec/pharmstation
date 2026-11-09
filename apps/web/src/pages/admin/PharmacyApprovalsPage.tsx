@@ -38,6 +38,8 @@ export function PharmacyApprovalsPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [busyId, setBusyId] = useState<string | null>(null)
+  // Pharmacies where Genie may see patient data (off by default; admins only).
+  const [geniePatientData, setGeniePatientData] = useState<Set<string>>(new Set())
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -48,6 +50,12 @@ export function PharmacyApprovalsPage() {
       setRows([])
     } else {
       setRows((data ?? []) as Row[])
+      const { data: genie } = await getUserClient().rpc('ps_admin_list_genie_patient_data')
+      setGeniePatientData(new Set(
+        ((genie ?? []) as { organisation_id: string; genie_patient_data: boolean }[])
+          .filter((g) => g.genie_patient_data)
+          .map((g) => g.organisation_id),
+      ))
     }
     setLoading(false)
   }, [filter])
@@ -70,6 +78,26 @@ export function PharmacyApprovalsPage() {
     setBusyId(null)
     if (error) setError(error.message)
     else load()
+  }
+
+  const toggleGeniePatientData = async (row: Row) => {
+    const enable = !geniePatientData.has(row.id)
+    if (enable && !window.confirm(
+      `Let Genie see patient data for ${row.name}?\n\nPatient and prescriber names from their registers will be sent to the AI provider (zero data retention). Only do this once the DPIA and privacy notice cover it.`,
+    )) return
+    setBusyId(row.id)
+    const { error } = await getUserClient().rpc('ps_admin_set_genie_patient_data', { p_org_id: row.id, p_enabled: enable })
+    setBusyId(null)
+    if (error) {
+      setError(error.message)
+      return
+    }
+    setGeniePatientData((prev) => {
+      const next = new Set(prev)
+      if (enable) next.add(row.id)
+      else next.delete(row.id)
+      return next
+    })
   }
 
   return (
@@ -139,6 +167,16 @@ export function PharmacyApprovalsPage() {
               {row.verification_status !== 'pending' && (
                 <button className="ps-btn ps-btn-ghost ps-btn-sm" disabled={busyId === row.id} onClick={() => setStatus(row, 'pending')}>
                   Back to pending
+                </button>
+              )}
+              {row.verification_status === 'verified' && (
+                <button
+                  className="ps-btn ps-btn-ghost ps-btn-sm"
+                  disabled={busyId === row.id}
+                  onClick={() => toggleGeniePatientData(row)}
+                  title="Whether Genie may see patient names for this pharmacy"
+                >
+                  Genie patient data: {geniePatientData.has(row.id) ? 'On' : 'Off'}
                 </button>
               )}
             </div>
