@@ -13,6 +13,7 @@ import { accountScreens } from '@/modules/screens/account'
 import { communicationsScreens } from '@/modules/screens/communications'
 import { deliveriesScreens } from '@/modules/screens/deliveries'
 import { locumScreens } from '@/modules/screens/locum'
+import { locumCoverScreens } from '@/modules/screens/locum-cover'
 import { pharmacyScreens } from '@/modules/screens/pharmacy'
 import { productScannerScreens } from '@/modules/screens/product-scanner'
 import { scanningScreens } from '@/modules/screens/scanning'
@@ -23,6 +24,7 @@ export type ModuleScreens = Record<string, ComponentType>
 export const MODULE_SCREENS: Record<string, ModuleScreens> = {
   account: accountScreens,
   locum: locumScreens,
+  'locum-cover': locumCoverScreens,
   deliveries: deliveriesScreens,
   scanning: scanningScreens,
   'product-scanner': productScannerScreens,

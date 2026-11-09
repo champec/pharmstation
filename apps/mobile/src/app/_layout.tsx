@@ -71,6 +71,11 @@ function usePush(ready: boolean) {
       if (handled.current === id) return
       handled.current = id
       const data = (response.notification.request.content.data ?? {}) as PushPayload
+      // Locum pushes (from locum-notify) open the locum module.
+      if (data.type === 'locum_booking' || data.type === 'locum_shift') {
+        router.push({ pathname: '/module/[id]', params: { id: 'locum', tab: data.type === 'locum_shift' ? 'find' : 'bookings' } })
+        return
+      }
       if (data.thread_id) useCommsStore.getState().setPendingOpen({ threadId: data.thread_id })
       else if (data.from_number) useCommsStore.getState().setPendingOpen({ phone: data.from_number })
       router.push({ pathname: '/module/[id]', params: { id: 'communications', tab: 'notifications' } })
