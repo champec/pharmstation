@@ -3,7 +3,10 @@ import { useNavigate } from 'react-router-dom'
 import { useAuthStore, useSOPStore, canManageSOPs } from '@pharmstation/core'
 import type { SOPDocument } from '@pharmstation/types'
 import { Modal } from '../../components/Modal'
-import { BookOpenCheck } from 'lucide-react'
+import { SOPReviewBadge } from '../../components/sop/SOPReviewBar'
+import { PageHeader } from '../../components/ui/PageHeader'
+import { EmptyState } from '../../components/ui/EmptyState'
+import { BookOpen, Trash2 } from 'lucide-react'
 
 type Tab = 'my-sops' | 'manage'
 
@@ -85,26 +88,23 @@ export function SOPsPage() {
     if (!doc.my_completion) return { label: 'Not started', color: 'var(--ps-text-muted)', icon: '○' }
     if (doc.my_completion.document_version === doc.version)
       return { label: 'Completed', color: 'var(--ps-success)', icon: '✓' }
-    return { label: 'New version — re-read required', color: 'var(--ps-warning)', icon: '⚠' }
+    return { label: 'New version: re-read required', color: 'var(--ps-warning)', icon: '⚠' }
   }
 
   return (
     <div>
-      <div className="page-header">
-        <div className="breadcrumbs">
-          <a href="/" onClick={(e) => { e.preventDefault(); navigate('/') }}>Dashboard</a>
-          <span className="separator">/</span>
-          <span>SOPs</span>
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--ps-space-md)' }}>
-          <h1>SOP Library</h1>
-          {isManager && tab === 'manage' && (
-            <button className="ps-btn ps-btn-primary" onClick={() => setShowCreate(true)}>
-              + New SOP
-            </button>
-          )}
-        </div>
-      </div>
+      <PageHeader
+        breadcrumbs={[{ label: 'Dashboard', to: '/' }, { label: 'SOPs' }]}
+        title="SOP library"
+        subtitle={isManager
+          ? 'Write your standard operating procedures, assign them to staff and keep a record of who has signed each version.'
+          : 'Read and sign the SOPs your pharmacy has assigned to you.'}
+        actions={isManager && tab === 'manage' ? (
+          <button className="ps-btn ps-btn-primary" onClick={() => setShowCreate(true)}>
+            + New SOP
+          </button>
+        ) : undefined}
+      />
 
       {/* Tabs */}
       <div className="ps-tabs" style={{ marginBottom: 24 }}>
@@ -136,19 +136,19 @@ export function SOPsPage() {
           Loading SOPs…
         </div>
       ) : documents.length === 0 ? (
-        <div className="ps-empty-state">
-          <span className="ps-empty-icon" aria-hidden="true"><BookOpenCheck size={26} strokeWidth={1.75} /></span>
-          <h3>
-            {tab === 'manage'
-              ? 'No SOPs yet — create your first one'
-              : 'No SOPs have been assigned to you yet'}
-          </h3>
-          {isManager && tab === 'manage' && (
+        <EmptyState
+          icon={BookOpen}
+          title={tab === 'manage' ? 'No SOPs yet' : 'No SOPs assigned to you'}
+          actions={isManager && tab === 'manage' ? (
             <button className="ps-btn ps-btn-primary" onClick={() => setShowCreate(true)}>
               Create SOP
             </button>
-          )}
-        </div>
+          ) : undefined}
+        >
+          {tab === 'manage'
+            ? 'Create your first SOP, publish it, then assign it to staff to read and sign.'
+            : 'When your pharmacy assigns you an SOP it will appear here for you to read and sign.'}
+        </EmptyState>
       ) : (
         <div className="ps-card-grid">
           {documents.map((doc) => {
@@ -191,12 +191,13 @@ export function SOPsPage() {
                     {tab === 'manage' && doc.published_at && doc.has_unpublished_changes && (
                       <span style={{ color: 'var(--ps-warning)', fontWeight: 600 }}>Changes not published</span>
                     )}
+                    {tab === 'manage' && <SOPReviewBadge doc={doc} />}
                     {doc.published_at && (
                       <span>Published {new Date(doc.published_at).toLocaleDateString()}</span>
                     )}
                     {completion && (
                       <span style={{ color: completion.color, fontWeight: 600 }}>
-                        {completion.label}
+                        {completion.icon} {completion.label}
                       </span>
                     )}
                   </div>
@@ -229,8 +230,10 @@ export function SOPsPage() {
                       className="ps-btn"
                       style={{ fontSize: 12, padding: '4px 12px', marginLeft: 'auto', color: 'var(--ps-danger)' }}
                       onClick={() => handleDelete(doc)}
+                      aria-label={`Delete ${doc.title}`}
+                      title="Delete"
                     >
-                      🗑
+                      <Trash2 size={16} strokeWidth={1.75} aria-hidden="true" />
                     </button>
                   </div>
                 )}

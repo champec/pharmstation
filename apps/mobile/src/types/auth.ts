@@ -112,11 +112,11 @@ export interface OrganisationMember {
 export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, Permissions> = {
   owner: {
     cd_register_read: true,
-    cd_register_write: false,
+    cd_register_write: true,
     cd_register_correct: false,
     rp_log_sign: true,
     rp_log_view: true,
-    patient_returns_write: false,
+    patient_returns_write: true,
     sop_upload: true,
     handover_all: true,
     manage_users: true,
@@ -132,11 +132,11 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, Permissions> = {
   },
   manager: {
     cd_register_read: true,
-    cd_register_write: false,
+    cd_register_write: true,
     cd_register_correct: false,
     rp_log_sign: false,
     rp_log_view: true,
-    patient_returns_write: false,
+    patient_returns_write: true,
     sop_upload: true,
     handover_all: true,
     manage_users: true,
