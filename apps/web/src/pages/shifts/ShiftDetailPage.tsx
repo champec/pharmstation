@@ -281,7 +281,7 @@ export function ShiftDetailPage() {
             <div className="ps-card" style={{ marginBottom: '1.5rem', border: '2px solid var(--ps-primary)' }}>
               <div className="ps-card-header">
                 <h2 className="ps-card-title">Booked Locum</h2>
-                <span className={BOOKING_STATUS_COLOURS[confirmedBooking.status] ?? 'ps-badge'}>{confirmedBooking.status.replace('_', ' ')}</span>
+                <span className={BOOKING_STATUS_COLOURS[confirmedBooking.status] ?? 'ps-badge'}>{bookingStatusLabel(confirmedBooking.status)}</span>
               </div>
               <div className="ps-card-body">
                 <div className="review-row"><span>Name</span><strong>{confirmedBooking.locum?.full_name ?? '—'}</strong></div>
