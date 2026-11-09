@@ -116,13 +116,13 @@ export function AppointmentsCalendarPage() {
           <span>Calendar</span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--ps-space-md)' }}>
-          <h1>📅 Appointments Calendar</h1>
+          <h1>Appointments Calendar</h1>
           <div style={{ display: 'flex', gap: 'var(--ps-space-sm)', flexWrap: 'wrap' }}>
             <button className="ps-btn ps-btn-secondary" onClick={() => navigate('/appointments')}>
               List View
             </button>
             <button className="ps-btn ps-btn-secondary" onClick={() => navigate('/appointments/slots')}>
-              ⏰ Manage Slots
+              Manage Slots
             </button>
             <button className="ps-btn ps-btn-primary" onClick={() => navigate('/appointments/new')}>
               + New Appointment

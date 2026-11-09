@@ -204,7 +204,7 @@ export function AppointmentDetailPage() {
           <span>Detail</span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <h1>📋 Appointment Detail</h1>
+          <h1>Appointment Detail</h1>
           <button className="ps-btn ps-btn-secondary" onClick={() => navigate('/appointments')}>← Back</button>
         </div>
       </div>
@@ -260,15 +260,15 @@ export function AppointmentDetailPage() {
         {/* Patient info */}
         <div className="ps-card" style={{ padding: 'var(--ps-space-lg)' }}>
           <h3 style={{ fontSize: 'var(--ps-font-md)', fontWeight: 600, color: 'var(--ps-midnight)', marginBottom: 'var(--ps-space-md)' }}>
-            👤 Patient
+            Patient
           </h3>
           {appt.patient ? (
             <div style={{ fontSize: 'var(--ps-font-sm)' }}>
               <div style={{ marginBottom: 'var(--ps-space-xs)' }}>
                 <strong>{appt.patient.first_name} {appt.patient.last_name}</strong>
               </div>
-              {appt.patient.phone && <div style={{ color: 'var(--ps-slate)' }}>📞 {appt.patient.phone}</div>}
-              {appt.patient.email && <div style={{ color: 'var(--ps-slate)' }}>✉️ {appt.patient.email}</div>}
+              {appt.patient.phone && <div style={{ color: 'var(--ps-slate)' }}>{appt.patient.phone}</div>}
+              {appt.patient.email && <div style={{ color: 'var(--ps-slate)' }}>{appt.patient.email}</div>}
               {appt.patient.nhs_number && <div style={{ color: 'var(--ps-slate)' }}>NHS: {appt.patient.nhs_number}</div>}
               <button
                 className="ps-btn ps-btn-ghost ps-btn-sm"
@@ -286,7 +286,7 @@ export function AppointmentDetailPage() {
         {/* Appointment info */}
         <div className="ps-card" style={{ padding: 'var(--ps-space-lg)' }}>
           <h3 style={{ fontSize: 'var(--ps-font-md)', fontWeight: 600, color: 'var(--ps-midnight)', marginBottom: 'var(--ps-space-md)' }}>
-            📅 Details
+            Details
           </h3>
           <div style={{ fontSize: 'var(--ps-font-sm)', display: 'grid', gridTemplateColumns: '100px 1fr', gap: 'var(--ps-space-xs)' }}>
             <strong>Service:</strong>
@@ -321,7 +321,7 @@ export function AppointmentDetailPage() {
       {appt.form_data && Object.keys(appt.form_data).length > 0 && (
         <div className="ps-card" style={{ padding: 'var(--ps-space-lg)', marginTop: 'var(--ps-space-lg)' }}>
           <h3 style={{ fontSize: 'var(--ps-font-md)', fontWeight: 600, color: 'var(--ps-midnight)', marginBottom: 'var(--ps-space-md)' }}>
-            📝 Form Responses
+            Form Responses
           </h3>
           <div style={{ background: 'var(--ps-off-white)', borderRadius: 'var(--ps-radius-md)', padding: 'var(--ps-space-md)' }}>
             {Object.entries(appt.form_data).map(([key, val]) => (
@@ -337,7 +337,7 @@ export function AppointmentDetailPage() {
       {/* Notes */}
       <div className="ps-card" style={{ padding: 'var(--ps-space-lg)', marginTop: 'var(--ps-space-lg)' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 'var(--ps-space-md)' }}>
-          <h3 style={{ fontSize: 'var(--ps-font-md)', fontWeight: 600, color: 'var(--ps-midnight)', margin: 0 }}>📝 Notes</h3>
+          <h3 style={{ fontSize: 'var(--ps-font-md)', fontWeight: 600, color: 'var(--ps-midnight)', margin: 0 }}>Notes</h3>
           {!editingNotes && (
             <button className="ps-btn ps-btn-ghost ps-btn-sm" onClick={() => setEditingNotes(true)}>Edit</button>
           )}
@@ -368,7 +368,7 @@ export function AppointmentDetailPage() {
       {/* Actions */}
       <div className="ps-card" style={{ padding: 'var(--ps-space-lg)', marginTop: 'var(--ps-space-lg)' }}>
         <h3 style={{ fontSize: 'var(--ps-font-md)', fontWeight: 600, color: 'var(--ps-midnight)', marginBottom: 'var(--ps-space-md)' }}>
-          ⚡ Actions
+          Actions
         </h3>
         <div style={{ display: 'flex', gap: 'var(--ps-space-sm)', flexWrap: 'wrap' }}>
           {appt.status === 'pending' && (
@@ -403,10 +403,10 @@ export function AppointmentDetailPage() {
             <button className="ps-btn ps-btn-secondary" onClick={openMove} disabled={busy}>↔ Move</button>
           )}
           {video && (
-            <button className="ps-btn ps-btn-primary" onClick={() => navigate(`/video/${video.id}`)}>🎥 Open video call</button>
+            <button className="ps-btn ps-btn-primary" onClick={() => navigate(`/video/${video.id}`)}>Open video call</button>
           )}
           {!video && appt.service?.is_video && (appt.status === 'pending' || appt.status === 'confirmed') && (
-            <button className="ps-btn ps-btn-secondary" onClick={setUpVideo} disabled={busy}>🎥 Set up video call</button>
+            <button className="ps-btn ps-btn-secondary" onClick={setUpVideo} disabled={busy}>Set up video call</button>
           )}
           {appt.manage_token && (appt.status === 'pending' || appt.status === 'confirmed') && (
             <button className="ps-btn ps-btn-ghost" onClick={copyManageLink} title="A link the patient can use to view or cancel this booking">

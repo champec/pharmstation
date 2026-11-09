@@ -2,9 +2,12 @@
 import type { ComponentType } from 'react'
 import { StyleSheet, Text, View } from 'react-native'
 import { useRouter } from 'expo-router'
+import Constants from 'expo-constants'
+import * as Updates from 'expo-updates'
 
 import { Button } from '@/components/ui/Button'
 import { SecurityTab } from '@/modules/screens/authenticator'
+import { HelpTab } from '@/modules/screens/help'
 import { useAuthStore } from '@/stores/auth-store'
 import { palette, radius } from '@/theme/palette'
 
@@ -15,6 +18,12 @@ function Row({ label, value }: { label: string; value: string }) {
       <Text style={styles.rowValue}>{value}</Text>
     </View>
   )
+}
+
+// Shown so people (and support) can tell which app and update a phone runs.
+function appVersionLabel() {
+  const v = Constants.expoConfig?.version ?? '?'
+  return Updates.channel ? `${v} (${Updates.channel})` : v
 }
 
 function ProfileTab() {
@@ -37,6 +46,18 @@ function ProfileTab() {
         {userProfile?.gphc_number ? (
           <Row label="GPhC number" value={userProfile.gphc_number} />
         ) : null}
+      </View>
+      <View style={styles.card}>
+        <Row label="App version" value={appVersionLabel()} />
+        <Row label="Installed build" value={(Updates.runtimeVersion ?? 'dev').slice(0, 8)} />
+        <Row
+          label="Latest update"
+          value={
+            Updates.isEmbeddedLaunch || !Updates.updateId
+              ? 'none yet (built-in)'
+              : `${Updates.updateId.slice(0, 8)}${Updates.createdAt ? ` · ${Updates.createdAt.toLocaleDateString('en-GB')}` : ''}`
+          }
+        />
       </View>
       <Button
         label="Sign out"
@@ -79,6 +100,7 @@ export const accountScreens: Record<string, ComponentType> = {
   profile: ProfileTab,
   pharmacies: PharmaciesTab,
   security: SecurityTab,
+  help: HelpTab,
 }
 
 const styles = StyleSheet.create({

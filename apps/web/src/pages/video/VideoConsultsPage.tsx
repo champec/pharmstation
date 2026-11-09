@@ -242,7 +242,7 @@ export function VideoConsultsPage() {
           <span>Video Consultations</span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--ps-space-md)' }}>
-          <h1>📹 Video Consultations</h1>
+          <h1>Video Consultations</h1>
           <button className="ps-btn ps-btn-primary" onClick={openNewConsultation}>
             + New Consultation
           </button>
@@ -352,7 +352,7 @@ export function VideoConsultsPage() {
                               onClick={() => copyToClipboard(getPatientLink(c))}
                               title="Copy patient link"
                             >
-                              🔗 Link
+                              Link
                             </button>
                             {c.status === 'scheduled' && (
                               <>
@@ -546,14 +546,14 @@ export function VideoConsultsPage() {
                 style={{ flex: 1 }}
                 onClick={() => copyToClipboard(createdConsultation.patient_access_code)}
               >
-                📋 Copy Code
+                Copy Code
               </button>
               <button
                 className="ps-btn ps-btn-primary"
                 style={{ flex: 1 }}
                 onClick={() => copyToClipboard(getPublicPatientLink(createdPatientLink))}
               >
-                🔗 Copy Patient Link
+                Copy Patient Link
               </button>
             </div>
 

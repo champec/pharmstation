@@ -75,19 +75,19 @@ export function ServicesPage() {
           <span>Services</span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--ps-space-md)' }}>
-          <h1>🩺 Services</h1>
+          <h1>Services</h1>
           <div style={{ display: 'flex', gap: 'var(--ps-space-sm)' }}>
             <button
               className="ps-btn ps-btn-secondary"
               onClick={() => navigate('/services/deliveries')}
             >
-              📋 Delivery History
+              Delivery History
             </button>
             <button
               className="ps-btn ps-btn-secondary"
               onClick={() => navigate('/services/library')}
             >
-              📚 Browse Library
+              Browse Library
             </button>
             {canManage && (
               <button
@@ -134,7 +134,7 @@ export function ServicesPage() {
           </p>
           <div style={{ display: 'flex', gap: 'var(--ps-space-sm)', justifyContent: 'center' }}>
             <button className="ps-btn ps-btn-secondary" onClick={() => navigate('/services/library')}>
-              📚 Browse Library
+              Browse Library
             </button>
             {canManage && (
               <button className="ps-btn ps-btn-primary" onClick={() => { resetForm(); setShowCreateModal(true) }}>
@@ -275,7 +275,7 @@ function ServiceCard({ service, onClick }: { service: Service; onClick: () => vo
               padding: '1px 8px', borderRadius: 99, fontSize: '0.7rem', fontWeight: 700,
               background: '#005eb8', color: '#fff', whiteSpace: 'nowrap', letterSpacing: '0.02em',
             }}>
-              🏥 NHS
+              NHS
             </span>
           )}
         </div>
@@ -298,9 +298,9 @@ function ServiceCard({ service, onClick }: { service: Service; onClick: () => vo
       </p>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--ps-space-sm)' }}>
-        <span className="ps-badge ps-badge-blue">⏱ {service.duration_minutes} min</span>
+        <span className="ps-badge ps-badge-blue">{service.duration_minutes} min</span>
         {service.is_public && (
-          <span className="ps-badge ps-badge-amber">🌐 Public</span>
+          <span className="ps-badge ps-badge-amber">Public</span>
         )}
         <div style={{ marginLeft: 'auto', display: 'flex', gap: 'var(--ps-space-xs)' }}>
           {nhsLocked ? (

@@ -225,7 +225,7 @@ export function ScanReviewModal({ isOpen, scanId, onClose }: ScanReviewModalProp
       <div className="scan-review-modal" onClick={(e) => e.stopPropagation()}>
         {/* Header */}
         <div className="scan-review-header">
-          <h2>📋 Review Scan</h2>
+          <h2>Review Scan</h2>
           <div className="scan-review-header-info">
             {activeScan && (
               <>
@@ -239,7 +239,7 @@ export function ScanReviewModal({ isOpen, scanId, onClose }: ScanReviewModalProp
                   </span>
                 )}
                 {allItemsDone && (
-                  <span className="ps-badge ps-badge-green">✅ All items reviewed</span>
+                  <span className="ps-badge ps-badge-green">All items reviewed</span>
                 )}
               </>
             )}
@@ -301,7 +301,7 @@ export function ScanReviewModal({ isOpen, scanId, onClose }: ScanReviewModalProp
                   <h3>Document Details</h3>
                   {!editingDetails ? (
                     <button className="ps-btn ps-btn-ghost ps-btn-sm" onClick={() => setEditingDetails(true)}>
-                      ✏️ Edit
+                      Edit
                     </button>
                   ) : (
                     <div style={{ display: 'flex', gap: '6px' }}>
@@ -331,7 +331,7 @@ export function ScanReviewModal({ isOpen, scanId, onClose }: ScanReviewModalProp
                         <DocField label="Prescriber" value={activeScan.prescriber_name} />
                         <DocField label="Prescriber Address" value={activeScan.prescriber_address} />
                         <DocField label="Registration #" value={activeScan.prescriber_registration} />
-                        {activeScan.is_partial_supply && <p className="scan-partial-supply">⚡ Partial Supply</p>}
+                        {activeScan.is_partial_supply && <p className="scan-partial-supply">Partial Supply</p>}
                       </>
                     )}
                     {activeScan.handwritten_notes && (
@@ -735,10 +735,10 @@ function ScanItemCard({ item, scan, userId, canApprove, canCreateRegister, onApp
         <span className={`scan-confidence-badge ${confidenceInfo.className}`}>
           {confidenceInfo.icon} {confidenceInfo.label}
         </span>
-        {item.status === 'approved' && <span className="ps-badge ps-badge-green">✅ Approved</span>}
-        {item.status === 'rejected' && <span className="ps-badge ps-badge-red">❌ Rejected</span>}
-        {item.status === 'edited' && <span className="ps-badge ps-badge-amber">✏️ Edited</span>}
-        {item.entry_id && <span className="ps-badge ps-badge-blue">📝 Entry created</span>}
+        {item.status === 'approved' && <span className="ps-badge ps-badge-green">Approved</span>}
+        {item.status === 'rejected' && <span className="ps-badge ps-badge-red">Rejected</span>}
+        {item.status === 'edited' && <span className="ps-badge ps-badge-amber">Edited</span>}
+        {item.entry_id && <span className="ps-badge ps-badge-blue">Entry created</span>}
       </div>
 
       {/* AI extraction */}
@@ -921,7 +921,7 @@ function ScanItemCard({ item, scan, userId, canApprove, canCreateRegister, onApp
               Enter the current stock balance (0 if starting fresh), then create the register.
             </p>
             {registerError && (
-              <p className="scan-create-register-error">❌ {registerError}</p>
+              <p className="scan-create-register-error">{registerError}</p>
             )}
           </div>
         </div>
@@ -930,7 +930,7 @@ function ScanItemCard({ item, scan, userId, canApprove, canCreateRegister, onApp
       {/* Register just created confirmation */}
       {registerCreated && (
         <div className="scan-register-created">
-          ✅ Register created for <strong>{item.matched_drug_brand ?? item.drug_name_raw}</strong>
+          Register created for <strong>{item.matched_drug_brand ?? item.drug_name_raw}</strong>
           {parseFloat(openingBalance) > 0 && (
             <span> (opening balance: {openingBalance})</span>
           )}
@@ -972,7 +972,7 @@ function ScanItemCard({ item, scan, userId, canApprove, canCreateRegister, onApp
         </div>
       )}
 
-      {approveError && <p className="scan-create-register-error">❌ {approveError}</p>}
+      {approveError && <p className="scan-create-register-error">{approveError}</p>}
 
       {/* Actions */}
       {!isDone && (
@@ -1002,20 +1002,20 @@ function ScanItemCard({ item, scan, userId, canApprove, canCreateRegister, onApp
                 disabled={approving || !canApprove || !effectiveDrugId || registerExists === false}
                 title={!effectiveDrugId ? 'Select a drug match first' : registerExists === false ? 'Create a register for this drug first' : ''}
               >
-                ✅ Approve
+                Approve
               </button>
               <button
                 className="ps-btn ps-btn-ghost"
                 onClick={() => setEditModalOpen(true)}
               >
-                ✏️ Edit
+                Edit
               </button>
               <button
                 className="ps-btn ps-btn-danger"
                 onClick={handleReject}
                 disabled={rejecting}
               >
-                ❌ Reject
+                Reject
               </button>
             </>
           )}

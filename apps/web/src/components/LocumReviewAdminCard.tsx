@@ -15,7 +15,7 @@ export function LocumReviewAdminCard() {
 
   return (
     <div className="ps-card" style={{ marginBottom: '1.25rem' }}>
-      <div className="ps-card-header"><h2 className="ps-card-title">🛡️ Locum checks</h2></div>
+      <div className="ps-card-header"><h2 className="ps-card-title">Locum checks</h2></div>
       <div className="ps-card-body">
         <p style={{ marginTop: 0, color: 'var(--ps-slate)', fontSize: 'var(--ps-font-sm)' }}>
           New locums can browse shifts but can't book until you approve their documents.
