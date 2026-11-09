@@ -101,8 +101,8 @@ export function RoundTemplateDetailPage() {
   }
 
   return (
-    <div>
-      <div className="page-header">
+    <div className="care-home-page">
+      <div className="page-header care-home-page-header">
         <div className="breadcrumbs">
           <a href="/" onClick={(e) => { e.preventDefault(); navigate('/') }}>Dashboard</a>
           <span className="separator">/</span>
@@ -112,7 +112,12 @@ export function RoundTemplateDetailPage() {
           <span className="separator">/</span>
           <span>{template.name}</span>
         </div>
-        <h1>{template.name}</h1>
+        <div className="care-home-title-row">
+          <div>
+            <p className="care-home-eyebrow">Delivery template</p>
+            <h1>{template.name}</h1>
+          </div>
+        </div>
       </div>
 
       {error && <div className="auth-error" style={{ marginBottom: 'var(--ps-space-md)' }}>{error}</div>}

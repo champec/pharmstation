@@ -28,7 +28,7 @@ export const MODULES: MobileModule[] = [
   {
     id: 'account',
     title: 'My Account',
-    description: 'Your profile, pharmacies and security',
+    description: 'Your profile, pharmacies, security and help',
     icon: 'person-circle-outline',
     color: '#208AEF',
     tier: 'user',
@@ -42,6 +42,12 @@ export const MODULES: MobileModule[] = [
         title: 'Security',
         icon: 'shield-checkmark-outline',
         blurb: 'Two-step sign-in codes',
+      },
+      {
+        id: 'help',
+        title: 'Help',
+        icon: 'help-buoy-outline',
+        blurb: 'Contact PharmStation support',
       },
     ],
   },
@@ -294,6 +300,44 @@ export const MODULES: MobileModule[] = [
         icon: 'options-outline',
         platform: 'web',
         blurb: 'Add products and photos, questionnaires, delivery and payment settings',
+      },
+    ],
+  },
+
+  {
+    id: 'billing',
+    title: 'Plan & Billing',
+    description: 'Your PharmStation plan and text credits',
+    icon: 'card-outline',
+    color: '#257BB4',
+    tier: 'org',
+    platform: 'both',
+    visible: (ctx) => ctx.isOrgConnected,
+    tabs: [
+      {
+        id: 'plan',
+        title: 'Plan',
+        icon: 'card-outline',
+        blurb: 'Current plan, renewal date and text credits',
+      },
+    ],
+  },
+
+  {
+    id: 'genie',
+    title: 'Genie',
+    description: 'Ask about your registers, RP log and team',
+    icon: 'sparkles-outline',
+    color: '#6D28D9',
+    tier: 'org',
+    platform: 'both',
+    visible: (ctx) => ctx.isOrgConnected,
+    tabs: [
+      {
+        id: 'ask',
+        title: 'Ask',
+        icon: 'sparkles-outline',
+        blurb: 'Your pharmacy AI assistant',
       },
     ],
   },

@@ -14610,3 +14610,26 @@ textarea.form-input {
 .side-nav-footer .side-nav-item {
   font-size: var(--ps-font-sm);
 }
+
+/* Support inbox (platform admin) and "your requests" list */
+.support-filters { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 1rem; }
+.support-ticket { padding: 1rem 1.25rem; margin-bottom: 0.75rem; }
+.support-ticket-safety { border-left: 4px solid var(--ps-danger, #dc2626); }
+.support-ticket-head { display: flex; justify-content: space-between; gap: 0.75rem; flex-wrap: wrap; }
+.support-ticket-head a { word-break: break-all; }
+.support-ticket-meta { display: grid; justify-items: end; gap: 2px; font-size: 0.8rem; }
+.support-ticket-message { margin: 0.6rem 0; white-space: pre-wrap; font-size: 0.9rem; }
+.support-ticket-note { margin: 0.4rem 0; font-size: 0.8125rem; color: var(--ps-slate, #475569); }
+.support-ticket-actions { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; margin-top: 0.6rem; }
+.support-status { display: flex; gap: 0.4rem; align-items: center; font-size: 0.8125rem; }
+.support-status .ps-input { width: auto; padding-top: 4px; padding-bottom: 4px; }
+.support-pill { display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: 0.75rem; font-weight: 700; background: #e0f2fe; color: #0369a1; }
+.support-pill-safety { background: #fee2e2; color: #b91c1c; }
+.support-pill-privacy { background: #ede9fe; color: #6d28d9; }
+.support-pill-billing { background: #fef3c7; color: #92400e; }
+.contact-requests { margin-top: 1.25rem; display: grid; gap: 8px; }
+.contact-requests h2 { font-size: 1rem; margin: 0; }
+.contact-request { display: flex; justify-content: space-between; gap: 8px; font-size: 14px; border-top: 1px solid var(--ps-border, #e2e8f0); padding-top: 8px; }
+@media (max-width: 640px) {
+  .support-ticket-meta { justify-items: start; }
+}
