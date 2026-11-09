@@ -15,7 +15,7 @@ import type {
   BalanceCheckItem,
   BalanceCheckStatus,
 } from '@pharmstation/types'
-import { ukToday } from '@pharmstation/types'
+import { cdQty, ukToday } from '@pharmstation/types'
 import { Modal } from '../Modal'
 
 // ============================================
@@ -659,7 +659,7 @@ export function BalanceCheckModal({ isOpen, onClose }: BalanceCheckModalProps) {
                     <div key={r.drug_id} className="bc-preview-item">
                       <span className="bc-preview-name">{r.drug_brand}</span>
                       <span className="bc-preview-detail">
-                        {r.drug_strength} — Bal: {r.ledger?.current_balance ?? 0}
+                        {r.drug_strength} — Bal: {cdQty(r.ledger?.current_balance ?? 0, r.drug_form)}
                       </span>
                     </div>
                   ))}
@@ -1026,7 +1026,7 @@ function BalanceCheckRow({
         </td>
         <td className="bc-col-num">
           <strong style={{ fontFamily: 'var(--ps-font-mono)' }}>
-            {item.expected_balance}
+            {cdQty(item.expected_balance, register.drug_form)}
           </strong>
         </td>
         <td className="bc-col-num">

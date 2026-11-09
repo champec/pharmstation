@@ -7,7 +7,8 @@ import { Modal } from '../../components/Modal'
 import { BalanceCheckModal } from '../../components/balance-check/BalanceCheckModal'
 import { BarcodeScanModal } from '../../components/scan/BarcodeScanModal'
 import { CDRegisterExportModal } from '../../components/registers/CDRegisterExportModal'
-import { BookMarked, TriangleAlert } from 'lucide-react'
+import { BookMarked, Download, ScanBarcode, TriangleAlert } from 'lucide-react'
+import { cdUnit } from '@pharmstation/types'
 
 export function CDRegisterPage() {
   const navigate = useNavigate()
@@ -167,14 +168,14 @@ export function CDRegisterPage() {
               onClick={() => setBarcodeScanOpen(true)}
               title="Identify a medicine pack from its barcode"
             >
-              ▦ Barcode Scan
+              <ScanBarcode size={16} strokeWidth={1.75} aria-hidden="true" /> Barcode Scan
             </button>
             <button
               className="ps-btn ps-btn-ghost"
               onClick={() => setExportOpen(true)}
               title="Print, save as PDF or download a CSV of the CD register"
             >
-              ⬇ Export
+              <Download size={16} strokeWidth={1.75} aria-hidden="true" /> Export
             </button>
             <button
               className="ps-btn ps-btn-primary"
@@ -182,7 +183,7 @@ export function CDRegisterPage() {
               disabled={!canWrite}
               title={canWrite ? undefined : 'Your role can view the CD register but not add to it'}
             >
-              ＋ Add New Register
+              + Add New Register
             </button>
           </div>
         </div>
@@ -232,7 +233,7 @@ export function CDRegisterPage() {
             onClick={() => { setAddModalInitialSearch(''); setAddModalOpen(true) }}
             disabled={!canWrite}
           >
-            ＋ Add Your First Register
+            + Add Your First Register
           </button>
         </div>
       ) : (
@@ -244,7 +245,7 @@ export function CDRegisterPage() {
                 Looks like the register for <strong>"{globalSearch}"</strong> doesn't exist in your pharmacy yet.
               </p>
               <button className="ps-btn ps-btn-primary" onClick={handleAddFromSearch} disabled={!canWrite}>
-                ＋ Add this register
+                + Add this register
               </button>
             </div>
           )}
@@ -672,12 +673,9 @@ function AddRegisterModal({ isOpen, onClose, initialSearch, onAdded }: AddRegist
               <div className="add-register-step-content">
                 <div className="add-register-selected">
                   <strong>{selectedDrug.drug_brand}</strong> — {selectedDrug.drug_form} — {selectedDrug.drug_strength}
-                  <button className="ps-btn ps-btn-ghost" onClick={goBack} style={{ marginLeft: 'auto', fontSize: '12px' }}>
-                    ← Back
-                  </button>
                 </div>
                 <div className="form-group">
-                  <label className="form-label">Opening Balance</label>
+                  <label className="form-label" htmlFor="add-register-opening">Opening balance ({cdUnit(selectedDrug.drug_form)})</label>
                   <p style={{ fontSize: 'var(--ps-font-xs)', color: 'var(--ps-mist)', marginBottom: '8px' }}>
                     What is the current stock balance for this drug? Enter 0 if starting fresh.
                   </p>
@@ -687,6 +685,7 @@ function AddRegisterModal({ isOpen, onClose, initialSearch, onAdded }: AddRegist
                     placeholder="0"
                     step="any"
                     min="0"
+                    id="add-register-opening"
                     value={openingBalance}
                     onChange={(e) => setOpeningBalance(e.target.value)}
                     autoFocus
@@ -716,10 +715,10 @@ function AddRegisterModal({ isOpen, onClose, initialSearch, onAdded }: AddRegist
                     <p><strong>Form:</strong> {selectedDrug.drug_form}</p>
                     <p><strong>Strength:</strong> {selectedDrug.drug_strength}</p>
                     <p><strong>Class:</strong> {selectedDrug.drug_class}</p>
-                    <p><strong>Opening Balance:</strong> {parseFloat(openingBalance) || 0}</p>
+                    <p><strong>Opening balance:</strong> {parseFloat(openingBalance) || 0} {cdUnit(selectedDrug.drug_form)}</p>
                   </div>
                   <div className="add-register-confirm-warning">
-                    ⚠️ This action cannot be reversed. A new CD register will be created with an opening balance of <strong>{parseFloat(openingBalance) || 0}</strong>.
+                    This can't be reversed. A new CD register will be created with an opening balance of <strong>{parseFloat(openingBalance) || 0} {cdUnit(selectedDrug.drug_form)}</strong>.
                   </div>
                   <div className="form-actions" style={{ justifyContent: 'center' }}>
                     <button className="ps-btn ps-btn-ghost" onClick={goBack}>← Back</button>
@@ -728,7 +727,7 @@ function AddRegisterModal({ isOpen, onClose, initialSearch, onAdded }: AddRegist
                       onClick={handleFinalCreate}
                       disabled={saving}
                     >
-                      {saving ? 'Creating...' : '✓ Create Register'}
+                      {saving ? 'Creating...' : 'Create register'}
                     </button>
                   </div>
                 </div>

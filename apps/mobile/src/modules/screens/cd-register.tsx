@@ -104,6 +104,23 @@ function fmtDate(iso: string) {
   return y && m && d ? `${d}/${m}/${y}` : iso
 }
 
+/** The unit the register counts in (mirror of cdUnit in packages/types). */
+export function cdUnit(form?: string | null): string {
+  const f = (form ?? '').toLowerCase()
+  if (!f) return 'units'
+  if (f.includes('patch')) return 'patches'
+  if (f.includes('injection') || f.includes('ampoule') || f.includes('infusion')) return 'ampoules'
+  if (f.includes('suppositor')) return 'suppositories'
+  if (f.includes('lozenge')) return 'lozenges'
+  if (f.includes('film')) return 'films'
+  if (f.includes('spray')) return 'sprays'
+  if (f.includes('capsule')) return 'capsules'
+  if (f.includes('tablet') || f.includes('pill')) return 'tablets'
+  if (/(solution|liquid|syrup|linctus|mixture|suspension|elixir|drops|oral)/.test(f)) return 'ml'
+  if (f.includes('granule') || f.includes('powder')) return 'sachets'
+  return 'units'
+}
+
 function fmtQty(n: number | null | undefined) {
   if (n == null) return '—'
   return Number.isInteger(n) ? String(n) : n.toFixed(2).replace(/\.?0+$/, '')
@@ -290,6 +307,7 @@ function CdRegisterScreen() {
               <View style={styles.balanceBox}>
                 <Text style={styles.balanceLabel}>Balance</Text>
                 <Text style={styles.balance}>{r.ledger_id ? fmtQty(r.current_balance) : '—'}</Text>
+                <Text style={styles.unit}>{cdUnit(r.drug_form)}</Text>
               </View>
               <Ionicons name="chevron-forward" size={18} color={palette.textMuted} />
             </Pressable>
@@ -378,7 +396,7 @@ function LedgerModal({ register, onClose, onChanged }: { register: CdRegister | 
               <View style={styles.balancePanel}>
                 <Text style={styles.balanceLabel}>Running balance</Text>
                 <Text style={styles.bigBalance}>{ledger ? fmtQty(ledger.current_balance) : '…'}</Text>
-                <Text style={styles.muted}>{ledger ? `${ledger.entry_count} ${ledger.entry_count === 1 ? 'entry' : 'entries'}` : ' '}</Text>
+                <Text style={styles.muted}>{ledger ? `${cdUnit(register?.drug_form)} · ${ledger.entry_count} ${ledger.entry_count === 1 ? 'entry' : 'entries'}` : ' '}</Text>
               </View>
 
               {canWrite && ledger ? (
@@ -395,7 +413,7 @@ function LedgerModal({ register, onClose, onChanged }: { register: CdRegister | 
               <Text style={styles.sectionTitle}>Entries</Text>
               {entries.length === 0 && !loading ? <Text style={styles.muted}>No entries yet.</Text> : null}
               {entries.map((e) => (
-                <EntryRow key={e.id} entry={e} isCorrected={corrected.has(e.id)} onPress={() => setSelected(e)} />
+                <EntryRow key={e.id} unit={cdUnit(register?.drug_form)} entry={e} isCorrected={corrected.has(e.id)} onPress={() => setSelected(e)} />
               ))}
               <Text style={styles.footnote}>Corrections and balance adjustments are made on the web register.</Text>
             </>
@@ -430,7 +448,7 @@ function LedgerModal({ register, onClose, onChanged }: { register: CdRegister | 
   )
 }
 
-function EntryRow({ entry, isCorrected, onPress }: { entry: CdEntry; isCorrected: boolean; onPress: () => void }) {
+function EntryRow({ entry, unit, isCorrected, onPress }: { entry: CdEntry; unit: string; isCorrected: boolean; onPress: () => void }) {
   const inQty = entry.quantity_received
   const outQty = entry.quantity_deducted
   return (
@@ -445,7 +463,7 @@ function EntryRow({ entry, isCorrected, onPress }: { entry: CdEntry; isCorrected
       <View style={styles.entryQty}>
         {inQty ? <Text style={styles.qtyIn}>+{fmtQty(inQty)}</Text> : null}
         {outQty ? <Text style={styles.qtyOut}>−{fmtQty(outQty)}</Text> : null}
-        <Text style={styles.entryBalance}>{fmtQty(entry.running_balance)}</Text>
+        <Text style={styles.entryBalance}>bal {fmtQty(entry.running_balance)} {unit}</Text>
       </View>
     </Pressable>
   )
@@ -537,7 +555,7 @@ function EntryFormModal({
     if (isIn && !supplier.trim()) return setError('Enter the supplier.')
     if (!isIn && !patient.trim()) return setError("Enter the patient's name.")
     if (!isIn && !prescriber.trim()) return setError("Enter the prescriber's name.")
-    if (!isIn && qty > ledger.current_balance) return setError(`Only ${fmtQty(ledger.current_balance)} in stock on the register.`)
+    if (!isIn && qty > ledger.current_balance) return setError(`Only ${fmtQty(ledger.current_balance)} ${cdUnit(register.drug_form)} in stock on the register.`)
     if (!isIn && collectorType && collectorType !== 'patient' && !collectorName.trim()) return setError('Enter who collected it.')
 
     setSaving(true)
@@ -581,13 +599,13 @@ function EntryFormModal({
           <View style={styles.modalHeader}>
             <View style={styles.flex}>
               <Text style={styles.heading}>{isIn ? 'Receive stock' : 'Supply to patient'}</Text>
-              <Text style={styles.muted} numberOfLines={1}>{register.drug_brand} · balance {fmtQty(ledger.current_balance)}</Text>
+              <Text style={styles.muted} numberOfLines={1}>{register.drug_brand} · balance {fmtQty(ledger.current_balance)} {cdUnit(register.drug_form)}</Text>
             </View>
             <IconButton icon="close" label="Cancel" onPress={onClose} />
           </View>
           <ScrollView contentContainerStyle={styles.modalContent} keyboardShouldPersistTaps="handled">
             <Field label="Date (YYYY-MM-DD)" value={date} onChangeText={setDate} autoCapitalize="none" keyboardType="numbers-and-punctuation" />
-            <Field label={isIn ? 'Quantity received' : 'Quantity supplied'} value={quantity} onChangeText={setQuantity} keyboardType="decimal-pad" placeholder="0" />
+            <Field label={`${isIn ? 'Quantity received' : 'Quantity supplied'} (${cdUnit(register.drug_form)})`} value={quantity} onChangeText={setQuantity} keyboardType="decimal-pad" placeholder="0" />
             {isIn ? (
               <>
                 <Field label="Supplier" value={supplier} onChangeText={setSupplier} placeholder="e.g. Alliance Healthcare" />
@@ -742,8 +760,9 @@ function BalanceCheckModal({
             <View style={styles.balancePanel}>
               <Text style={styles.balanceLabel}>Register says</Text>
               <Text style={styles.bigBalance}>{fmtQty(ledger.current_balance)}</Text>
+              <Text style={styles.muted}>{cdUnit(register.drug_form)}</Text>
             </View>
-            <Field label="Physical count" value={count} onChangeText={setCount} keyboardType="decimal-pad" placeholder="Count the stock" />
+            <Field label={`Physical count (${cdUnit(register.drug_form)})`} value={count} onChangeText={setCount} keyboardType="decimal-pad" placeholder="Count the stock" />
             {diff != null ? (
               <Banner tone={diff === 0 ? 'success' : 'danger'} text={diff === 0 ? 'Matches the register.' : `Doesn't match: ${diff > 0 ? '+' : ''}${fmtQty(diff)} against the register.`} />
             ) : null}
@@ -837,7 +856,7 @@ function AddRegisterModal({ existing, visible, onClose, onAdded }: { existing: s
                   </View>
                   <Pressable onPress={() => setPicked(null)} hitSlop={8} accessibilityRole="button"><Text style={styles.link}>Change</Text></Pressable>
                 </View>
-                <Field label="Opening balance" value={opening} onChangeText={setOpening} keyboardType="decimal-pad" />
+                <Field label={`Opening balance (${cdUnit(picked.drug_form)})`} value={opening} onChangeText={setOpening} keyboardType="decimal-pad" />
                 <Field label="Where does this balance come from?" value={reason} onChangeText={setReason} placeholder="e.g. stock count on go-live" />
                 <Text style={styles.footnote}>The opening balance becomes the first signed line on the register and can't be changed later.</Text>
               </>
@@ -962,6 +981,7 @@ const styles = StyleSheet.create({
   pressed: { opacity: 0.65 },
   balanceBox: { alignItems: 'flex-end', minWidth: 60 },
   balanceLabel: { color: palette.textMuted, fontSize: 11, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5 },
+  unit: { color: palette.textMuted, fontSize: 11 },
   balance: { fontSize: 20, fontWeight: '800', color: palette.text, fontVariant: ['tabular-nums'] },
   empty: { alignItems: 'center', gap: 8, paddingVertical: 48, paddingHorizontal: 24 },
   emptyTitle: { fontSize: 17, fontWeight: '800', color: palette.text, textAlign: 'center' },

@@ -636,6 +636,34 @@ export function ukToday(date: Date = new Date()): string {
  * line once a pharmacist or pharmacy technician has checked it. Mirrors
  * ps_is_cd_scan_reviewer() in the database, which is what actually enforces it.
  */
+/**
+ * The unit a CD register counts in, from the drug's form: tablets, capsules,
+ * ml, patches, ampoules... Registers record quantities in these units, so
+ * show it next to every balance and quantity.
+ */
+export function cdUnit(form?: string | null): string {
+  const f = (form ?? '').toLowerCase()
+  if (!f) return 'units'
+  if (f.includes('patch')) return 'patches'
+  if (f.includes('injection') || f.includes('ampoule') || f.includes('infusion')) return 'ampoules'
+  if (f.includes('suppositor')) return 'suppositories'
+  if (f.includes('lozenge')) return 'lozenges'
+  if (f.includes('film')) return 'films'
+  if (f.includes('spray')) return 'sprays'
+  if (f.includes('capsule')) return 'capsules'
+  if (f.includes('tablet') || f.includes('pill')) return 'tablets'
+  if (/(solution|liquid|syrup|linctus|mixture|suspension|elixir|drops|oral)/.test(f)) return 'ml'
+  if (f.includes('granule') || f.includes('powder')) return 'sachets'
+  return 'units'
+}
+
+/** "28 tablets", "12.5 ml". */
+export function cdQty(n: number | null | undefined, form?: string | null): string {
+  if (n == null || Number.isNaN(n)) return '—'
+  const v = Number.isInteger(n) ? String(n) : String(Number(n.toFixed(2)))
+  return `${v} ${cdUnit(form)}`
+}
+
 export function canApproveCdScan(role: UserRole | null | undefined, gphcNumber?: string | null): boolean {
   if (role === 'pharmacist' || role === 'technician' || role === 'locum') return true
   return !!gphcNumber?.trim()
