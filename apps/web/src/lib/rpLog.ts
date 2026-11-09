@@ -195,34 +195,43 @@ export async function rpLedger(organisationId: string): Promise<RegisterLedger> 
   return data as RegisterLedger
 }
 
-/** A correction to an RP session (or a late record of a session). */
-export async function rpWriteRecord(params: {
-  ledger: RegisterLedger
-  correctsRootId?: string | null
-  reason?: string | null
-  date: string
-  pharmacistName: string
-  gphcNumber: string
+/** A missed session, recorded afterwards in the signed-in pharmacist's own name. */
+export async function rpRecordLate(params: {
+  organisationId: string
+  signedInAt: string
+  signedOutAt: string
+  reason: string
+  notes: string | null
+}): Promise<RegisterEntry> {
+  const { data, error } = await getUserClient().rpc('ps_rp_record_late', {
+    p_organisation_id: params.organisationId,
+    p_signed_in_at: params.signedInAt,
+    p_signed_out_at: params.signedOutAt,
+    p_reason: params.reason,
+    p_notes: params.notes,
+  })
+  if (error) throw new Error(error.message)
+  return data as RegisterEntry
+}
+
+/** A correction to an RP session. The original record is kept. */
+export async function rpCorrect(params: {
+  entryId: string
   signedInAt: string
   signedOutAt: string | null
+  pharmacistName: string
+  gphcNumber: string
   notes: string | null
-  authorisedBy?: string | null
+  reason: string
 }): Promise<RegisterEntry> {
-  const isCorrection = !!params.correctsRootId
-  const { data, error } = await getUserClient().rpc('ps_make_register_entry', {
-    p_ledger_id: params.ledger.id,
-    p_register_type: 'RP',
-    p_entry_type: isCorrection ? 'correction' : 'normal',
-    p_date_of_transaction: params.date,
-    p_notes: params.notes,
-    p_source: 'manual',
-    p_corrects_entry_id: params.correctsRootId ?? null,
-    p_correction_reason: isCorrection ? params.reason : null,
-    p_authorised_by: params.authorisedBy ?? null,
+  const { data, error } = await getUserClient().rpc('ps_rp_correct', {
+    p_entry_id: params.entryId,
+    p_signed_in_at: params.signedInAt,
+    p_signed_out_at: params.signedOutAt,
     p_pharmacist_name: params.pharmacistName,
     p_gphc_number: params.gphcNumber,
-    p_rp_signed_in_at: params.signedInAt,
-    p_rp_signed_out_at: params.signedOutAt,
+    p_notes: params.notes,
+    p_reason: params.reason,
   })
   if (error) throw new Error(error.message)
   return data as RegisterEntry

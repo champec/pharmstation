@@ -16,7 +16,8 @@ import {
   rpErrorMessage,
   rpLedger,
   rpSignOut,
-  rpWriteRecord,
+  rpCorrect,
+  rpRecordLate,
   type RpSession,
 } from '../../lib/rpLog'
 import {
@@ -64,8 +65,8 @@ function crossesDay(session: RpSession): boolean {
 
 type FormTarget = { mode: 'late' } | { mode: 'correct'; session: RpSession }
 
-function RpRecordForm({ target, ledger, onDone, onCancel }: { target: FormTarget; ledger: RegisterLedger; onDone: () => void; onCancel: () => void }) {
-  const { activeUser } = useAuthStore()
+function RpRecordForm({ target, onDone, onCancel }: { target: FormTarget; ledger: RegisterLedger; onDone: () => void; onCancel: () => void }) {
+  const { activeUser, organisation } = useAuthStore()
   const cur = target.mode === 'correct' ? target.session.current : null
   const [name, setName] = useState(cur?.pharmacist_name ?? activeUser?.full_name ?? '')
   const [gphc, setGphc] = useState(cur?.gphc_number ?? activeUser?.gphc_number ?? '')
@@ -93,20 +94,26 @@ function RpRecordForm({ target, ledger, onDone, onCancel }: { target: FormTarget
     setSaving(true)
     setError(null)
     try {
-      await rpWriteRecord({
-        ledger,
-        correctsRootId: target.mode === 'correct' ? target.session.root.id : null,
-        reason: target.mode === 'correct' ? reason.trim() : null,
-        date: ukDate(new Date(inAt)),
-        pharmacistName: name.trim(),
-        gphcNumber: gphc.trim(),
-        signedInAt: inAt,
-        signedOutAt: outAt,
-        notes: target.mode === 'late'
-          ? `Recorded late: ${reason.trim()}${notes.trim() ? ` · ${notes.trim()}` : ''}`.slice(0, NOTES_MAX + 120)
-          : notes.trim() || null,
-        authorisedBy: activeUser?.full_name ?? null,
-      })
+      if (target.mode === 'late') {
+        if (!organisation) throw new Error('No pharmacy selected')
+        await rpRecordLate({
+          organisationId: organisation.id,
+          signedInAt: inAt,
+          signedOutAt: outAt!,
+          reason: reason.trim(),
+          notes: notes.trim() || null,
+        })
+      } else {
+        await rpCorrect({
+          entryId: target.session.root.id,
+          signedInAt: inAt,
+          signedOutAt: outAt,
+          pharmacistName: name.trim(),
+          gphcNumber: gphc.trim(),
+          notes: notes.trim() || null,
+          reason: reason.trim(),
+        })
+      }
       onDone()
     } catch (err) {
       setError(rpErrorMessage(err))
