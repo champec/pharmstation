@@ -14731,3 +14731,82 @@ textarea.form-input {
   border: 0;
   box-shadow: none;
 }
+
+/* Phones: tidy wrapping for headers, stat tiles and section headings */
+.outreach-section-heading {
+  flex-wrap: wrap;
+}
+
+.outreach-section-heading > div {
+  flex: 1 1 260px;
+  min-width: 0;
+}
+
+@media (max-width: 800px) {
+  .stats-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--ps-space-sm);
+  }
+
+  .stat-card {
+    padding: var(--ps-space-md);
+  }
+
+  .stat-card-value {
+    font-size: var(--ps-font-2xl);
+  }
+
+  /* Older headers: title row stacks, actions sit left under the title */
+  .page-header > div[style*="space-between"] {
+    flex-direction: column;
+    align-items: flex-start !important;
+    gap: var(--ps-space-sm);
+  }
+
+  .page-header > div[style*="space-between"] > div[style*="display: flex"] {
+    justify-content: flex-start !important;
+  }
+}
+
+/* Page-level tabs: underline style, scroll sideways on phones instead of wrapping */
+.ps-tabs {
+  display: flex;
+  gap: var(--ps-space-lg);
+  margin-bottom: var(--ps-space-lg);
+  border-bottom: 1px solid #d3e3ec;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.ps-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.ps-tab {
+  flex-shrink: 0;
+  padding: var(--ps-space-sm) 0;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  background: transparent;
+  font: inherit;
+  font-size: var(--ps-font-sm);
+  font-weight: 600;
+  color: var(--ps-slate);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.ps-tab:hover {
+  color: var(--ps-deep-blue);
+}
+
+.ps-tab.active {
+  color: var(--ps-deep-blue);
+  border-bottom-color: var(--ps-deep-blue);
+}
+
+.ps-tab:focus-visible {
+  outline: 2px solid var(--ps-electric-cyan);
+  outline-offset: 2px;
+}

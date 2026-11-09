@@ -987,7 +987,7 @@ export function ServiceDeliveryPage() {
                   disabled={pdsLoading || nhsNumberInput.replace(/\s/g, '').length < 10}
                   style={{ whiteSpace: 'nowrap' }}
                 >
-                  {pdsLoading ? 'Looking up…' : '🔍 PDS Lookup'}
+                  {pdsLoading ? 'Looking up…' : 'PDS Lookup'}
                 </button>
               </div>
               {pdsError && (
@@ -1277,7 +1277,7 @@ export function ServiceDeliveryPage() {
                     setShowMedModal(true)
                   }}
                 >
-                  {medications.filter(m => m.drug_name.trim()).length > 0 ? '✏️ Edit Medications' : '+ Add Medications'}
+                  {medications.filter(m => m.drug_name.trim()).length > 0 ? 'Edit Medications' : '+ Add Medications'}
                 </button>
               </div>
 
