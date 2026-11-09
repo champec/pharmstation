@@ -35,6 +35,7 @@ import {
 } from '@/lib/sops'
 import { useAuthStore } from '@/stores/auth-store'
 import { palette, radius } from '@/theme/palette'
+import { EmptyState as SharedEmptyState } from '@/components/ui/EmptyState'
 
 export const SOP_COLOR = palette.brand
 
@@ -63,11 +64,7 @@ function ReviewChip({ doc }: { doc: Pick<SOPDoc, 'status' | 'next_review_due'> }
 
 function Empty({ icon, text, sub }: { icon: keyof typeof Ionicons.glyphMap; text: string; sub?: string }) {
   return (
-    <View style={styles.empty}>
-      <Ionicons name={icon} size={36} color={SOP_COLOR} />
-      <Text style={styles.emptyText}>{text}</Text>
-      {sub ? <Text style={[styles.muted, { textAlign: 'center' }]}>{sub}</Text> : null}
-    </View>
+    <SharedEmptyState icon={icon} title={text} text={sub} color={SOP_COLOR} />
   )
 }
 
