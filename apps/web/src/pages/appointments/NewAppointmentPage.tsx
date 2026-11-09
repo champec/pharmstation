@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useAuthStore, useAppointmentStore, useServiceStore, psNotify } from '@pharmstation/core'
 import { getUserClient } from '@pharmstation/supabase-client'
 import type { Service, ServiceForm, ServiceFormField, AppointmentSlot } from '@pharmstation/types'
+import { CalendarCheck } from 'lucide-react'
 
 /* ---- Patient search option ---- */
 interface PatientOption {
@@ -200,7 +201,7 @@ export function NewAppointmentPage() {
       <div>
         <div className="page-header"><h1>Appointment Booked</h1></div>
         <div className="ps-card" style={{ padding: 'var(--ps-space-2xl)', textAlign: 'center' }}>
-          <div style={{ fontSize: '64px', marginBottom: 'var(--ps-space-md)' }}>📅</div>
+          <span className="ps-empty-icon success" aria-hidden="true"><CalendarCheck size={26} strokeWidth={1.75} /></span>
           <h2 style={{ color: 'var(--ps-midnight)', marginBottom: 'var(--ps-space-sm)' }}>
             Appointment Created
           </h2>

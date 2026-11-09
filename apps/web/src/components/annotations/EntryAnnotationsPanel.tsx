@@ -142,7 +142,7 @@ export function EntryAnnotationsPanel({ entry, onAnnotationAdded }: EntryAnnotat
             return (
               <li key={a.id} className="annotation-item">
                 <span className={`annotation-badge ${meta.className}`}>
-                  {meta.icon} {meta.label}
+                  {meta.label}
                 </span>
                 <span className="annotation-text">{a.annotation_text}</span>
                 <span className="annotation-meta">
@@ -229,9 +229,9 @@ export function EntryAnnotationsPanel({ entry, onAnnotationAdded }: EntryAnnotat
             {saving
               ? 'Saving…'
               : activeAction === 'note'
-              ? '📝 Save note'
+              ? 'Save note'
               : activeAction === 'part_supply'
-              ? '⏳ Mark part supply'
+              ? 'Mark part supply'
               : '✔ Close part supply'}
           </button>
           <button

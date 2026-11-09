@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { useAuthStore } from '@pharmstation/core'
 import { getAuthRedirectType } from '@pharmstation/supabase-client'
 import { PasswordInput } from '../../components/PasswordInput'
+import { Building2, User } from 'lucide-react'
 
 export function OrgLoginPage() {
   const { orgLogin } = useAuthStore()
@@ -40,7 +41,7 @@ export function OrgLoginPage() {
 
       <div className="login-portal-switcher">
         <span className="login-portal-tab active">
-          <span className="login-portal-tab-icon">🏥</span>
+          <span className="login-portal-tab-icon"><Building2 size={18} aria-hidden="true" /></span>
           Pharmacy
         </span>
         <Link to="/patient/login" className="login-portal-tab">
@@ -48,7 +49,7 @@ export function OrgLoginPage() {
           Patient
         </Link>
         <Link to="/me/login" className="login-portal-tab">
-          <span className="login-portal-tab-icon">👤</span>
+          <span className="login-portal-tab-icon"><User size={18} aria-hidden="true" /></span>
           Staff
         </Link>
       </div>

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useAuthStore, useSOPStore, canManageSOPs } from '@pharmstation/core'
 import type { SOPDocument } from '@pharmstation/types'
 import { Modal } from '../../components/Modal'
+import { BookOpenCheck } from 'lucide-react'
 
 type Tab = 'my-sops' | 'manage'
 
@@ -136,7 +137,7 @@ export function SOPsPage() {
         </div>
       ) : documents.length === 0 ? (
         <div className="ps-empty-state">
-          <div style={{ fontSize: 48 }}>📋</div>
+          <span className="ps-empty-icon" aria-hidden="true"><BookOpenCheck size={26} strokeWidth={1.75} /></span>
           <h3>
             {tab === 'manage'
               ? 'No SOPs yet — create your first one'
@@ -195,7 +196,7 @@ export function SOPsPage() {
                     )}
                     {completion && (
                       <span style={{ color: completion.color, fontWeight: 600 }}>
-                        {completion.icon} {completion.label}
+                        {completion.label}
                       </span>
                     )}
                   </div>

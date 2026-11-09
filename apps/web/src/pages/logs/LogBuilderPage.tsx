@@ -260,7 +260,7 @@ export function LogBuilderPage() {
               className={`ps-btn ps-btn-sm ${previewMode ? 'ps-btn-primary' : 'ps-btn-secondary'}`}
               onClick={() => setPreviewMode(!previewMode)}
             >
-              {previewMode ? '✏️ Edit' : '👁 Preview'}
+              {previewMode ? 'Edit' : 'Preview'}
             </button>
             <button className="ps-btn ps-btn-secondary" onClick={() => navigate('/logs')}>
               ← Cancel

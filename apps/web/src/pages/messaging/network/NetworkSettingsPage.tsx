@@ -292,7 +292,7 @@ export function NetworkSettingsPage() {
                       style={{ fontSize: '0.8rem', padding: '4px 10px' }}
                       onClick={() => toggleContactEnabled(c)}
                     >
-                      {c.is_enabled ? '⏸ Disable' : '▶ Enable'}
+                      {c.is_enabled ? 'Disable' : '▶ Enable'}
                     </button>
 
                     {/* Pause */}

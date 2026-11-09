@@ -296,8 +296,8 @@ export function EditDrugModal({
                     }}
                   >
                     {overrideFilters
-                      ? '🔒 Filter to AI read'
-                      : '🔓 Show all strengths & forms'}
+                      ? 'Filter to AI read'
+                      : 'Show all strengths & forms'}
                   </button>
                 </div>
                 {loadingBrands ? (

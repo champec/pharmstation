@@ -217,7 +217,7 @@ export function ShiftPaymentsPage() {
               className="ps-btn ps-btn-ghost ps-btn-sm"
               onClick={() => { setShowJobPanel((v) => !v); setJobResult(null) }}
             >
-              {showJobPanel ? 'Hide' : '⚙ Generate Invoices Manually'}
+              {showJobPanel ? 'Hide' : 'Generate Invoices Manually'}
             </button>
             {showJobPanel && (
               <div className="ps-card" style={{ marginTop: '0.75rem' }}>

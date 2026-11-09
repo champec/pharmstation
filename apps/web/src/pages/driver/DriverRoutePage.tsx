@@ -273,7 +273,7 @@ export function DriverRoutePage() {
             disabled={starting}
             style={{ marginTop: 'var(--ps-space-sm)', width: '100%' }}
           >
-            {starting ? 'Starting…' : '🚀 Start deliveries'}
+            {starting ? 'Starting…' : 'Start deliveries'}
           </button>
         )}
         {round.status === 'draft' && (

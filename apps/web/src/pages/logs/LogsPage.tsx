@@ -19,6 +19,7 @@ import {
   scheduleLabel,
   ukDate,
 } from './logUtils'
+import { NotebookPen } from 'lucide-react'
 
 const WINDOW_DAYS = 35
 
@@ -174,7 +175,7 @@ export function LogsPage() {
 
       {!loading && subscriptions.length === 0 && (
         <div className="ps-card logs-empty">
-          <div className="logs-empty-emoji">📒</div>
+          <span className="ps-empty-icon" aria-hidden="true"><NotebookPen size={26} strokeWidth={1.75} /></span>
           <h2>Start your first log</h2>
           <p className="log-muted">
             Add a fridge temperature log, cleaning rota or visitor book from the library in one click,
