@@ -22,8 +22,8 @@ import { useAuthStore } from '@/stores/auth-store'
 import { useGenieStore, type GenieMessage, type GenieToolCall } from '@/stores/genie-store'
 import { palette, radius } from '@/theme/palette'
 
-const COLOR = '#6D28D9'
-const COLOR_TINT = '#EDE9FE'
+const COLOR = palette.brand
+const COLOR_TINT = palette.brandTint
 
 const SUGGESTIONS = [
   { label: 'Today’s CD entries', text: 'Show me today’s CD register entries' },
