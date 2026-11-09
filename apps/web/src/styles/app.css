@@ -14831,3 +14831,4 @@ textarea.form-input {
   outline: 2px solid var(--ps-electric-cyan);
   outline-offset: 2px;
 }
+.shop-max-note { display: block; margin-top: 6px; color: #92400e; font-size: 12px; font-weight: 600; }
