@@ -1,28 +1,46 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useAuthStore, usePepsStore, useAppointmentStore, useMessagingStore } from '@pharmstation/core'
-import type {
-  Patient,
-  PepsOrg,
-  PepsDmdResult,
-  PepsPrescriptionItem,
-  PepsPrescriptionType,
+import { useAuthStore, usePepsStore, useAppointmentStore, useMessagingStore, PepsWrongPinError } from '@pharmstation/core'
+import {
+  pepsCdSchedule,
+  pepsCdBlocked,
+  PEPS_CD_LABELS,
+  type Patient,
+  type PepsOrg,
+  type PepsDmdResult,
+  type PepsPrescriptionItem,
+  type PepsPrescriptionType,
 } from '@pharmstation/types'
-import { getUserClient } from '@pharmstation/supabase-client'
 import { Autocomplete } from '../../components/forms/Autocomplete'
 import { Modal } from '../../components/Modal'
+import { PageHeader } from '../../components/ui'
 
 interface DraftItem {
   key: string
   drug_name: string
   dmd_code: string | null
   dmd_type: 'vmp' | 'amp' | 'free_text'
+  cd_category: string | null
   quantity: string
   dosage: string
 }
 
 function newItem(): DraftItem {
-  return { key: Math.random().toString(36).slice(2), drug_name: '', dmd_code: null, dmd_type: 'free_text', quantity: '', dosage: '' }
+  return { key: Math.random().toString(36).slice(2), drug_name: '', dmd_code: null, dmd_type: 'free_text', cd_category: null, quantity: '', dosage: '' }
+}
+
+function patientAddress(p: Patient): string {
+  return [p.address_line_1, p.address_line_2, p.city, p.postcode].filter(Boolean).join(', ')
+}
+
+function ageFromDob(dob: string): number | null {
+  const d = new Date(dob)
+  if (Number.isNaN(d.getTime())) return null
+  const now = new Date()
+  let age = now.getFullYear() - d.getFullYear()
+  const m = now.getMonth() - d.getMonth()
+  if (m < 0 || (m === 0 && now.getDate() < d.getDate())) age--
+  return age
 }
 
 export function PEPSWritePage() {
@@ -31,10 +49,10 @@ export function PEPSWritePage() {
   const {
     myPrescriber, prescriberLoaded, fetchMyPrescriber,
     searchPepsOrgs, createPepsOrg, searchDmd, searchPatients,
-    searchPharmacies, createPrescription, logEvent,
+    searchPharmacies, createPrescription, hasSigningPin,
   } = usePepsStore()
   const { notify } = useMessagingStore()
-  const { createPatient } = useAppointmentStore()
+  const { createPatient, updatePatient } = useAppointmentStore()
 
   // Patient
   const [patientText, setPatientText] = useState('')
@@ -45,7 +63,12 @@ export function PEPSWritePage() {
   const [npDob, setNpDob] = useState('')
   const [npNhs, setNpNhs] = useState('')
   const [npAddr, setNpAddr] = useState('')
+  const [npCity, setNpCity] = useState('')
+  const [npPostcode, setNpPostcode] = useState('')
   const [npError, setNpError] = useState<string | null>(null)
+  // Required legal details for the selected patient (editable if the record is missing them)
+  const [ptDob, setPtDob] = useState('')
+  const [ptAddress, setPtAddress] = useState('')
 
   // Prescribing org
   const [orgText, setOrgText] = useState('')
@@ -61,10 +84,9 @@ export function PEPSWritePage() {
   const [type, setType] = useState<PepsPrescriptionType>('private')
   const [animalName, setAnimalName] = useState('')
   const [animalOwner, setAnimalOwner] = useState('')
+  const [ownerAddress, setOwnerAddress] = useState('')
   const [useCascade, setUseCascade] = useState(false)
-  const [controlledDrug, setControlledDrug] = useState(false)
-  const [controlledDrugAck, setControlledDrugAck] = useState(false)
-  const [controlledDrugEvidence, setControlledDrugEvidence] = useState<File | null>(null)
+  const [confirmNoSch123, setConfirmNoSch123] = useState(false)
   const [repeats, setRepeats] = useState(0)
   const [items, setItems] = useState<DraftItem[]>([newItem()])
 
@@ -77,12 +99,25 @@ export function PEPSWritePage() {
   const [patientSmsNumber, setPatientSmsNumber] = useState('')
   const [sending, setSending] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [pin, setPin] = useState('')
+  const [pinSet, setPinSet] = useState<boolean | null>(null)
 
   const today = new Date().toISOString().slice(0, 10)
   const CASCADE_TEXT =
     'Prescribed under the veterinary cascade. For administration to the animal(s) under my care.'
 
-  useEffect(() => { fetchMyPrescriber() }, [fetchMyPrescriber])
+  useEffect(() => {
+    fetchMyPrescriber().then((p) => {
+      if (p) hasSigningPin().then(setPinSet).catch(() => setPinSet(false))
+    })
+  }, [fetchMyPrescriber, hasSigningPin])
+
+  const selectPatient = (p: Patient) => {
+    setPatient(p)
+    setPatientText(`${p.first_name} ${p.last_name}`)
+    setPtDob(p.dob ?? '')
+    setPtAddress(patientAddress(p))
+  }
 
   // Prefill prescribing org with the logged-in organisation's name
   useEffect(() => {
@@ -95,6 +130,14 @@ export function PEPSWritePage() {
       setNpError('First and last name are required.')
       return
     }
+    if (!npDob) {
+      setNpError('Date of birth is required on a prescription.')
+      return
+    }
+    if (!npAddr.trim() || !npPostcode.trim()) {
+      setNpError('Address and postcode are required on a prescription.')
+      return
+    }
     if (!organisation?.id) return
     try {
       const created = await createPatient({
@@ -104,9 +147,10 @@ export function PEPSWritePage() {
         dob: npDob || null,
         nhs_number: npNhs.trim() || null,
         address_line_1: npAddr.trim() || null,
+        city: npCity.trim() || null,
+        postcode: npPostcode.trim().toUpperCase() || null,
       })
-      setPatient(created)
-      setPatientText(`${created.first_name} ${created.last_name}`)
+      selectPatient(created)
       setShowNewPatient(false)
     } catch (e: any) {
       setNpError(
@@ -115,7 +159,7 @@ export function PEPSWritePage() {
           : e.message,
       )
     }
-  }, [npFirst, npLast, npDob, npNhs, npAddr, organisation, createPatient])
+  }, [npFirst, npLast, npDob, npNhs, npAddr, npCity, npPostcode, organisation, createPatient]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleCreateOrg = useCallback(async () => {
     if (!noName.trim()) return
@@ -143,16 +187,37 @@ export function PEPSWritePage() {
   }
   const removeItem = (key: string) => setItems((prev) => prev.filter((it) => it.key !== key))
 
-  const validForPreview = () => {
-    if (!myPrescriber || myPrescriber.status !== 'active') return false
-    if (!patientText.trim()) return false
-    const filled = items.filter((it) => it.drug_name.trim() && it.quantity.trim())
-    if (filled.length === 0) return false
-    if (type === 'vet' && !animalName.trim()) return false
-    if (type === 'private' && controlledDrug && (!controlledDrugAck || !controlledDrugEvidence)) return false
-    if (sendPatientSms && !patientSmsNumber.trim()) return false
-    return true
+  const filledItems = items.filter((it) => it.drug_name.trim() && it.quantity.trim())
+  const hasFreeText = filledItems.some((it) => !it.dmd_code)
+  const hasSch4 = filledItems.some((it) => pepsCdSchedule(it.cd_category) === 'sch4')
+  const hasCd = filledItems.some((it) => pepsCdSchedule(it.cd_category) !== 'none')
+
+  // Reasons the prescription can't be previewed yet (shown under the button)
+  const problems: string[] = []
+  if (type === 'private') {
+    if (!patient) problems.push('Choose the patient from your records, or add them.')
+    else {
+      if (!ptDob) problems.push("Enter the patient's date of birth.")
+      if (ptAddress.trim().length < 5) problems.push("Enter the patient's address.")
+    }
+  } else {
+    if (!animalName.trim()) problems.push("Enter the animal's name.")
+    if (!animalOwner.trim()) problems.push("Enter the owner's name.")
+    if (ownerAddress.trim().length < 5) problems.push("Enter the owner's address.")
   }
+  if (filledItems.length === 0) problems.push('Add at least one medicine with a quantity.')
+  if (filledItems.some((it) => pepsCdBlocked(it.cd_category))) {
+    problems.push('Remove the Schedule 1, 2 or 3 controlled drug. These need a paper FP10PCD.')
+  }
+  if (type === 'private' && hasFreeText) problems.push('Choose every medicine from the dm+d list.')
+  if (type === 'vet' && hasFreeText && !confirmNoSch123) {
+    problems.push('Confirm that no free-text item is a Schedule 1, 2 or 3 controlled drug.')
+  }
+  if (sendPatientSms && !patientSmsNumber.trim()) problems.push('Enter the phone number for the SMS.')
+  if (!myPrescriber?.address || myPrescriber.address.trim().length < 5) {
+    problems.push('Add your practice address in Prescriber setup.')
+  }
+  if (pinSet === false) problems.push('Set your signing PIN in Prescriber setup.')
 
   const handleSend = async () => {
     setError(null)
@@ -161,12 +226,8 @@ export function PEPSWritePage() {
       setError('Select a pharmacy to send to, or choose the spine.')
       return
     }
-    if (type === 'private' && controlledDrug && (!controlledDrugAck || !controlledDrugEvidence)) {
-      setError('For controlled drug declarations, acknowledge the legal warning and attach evidence of the physical prescription.')
-      return
-    }
-    if (controlledDrugEvidence && controlledDrugEvidence.size > 2 * 1024 * 1024) {
-      setError('Controlled-drug evidence file is too large. Please use a file smaller than 2MB.')
+    if (!/^\d{6}$/.test(pin)) {
+      setError('Enter your 6-digit signing PIN.')
       return
     }
     if (sendPatientSms && !patientSmsNumber.trim()) {
@@ -175,16 +236,26 @@ export function PEPSWritePage() {
     }
     setSending(true)
     try {
-      const patientSnapshot = patient
-        ? {
-            full_name: `${patient.first_name} ${patient.last_name}`,
-            first_name: patient.first_name,
-            last_name: patient.last_name,
-            dob: patient.dob,
-            nhs_number: patient.nhs_number,
-            address: [patient.address_line_1, patient.city, patient.postcode].filter(Boolean).join(', ') || null,
-          }
-        : { full_name: patientText.trim() }
+      let patientSnapshot
+      if (type === 'private' && patient) {
+        patientSnapshot = {
+          full_name: `${patient.first_name} ${patient.last_name}`,
+          first_name: patient.first_name,
+          last_name: patient.last_name,
+          dob: ptDob,
+          nhs_number: patient.nhs_number,
+          address: ptAddress.trim(),
+        }
+        // Keep the patient record up to date if details were filled in here
+        if (!patient.dob || !patientAddress(patient)) {
+          const updates: Partial<Patient> = {}
+          if (!patient.dob) updates.dob = ptDob
+          if (!patientAddress(patient)) updates.address_line_1 = ptAddress.trim()
+          updatePatient(patient.id, updates).catch(() => undefined)
+        }
+      } else {
+        patientSnapshot = { full_name: animalOwner.trim(), address: ownerAddress.trim() }
+      }
 
       const orgSnapshot = prescribingOrg
         ? {
@@ -197,13 +268,13 @@ export function PEPSWritePage() {
       const rx = await createPrescription({
         prescriber: myPrescriber,
         origin_org_id: organisation?.id ?? null,
-        patient_id: patient?.id ?? null,
+        patient_id: type === 'private' ? patient?.id ?? null : null,
         patient_snapshot: patientSnapshot,
         prescribing_org_id: prescribingOrg?.id ?? null,
         prescribing_org_snapshot: orgSnapshot,
         prescription_type: type,
         animal_name: type === 'vet' ? animalName.trim() || null : null,
-        animal_owner: type === 'vet' ? animalOwner.trim() || null : null,
+        animal_owner: type === 'vet' ? animalOwner.trim() : null,
         cascade_wording: type === 'vet' && useCascade ? CASCADE_TEXT : null,
         repeats,
         items: items
@@ -211,42 +282,16 @@ export function PEPSWritePage() {
           .map<Partial<PepsPrescriptionItem>>((it) => ({
             drug_name: it.drug_name.trim(),
             dmd_code: it.dmd_code,
-            dmd_type: it.dmd_type,
+            dmd_type: it.dmd_code ? it.dmd_type : 'free_text',
             quantity: it.quantity.trim(),
             dosage: it.dosage.trim() || null,
           })),
         assigned_org_id: route === 'pharmacy' ? targetPharmacy!.id : null,
-        // Controlled-drug declaration is stored on the 'created' audit event.
-        created_metadata: type === 'private'
-          ? {
-              declaration_source: 'write_page',
-              controlled_drug_declared: controlledDrug,
-              controlled_drug_acknowledged: controlledDrug ? controlledDrugAck : false,
-            }
-          : {},
+        created_metadata: { source: 'web_write_page' },
+        pin,
+        confirm_no_sch123: type === 'vet' && hasFreeText ? confirmNoSch123 : false,
       })
-
-      let controlledDrugEvidencePath: string | null = null
-      if (type === 'private' && controlledDrug && controlledDrugEvidence) {
-        const safeName = controlledDrugEvidence.name.replace(/[^a-zA-Z0-9._-]/g, '_')
-        const path = `peps/${rx.id}/controlled-drug/${Date.now()}-${safeName}`
-        const { error: uploadError } = await getUserClient()
-          .storage
-          .from('scan-images')
-          .upload(path, controlledDrugEvidence, { upsert: false })
-        if (uploadError) throw new Error(`Could not upload controlled-drug evidence: ${uploadError.message}`)
-        controlledDrugEvidencePath = path
-      }
-
-      if (controlledDrugEvidencePath && controlledDrugEvidence) {
-        await logEvent(rx.id, 'cd_evidence_attached', {
-          attachment_name: controlledDrugEvidence.name,
-          attachment_type: controlledDrugEvidence.type,
-          attachment_size: controlledDrugEvidence.size,
-          attachment_storage_bucket: 'scan-images',
-          attachment_storage_path: controlledDrugEvidencePath,
-        })
-      }
+      setPin('')
 
       if (sendPatientSms && patientSmsNumber.trim() && organisation?.id) {
         try {
@@ -268,7 +313,8 @@ export function PEPSWritePage() {
 
       navigate(`/peps/${rx.id}`)
     } catch (e: any) {
-      setError(e.message)
+      setError(e instanceof PepsWrongPinError ? e.message : e.message ?? 'Could not send the prescription.')
+      setPin('')
       setSending(false)
     }
   }
@@ -278,9 +324,7 @@ export function PEPSWritePage() {
   if (!myPrescriber || myPrescriber.status !== 'active') {
     return (
       <div>
-        <div className="page-header">
-          <h1>Write Prescription</h1>
-        </div>
+        <PageHeader breadcrumbs={[{ label: 'PEPS', to: '/peps' }, { label: 'Write prescription' }]} title="Write prescription" />
         <div className="ps-card" style={{ maxWidth: 560, padding: 'var(--ps-space-lg)' }}>
           <p style={{ marginTop: 0 }}>
             {!myPrescriber
@@ -288,7 +332,7 @@ export function PEPSWritePage() {
               : 'Your prescriber account is not active yet.'}
           </p>
           <button className="ps-btn ps-btn-primary" onClick={() => navigate('/me/prescriber')}>
-            Go to Prescriber Setup →
+            Go to prescriber setup →
           </button>
         </div>
       </div>
@@ -297,14 +341,11 @@ export function PEPSWritePage() {
 
   return (
     <div>
-      <div className="page-header">
-        <div className="breadcrumbs">
-          <a href="/peps" onClick={(e) => { e.preventDefault(); navigate('/peps') }}>PEPS</a>
-          <span className="separator">/</span>
-          <span>Write Prescription</span>
-        </div>
-        <h1>Write Prescription</h1>
-      </div>
+      <PageHeader
+        breadcrumbs={[{ label: 'PEPS', to: '/peps' }, { label: 'Write prescription' }]}
+        title="Write prescription"
+        subtitle="Write a private or veterinary prescription, sign it with your PIN and send it to a pharmacy."
+      />
 
       {error && <div className="ps-alert ps-alert-error" style={{ marginBottom: 'var(--ps-space-md)' }}>{error}</div>}
 
@@ -320,32 +361,49 @@ export function PEPSWritePage() {
           </div>
         </div>
 
-        {/* Patient */}
-        <div className="form-group">
-          <label>Patient *</label>
-          <Autocomplete<Patient>
-            value={patientText}
-            onChange={(t) => { setPatientText(t); setPatient(null) }}
-            onSearch={(q) => searchPatients(organisation!.id, q)}
-            onSelect={(p) => { setPatient(p); setPatientText(`${p.first_name} ${p.last_name}`) }}
-            getKey={(p) => p.id}
-            getLabel={(p) => `${p.first_name} ${p.last_name}`}
-            getDetail={(p) => [p.dob, p.nhs_number].filter(Boolean).join(' · ') || null}
-            placeholder="Search existing patients by name or NHS number…"
-            addNewLabel="Add new patient"
-            onAddNew={(text) => {
-              const parts = text.trim().split(/\s+/)
-              setNpFirst(parts[0] ?? '')
-              setNpLast(parts.slice(1).join(' '))
-              setShowNewPatient(true)
-            }}
-          />
-          {patient && (
-            <p style={{ fontSize: 'var(--ps-font-xs)', color: 'var(--ps-slate)', margin: '4px 0 0' }}>
-              Linked to patient record · {patient.nhs_number ?? 'no NHS number'}
-            </p>
-          )}
-        </div>
+        {/* Patient (human prescriptions) */}
+        {type === 'private' && (
+          <div className="form-group">
+            <label>Patient *</label>
+            <Autocomplete<Patient>
+              value={patientText}
+              onChange={(t) => { setPatientText(t); setPatient(null) }}
+              onSearch={(q) => searchPatients(organisation!.id, q)}
+              onSelect={selectPatient}
+              getKey={(p) => p.id}
+              getLabel={(p) => `${p.first_name} ${p.last_name}`}
+              getDetail={(p) => [p.dob, p.postcode, p.nhs_number].filter(Boolean).join(' · ') || null}
+              placeholder="Search your patients by name or NHS number…"
+              addNewLabel="Add new patient"
+              onAddNew={(text) => {
+                const parts = text.trim().split(/\s+/)
+                setNpFirst(parts[0] ?? '')
+                setNpLast(parts.slice(1).join(' '))
+                setShowNewPatient(true)
+              }}
+            />
+            {!patient && patientText.trim().length > 1 && (
+              <p style={{ fontSize: 'var(--ps-font-xs)', color: 'var(--ps-slate)', margin: '4px 0 0' }}>
+                Pick the patient from the list, or choose “Add new patient”.
+              </p>
+            )}
+            {patient && (
+              <div style={{ display: 'grid', gridTemplateColumns: 'minmax(140px, 1fr) minmax(0, 2fr)', gap: 'var(--ps-space-md)', marginTop: 'var(--ps-space-sm)' }}>
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label>Date of birth *</label>
+                  <input className="ps-input" type="date" value={ptDob} max={today} onChange={(e) => setPtDob(e.target.value)} />
+                  {ptDob && ageFromDob(ptDob) !== null && (
+                    <span style={{ fontSize: 'var(--ps-font-xs)', color: 'var(--ps-slate)' }}>Age {ageFromDob(ptDob)}</span>
+                  )}
+                </div>
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label>Address *</label>
+                  <input className="ps-input" value={ptAddress} onChange={(e) => setPtAddress(e.target.value)} placeholder="House, street, town, postcode" />
+                </div>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Prescribing organisation */}
         <div className="form-group">
@@ -398,9 +456,13 @@ export function PEPSWritePage() {
                 <input className="ps-input" value={animalName} onChange={(e) => setAnimalName(e.target.value)} />
               </div>
               <div className="form-group" style={{ marginBottom: 0 }}>
-                <label>Owner</label>
+                <label>Owner's name *</label>
                 <input className="ps-input" value={animalOwner} onChange={(e) => setAnimalOwner(e.target.value)} />
               </div>
+            </div>
+            <div className="form-group" style={{ marginTop: 'var(--ps-space-sm)', marginBottom: 0 }}>
+              <label>Owner's address *</label>
+              <input className="ps-input" value={ownerAddress} onChange={(e) => setOwnerAddress(e.target.value)} placeholder="House, street, town, postcode" />
             </div>
             <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 'var(--ps-space-sm)', fontSize: 'var(--ps-font-sm)' }}>
               <input type="checkbox" checked={useCascade} onChange={(e) => setUseCascade(e.target.checked)} />
@@ -413,65 +475,76 @@ export function PEPSWritePage() {
         <div className="form-group">
           <label>Medication *</label>
           <p style={{ fontSize: 'var(--ps-font-xs)', color: 'var(--ps-slate)', margin: '0 0 8px' }}>
-            Drugs are searched from the dm+d dictionary. Controlled drugs require a physical legal script.
+            Choose each medicine from the dm+d dictionary. Schedule 1, 2 and 3 controlled drugs can't be sent
+            through PEPS and need a paper FP10PCD. Schedule 4 items make the prescription valid for 28 days.
+            {type === 'vet' && ' Veterinary prescriptions may use free text for products not in dm+d.'}
           </p>
-          {items.map((it) => (
-            <div key={it.key} style={{ display: 'grid', gridTemplateColumns: 'minmax(0,2fr) minmax(90px,1fr) minmax(0,1.5fr) auto', gap: 'var(--ps-space-sm)', marginBottom: 'var(--ps-space-sm)', alignItems: 'start' }}>
-              <Autocomplete<PepsDmdResult>
-                value={it.drug_name}
-                onChange={(t) => updateItem(it.key, { drug_name: t, dmd_code: null, dmd_type: 'free_text' })}
-                onSearch={searchDmd}
-                onSelect={(d) => updateItem(it.key, { drug_name: d.name, dmd_code: d.code, dmd_type: d.dmd_type })}
-                getKey={(d) => d.code}
-                getLabel={(d) => d.name}
-                getDetail={(d) => d.dmd_type.toUpperCase()}
-                placeholder="Drug name & strength…"
-              />
-              <input className="ps-input" placeholder="Qty" value={it.quantity} onChange={(e) => updateItem(it.key, { quantity: e.target.value })} />
-              <input className="ps-input" placeholder="Dosage / directions" value={it.dosage} onChange={(e) => updateItem(it.key, { dosage: e.target.value })} />
-              <button className="ps-btn ps-btn-ghost" onClick={() => removeItem(it.key)} disabled={items.length === 1} title="Remove">✕</button>
-            </div>
-          ))}
+          {items.map((it) => {
+            const sch = pepsCdSchedule(it.cd_category)
+            const blocked = pepsCdBlocked(it.cd_category)
+            const freeTextOnHuman = type === 'private' && it.drug_name.trim() && !it.dmd_code
+            return (
+              <div key={it.key} style={{ marginBottom: 'var(--ps-space-sm)' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,2fr) minmax(90px,1fr) minmax(0,1.5fr) auto', gap: 'var(--ps-space-sm)', alignItems: 'start' }}>
+                  <Autocomplete<PepsDmdResult>
+                    value={it.drug_name}
+                    onChange={(t) => updateItem(it.key, { drug_name: t, dmd_code: null, dmd_type: 'free_text', cd_category: null })}
+                    onSearch={(q) => searchDmd(q, true)}
+                    onSelect={(d) => updateItem(it.key, { drug_name: d.name, dmd_code: d.code, dmd_type: d.dmd_type, cd_category: d.cd_category ?? null })}
+                    getKey={(d) => `${d.dmd_type}-${d.code}`}
+                    getLabel={(d) => d.name}
+                    getDetail={(d) => {
+                      const label = PEPS_CD_LABELS[pepsCdSchedule(d.cd_category)]
+                      return [d.dmd_type.toUpperCase(), label, pepsCdBlocked(d.cd_category) ? 'not allowed' : ''].filter(Boolean).join(' · ')
+                    }}
+                    placeholder="Drug name & strength…"
+                  />
+                  <input className="ps-input" placeholder="Qty" value={it.quantity} onChange={(e) => updateItem(it.key, { quantity: e.target.value })} />
+                  <input className="ps-input" placeholder="Dosage / directions" value={it.dosage} onChange={(e) => updateItem(it.key, { dosage: e.target.value })} />
+                  <button className="ps-btn ps-btn-ghost" onClick={() => removeItem(it.key)} disabled={items.length === 1} title="Remove">✕</button>
+                </div>
+                {blocked && (
+                  <div className="ps-alert ps-alert-error" style={{ marginTop: 4 }}>
+                    {it.drug_name} is a {PEPS_CD_LABELS[sch]} controlled drug. Private prescriptions for it must be written on the paper FP10PCD form.
+                  </div>
+                )}
+                {!blocked && sch !== 'none' && (
+                  <span className="ps-badge" style={{ marginTop: 4, display: 'inline-block' }}>{PEPS_CD_LABELS[sch]}</span>
+                )}
+                {freeTextOnHuman && (
+                  <p style={{ fontSize: 'var(--ps-font-xs)', color: 'var(--ps-danger, #b42318)', margin: '4px 0 0' }}>
+                    Pick this medicine from the dm+d list.
+                  </p>
+                )}
+              </div>
+            )
+          })}
           <button className="ps-btn ps-btn-secondary ps-btn-sm" onClick={() => setItems((p) => [...p, newItem()])}>＋ Add medication</button>
         </div>
 
-        {type === 'private' && (
-          <div style={{ padding: 'var(--ps-space-md)', background: 'var(--ps-off-white)', borderRadius: 'var(--ps-radius-md)', marginBottom: 'var(--ps-space-md)' }}>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-              <input type="checkbox" checked={controlledDrug} onChange={(e) => setControlledDrug(e.target.checked)} />
-              I am prescribing a Schedule 2 or 3 controlled drug
-            </label>
-            {controlledDrug && (
-              <>
-                <div className="ps-alert ps-alert-error" style={{ marginBottom: 8 }}>
-                  Legal warning: UK controlled drugs require physical compliant paper. You are responsible for ensuring the physical prescription reaches the dispensing pharmacy within 3 days.
-                </div>
-                <div className="form-group" style={{ marginBottom: 8 }}>
-                  <label>Attach scan/photo of the physical prescription *</label>
-                  <input
-                    className="ps-input"
-                    type="file"
-                    accept="image/*,.pdf"
-                    onChange={(e) => setControlledDrugEvidence(e.target.files?.[0] ?? null)}
-                  />
-                  <p style={{ fontSize: 'var(--ps-font-xs)', color: 'var(--ps-slate)', marginTop: 4 }}>
-                    This records evidence for emergency basis checks. Keep the physical original for legal handling.
-                  </p>
-                </div>
-                <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 'var(--ps-font-sm)' }}>
-                  <input type="checkbox" checked={controlledDrugAck} onChange={(e) => setControlledDrugAck(e.target.checked)} />
-                  I acknowledge legal responsibility for physical delivery and controlled-drug paper compliance.
-                </label>
-              </>
-            )}
+        {type === 'vet' && hasFreeText && (
+          <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 'var(--ps-font-sm)' }}>
+            <input type="checkbox" checked={confirmNoSch123} onChange={(e) => setConfirmNoSch123(e.target.checked)} />
+            I confirm that no free-text item is a Schedule 1, 2 or 3 controlled drug.
+          </label>
+        )}
+
+        {hasSch4 && (
+          <div className="ps-alert ps-alert-warning">
+            This prescription has a Schedule 4 controlled drug, so it is valid for 28 days from today.
           </div>
         )}
 
         <div style={{ display: 'flex', gap: 'var(--ps-space-sm)', marginTop: 'var(--ps-space-xs)' }}>
-          <button className="ps-btn ps-btn-primary" disabled={!validForPreview()} onClick={() => setShowPreview(true)}>
+          <button className="ps-btn ps-btn-primary" disabled={problems.length > 0} onClick={() => setShowPreview(true)}>
             Preview & sign →
           </button>
         </div>
+        {problems.length > 0 && (
+          <ul style={{ margin: 0, paddingLeft: '1.2rem', fontSize: 'var(--ps-font-sm)', color: 'var(--ps-slate)' }}>
+            {problems.map((p) => <li key={p}>{p}</li>)}
+          </ul>
+        )}
       </div>
 
       {/* New patient modal */}
@@ -480,10 +553,14 @@ export function PEPSWritePage() {
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--ps-space-md)' }}>
           <div className="form-group"><label>First name *</label><input className="ps-input" value={npFirst} onChange={(e) => setNpFirst(e.target.value)} /></div>
           <div className="form-group"><label>Last name *</label><input className="ps-input" value={npLast} onChange={(e) => setNpLast(e.target.value)} /></div>
-          <div className="form-group"><label>Date of birth</label><input className="ps-input" type="date" value={npDob} onChange={(e) => setNpDob(e.target.value)} /></div>
+          <div className="form-group"><label>Date of birth *</label><input className="ps-input" type="date" value={npDob} max={today} onChange={(e) => setNpDob(e.target.value)} /></div>
           <div className="form-group"><label>NHS number</label><input className="ps-input" value={npNhs} onChange={(e) => setNpNhs(e.target.value)} /></div>
         </div>
-        <div className="form-group"><label>Address</label><input className="ps-input" value={npAddr} onChange={(e) => setNpAddr(e.target.value)} /></div>
+        <div className="form-group"><label>Address *</label><input className="ps-input" value={npAddr} onChange={(e) => setNpAddr(e.target.value)} /></div>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--ps-space-md)' }}>
+          <div className="form-group"><label>Town</label><input className="ps-input" value={npCity} onChange={(e) => setNpCity(e.target.value)} /></div>
+          <div className="form-group"><label>Postcode *</label><input className="ps-input" value={npPostcode} onChange={(e) => setNpPostcode(e.target.value)} /></div>
+        </div>
         <div style={{ display: 'flex', gap: 'var(--ps-space-sm)', justifyContent: 'flex-end' }}>
           <button className="ps-btn ps-btn-ghost" onClick={() => setShowNewPatient(false)}>Cancel</button>
           <button className="ps-btn ps-btn-primary" onClick={handleAddNewPatient}>Add patient</button>
@@ -519,8 +596,21 @@ export function PEPSWritePage() {
               <div style={{ fontSize: 'var(--ps-font-xs)', color: 'var(--ps-slate)', textTransform: 'uppercase' }}>
                 {type === 'vet' ? 'Veterinary' : 'Private'} prescription
               </div>
-              <strong style={{ fontSize: 'var(--ps-font-lg)' }}>{patientText}</strong>
-              {type === 'vet' && animalName && <div>Animal: {animalName}{animalOwner ? ` (owner: ${animalOwner})` : ''}</div>}
+              {type === 'private' ? (
+                <>
+                  <strong style={{ fontSize: 'var(--ps-font-lg)' }}>{patientText}</strong>
+                  <div style={{ fontSize: 'var(--ps-font-sm)' }}>
+                    DOB {ptDob}{ptDob && ageFromDob(ptDob) !== null ? ` (age ${ageFromDob(ptDob)})` : ''}
+                  </div>
+                  <div style={{ fontSize: 'var(--ps-font-sm)', color: 'var(--ps-slate)' }}>{ptAddress}</div>
+                </>
+              ) : (
+                <>
+                  <strong style={{ fontSize: 'var(--ps-font-lg)' }}>{animalName}</strong>
+                  <div style={{ fontSize: 'var(--ps-font-sm)' }}>Owner: {animalOwner}</div>
+                  <div style={{ fontSize: 'var(--ps-font-sm)', color: 'var(--ps-slate)' }}>{ownerAddress}</div>
+                </>
+              )}
             </div>
             <div style={{ textAlign: 'right', fontSize: 'var(--ps-font-sm)' }}>
               <div>{today}</div>
@@ -532,6 +622,9 @@ export function PEPSWritePage() {
             {items.filter((it) => it.drug_name.trim()).map((it) => (
               <li key={it.key} style={{ marginBottom: 8 }}>
                 <strong>{it.drug_name}</strong> — {it.quantity}
+                {pepsCdSchedule(it.cd_category) !== 'none' && (
+                  <span className="ps-badge" style={{ marginLeft: 6 }}>{PEPS_CD_LABELS[pepsCdSchedule(it.cd_category)]}</span>
+                )}
                 {it.dosage && <div style={{ fontSize: 'var(--ps-font-sm)', color: 'var(--ps-slate)' }}>{it.dosage}</div>}
               </li>
             ))}
@@ -545,6 +638,7 @@ export function PEPSWritePage() {
               <div><strong>{myPrescriber.full_name}</strong></div>
               <div style={{ color: 'var(--ps-slate)' }}>{myPrescriber.registration_body} {myPrescriber.registration_number}</div>
               <div style={{ color: 'var(--ps-slate)' }}>{orgText}</div>
+              <div style={{ color: 'var(--ps-slate)' }}>{myPrescriber.address}</div>
             </div>
             {myPrescriber.signature_data && (
               <img src={myPrescriber.signature_data} alt="signature" style={{ height: 56, maxWidth: 200, objectFit: 'contain' }} />
@@ -593,16 +687,31 @@ export function PEPSWritePage() {
           )}
         </div>
 
-        {type === 'private' && controlledDrug && (
-          <div className="ps-alert ps-alert-warning" style={{ marginBottom: 'var(--ps-space-md)' }}>
-            Controlled drug declared: if dispensed, the dispensing pharmacy must keep the original print and only copies can be reprinted by other pharmacies.
-          </div>
+        <div className="form-group">
+          <label>Signing PIN *</label>
+          <input
+            className="ps-input"
+            type="password"
+            inputMode="numeric"
+            autoComplete="off"
+            maxLength={6}
+            style={{ maxWidth: 180, letterSpacing: '0.3em' }}
+            value={pin}
+            onChange={(e) => setPin(e.target.value.replace(/\D/g, ''))}
+            onKeyDown={(e) => { if (e.key === 'Enter' && pin.length === 6 && !sending) handleSend() }}
+          />
+          <p style={{ fontSize: 'var(--ps-font-xs)', color: 'var(--ps-slate)', margin: '4px 0 0' }}>
+            Entering your PIN signs this prescription. It is sealed when sent, so any later change can be detected.
+          </p>
+        </div>
+        {hasCd && !hasSch4 && (
+          <p style={{ fontSize: 'var(--ps-font-xs)', color: 'var(--ps-slate)' }}>Includes a Schedule 5 controlled drug.</p>
         )}
 
         {error && <div className="ps-alert ps-alert-error" style={{ marginBottom: 'var(--ps-space-md)' }}>{error}</div>}
         <div style={{ display: 'flex', gap: 'var(--ps-space-sm)', justifyContent: 'flex-end' }}>
           <button className="ps-btn ps-btn-ghost" onClick={() => setShowPreview(false)}>Back</button>
-          <button className="ps-btn ps-btn-primary" onClick={handleSend} disabled={sending}>
+          <button className="ps-btn ps-btn-primary" onClick={handleSend} disabled={sending || pin.length !== 6}>
             {sending ? 'Sending…' : route === 'spine' ? 'Sign & send to spine' : 'Sign & send to pharmacy'}
           </button>
         </div>
