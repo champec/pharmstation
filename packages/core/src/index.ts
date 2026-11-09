@@ -23,7 +23,7 @@ export { useNHS111Store, type NHS111State } from './stores/nhs111-store'
 export { useOutcomeStore, type OutcomeState } from './stores/outcome-store'
 export { usePepsStore, type PepsState, type NewPrescriptionInput } from './stores/peps-store'
 export { useAlertStore, type AlertState, DEFAULT_ALERT_CHANNELS, ALERT_EVENT_TYPES } from './stores/alert-store'
-export { useShopStore, type ShopState, type ShopFrontOrg } from './stores/shop-store'
+export { useShopStore, type ShopState, type ShopFrontOrg, type ShopTrackedOrder } from './stores/shop-store'
 export { useSubscriptionStore, type SubscriptionState, type BillingMode } from './stores/subscription-store'
 export {
   PLANS,

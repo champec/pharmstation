@@ -2702,6 +2702,11 @@ export interface ShopSettings {
   collection_enabled: boolean
   /** How shop customers can pay: in store / on delivery, card online, or either. */
   payment_methods: ShopPaymentMethods
+  /** Shown on the shop front. Opening the shop needs the pharmacist in charge and a contact. */
+  pharmacist_in_charge_name: string | null
+  pharmacist_in_charge_gphc: string | null
+  contact_phone: string | null
+  contact_email: string | null
   created_at: string
   updated_at: string
 }
