@@ -32,6 +32,18 @@ function formatDate(value: string | null) {
     : 'No date set'
 }
 
+function todayIso() {
+  const d = new Date()
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
+/** A round is overdue when its date has passed and it is not finished. */
+function isOverdue(round: DeliveryRound) {
+  return !!round.scheduled_date
+    && ['draft', 'scheduled', 'in_progress'].includes(round.status)
+    && round.scheduled_date < todayIso()
+}
+
 function formatTime(value: string | null) {
   return value ? value.slice(0, 5) : ''
 }
@@ -60,8 +72,11 @@ export function DeliveryRoundDashboardPage() {
         (round.title && round.title.toLowerCase().includes(q)) || round.id.includes(q),
       )
     }
+    if (!showCompleted) list = list.filter((round) => round.status !== 'completed')
     return list
-  }, [rounds, search])
+  }, [rounds, search, showCompleted])
+
+  const overdueCount = visibleRounds.filter(isOverdue).length
 
   const renderCard = (round: DeliveryRound) => {
     const patientCount = round.patients?.length ?? 0
@@ -83,12 +98,13 @@ export function DeliveryRoundDashboardPage() {
           <span>{patientCount} patient{patientCount === 1 ? '' : 's'}</span>
           {round.care_home_batch_id && <span>Care home</span>}
         </div>
-        <small className="care-home-group-card-batch">
+        <small className="care-home-group-card-batch" style={isOverdue(round) ? { color: 'var(--ps-error)', fontWeight: 600 } : undefined}>
+          {isOverdue(round) && 'Overdue · '}
           {formatDate(round.scheduled_date)}
           {round.scheduled_time_start && ` · ${formatTime(round.scheduled_time_start)}`}
           {round.scheduled_time_end && `–${formatTime(round.scheduled_time_end)}`}
         </small>
-        {driverName && <small className="care-home-group-card-time">🚗 {driverName}</small>}
+        <small className="care-home-group-card-time">{driverName ? `Driver: ${driverName}` : 'No driver yet'}</small>
       </button>
     )
   }
@@ -112,7 +128,7 @@ export function DeliveryRoundDashboardPage() {
           <div className="care-home-header-actions care-home-no-print">
             {redeliveryQueue.length > 0 && (
               <button className="ps-btn ps-btn-secondary" type="button" onClick={() => navigate('/deliveries/redelivery')}>
-                ⚠️ Redelivery queue ({redeliveryQueue.length})
+                Redelivery queue ({redeliveryQueue.length})
               </button>
             )}
             <button className="ps-btn ps-btn-secondary" type="button" onClick={() => navigate('/deliveries/templates')}>
@@ -144,7 +160,10 @@ export function DeliveryRoundDashboardPage() {
           <input type="checkbox" checked={showCompleted} onChange={(e) => setShowCompleted(e.target.checked)} />
           Show completed
         </label>
-        <span className="care-home-filter-count">{visibleRounds.length} active</span>
+        <span className="care-home-filter-count">
+          {visibleRounds.length} {showCompleted ? 'shown' : 'active'}
+          {overdueCount > 0 && <strong style={{ color: 'var(--ps-error)', marginLeft: 8 }}>{overdueCount} overdue</strong>}
+        </span>
       </div>
 
       {loading && rounds.length === 0 ? (

@@ -27,6 +27,8 @@ export interface CompleteDeliveryOptions {
 export interface DriverState {
   assignedRounds: DeliveryRound[]
   openRounds: DeliveryRound[]
+  /** The driver's finished rounds from the last 30 days, newest first. */
+  recentRounds: DeliveryRound[]
   activeRoute: DeliveryRound | null
   loading: boolean
   saving: boolean
@@ -79,6 +81,7 @@ export const useDriverStore = create<DriverState>((set, get) => {
   return {
     assignedRounds: [],
     openRounds: [],
+    recentRounds: [],
     activeRoute: null,
     loading: false,
     saving: false,
@@ -89,7 +92,8 @@ export const useDriverStore = create<DriverState>((set, get) => {
       set({ loading: true, error: null })
       try {
         const client = getUserClient()
-        const [assigned, open] = await Promise.all([
+        const since = new Date(Date.now() - 30 * 86_400_000).toISOString()
+        const [assigned, open, recent] = await Promise.all([
           client
             .from('ps_delivery_rounds')
             .select(DRIVER_ROUND_SELECT)
@@ -105,10 +109,20 @@ export const useDriverStore = create<DriverState>((set, get) => {
                 .eq('status', 'scheduled')
                 .order('scheduled_date', { ascending: true })
             : Promise.resolve({ data: [], error: null }),
+          client
+            .from('ps_delivery_rounds')
+            .select('*, patients:ps_delivery_round_patients(id, status)')
+            .eq('driver_id', memberId)
+            .eq('status', 'completed')
+            .gte('completed_at', since)
+            .order('completed_at', { ascending: false })
+            .limit(20),
         ])
         if (assigned.error) throw assigned.error
         if (open.error) throw open.error
+        if (recent.error) throw recent.error
         set({
+          recentRounds: (recent.data ?? []) as DeliveryRound[],
           assignedRounds: ((assigned.data ?? []) as DeliveryRound[]).map(sortStops),
           openRounds: ((open.data ?? []) as DeliveryRound[]).map(sortStops),
           loading: false,
