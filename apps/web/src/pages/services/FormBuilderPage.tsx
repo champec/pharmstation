@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useServiceStore, useAuthStore } from '@pharmstation/core'
 import type { ServiceFormField, FieldType } from '@pharmstation/types'
-import { ClipboardList } from 'lucide-react'
+import { ClipboardList, Trash2 } from 'lucide-react'
 
 /* ---- Constants ---- */
 
@@ -541,7 +541,7 @@ function FieldCard({
         style={{ color: 'var(--ps-error)', paddingTop: 4 }}
         title="Delete field"
       >
-        🗑
+        <Trash2 size={16} aria-hidden="true" />
       </button>
     </div>
   )

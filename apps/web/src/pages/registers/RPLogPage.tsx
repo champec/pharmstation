@@ -30,6 +30,7 @@ import {
   type ExportCell,
 } from '../../utils/registerExport'
 import { addDays, dateList, formatDateTime, formatDay, formatTime, relativeDay, ukDate } from '../logs/logUtils'
+import { History } from 'lucide-react'
 
 type Period = 14 | 30 | 90 | 365
 
@@ -483,7 +484,7 @@ export function RPLogPage() {
                       <button className="ps-btn ps-btn-primary ps-btn-sm" onClick={() => setSignOutFor(s)}>Sign out</button>
                     )}
                     {canSign && <button className="ps-btn ps-btn-ghost ps-btn-sm" onClick={() => setForm({ mode: 'correct', session: s })}>Correct</button>}
-                    <button className="ps-btn ps-btn-ghost ps-btn-sm" onClick={() => setHistoryFor(s)} aria-label="History">🕘</button>
+                    <button className="ps-btn ps-btn-ghost ps-btn-sm" onClick={() => setHistoryFor(s)} aria-label="History"><History size={16} aria-hidden="true" /></button>
                   </div>
                 </div>
               )

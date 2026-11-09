@@ -19,7 +19,7 @@ import {
   scheduleLabel,
   ukDate,
 } from './logUtils'
-import { NotebookPen } from 'lucide-react'
+import { NotebookPen, Settings } from 'lucide-react'
 
 const WINDOW_DAYS = 35
 
@@ -236,7 +236,7 @@ export function LogsPage() {
                       {cat.cta}
                     </button>
                   )}
-                  <button className="ps-btn ps-btn-ghost ps-btn-sm" onClick={() => navigate(`/logs/${sub.id}/settings`)} aria-label="Log settings">⚙️</button>
+                  <button className="ps-btn ps-btn-ghost ps-btn-sm" onClick={() => navigate(`/logs/${sub.id}/settings`)} aria-label="Log settings"><Settings size={16} aria-hidden="true" /></button>
                 </div>
               </article>
             )

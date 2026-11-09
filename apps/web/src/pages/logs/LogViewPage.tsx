@@ -33,6 +33,7 @@ import {
   scheduleLabel,
   ukDate,
 } from './logUtils'
+import { History, Settings, Trash2 } from 'lucide-react'
 
 type DateRange = '7d' | '30d' | 'custom'
 
@@ -262,7 +263,7 @@ export function LogViewPage() {
             )}
             <button className="ps-btn ps-btn-secondary" onClick={handleLogPrint} disabled={!template}>Print / PDF</button>
             <button className="ps-btn ps-btn-secondary" onClick={handleLogCsv} disabled={!template}>⬇ CSV</button>
-            <button className="ps-btn ps-btn-ghost" onClick={() => navigate(`/logs/${subscriptionId}/settings`)} aria-label="Settings">⚙️</button>
+            <button className="ps-btn ps-btn-ghost" onClick={() => navigate(`/logs/${subscriptionId}/settings`)} aria-label="Settings"><Settings size={16} aria-hidden="true" /></button>
           </div>
         </div>
       </div>
@@ -369,7 +370,7 @@ export function LogViewPage() {
                       {entry ? (
                         <>
                           <button className="ps-btn ps-btn-ghost ps-btn-sm" onClick={() => openEdit(entry)}>Edit</button>
-                          <button className="ps-btn ps-btn-ghost ps-btn-sm" onClick={() => setHistoryEntry(entry)} aria-label="History">🕘</button>
+                          <button className="ps-btn ps-btn-ghost ps-btn-sm" onClick={() => setHistoryEntry(entry)} aria-label="History"><History size={16} aria-hidden="true" /></button>
                         </>
                       ) : required ? (
                         <button className={`ps-btn ps-btn-sm ${isToday ? 'ps-btn-primary' : 'ps-btn-secondary'}`} onClick={() => openNew(date)}>
@@ -405,8 +406,8 @@ export function LogViewPage() {
                   {!entry.voided_at && (
                     <div className="log-row-actions">
                       <button className="ps-btn ps-btn-ghost ps-btn-sm" onClick={() => openEdit(entry)}>Edit</button>
-                      <button className="ps-btn ps-btn-ghost ps-btn-sm" onClick={() => setHistoryEntry(entry)} aria-label="History">🕘</button>
-                      <button className="ps-btn ps-btn-ghost ps-btn-sm" onClick={() => setVoidTarget(entry)} aria-label="Remove">🗑</button>
+                      <button className="ps-btn ps-btn-ghost ps-btn-sm" onClick={() => setHistoryEntry(entry)} aria-label="History"><History size={16} aria-hidden="true" /></button>
+                      <button className="ps-btn ps-btn-ghost ps-btn-sm" onClick={() => setVoidTarget(entry)} aria-label="Remove"><Trash2 size={16} aria-hidden="true" /></button>
                     </div>
                   )}
                 </header>

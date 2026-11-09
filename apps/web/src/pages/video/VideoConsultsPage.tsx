@@ -5,6 +5,7 @@ import { getUserClient } from '@pharmstation/supabase-client'
 import type { VideoConsultation, VideoConsultationStatus } from '@pharmstation/types'
 import { Modal } from '../../components/Modal'
 import { Drawer } from '../../components/Drawer'
+import { Copy } from 'lucide-react'
 
 /* ---- Status badge styling ---- */
 const STATUS_CONFIG: Record<VideoConsultationStatus, { label: string; cssClass: string }> = {
@@ -331,7 +332,7 @@ export function VideoConsultsPage() {
                             style={{ padding: '2px 6px', fontSize: 'var(--ps-font-xs)' }}
                             onClick={() => copyToClipboard(c.patient_access_code)}
                             title="Copy code"
-                          >📋</button>
+                          ><Copy size={16} aria-hidden="true" /></button>
                         </span>
                       ) : '—'}
                     </td>

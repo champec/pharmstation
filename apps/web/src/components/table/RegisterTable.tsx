@@ -17,6 +17,7 @@ import {
   type PaginationState,
   type Row,
 } from '@tanstack/react-table'
+import { SkipBack, SkipForward } from 'lucide-react'
 
 /**
  * Describes how to merge cells for a specific row.
@@ -218,7 +219,7 @@ export function RegisterTable<T>({
               onClick={() => table.firstPage()}
               disabled={!table.getCanPreviousPage()}
             >
-              ⏮
+              <SkipBack size={16} aria-hidden="true" />
             </button>
             <button
               className="ps-btn ps-btn-ghost"
@@ -242,7 +243,7 @@ export function RegisterTable<T>({
               onClick={() => table.lastPage()}
               disabled={!table.getCanNextPage()}
             >
-              ⏭
+              <SkipForward size={16} aria-hidden="true" />
             </button>
           </div>
         </div>

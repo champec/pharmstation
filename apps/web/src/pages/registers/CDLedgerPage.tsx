@@ -35,7 +35,7 @@ import {
   schedule6Params,
   type CollectorType,
 } from '../../utils/cdRegisterExport'
-import { CircleCheck } from 'lucide-react'
+import { CircleCheck, MessageSquare, Pencil } from 'lucide-react'
 
 const columnHelper = createColumnHelper<RegisterEntry>()
 
@@ -539,7 +539,7 @@ export function CDLedgerPage() {
             title={allCommentsExpanded ? 'Close all comments' : 'Expand all comments'}
             aria-label={allCommentsExpanded ? 'Close all comments' : 'Expand all comments'}
           >
-            💬
+            <MessageSquare size={16} aria-hidden="true" />
           </button>
         ),
         size: 48,
@@ -1124,7 +1124,7 @@ export function CDLedgerPage() {
           title="Edit details"
           onClick={() => openEditContactModal(type, contact)}
         >
-          ✎
+          <Pencil size={16} aria-hidden="true" />
         </button>
         <button
           type="button"
