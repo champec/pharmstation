@@ -760,7 +760,7 @@ export function ReturnsPage() {
           <span className="separator">/</span>
           <span>Patient Returns</span>
         </div>
-        <h1>↩ Patient Returns Register</h1>
+        <h1>Patient Returns Register</h1>
         <p style={{ color: 'var(--ps-slate)', marginTop: 4, fontSize: '13px' }}>
           Record received CDs and their destruction. Fill the destruction columns too to record both at once — or leave them blank and come back later.
         </p>
