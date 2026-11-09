@@ -322,6 +322,14 @@
 .booking-time-heading { display: flex; justify-content: space-between; margin-bottom: 12px; }
 .booking-time-heading strong { font-size: 16px; }
 .booking-time-heading span { color: #61747a; font-size: 13px; }
+.booking-date-strip { display: block; }
+.booking-date-label { display: block; margin-bottom: 10px; font-size: 14px; font-weight: 800; }
+.booking-date-chips { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px; scroll-snap-type: x proximity; }
+.booking-date-chips button { flex: 0 0 auto; display: grid; justify-items: center; min-width: 64px; gap: 1px; padding: 9px 8px; border: 1px solid #b9c7ca; background: #fff; color: inherit; cursor: pointer; scroll-snap-align: start; }
+.booking-date-chips button span { color: #61747a; font-size: 12px; }
+.booking-date-chips button strong { font-size: 19px; }
+.booking-date-chips button:hover { border-color: var(--booking-blue); background: #f2f8fb; }
+.booking-date-chips button.selected { border: 2px solid var(--booking-blue); padding: 8px 7px; background: #dceef5; }
 .booking-slot-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 9px; }
 .booking-slot-grid button { display: grid; min-height: 94px; gap: 2px; padding: 13px; border: 1px solid #b9c7ca; background: #fff; color: inherit; text-align: left; cursor: pointer; }
 .booking-slot-grid button:hover { border-color: var(--booking-blue); background: #f2f8fb; }
