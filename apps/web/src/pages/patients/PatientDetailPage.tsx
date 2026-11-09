@@ -189,7 +189,7 @@ export function PatientDetailPage() {
             }}
             onClick={() => setTab(t)}
           >
-            {t === 'appointments' ? '📅 Appointments' : t === 'services' ? '🩺 Services' : t === 'messages' ? '💬 Messages' : '📹 Video Consults'}
+            {t === 'appointments' ? 'Appointments' : t === 'services' ? 'Services' : t === 'messages' ? 'Messages' : 'Video Consults'}
           </button>
         ))}
       </div>

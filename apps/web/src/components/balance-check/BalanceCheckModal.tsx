@@ -602,7 +602,7 @@ export function BalanceCheckModal({ isOpen, onClose }: BalanceCheckModalProps) {
   // Render
   // ============================================
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="📋 CD Balance Check" width="960px">
+    <Modal isOpen={isOpen} onClose={onClose} title="CD Balance Check" width="960px">
       <div className="bc-modal">
         {loading ? (
           <p style={{ color: 'var(--ps-slate)' }}>Loading registers...</p>
@@ -772,8 +772,8 @@ export function BalanceCheckModal({ isOpen, onClose }: BalanceCheckModalProps) {
                         {completing
                           ? `Processing ${pendingWithCounts} items...`
                           : pendingWithCounts > 0
-                          ? `✅ Complete Check (${pendingWithCounts}/${totalPending + (sessionStats?.checked ?? 0)} entered)`
-                          : '✅ Complete Check'}
+                          ? `Complete Check (${pendingWithCounts}/${totalPending + (sessionStats?.checked ?? 0)} entered)`
+                          : 'Complete Check'}
                       </button>
                     )
                   })()}
@@ -826,7 +826,7 @@ export function BalanceCheckModal({ isOpen, onClose }: BalanceCheckModalProps) {
                 onClick={() => setSortBy(sortBy === 'name' ? 'lastCheck' : 'name')}
                 title={sortBy === 'name' ? 'Sort by last check' : 'Sort by name'}
               >
-                {sortBy === 'name' ? '🔤 Name' : '🕐 Last Check'}
+                {sortBy === 'name' ? 'Name' : 'Last Check'}
               </button>
             </div>
 
@@ -1097,7 +1097,7 @@ function BalanceCheckRow({
           <td colSpan={6}>
             <div className="bc-adjustment">
               <span className="bc-adjustment-label">
-                {isLiquid ? '💧 Liquid adjustment:' : '⚠️ Discrepancy adjustment:'}
+                {isLiquid ? 'Liquid adjustment:' : '⚠️ Discrepancy adjustment:'}
               </span>
               <input
                 type="number"

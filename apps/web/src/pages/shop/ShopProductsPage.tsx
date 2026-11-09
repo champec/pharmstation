@@ -229,7 +229,7 @@ export function ShopProductsPage() {
             : <span style={{ color: 'var(--ps-slate)' }}>○ Not published</span>}
           {settings?.shop_enabled && (
             <span style={{ marginLeft: 12, color: 'var(--ps-slate)', fontSize: 'var(--ps-font-sm)' }}>
-              {settings.delivery_enabled ? `🚚 Delivery within ${settings.delivery_radius_km} km` : 'Collection only'}
+              {settings.delivery_enabled ? `Delivery within ${settings.delivery_radius_km} km` : 'Collection only'}
             </span>
           )}
         </div>
@@ -346,7 +346,7 @@ export function ShopProductsPage() {
                 onChange={(e) => handleImageFile(e.target.files?.[0])}
               />
               <button className="ps-btn ps-btn-secondary" disabled={uploadingImage} onClick={() => fileInputRef.current?.click()}>
-                {uploadingImage ? 'Uploading…' : fImageUrl ? '📷 Replace image' : '📷 Upload image'}
+                {uploadingImage ? 'Uploading…' : fImageUrl ? 'Replace image' : 'Upload image'}
               </button>
               {fImageUrl && (
                 <button className="ps-btn ps-btn-secondary" onClick={() => setFImageUrl('')}>Remove</button>
