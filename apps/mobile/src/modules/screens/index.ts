@@ -12,6 +12,7 @@ import type { ComponentType } from 'react'
 import { accountScreens } from '@/modules/screens/account'
 import { communicationsScreens } from '@/modules/screens/communications'
 import { deliveriesScreens } from '@/modules/screens/deliveries'
+import { genieScreens } from '@/modules/screens/genie'
 import { locumScreens } from '@/modules/screens/locum'
 import { pharmacyScreens } from '@/modules/screens/pharmacy'
 import { productScannerScreens } from '@/modules/screens/product-scanner'
@@ -31,6 +32,7 @@ export const MODULE_SCREENS: Record<string, ModuleScreens> = {
   communications: communicationsScreens,
   services: servicesScreens,
   shop: shopScreens,
+  genie: genieScreens,
 }
 
 export function getTabComponent(
