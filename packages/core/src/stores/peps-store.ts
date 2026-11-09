@@ -8,6 +8,7 @@ import type {
   PepsSpineResult,
   PepsDmdResult,
   PepsLoggableEventType,
+  PepsVerifyResult,
   Patient,
 } from '@pharmstation/types'
 import { getUserClient } from '@pharmstation/supabase-client'
@@ -32,6 +33,17 @@ export interface NewPrescriptionInput {
   assigned_org_id: string | null
   // Stored on the 'created' audit event (e.g. controlled-drug declaration)
   created_metadata?: Record<string, unknown>
+  // Prescriber's 6-digit signing PIN, checked on the server
+  pin: string
+  // Vet only: prescriber confirms no free-text item is a Schedule 1-3 CD
+  confirm_no_sch123?: boolean
+}
+
+export class PepsWrongPinError extends Error {
+  constructor() {
+    super('That signing PIN is not right. After 5 wrong tries your PIN is locked for 15 minutes.')
+    this.name = 'PepsWrongPinError'
+  }
 }
 
 export interface PepsState {
@@ -59,8 +71,13 @@ export interface PepsState {
   searchPepsOrgs: (query: string, orgId: string | null) => Promise<PepsOrg[]>
   createPepsOrg: (org: Partial<PepsOrg>, orgId: string | null) => Promise<PepsOrg>
   searchPharmacies: (query: string) => Promise<Array<{ id: string; name: string; ods_code: string | null }>>
-  searchDmd: (query: string) => Promise<PepsDmdResult[]>
+  searchDmd: (query: string, includeCd?: boolean) => Promise<PepsDmdResult[]>
   searchPatients: (orgId: string, query: string) => Promise<Patient[]>
+
+  // Signing PIN
+  hasSigningPin: () => Promise<boolean>
+  setSigningPin: (newPin: string, currentPin?: string | null) => Promise<void>
+  verifyPrescription: (id: string) => Promise<PepsVerifyResult>
 
   // Writing
   createPrescription: (input: NewPrescriptionInput) => Promise<PepsPrescription>
@@ -199,10 +216,13 @@ export const usePepsStore = create<PepsState>((set, get) => ({
     return (data ?? []) as Array<{ id: string; name: string; ods_code: string | null }>
   },
 
-  searchDmd: async (query) => {
+  searchDmd: async (query, includeCd = false) => {
     const q = query.trim()
     if (q.length < 2) return []
-    const { data, error } = await getUserClient().rpc('ps_peps_dmd_search', { p_query: q })
+    const { data, error } = await getUserClient().rpc('ps_peps_dmd_search', {
+      p_query: q,
+      p_include_cd: includeCd,
+    })
     if (error) throw error
     return (data ?? []) as PepsDmdResult[]
   },
@@ -220,6 +240,28 @@ export const usePepsStore = create<PepsState>((set, get) => ({
     const { data, error } = await qb.limit(10)
     if (error) throw error
     return (data ?? []) as Patient[]
+  },
+
+  // --- Signing PIN ---
+
+  hasSigningPin: async () => {
+    const { data, error } = await getUserClient().rpc('ps_peps_has_signing_pin')
+    if (error) throw error
+    return !!data
+  },
+
+  setSigningPin: async (newPin, currentPin) => {
+    const { error } = await getUserClient().rpc('ps_peps_set_signing_pin', {
+      p_new_pin: newPin,
+      p_current_pin: currentPin ?? null,
+    })
+    if (error) throw error
+  },
+
+  verifyPrescription: async (id) => {
+    const { data, error } = await getUserClient().rpc('ps_peps_verify', { p_id: id })
+    if (error) throw error
+    return data as PepsVerifyResult
   },
 
   // --- Writing ---
@@ -243,6 +285,8 @@ export const usePepsStore = create<PepsState>((set, get) => ({
         repeats: input.repeats,
         assigned_org_id: input.assigned_org_id,
         created_metadata: input.created_metadata ?? {},
+        pin: input.pin,
+        confirm_no_sch123: input.confirm_no_sch123 ?? false,
         items: input.items.map((it) => ({
           dmd_code: it.dmd_code ?? null,
           dmd_type: it.dmd_type ?? 'free_text',
@@ -256,7 +300,10 @@ export const usePepsStore = create<PepsState>((set, get) => ({
       },
     })
     if (error) throw error
-    return (Array.isArray(data) ? data[0] : data) as PepsPrescription
+    const rx = (Array.isArray(data) ? data[0] : data) as PepsPrescription | null
+    // The server returns an empty row when the signing PIN is wrong.
+    if (!rx?.id) throw new PepsWrongPinError()
+    return rx
   },
 
   // --- Queue / spine ---
