@@ -23,6 +23,7 @@ const DAYS = 14
 
 export function RpLogScreen() {
   const orgId = useAuthStore((s) => s.organisation?.id)
+  const orgCreated = useAuthStore((s) => s.organisation?.created_at)
   const [sessions, setSessions] = useState<RpSession[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -56,13 +57,18 @@ export function RpLogScreen() {
       const d = s.current.rp_signed_in_at ? ukDate(new Date(s.current.rp_signed_in_at)) : s.date
       byDay.set(d, [...(byDay.get(d) ?? []), s])
     }
+    // Don't list days before the pharmacy existed (or its earliest record, if older).
+    const opened = orgCreated ? ukDate(new Date(orgCreated)) : null
+    const earliest = [...byDay.keys()].sort()[0] ?? null
+    const firstDay = [opened, earliest].filter((d): d is string => !!d).sort()[0] ?? null
     const out: { date: string; sessions: RpSession[] }[] = []
     for (let i = 0; i <= DAYS; i++) {
       const d = addDays(today, -i)
+      if (firstDay && d < firstDay && d !== today) break
       out.push({ date: d, sessions: (byDay.get(d) ?? []).slice().reverse() })
     }
     return out
-  }, [sessions])
+  }, [sessions, orgCreated])
 
   // Collapse runs of empty days into one line.
   const rows: ({ kind: 'day'; date: string; sessions: RpSession[] } | { kind: 'gap'; from: string; to: string })[] = []
@@ -154,8 +160,8 @@ const styles = StyleSheet.create({
   sessionHead: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   sessionName: { flexShrink: 1, fontSize: 16, fontWeight: '700', color: palette.text },
   badge: { fontSize: 11, fontWeight: '800', paddingHorizontal: 8, paddingVertical: 2, borderRadius: radius.pill, overflow: 'hidden' },
-  badgeOn: { color: palette.success, backgroundColor: '#ECFDF5' },
-  badgeEdit: { color: palette.warning, backgroundColor: '#FFFBEB' },
+  badgeOn: { color: palette.success, backgroundColor: palette.successTint },
+  badgeEdit: { color: palette.warning, backgroundColor: palette.warningTint },
   times: { fontSize: 15, fontWeight: '600', color: palette.text },
   meta: { fontSize: 13, color: palette.textMuted, lineHeight: 18 },
   footer: { flexDirection: 'row', gap: 8, alignItems: 'center', marginTop: 8, paddingHorizontal: 4 },
