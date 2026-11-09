@@ -4,6 +4,8 @@ import { useAppointmentStore } from '@pharmstation/core'
 import { getUserClient } from '@pharmstation/supabase-client'
 import type { AppointmentStatus } from '@pharmstation/types'
 import { Modal } from '../../components/Modal'
+import { PageHeader } from '../../components/ui'
+import { ArrowLeftRight, Check, FileText, Link2, Play, TriangleAlert, Video, X } from 'lucide-react'
 
 const STATUS_COLOURS: Record<AppointmentStatus, { bg: string; text: string; label: string }> = {
   pending: { bg: '#fef3c7', text: '#92400e', label: 'Pending' },
@@ -205,19 +207,12 @@ export function AppointmentDetailPage() {
 
   return (
     <div>
-      <div className="page-header">
-        <div className="breadcrumbs">
-          <a href="/" onClick={(e) => { e.preventDefault(); navigate('/') }}>Dashboard</a>
-          <span className="separator">/</span>
-          <a href="/appointments" onClick={(e) => { e.preventDefault(); navigate('/appointments') }}>Appointments</a>
-          <span className="separator">/</span>
-          <span>Detail</span>
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <h1>Appointment Detail</h1>
-          <button className="ps-btn ps-btn-secondary" onClick={() => navigate('/appointments')}>← Back</button>
-        </div>
-      </div>
+      <PageHeader
+        breadcrumbs={[{ label: 'Dashboard', to: '/' }, { label: 'Appointments', to: '/appointments' }, { label: 'Appointment' }]}
+        title="Appointment"
+        subtitle={appt.service?.name ? `${appt.service.name}${startTime ? `, ${startTime.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })} at ${startTime.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}` : ''}` : undefined}
+        actions={<button className="ps-btn ps-btn-secondary" onClick={() => navigate('/appointments')}>← Back to appointments</button>}
+      />
 
       {error && (
         <div className="auth-error" style={{ marginBottom: 'var(--ps-space-md)' }}>
@@ -331,7 +326,7 @@ export function AppointmentDetailPage() {
       {appt.form_data && Object.keys(appt.form_data).length > 0 && (
         <div className="ps-card" style={{ padding: 'var(--ps-space-lg)', marginTop: 'var(--ps-space-lg)' }}>
           <h3 style={{ fontSize: 'var(--ps-font-md)', fontWeight: 600, color: 'var(--ps-midnight)', marginBottom: 'var(--ps-space-md)' }}>
-            Form Responses
+            Form responses
           </h3>
           <div style={{ background: 'var(--ps-off-white)', borderRadius: 'var(--ps-radius-md)', padding: 'var(--ps-space-md)' }}>
             {Object.entries(appt.form_data).map(([key, val]) => (
@@ -383,26 +378,26 @@ export function AppointmentDetailPage() {
         <div style={{ display: 'flex', gap: 'var(--ps-space-sm)', flexWrap: 'wrap' }}>
           {appt.status === 'pending' && (
             <button className="ps-btn ps-btn-primary" onClick={() => staffSetStatus('confirmed')} disabled={busy}>
-              ✓ Confirm and text patient
+              <Check size={16} strokeWidth={1.75} aria-hidden="true" /> Confirm and text patient
             </button>
           )}
           {(appt.status === 'pending' || appt.status === 'confirmed') && !appt.hold_expires_at && appt.service_id && !record && (
             <button
-              className="ps-btn ps-btn-primary"
+              className={`ps-btn ${appt.status === 'confirmed' ? 'ps-btn-primary' : 'ps-btn-secondary'}`}
               onClick={() => navigate(`/services/${appt.service_id}/deliver?appointment=${appt.id}`)}
               title="Record the consultation. The appointment is marked completed when you finish."
             >
-              ▶ Start service
+              <Play size={16} strokeWidth={1.75} aria-hidden="true" /> Start service
             </button>
           )}
           {record && (
             <button className="ps-btn ps-btn-secondary" onClick={() => navigate(`/services/deliveries/${record.id}`)}>
-              📄 View service record
+              <FileText size={16} strokeWidth={1.75} aria-hidden="true" /> View service record
             </button>
           )}
           {(appt.status === 'pending' || appt.status === 'confirmed') && (
             <button className="ps-btn ps-btn-success" onClick={() => handleStatusChange('completed')}>
-              ✓ Complete
+              <Check size={16} strokeWidth={1.75} aria-hidden="true" /> Mark completed
             </button>
           )}
           {(appt.status === 'pending' || appt.status === 'confirmed') && (
@@ -411,7 +406,7 @@ export function AppointmentDetailPage() {
               style={{ color: 'var(--ps-error)' }}
               onClick={() => handleStatusChange('no_show')}
             >
-              ⚠ No Show
+              <TriangleAlert size={16} strokeWidth={1.75} aria-hidden="true" /> Mark no-show
             </button>
           )}
           {appt.status !== 'cancelled' && appt.status !== 'completed' && (
@@ -420,21 +415,21 @@ export function AppointmentDetailPage() {
               style={{ color: 'var(--ps-error)' }}
               onClick={() => setShowCancelModal(true)}
             >
-              ✕ Cancel Appointment
+              <X size={16} strokeWidth={1.75} aria-hidden="true" /> Cancel appointment
             </button>
           )}
           {(appt.status === 'pending' || appt.status === 'confirmed') && !appt.hold_expires_at && (
-            <button className="ps-btn ps-btn-secondary" onClick={openMove} disabled={busy}>↔ Move</button>
+            <button className="ps-btn ps-btn-secondary" onClick={openMove} disabled={busy}><ArrowLeftRight size={16} strokeWidth={1.75} aria-hidden="true" /> Move</button>
           )}
           {video && (
-            <button className="ps-btn ps-btn-primary" onClick={() => navigate(`/video/${video.id}`)}>Open video call</button>
+            <button className="ps-btn ps-btn-primary" onClick={() => navigate(`/video/${video.id}`)}><Video size={16} strokeWidth={1.75} aria-hidden="true" /> Open video call</button>
           )}
           {!video && appt.service?.is_video && (appt.status === 'pending' || appt.status === 'confirmed') && (
-            <button className="ps-btn ps-btn-secondary" onClick={setUpVideo} disabled={busy}>Set up video call</button>
+            <button className="ps-btn ps-btn-secondary" onClick={setUpVideo} disabled={busy}><Video size={16} strokeWidth={1.75} aria-hidden="true" /> Set up video call</button>
           )}
           {appt.manage_token && (appt.status === 'pending' || appt.status === 'confirmed') && (
             <button className="ps-btn ps-btn-ghost" onClick={copyManageLink} title="A link the patient can use to view or cancel this booking">
-              {copied ? 'Link copied' : '🔗 Copy patient link'}
+              <Link2 size={16} strokeWidth={1.75} aria-hidden="true" /> {copied ? 'Link copied' : 'Copy patient link'}
             </button>
           )}
         </div>
