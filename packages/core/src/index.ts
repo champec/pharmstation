@@ -15,7 +15,7 @@ export { useSOPStore, type SOPState, buildNodeTree, flattenNodeTree, canManageSO
 export { useNetworkStore, type NetworkState } from './stores/network-store'
 export { usePatientMedicationStore, type PatientMedicationState } from './stores/patient-medication-store'
 export { useCareHomeStore, type CareHomeState } from './stores/care-home-store'
-export { useDeliveryRoundStore, type DeliveryRoundState } from './stores/delivery-round-store'
+export { useDeliveryRoundStore, type DeliveryRoundState, type DeliveryDriverOption } from './stores/delivery-round-store'
 export { useDriverStore, type DriverState } from './stores/driver-store'
 export * from './deliveries'
 export { useNHSStore, type NHSState, type NHSSettings, type GPSearchResult } from './stores/nhs-store'

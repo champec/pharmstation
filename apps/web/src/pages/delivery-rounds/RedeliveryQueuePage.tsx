@@ -151,7 +151,7 @@ export function RedeliveryQueuePage() {
                     {rp.delivery_postcode || (rp.patient as any)?.postcode ? `, ${rp.delivery_postcode || (rp.patient as any)?.postcode}` : ''}
                   </div>
                   {(rp.failure_reason || rp.status === 'skipped') && (
-                    <div style={{ fontSize: 'var(--ps-font-sm)', color: 'var(--ps-red)', marginTop: 2 }}>
+                    <div style={{ fontSize: 'var(--ps-font-sm)', color: 'var(--ps-error)', marginTop: 2 }}>
                       {rp.status === 'skipped' ? 'Skipped' : 'Failed'}{rp.failure_reason ? `: ${rp.failure_reason}` : ''}
                     </div>
                   )}
@@ -189,7 +189,7 @@ export function RedeliveryQueuePage() {
                     className="ps-btn ps-btn-ghost ps-btn-sm"
                     onClick={() => handleCancel(rp.id)}
                     disabled={saving}
-                    style={{ color: 'var(--ps-red)' }}
+                    style={{ color: 'var(--ps-error)' }}
                   >
                     Cancel
                   </button>
