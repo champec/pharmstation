@@ -15,12 +15,14 @@ import { communicationsScreens } from '@/modules/screens/communications'
 import { deliveriesScreens } from '@/modules/screens/deliveries'
 import { genieScreens } from '@/modules/screens/genie'
 import { locumScreens } from '@/modules/screens/locum'
+import { pepsScreens } from '@/modules/screens/peps'
 import { locumCoverScreens } from '@/modules/screens/locum-cover'
 import { pharmacyScreens } from '@/modules/screens/pharmacy'
 import { productScannerScreens } from '@/modules/screens/product-scanner'
 import { scanningScreens } from '@/modules/screens/scanning'
 import { servicesScreens } from '@/modules/screens/services'
 import { shopScreens } from '@/modules/screens/shop'
+import { sopScreens } from '@/modules/screens/sops'
 import { videoScreens } from '@/modules/screens/video'
 
 export type ModuleScreens = Record<string, ComponentType>
@@ -36,8 +38,10 @@ export const MODULE_SCREENS: Record<string, ModuleScreens> = {
   communications: communicationsScreens,
   services: servicesScreens,
   shop: shopScreens,
+  sops: sopScreens,
   genie: genieScreens,
   billing: billingScreens,
+  peps: pepsScreens,
   video: videoScreens,
 }
 

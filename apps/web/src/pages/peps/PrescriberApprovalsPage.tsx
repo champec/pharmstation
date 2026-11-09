@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
 import { getUserClient } from '@pharmstation/supabase-client'
+import { PEPS_REGISTER_LINKS, PEPS_PRESCRIBER_TYPE_LABELS, type PepsPrescriberType } from '@pharmstation/types'
+import { PageHeader } from '../../components/ui'
 
 // PharmStation platform admins verify each prescriber's registration with the
 // regulator before activating them. Access is enforced in the database
@@ -27,11 +28,11 @@ const REGISTERS: { label: string; url: string }[] = [
   { label: 'NMC (nurses)', url: 'https://www.nmc.org.uk/registration/search-the-register/' },
   { label: 'GDC (dentists)', url: 'https://olr.gdc-uk.org/searchregister' },
   { label: 'HCPC', url: 'https://www.hcpc-uk.org/check-the-register/' },
+  { label: 'GOC (optometrists)', url: 'https://str.optical.org/' },
   { label: 'RCVS (vets)', url: 'https://findavet.rcvs.org.uk/' },
 ]
 
 export function PrescriberApprovalsPage() {
-  const navigate = useNavigate()
   const [filter, setFilter] = useState<(typeof STATUSES)[number]>('pending')
   const [rows, setRows] = useState<Row[]>([])
   const [loading, setLoading] = useState(true)
@@ -64,19 +65,22 @@ export function PrescriberApprovalsPage() {
     else load()
   }
 
+  const resetPin = async (row: Row) => {
+    if (!window.confirm(`Reset ${row.full_name}'s signing PIN?\n\nOnly do this after confirming who is asking. They will have to set a new PIN before they can send prescriptions.`)) return
+    setBusyId(row.id)
+    const { error } = await getUserClient().rpc('ps_admin_reset_signing_pin', { p_prescriber_id: row.id })
+    setBusyId(null)
+    if (error) setError(error.message)
+    else window.alert('Signing PIN reset.')
+  }
+
   return (
     <div>
-      <div className="page-header">
-        <div className="breadcrumbs">
-          <a href="/me" onClick={(e) => { e.preventDefault(); navigate('/me') }}>My Account</a>
-          <span className="separator">/</span>
-          <span>Approve prescribers</span>
-        </div>
-        <h1>Approve prescribers</h1>
-        <p style={{ color: 'var(--ps-slate)', marginTop: '4px' }}>
-          Check each registration number and name on the regulator's register before activating.
-        </p>
-      </div>
+      <PageHeader
+        breadcrumbs={[{ label: 'My account', to: '/me' }, { label: 'Approve prescribers' }]}
+        title="Approve prescribers"
+        subtitle="Check each registration number and name on the regulator's register before activating."
+      />
 
       <div className="ps-card" style={{ marginBottom: 'var(--ps-space-md)' }}>
         <strong>Registers:</strong>{' '}
@@ -109,7 +113,7 @@ export function PrescriberApprovalsPage() {
           <div style={{ display: 'flex', justifyContent: 'space-between', gap: 'var(--ps-space-md)', flexWrap: 'wrap' }}>
             <div>
               <strong>{row.full_name}</strong>{' '}
-              <span className="ps-badge">{row.prescriber_type}</span>
+              <span className="ps-badge">{PEPS_PRESCRIBER_TYPE_LABELS[row.prescriber_type as PepsPrescriberType] ?? row.prescriber_type}</span>
               <div style={{ color: 'var(--ps-slate)', fontSize: 'var(--ps-font-sm)', marginTop: 4 }}>
                 {row.registration_body || 'Register not stated'} · {row.registration_number}
                 {row.email && <> · {row.email}</>}
@@ -119,6 +123,13 @@ export function PrescriberApprovalsPage() {
                 Registered {new Date(row.created_at).toLocaleDateString('en-GB')}
                 {row.approved_at && <> · approved {new Date(row.approved_at).toLocaleDateString('en-GB')}</>}
               </div>
+              {PEPS_REGISTER_LINKS[row.prescriber_type as PepsPrescriberType] && (
+                <div style={{ fontSize: 'var(--ps-font-sm)', marginTop: 4 }}>
+                  <a href={PEPS_REGISTER_LINKS[row.prescriber_type as PepsPrescriberType]!.url} target="_blank" rel="noopener noreferrer">
+                    Check {row.registration_number} on the {PEPS_REGISTER_LINKS[row.prescriber_type as PepsPrescriberType]!.body} register ↗
+                  </a>
+                </div>
+              )}
             </div>
             <div style={{ display: 'flex', gap: 'var(--ps-space-xs, 4px)', alignItems: 'center', flexWrap: 'wrap' }}>
               {row.status !== 'active' && (
@@ -133,9 +144,12 @@ export function PrescriberApprovalsPage() {
               )}
               {row.status !== 'revoked' && (
                 <button className="ps-btn ps-btn-ghost ps-btn-sm" disabled={busyId === row.id} onClick={() => setStatus(row, 'revoked')}>
-                  Reject
+                  {row.status === 'pending' ? 'Reject' : 'Revoke'}
                 </button>
               )}
+              <button className="ps-btn ps-btn-ghost ps-btn-sm" disabled={busyId === row.id} onClick={() => resetPin(row)}>
+                Reset PIN
+              </button>
             </div>
           </div>
         </div>

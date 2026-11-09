@@ -10,6 +10,7 @@ import { GeneralSettingsTab } from './settings/GeneralSettingsTab'
 import { AppointmentSettingsTab } from './settings/AppointmentSettingsTab'
 import { SignInActivityCard } from '../components/account/SignInActivityCard'
 import { canManageBilling } from '../lib/billing'
+import { PageHeader } from '../components/ui'
 
 type Tab = 'general' | 'team' | 'ai' | 'messaging' | 'alerts' | 'appointments' | 'nhs' | 'payments' | 'billing'
 
@@ -23,26 +24,27 @@ export function SettingsPage() {
 
   return (
     <div>
-      <div className="page-header">
-        <h1>Settings</h1>
-      </div>
+      <PageHeader title="Settings" subtitle="Pharmacy details, your team, messaging, bookings and billing." />
 
       {/* Tab bar */}
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--ps-space-sm)', marginBottom: 'var(--ps-space-lg)', borderBottom: '2px solid var(--ps-mist)', paddingBottom: 'var(--ps-space-sm)' }}>
+      <div className="ps-tabs" role="tablist" aria-label="Settings sections">
         {([
           { key: 'general' as Tab, label: 'General' },
-          { key: 'team' as Tab, label: '👥 Team' },
-          { key: 'ai' as Tab, label: '✨ AI' },
-          { key: 'messaging' as Tab, label: '📨 Messaging' },
-          { key: 'alerts' as Tab, label: '🔔 Alerts' },
-          { key: 'appointments' as Tab, label: '📅 Bookings' },
-          { key: 'nhs' as Tab, label: '🏥 NHS' },
-          { key: 'payments' as Tab, label: '💳 Payments' },
-          { key: 'billing' as Tab, label: '⭐ Plan & billing' },
+          { key: 'team' as Tab, label: 'Team' },
+          { key: 'ai' as Tab, label: 'AI' },
+          { key: 'messaging' as Tab, label: 'Messaging' },
+          { key: 'alerts' as Tab, label: 'Alerts' },
+          { key: 'appointments' as Tab, label: 'Bookings' },
+          { key: 'nhs' as Tab, label: 'NHS' },
+          { key: 'payments' as Tab, label: 'Payments' },
+          { key: 'billing' as Tab, label: 'Plan & billing' },
         ]).map((t) => (
           <button
             key={t.key}
-            className={`ps-btn ${tab === t.key ? 'ps-btn-primary' : 'ps-btn-ghost'}`}
+            type="button"
+            role="tab"
+            aria-selected={tab === t.key}
+            className={`ps-tab${tab === t.key ? ' active' : ''}`}
             onClick={() => setTab(t.key)}
           >
             {t.label}
@@ -462,7 +464,7 @@ function NHSSettingsTab() {
               />
               <div>
                 <div style={{ fontWeight: 600, textTransform: 'capitalize' }}>
-                  {env === 'staging' ? '🧪 Staging' : '🚀 Production'}
+                  {env === 'staging' ? 'Staging' : 'Production'}
                 </div>
                 <div style={{ fontSize: '0.8rem', color: 'var(--ps-slate)' }}>
                   {env === 'staging'
@@ -498,7 +500,7 @@ function NHSSettingsTab() {
           <span style={{ fontWeight: 600 }}>
             {settings.ipWhitelistRegistered
               ? '✓ IP address registered with NHSBSA'
-              : '⏳ Pending — IP registration with NHSBSA is not yet confirmed'}
+              : 'Pending — IP registration with NHSBSA is not yet confirmed'}
           </span>
         </div>
       </div>

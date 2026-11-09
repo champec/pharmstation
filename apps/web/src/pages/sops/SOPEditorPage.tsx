@@ -4,7 +4,8 @@ import { useAuthStore, useSOPStore, canManageSOPs } from '@pharmstation/core'
 import type { SOPNode } from '@pharmstation/types'
 import { RichTextEditor } from '../../components/sop/RichTextEditor'
 import { Modal } from '../../components/Modal'
-import { FilePen, FileText, Folder } from 'lucide-react'
+import { SOPReviewBar } from '../../components/sop/SOPReviewBar'
+import { FileText, Folder, Pencil, X } from 'lucide-react'
 
 // ── Tree node (recursive) ─────────────────────────────────────
 function TreeNodeItem({
@@ -63,7 +64,7 @@ function TreeNodeItem({
 
         {/* Content type icon */}
         <span style={{ fontSize: 13 }}>
-          {node.content_type === 'pdf' ? '📄' : node.content_type === 'none' ? '📁' : '📝'}
+          {node.content_type === 'pdf' ? <FileText size={14} strokeWidth={1.75} aria-hidden="true" /> : node.content_type === 'none' ? <Folder size={14} strokeWidth={1.75} aria-hidden="true" /> : <Pencil size={14} strokeWidth={1.75} aria-hidden="true" />}
         </span>
 
         {/* Title */}
@@ -103,12 +104,12 @@ function TreeNodeItem({
               title="Rename"
               onClick={() => onRename(node)}
               style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, padding: 2, color: 'var(--ps-text-muted)' }}
-            >✏</button>
+             aria-label="Rename"><Pencil size={12} strokeWidth={1.75} aria-hidden="true" /></button>
             <button
               title="Delete"
               onClick={() => onDelete(node)}
               style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, padding: 2, color: 'var(--ps-danger)' }}
-            >✕</button>
+             aria-label="Delete"><X size={12} strokeWidth={1.75} aria-hidden="true" /></button>
           </div>
         )}
       </div>
@@ -414,7 +415,7 @@ export function SOPEditorPage() {
                       ? 'Restore'
                       : neverPublished
                         ? 'Publish'
-                        : 'Publish New Version'}
+                        : 'Publish new version'}
                   </button>
                 )}
               </>
@@ -433,6 +434,8 @@ export function SOPEditorPage() {
           />
         )}
       </div>
+
+      {doc && doc.status !== 'draft' && doc.review_interval_months !== undefined && <SOPReviewBar doc={doc} />}
 
       {error && (
         <div className="ps-alert ps-alert-error" style={{ margin: '0 0 12px' }}>
@@ -514,7 +517,7 @@ export function SOPEditorPage() {
           {!selectedNode ? (
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 1, color: 'var(--ps-text-muted)' }}>
               <div style={{ textAlign: 'center' }}>
-                <span className="ps-empty-icon" aria-hidden="true"><FilePen size={26} strokeWidth={1.75} /></span>
+                <div style={{ marginBottom: 12 }}><FileText size={26} strokeWidth={1.75} aria-hidden="true" /></div>
                 <p>Select a section from the tree to edit its content,<br />or click <strong>+ Add</strong> to create a new section.</p>
               </div>
             </div>
@@ -621,7 +624,7 @@ export function SOPEditorPage() {
                         }}
                         onClick={() => fileInputRef.current?.click()}
                       >
-                        <span className="ps-empty-icon" aria-hidden="true"><FileText size={26} strokeWidth={1.75} /></span>
+                        <div style={{ marginBottom: 8 }}><FileText size={26} strokeWidth={1.75} aria-hidden="true" /></div>
                         <p>Click to upload a PDF</p>
                         <p style={{ fontSize: 12 }}>The PDF will be stored securely and accessible to assigned staff</p>
                       </div>
@@ -639,7 +642,7 @@ export function SOPEditorPage() {
                       borderRadius: 8,
                     }}
                   >
-                    <span className="ps-empty-icon" aria-hidden="true"><Folder size={26} strokeWidth={1.75} /></span>
+                    <div style={{ marginBottom: 8 }}><Folder size={26} strokeWidth={1.75} aria-hidden="true" /></div>
                     <p>This section is a header/folder with no content.</p>
                     <p style={{ fontSize: 13 }}>Add child sections using the tree, or change the content type above.</p>
                   </div>

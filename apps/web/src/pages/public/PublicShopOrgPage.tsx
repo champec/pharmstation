@@ -7,7 +7,7 @@
 // ============================================================
 
 import { useEffect, useMemo, useState } from 'react'
-import { useLocation, useNavigate, useParams } from 'react-router-dom'
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { useShopStore, type ShopFrontOrg } from '@pharmstation/core'
 import type { ShopPlaceOrderResult, ShopQuestion } from '@pharmstation/types'
 import { PublicFooter } from '../../components/public/PublicFooter'
@@ -26,7 +26,7 @@ export function PublicShopOrgPage() {
     shopOrgs, publicProducts, categories, publicLoading,
     cart, cartOrgId,
     fetchShopOrgs, fetchPublicProducts, fetchCategories,
-    addToCart, updateCartQuantity, removeFromCart, clearCart, placeOrder, startShopCheckout,
+    addToCart, updateCartQuantity, removeFromCart, clearCart, syncCart, deliveryDistance, placeOrder, startShopCheckout,
   } = useShopStore()
 
   const [search, setSearch] = useState('')
@@ -46,6 +46,9 @@ export function PublicShopOrgPage() {
   const [payBy, setPayBy] = useState<'card' | 'in_store'>('card')
   const [checkoutError, setCheckoutError] = useState<string | null>(null)
   const [confirmation, setConfirmation] = useState<ShopPlaceOrderResult | null>(null)
+  const [consultationAnswered, setConsultationAnswered] = useState(false)
+  // Delivery area check: postcode looked up with postcodes.io, distance from the pharmacy by the database.
+  const [area, setArea] = useState<{ postcode: string; state: 'checking' | 'ok' | 'outside' | 'unknown' | 'invalid'; km?: number; lat?: number; lng?: number } | null>(null)
   // questionnaire answers: productId -> questionId -> answer
   const [qAnswers, setQAnswers] = useState<Record<string, Record<string, string>>>({})
 
@@ -63,6 +66,31 @@ export function PublicShopOrgPage() {
   useEffect(() => {
     if (org) fetchPublicProducts({ orgId: org.org_id })
   }, [org, fetchPublicProducts])
+
+  // A saved basket may hold old prices or items that have since sold out.
+  useEffect(() => {
+    if (!publicLoading && publicProducts.length) syncCart(publicProducts)
+  }, [publicLoading, publicProducts, syncCart])
+
+  const checkPostcode = async (raw: string) => {
+    const postcode = raw.trim().toUpperCase()
+    if (!org || !postcode) { setArea(null); return }
+    if (area?.postcode === postcode && area.state !== 'checking') return
+    setArea({ postcode, state: 'checking' })
+    try {
+      const res = await fetch(`https://api.postcodes.io/postcodes/${encodeURIComponent(postcode)}`)
+      if (res.status === 404) { setArea({ postcode, state: 'invalid' }); return }
+      const body = await res.json()
+      const lat = body?.result?.latitude as number | undefined
+      const lng = body?.result?.longitude as number | undefined
+      if (typeof lat !== 'number' || typeof lng !== 'number') { setArea({ postcode, state: 'unknown' }); return }
+      const km = await deliveryDistance(org.org_id, lat, lng)
+      if (km == null) { setArea({ postcode, state: 'unknown', lat, lng }); return }
+      setArea({ postcode, state: km > org.delivery_radius_km ? 'outside' : 'ok', km, lat, lng })
+    } catch {
+      setArea({ postcode, state: 'unknown' })
+    }
+  }
 
   const products = useMemo(() => {
     return publicProducts.filter((p) => {
@@ -134,7 +162,14 @@ export function PublicShopOrgPage() {
         orgId: org.org_id,
         fulfilmentMethod: fulfilment,
         deliveryAddress: fulfilment === 'delivery'
-          ? { line_1: addr1.trim(), city: addrCity.trim(), postcode: addrPostcode.trim() }
+          ? {
+              line_1: addr1.trim(),
+              city: addrCity.trim(),
+              postcode: addrPostcode.trim(),
+              ...(area?.postcode === addrPostcode.trim().toUpperCase() && area.lat != null && area.lng != null
+                ? { lat: area.lat, lng: area.lng }
+                : {}),
+            }
           : null,
         guestName: guestName.trim() || undefined,
         guestPhone: guestPhone.trim() || undefined,
@@ -153,6 +188,7 @@ export function PublicShopOrgPage() {
         window.location.assign(url)
         return
       }
+      setConsultationAnswered(responses.length > 0)
       setConfirmation(result)
       setCheckoutOpen(false)
       setCartOpen(false)
@@ -217,6 +253,35 @@ export function PublicShopOrgPage() {
         </section>
       )}
 
+      {org && (
+        <section className="shop-legal-strip" aria-label="About this pharmacy">
+          <div>
+            <span>Registered pharmacy</span>
+            <strong>{org.gphc_premises_number ? `GPhC premises ${org.gphc_premises_number}` : 'GPhC registered'}</strong>
+            <a href="https://www.pharmacyregulation.org/registers/pharmacy" target="_blank" rel="noreferrer">Check the GPhC register</a>
+          </div>
+          {org.pharmacist_in_charge_name && (
+            <div>
+              <span>Pharmacist in charge</span>
+              <strong>{org.pharmacist_in_charge_name}</strong>
+              {org.pharmacist_in_charge_gphc && <small>GPhC {org.pharmacist_in_charge_gphc}</small>}
+            </div>
+          )}
+          {(org.contact_phone || org.contact_email) && (
+            <div>
+              <span>Contact</span>
+              {org.contact_phone && <a href={`tel:${org.contact_phone.replace(/\s/g, '')}`}>{org.contact_phone}</a>}
+              {org.contact_email && <a href={`mailto:${org.contact_email}`}>{org.contact_email}</a>}
+            </div>
+          )}
+          <div>
+            <span>Your order</span>
+            <Link to="/shop/order">Track an order</Link>
+            <Link to="/shop/terms">Terms and returns</Link>
+          </div>
+        </section>
+      )}
+
       <main className="patient-shop-store-main">
         <div className="patient-shop-store-heading"><div><span className="patient-shop-eyebrow">Shop the pharmacy</span><h2>Everyday health & wellbeing</h2></div><span>{products.length} products</span></div>
         <div className="patient-shop-store-tools">
@@ -267,8 +332,8 @@ export function PublicShopOrgPage() {
         <div className="patient-shop-overlay patient-shop-cart-overlay" style={{ position: 'fixed', inset: 0, zIndex: 50, display: 'flex', justifyContent: 'flex-end', background: 'rgba(15,23,42,0.4)' }} onClick={() => setCartOpen(false)}>
           <div className="patient-shop-cart-panel" style={{ background: 'white', width: 'min(420px, 100%)', height: '100%', padding: 24, boxSizing: 'border-box', overflowY: 'auto', display: 'flex', flexDirection: 'column' }} onClick={(e) => e.stopPropagation()}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-              <h2 style={{ margin: 0, fontSize: 20, color: '#0f172a' }}>🛒 Your basket</h2>
-              <button onClick={() => setCartOpen(false)} style={{ border: 'none', background: 'none', fontSize: 22, cursor: 'pointer', color: '#64748b' }}>×</button>
+              <h2 style={{ margin: 0, fontSize: 20, color: '#0f172a' }}>Your basket</h2>
+              <button onClick={() => setCartOpen(false)} aria-label="Close basket" title="Close basket" style={{ border: 'none', background: 'none', fontSize: 22, cursor: 'pointer', color: '#64748b' }}>×</button>
             </div>
             {cart.length === 0 ? (
               <p style={{ color: '#64748b' }}>Your basket is empty.</p>
@@ -295,7 +360,7 @@ export function PublicShopOrgPage() {
                         <button onClick={() => addToCart(c.product)} disabled={c.quantity >= maxQty(c.product)} style={{ width: 26, height: 26, borderRadius: 8, border: '1px solid #e2e8f0', background: 'white', cursor: 'pointer', opacity: c.quantity >= maxQty(c.product) ? 0.4 : 1 }}>+</button>
                       </div>
                       <strong style={{ minWidth: 60, textAlign: 'right', fontSize: 14 }}>{formatPrice(c.product.price_pence * c.quantity)}</strong>
-                      <button onClick={() => removeFromCart(c.product.id)} style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#94a3b8' }}>🗑️</button>
+                      <button onClick={() => removeFromCart(c.product.id)} aria-label={`Remove ${c.product.name}`} title="Remove" style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#94a3b8', fontSize: 18 }}>✕</button>
                     </div>
                   ))}
                 </div>
@@ -341,7 +406,7 @@ export function PublicShopOrgPage() {
                     onClick={() => setPayBy(m)}
                     style={{ flex: 1, border: payBy === m ? '2px solid #0077B6' : '1px solid #e2e8f0', background: payBy === m ? '#e0f2fe' : 'white', borderRadius: 10, padding: '12px 8px', fontWeight: 700, cursor: 'pointer', color: '#0f172a' }}
                   >
-                    {m === 'card' ? '💳 Pay now by card' : `🏪 Pay ${fulfilment === 'delivery' ? 'on delivery' : 'in store'}`}
+                    {m === 'card' ? 'Pay now by card' : `Pay ${fulfilment === 'delivery' ? 'on delivery' : 'in store'}`}
                   </button>
                 ))}
               </div>
@@ -359,7 +424,7 @@ export function PublicShopOrgPage() {
                   onClick={() => setFulfilment('collection')}
                   style={{ flex: 1, border: fulfilment === 'collection' ? '2px solid #0077B6' : '1px solid #e2e8f0', background: fulfilment === 'collection' ? '#e0f2fe' : 'white', borderRadius: 10, padding: '12px 8px', fontWeight: 700, cursor: 'pointer', color: '#0f172a' }}
                 >
-                  🏪 Collection
+                  Collection
                 </button>
               )}
               {org.delivery_enabled && (
@@ -368,7 +433,7 @@ export function PublicShopOrgPage() {
                   onClick={() => setFulfilment('delivery')}
                   style={{ flex: 1, border: fulfilment === 'delivery' ? '2px solid #0077B6' : '1px solid #e2e8f0', background: fulfilment === 'delivery' ? '#e0f2fe' : 'white', borderRadius: 10, padding: '12px 8px', fontWeight: 700, cursor: 'pointer', color: '#0f172a' }}
                 >
-                  🚚 Delivery {org.delivery_fee_pence > 0 ? `(${formatPrice(org.delivery_fee_pence)})` : '(Free)'}
+                  Delivery {org.delivery_fee_pence > 0 ? `(${formatPrice(org.delivery_fee_pence)})` : '(Free)'}
                 </button>
               )}
             </div>
@@ -401,9 +466,18 @@ export function PublicShopOrgPage() {
                     </label>
                     <label style={{ fontSize: 13, fontWeight: 600, color: '#334155' }}>
                       Postcode *
-                      <input value={addrPostcode} onChange={(e) => setAddrPostcode(e.target.value)} style={{ width: '100%', border: '1px solid #e2e8f0', borderRadius: 8, padding: '10px 12px', fontSize: 14, marginTop: 4, boxSizing: 'border-box' }} />
+                      <input value={addrPostcode} onChange={(e) => setAddrPostcode(e.target.value)} onBlur={(e) => void checkPostcode(e.target.value)} autoComplete="postal-code" aria-invalid={area?.state === 'outside' || area?.state === 'invalid'} style={{ width: '100%', border: '1px solid #e2e8f0', borderRadius: 8, padding: '10px 12px', fontSize: 14, marginTop: 4, boxSizing: 'border-box' }} />
                     </label>
                   </div>
+                  {area && area.postcode === addrPostcode.trim().toUpperCase() && (
+                    <p className={`shop-area-note ${area.state}`} role={area.state === 'outside' || area.state === 'invalid' ? 'alert' : undefined}>
+                      {area.state === 'checking' && 'Checking the pharmacy delivers to this postcode…'}
+                      {area.state === 'ok' && `✓ About ${area.km!.toFixed(1)} km from the pharmacy. They deliver here.`}
+                      {area.state === 'outside' && `Sorry, this postcode is about ${area.km!.toFixed(1)} km away and ${org.name} delivers up to ${org.delivery_radius_km} km.${org.collection_enabled ? ' You can choose collection instead.' : ''}`}
+                      {area.state === 'invalid' && 'We couldn\'t find that postcode. Please check it.'}
+                      {area.state === 'unknown' && 'We couldn\'t check this postcode right now. The pharmacy will confirm they can deliver to you.'}
+                    </p>
+                  )}
                 </>
               )}
 
@@ -423,7 +497,7 @@ export function PublicShopOrgPage() {
             {consultationItems.map((c) => (
               <div className="modern-store-consultation" key={c.product.id} style={{ marginTop: 16, border: '1px solid #ede9fe', background: '#faf5ff', borderRadius: 12, padding: 16 }}>
                 <div style={{ fontWeight: 700, fontSize: 14, color: '#5b21b6', marginBottom: 4 }}>
-                  📝 {c.product.questionnaire!.name}
+                  {c.product.questionnaire!.name}
                 </div>
                 <p style={{ margin: '0 0 12px', color: '#64748b', fontSize: 12 }}>
                   Required for <strong>{c.product.name}</strong> — a pharmacist reviews your answers before the sale is completed.
@@ -490,9 +564,14 @@ export function PublicShopOrgPage() {
               </div>
             </div>
 
+            <p className="shop-checkout-terms">
+              By placing this order you agree to the <Link to="/shop/terms" target="_blank">shop terms and returns</Link>.
+              {org.name} uses your details to fulfil your order, as set out in our <Link to="/privacy" target="_blank">privacy notice</Link>.
+            </p>
+
             <button
               onClick={handlePlaceOrder}
-              disabled={placing || !guestName.trim() || !guestPhone.trim() || phoneInvalid || (fulfilment === 'delivery' && (!addr1.trim() || !addrPostcode.trim())) || missingRequiredAnswers}
+              disabled={placing || !guestName.trim() || !guestPhone.trim() || phoneInvalid || (fulfilment === 'delivery' && (!addr1.trim() || !addrPostcode.trim() || area?.state === 'outside' || area?.state === 'invalid' || area?.state === 'checking')) || missingRequiredAnswers}
               style={{ width: '100%', marginTop: 16, background: '#0077B6', color: 'white', border: 'none', borderRadius: 10, padding: '14px 0', fontSize: 15, fontWeight: 700, cursor: 'pointer', opacity: placing ? 0.6 : 1 }}
             >
               {placing
@@ -508,8 +587,8 @@ export function PublicShopOrgPage() {
       {confirmation && (
         <div className="patient-shop-overlay patient-shop-confirm-overlay" style={{ position: 'fixed', inset: 0, zIndex: 70, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(15,23,42,0.5)', padding: 16 }}>
           <div className="patient-shop-confirm-panel" style={{ background: 'white', borderRadius: 16, padding: 32, width: 'min(440px, 100%)', textAlign: 'center', boxSizing: 'border-box' }}>
-            <div style={{ fontSize: 52, marginBottom: 8 }}>✅</div>
-            <h2 style={{ margin: '0 0 6px', color: '#0f172a' }}>Order placed!</h2>
+            <div aria-hidden="true" style={{ width: 64, height: 64, borderRadius: '50%', background: '#e5f2f0', color: '#137763', display: 'grid', placeItems: 'center', fontSize: 32, fontWeight: 800, margin: '0 auto 10px' }}>✓</div>
+            <h2 style={{ margin: '0 0 6px', color: '#0f172a' }}>Order placed</h2>
             <p style={{ margin: '0 0 14px', color: '#64748b', fontSize: 14 }}>
               Your order number is
             </p>
@@ -517,15 +596,25 @@ export function PublicShopOrgPage() {
               {confirmation.order_number}
             </div>
             <p style={{ margin: '0 0 20px', color: '#64748b', fontSize: 13, lineHeight: 1.5 }}>
-              {org?.name} has received your order and will be in touch on the number you provided.
-              Total {formatPrice(confirmation.total_pence)} — payable {fulfilment === 'delivery' ? 'on delivery' : 'in store on collection'}.
+              {org?.name} has your order and will contact you on the number you gave if they need to.
+              Total {formatPrice(confirmation.total_pence)}, to pay {fulfilment === 'delivery' ? 'on delivery' : 'when you collect'}.
+              {consultationAnswered ? ' A pharmacist checks your answers before your order is prepared.' : ''}
+              {' '}Keep your order number to track your order.
             </p>
-            <button
-              onClick={() => { setConfirmation(null); navigate('/shop') }}
-              style={{ background: '#0077B6', color: 'white', border: 'none', borderRadius: 10, padding: '12px 24px', fontWeight: 700, cursor: 'pointer' }}
-            >
-              Back to marketplace
-            </button>
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' }}>
+              <button
+                onClick={() => { const n = confirmation.order_number; setConfirmation(null); navigate(`/shop/order/${n}`) }}
+                style={{ background: '#0077B6', color: 'white', border: 'none', borderRadius: 10, padding: '12px 24px', fontWeight: 700, cursor: 'pointer' }}
+              >
+                Track your order
+              </button>
+              <button
+                onClick={() => { setConfirmation(null) }}
+                style={{ background: 'white', color: '#0f172a', border: '1px solid #e2e8f0', borderRadius: 10, padding: '12px 24px', fontWeight: 700, cursor: 'pointer' }}
+              >
+                Keep shopping
+              </button>
+            </div>
           </div>
         </div>
       )}
