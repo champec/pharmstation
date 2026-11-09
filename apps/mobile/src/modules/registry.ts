@@ -266,6 +266,25 @@ export const MODULES: MobileModule[] = [
     ],
   },
 
+  {
+    id: 'billing',
+    title: 'Plan & Billing',
+    description: 'Your PharmStation plan and text credits',
+    icon: 'card-outline',
+    color: '#257BB4',
+    tier: 'org',
+    platform: 'both',
+    visible: (ctx) => ctx.isOrgConnected,
+    tabs: [
+      {
+        id: 'plan',
+        title: 'Plan',
+        icon: 'card-outline',
+        blurb: 'Current plan, renewal date and text credits',
+      },
+    ],
+  },
+
   // ---------- WEB-ONLY (surfaced as informational cards) ----------
   {
     id: 'video',
