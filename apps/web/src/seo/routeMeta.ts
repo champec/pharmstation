@@ -128,6 +128,12 @@ const DYNAMIC_PUBLIC: Array<{ pattern: RegExp; meta: Omit<PageMeta, 'index'>; in
     meta: { title: 'Book a pharmacy service', description: 'See the services this pharmacy offers and book an appointment online.' },
     index: true,
   },
+  { pattern: /^\/shop\/order(\/[^/]+)?$/, meta: { title: 'Track your order' }, index: false },
+  {
+    pattern: /^\/shop\/terms$/,
+    meta: { title: 'Shop terms and returns', description: 'Terms of sale, cancellations and returns for orders from pharmacies on the PharmStation shop.' },
+    index: true,
+  },
   {
     pattern: /^\/shop\/[^/]+$/,
     meta: { title: 'Pharmacy shop', description: 'Browse products from this pharmacy, with local delivery or collection.' },

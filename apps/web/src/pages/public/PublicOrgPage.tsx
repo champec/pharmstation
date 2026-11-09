@@ -36,7 +36,7 @@ export function PublicOrgPage() {
           setLoading(false)
           return
         }
-        const o = data as Organisation
+        const o = data as unknown as Organisation
         setOrg(o)
         // Fetch public services
         getUserClient()

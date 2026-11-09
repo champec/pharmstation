@@ -99,41 +99,49 @@ export const MODULES: MobileModule[] = [
   {
     id: 'deliveries',
     title: 'Deliveries',
-    description: 'Driver rounds, proof of delivery and history',
+    description: 'Plan rounds, drive them, proof of delivery and history',
     icon: 'car-outline',
     color: '#059669',
     tier: 'org',
-    // Driving is mobile-first; round setup happens on the web.
+    // Drivers run their rounds here; managers can plan rounds here too.
     platform: 'mobile',
     visible: (ctx) =>
       ctx.isOrgConnected && (canDrive(ctx) || canManageDeliveries(ctx)),
     tabs: [
       {
         id: 'route',
-        title: 'My Route',
+        title: 'My route',
         icon: 'navigate-outline',
-        visible: (ctx) => canDrive(ctx) || canManageDeliveries(ctx),
+        visible: (ctx) => canDrive(ctx),
         blurb: 'Today’s stops, tick-off and signature capture',
       },
       {
         id: 'history',
         title: 'History',
         icon: 'receipt-outline',
+        visible: (ctx) => canDrive(ctx),
         blurb: 'Completed deliveries and proof of delivery',
       },
       {
         id: 'map',
         title: 'Map',
         icon: 'map-outline',
+        visible: (ctx) => canDrive(ctx),
         blurb: 'See stops on a map and open native navigation',
       },
       {
-        id: 'setup',
-        title: 'Setup',
-        icon: 'options-outline',
-        platform: 'web',
+        id: 'rounds',
+        title: 'Rounds',
+        icon: 'albums-outline',
         visible: (ctx) => canManageDeliveries(ctx),
-        blurb: 'Create rounds and assign drivers',
+        blurb: 'Plan rounds, assign drivers and text patients',
+      },
+      {
+        id: 'redelivery',
+        title: 'Redeliver',
+        icon: 'refresh-outline',
+        visible: (ctx) => canManageDeliveries(ctx),
+        blurb: 'Stops that were not delivered',
       },
     ],
   },
@@ -197,7 +205,7 @@ export const MODULES: MobileModule[] = [
   {
     id: 'pharmacy',
     title: 'Pharmacy Management',
-    description: 'Registers, handover and team tasks',
+    description: 'RP log, handover, daily logs and registers',
     icon: 'business-outline',
     color: '#DC2626',
     tier: 'org',
@@ -224,6 +232,12 @@ export const MODULES: MobileModule[] = [
         icon: 'reader-outline',
         visible: (ctx) => has(ctx.permissions, 'handover_all'),
         blurb: 'RP on duty, today’s checks and handover notes',
+      },
+      {
+        id: 'logs',
+        title: 'Logs',
+        icon: 'list-outline',
+        blurb: 'Fridge temperatures, cleaning, visitors and other logs',
       },
       {
         id: 'team',

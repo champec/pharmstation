@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { useAuthStore, useServiceStore } from '@pharmstation/core'
 import { getUserClient } from '@pharmstation/supabase-client'
 import { Modal } from '../../components/Modal'
+import { Trash2 } from 'lucide-react'
 
 export function ServiceDetailPage() {
   const { serviceId } = useParams<{ serviceId: string }>()
@@ -408,7 +409,7 @@ export function ServiceDetailPage() {
                       setDeleteFormId(form.id)
                     }}
                   >
-                    🗑
+                    <Trash2 size={16} aria-hidden="true" />
                   </button>
                 )}
               </div>

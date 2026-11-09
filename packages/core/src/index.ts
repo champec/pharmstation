@@ -15,7 +15,7 @@ export { useSOPStore, type SOPState, buildNodeTree, flattenNodeTree, canManageSO
 export { useNetworkStore, type NetworkState } from './stores/network-store'
 export { usePatientMedicationStore, type PatientMedicationState } from './stores/patient-medication-store'
 export { useCareHomeStore, type CareHomeState } from './stores/care-home-store'
-export { useDeliveryRoundStore, type DeliveryRoundState } from './stores/delivery-round-store'
+export { useDeliveryRoundStore, type DeliveryRoundState, type DeliveryDriverOption } from './stores/delivery-round-store'
 export { useDriverStore, type DriverState } from './stores/driver-store'
 export * from './deliveries'
 export { useNHSStore, type NHSState, type NHSSettings, type GPSearchResult } from './stores/nhs-store'
@@ -23,7 +23,7 @@ export { useNHS111Store, type NHS111State } from './stores/nhs111-store'
 export { useOutcomeStore, type OutcomeState } from './stores/outcome-store'
 export { usePepsStore, PepsWrongPinError, type PepsState, type NewPrescriptionInput } from './stores/peps-store'
 export { useAlertStore, type AlertState, DEFAULT_ALERT_CHANNELS, ALERT_EVENT_TYPES } from './stores/alert-store'
-export { useShopStore, type ShopState, type ShopFrontOrg } from './stores/shop-store'
+export { useShopStore, type ShopState, type ShopFrontOrg, type ShopTrackedOrder } from './stores/shop-store'
 export { useSubscriptionStore, type SubscriptionState, type BillingMode } from './stores/subscription-store'
 export {
   PLANS,

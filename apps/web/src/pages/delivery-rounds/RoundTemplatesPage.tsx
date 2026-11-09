@@ -143,7 +143,7 @@ export function RoundTemplatesPage() {
                 <button
                   className="ps-btn ps-btn-ghost ps-btn-sm"
                   onClick={() => handleDelete(tpl.id)}
-                  style={{ color: 'var(--ps-red)' }}
+                  style={{ color: 'var(--ps-error)' }}
                 >
                   Delete
                 </button>

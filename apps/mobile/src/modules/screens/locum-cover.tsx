@@ -15,6 +15,7 @@ import { Ionicons } from '@expo/vector-icons'
 import { userClient } from '@/lib/supabase'
 import { useAuthStore } from '@/stores/auth-store'
 import { palette, radius } from '@/theme/palette'
+import { EmptyState as SharedEmptyState } from '@/components/ui/EmptyState'
 
 const ACCENT = '#6D28D9'
 const ACCENT_TINT = '#F1EAFE'
@@ -211,7 +212,7 @@ function RecordScreen() {
 
 const Pill = ({ text, tone }: { text: string; tone: string }) => <View style={[styles.pill, { borderColor: tone }]}><Text style={[styles.pillText, { color: tone }]}>{text}</Text></View>
 const ErrorBox = ({ text }: { text: string }) => <View style={styles.error}><Ionicons name="alert-circle" size={18} color={palette.danger} /><Text style={styles.errorText}>{text}</Text></View>
-const Empty = ({ text }: { text: string }) => <View style={styles.empty}><Ionicons name="calendar-clear-outline" size={26} color={ACCENT} /><Text style={styles.meta}>{text}</Text></View>
+const Empty = ({ text }: { text: string }) => <SharedEmptyState icon="calendar-clear-outline" color={ACCENT} title={text} />
 
 export const locumCoverScreens: Record<string, ComponentType> = {
   shifts: ShiftsScreen,
@@ -221,10 +222,10 @@ export const locumCoverScreens: Record<string, ComponentType> = {
 const styles = StyleSheet.create({
   content: { paddingBottom: 48, gap: 12 },
   flex: { flex: 1, color: palette.text },
-  hero: { backgroundColor: '#17142B', borderRadius: radius.lg, padding: 18, gap: 4 },
+  hero: { backgroundColor: palette.brand, borderRadius: radius.lg, padding: 18, gap: 4 },
   heroTitle: { color: '#fff', fontSize: 22, fontWeight: '800' },
-  heroText: { color: '#E4E1F5', fontSize: 14 },
-  heroHint: { color: '#A9A5C2', fontSize: 12, marginTop: 4 },
+  heroText: { color: 'rgba(255,255,255,0.82)', fontSize: 14 },
+  heroHint: { color: 'rgba(255,255,255,0.82)', fontSize: 12, marginTop: 4 },
   section: { fontSize: 16, fontWeight: '700', color: palette.text, marginTop: 4 },
   card: { backgroundColor: palette.surface, borderRadius: radius.lg, borderWidth: 1, borderColor: palette.border, padding: 14, gap: 8 },
   between: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 8 },
@@ -235,7 +236,7 @@ const styles = StyleSheet.create({
   actions: { flexDirection: 'row', justifyContent: 'flex-end', gap: 8 },
   ghostBtn: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: radius.md, borderWidth: 1, borderColor: palette.border, minHeight: 40, justifyContent: 'center' },
   ghostText: { color: palette.text, fontWeight: '600' },
-  solidBtn: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: radius.md, backgroundColor: ACCENT, minHeight: 40, justifyContent: 'center' },
+  solidBtn: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: radius.md, backgroundColor: palette.brand, minHeight: 40, justifyContent: 'center' },
   solidText: { color: '#fff', fontWeight: '700' },
   cancelLink: { alignSelf: 'flex-start', paddingVertical: 6 },
   cancelText: { color: palette.danger, fontWeight: '600', fontSize: 13 },

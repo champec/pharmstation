@@ -1,16 +1,9 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useAuthStore, useLogStore } from '@pharmstation/core'
-import type { LogCategory } from '@pharmstation/types'
+import { PageHeader } from '../../components/ui/PageHeader'
+import { scheduleLabel } from './logUtils'
 
-const CATEGORY_CONFIG: Record<LogCategory, { label: string; emoji: string }> = {
-  fridge: { label: 'Fridge', emoji: '🌡️' },
-  cleaning: { label: 'Cleaning', emoji: '🧹' },
-  cd: { label: 'CD', emoji: '💊' },
-  visitor: { label: 'Visitor', emoji: '👤' },
-  date_check: { label: 'Date Check', emoji: '📅' },
-  custom: { label: 'Custom', emoji: '📋' },
-}
 
 export function LogSettingsPage() {
   const { subscriptionId } = useParams<{ subscriptionId: string }>()
@@ -82,32 +75,23 @@ export function LogSettingsPage() {
   }
 
   const isOrgOwned = activeTemplate?.org_id === organisation?.id
-  const cat = activeTemplate?.category || 'custom'
-  const catConfig = CATEGORY_CONFIG[cat as LogCategory] || CATEGORY_CONFIG.custom
 
   return (
     <div>
-      <div className="page-header">
-        <div className="breadcrumbs">
-          <a href="/" onClick={(e) => { e.preventDefault(); navigate('/') }}>Dashboard</a>
-          <span className="separator">/</span>
-          <a href="/logs" onClick={(e) => { e.preventDefault(); navigate('/logs') }}>Logs</a>
-          <span className="separator">/</span>
-          {subscriptionId && (
-            <>
-              <a href={`/logs/${subscriptionId}`} onClick={(e) => { e.preventDefault(); navigate(`/logs/${subscriptionId}`) }}>View</a>
-              <span className="separator">/</span>
-            </>
-          )}
-          <span>Settings</span>
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <h1>Log Settings</h1>
+      <PageHeader
+        breadcrumbs={[
+          { label: 'Dashboard', to: '/' },
+          { label: 'Logs', to: '/logs' },
+          ...(subscriptionId ? [{ label: activeTemplate?.title ?? 'Log', to: `/logs/${subscriptionId}` }] : []),
+          { label: 'Settings' },
+        ]}
+        title="Log settings"
+        actions={
           <button className="ps-btn ps-btn-secondary" onClick={() => navigate(subscriptionId ? `/logs/${subscriptionId}` : '/logs')}>
             ← Back
           </button>
-        </div>
-      </div>
+        }
+      />
 
       {error && (
         <div className="auth-error" style={{ marginBottom: 'var(--ps-space-md)' }}>
@@ -127,14 +111,14 @@ export function LogSettingsPage() {
           {/* Template info */}
           <div className="ps-card" style={{ padding: 'var(--ps-space-lg)' }}>
             <h2 style={{ fontSize: 'var(--ps-font-lg)', color: 'var(--ps-midnight)', marginBottom: 'var(--ps-space-sm)' }}>
-              {catConfig.emoji} {activeTemplate.title}
+              {activeTemplate.title}
             </h2>
             <p style={{ color: 'var(--ps-slate)', fontSize: 'var(--ps-font-sm)', margin: '0 0 var(--ps-space-md)' }}>
               {activeTemplate.description}
             </p>
             <div style={{ display: 'flex', gap: 'var(--ps-space-sm)' }}>
               <span className="ps-badge ps-badge-blue" style={{ fontSize: 'var(--ps-font-xs)' }}>
-                {activeTemplate.schedule_type}
+                {scheduleLabel(activeTemplate.schedule_type, activeTemplate.required_days)}
               </span>
               <span className="ps-badge" style={{ fontSize: 'var(--ps-font-xs)' }}>
                 {activeFields.length} fields
@@ -208,9 +192,9 @@ export function LogSettingsPage() {
               </p>
               <button
                 className="ps-btn ps-btn-secondary"
-                onClick={() => navigate(`/logs/new?edit=${activeTemplate.id}`)}
+                onClick={() => navigate(`/logs/new?edit=${activeTemplate.id}${subscriptionId ? `&sub=${subscriptionId}` : ''}`)}
               >
-                Edit Template
+                Edit log
               </button>
             </div>
           )}

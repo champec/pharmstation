@@ -477,7 +477,7 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   bubble: { maxWidth: '86%', borderRadius: radius.lg, paddingHorizontal: 12, paddingVertical: 9, gap: 6 },
-  bubbleUser: { backgroundColor: COLOR, borderBottomRightRadius: 4 },
+  bubbleUser: { backgroundColor: palette.brand, borderBottomRightRadius: 4 },
   bubbleGenie: {
     flexShrink: 1,
     backgroundColor: palette.surface,
@@ -545,7 +545,7 @@ const styles = StyleSheet.create({
     width: 42,
     height: 42,
     borderRadius: 21,
-    backgroundColor: COLOR,
+    backgroundColor: palette.brand,
     alignItems: 'center',
     justifyContent: 'center',
   },

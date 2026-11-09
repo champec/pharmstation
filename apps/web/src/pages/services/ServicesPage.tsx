@@ -4,7 +4,7 @@ import { useAuthStore, useServiceStore } from '@pharmstation/core'
 import { NHS_SERVICES_ENABLED } from '../../lib/features'
 import type { Service } from '@pharmstation/types'
 import { Modal } from '../../components/Modal'
-import { Stethoscope } from 'lucide-react'
+import { Settings, Stethoscope } from 'lucide-react'
 
 export function ServicesPage() {
   const navigate = useNavigate()
@@ -327,7 +327,7 @@ function ServiceCard({ service, onClick }: { service: Service; onClick: () => vo
               title="Manage service & forms"
               style={{ padding: '4px 8px', fontSize: '1rem', lineHeight: 1 }}
             >
-              ⚙️
+              <Settings size={16} aria-hidden="true" />
             </button>
           )}
         </div>

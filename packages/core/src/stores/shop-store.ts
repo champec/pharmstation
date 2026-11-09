@@ -5,6 +5,7 @@
 // ============================================================
 
 import { create } from 'zustand'
+import { persist, createJSONStorage } from 'zustand/middleware'
 import type {
   ShopSettings,
   ShopCategory,
@@ -38,6 +39,30 @@ export interface ShopFrontOrg {
   distance_km: number | null
   /** What the customer can choose at checkout (card only once the pharmacy's Stripe account is ready). */
   payment_options: ShopPaymentMethods
+  /** Shown on the shop front (required before a shop can open). */
+  gphc_premises_number: string | null
+  pharmacist_in_charge_name: string | null
+  pharmacist_in_charge_gphc: string | null
+  contact_phone: string | null
+  contact_email: string | null
+}
+
+/** Public order-tracking view (ps_shop_track_order). */
+export interface ShopTrackedOrder {
+  order_number: string
+  status: ShopOrderStatus
+  review_status: 'not_required' | 'pending' | 'approved' | 'rejected'
+  payment_method: ShopOrderPaymentMethod
+  payment_status: string
+  fulfilment_method: ShopFulfilmentMethod
+  subtotal_pence: number
+  delivery_fee_pence: number
+  total_pence: number
+  created_at: string
+  updated_at: string
+  postcode: string | null
+  items: { name: string; quantity: number; line_total_pence: number }[]
+  pharmacy: { name: string; slug: string | null; address: Record<string, string> | null; phone: string | null; email: string | null }
 }
 
 export interface ShopState {
@@ -98,10 +123,16 @@ export interface ShopState {
   updateCartQuantity: (productId: string, quantity: number) => void
   removeFromCart: (productId: string) => void
   clearCart: () => void
+  /** Refresh basket items from freshly loaded products: new prices, drop ones no longer for sale, cap quantities. */
+  syncCart: (products: ShopProduct[]) => void
+  /** Distance in km from a pharmacy to a point (null when the pharmacy has no location). */
+  deliveryDistance: (orgId: string, lat: number, lng: number) => Promise<number | null>
+  /** Look up an order for the tracking page. Null when the number and phone don't match. */
+  trackOrder: (orderNumber: string, phone: string) => Promise<ShopTrackedOrder | null>
   placeOrder: (params: {
     orgId: string
     fulfilmentMethod: ShopFulfilmentMethod
-    deliveryAddress?: Record<string, string> | null
+    deliveryAddress?: Record<string, string | number> | null
     guestName?: string
     guestPhone?: string
     customerNotes?: string
@@ -114,7 +145,7 @@ export interface ShopState {
   clearError: () => void
 }
 
-export const useShopStore = create<ShopState>((set, get) => ({
+export const useShopStore = create<ShopState>()(persist((set, get) => ({
   settings: null,
   products: [],
   orders: [],
@@ -493,6 +524,38 @@ export const useShopStore = create<ShopState>((set, get) => ({
 
   clearCart: () => set({ cart: [], cartOrgId: null }),
 
+  syncCart: (products) => {
+    const { cart, cartOrgId } = get()
+    if (!cart.length || !cartOrgId) return
+    const fresh = new Map(products.filter((p) => p.org_id === cartOrgId).map((p) => [p.id, p]))
+    if (!fresh.size) return // this pharmacy's products weren't loaded
+    const next = cart
+      .map((c) => {
+        const p = fresh.get(c.product.id)
+        if (!p || p.stock_quantity <= 0) return null
+        const max = p.max_per_order ? Math.min(p.stock_quantity, p.max_per_order) : p.stock_quantity
+        return { product: p, quantity: Math.min(c.quantity, max) }
+      })
+      .filter((c): c is ShopCartItem => !!c && c.quantity > 0)
+    set({ cart: next, cartOrgId: next.length ? cartOrgId : null })
+  },
+
+  deliveryDistance: async (orgId, lat, lng) => {
+    const { data, error } = await getUserClient().rpc('ps_shop_list_orgs', { p_lat: lat, p_lng: lng })
+    if (error) throw error
+    const row = (data as ShopFrontOrg[] | null)?.find((o) => o.org_id === orgId)
+    return row?.distance_km ?? null
+  },
+
+  trackOrder: async (orderNumber, phone) => {
+    const { data, error } = await getUserClient().rpc('ps_shop_track_order', {
+      p_order_number: orderNumber,
+      p_phone: phone,
+    })
+    if (error) throw error
+    return (data as ShopTrackedOrder | null) ?? null
+  },
+
   placeOrder: async (params) => {
     const { cart, cartOrgId } = get()
     if (!cart.length) throw new Error('Cart is empty')
@@ -529,4 +592,10 @@ export const useShopStore = create<ShopState>((set, get) => ({
   },
 
   clearError: () => set({ error: null }),
+}), {
+  // Keep the basket across page loads (C3). Only the basket is stored.
+  name: 'ps-shop-basket',
+  version: 1,
+  storage: createJSONStorage(() => localStorage),
+  partialize: (state) => ({ cart: state.cart, cartOrgId: state.cartOrgId }),
 }))

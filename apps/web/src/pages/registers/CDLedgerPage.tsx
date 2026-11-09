@@ -11,7 +11,7 @@ import { getUserClient } from '@pharmstation/supabase-client'
 import { useAuthStore, useRegisterStore } from '@pharmstation/core'
 import type { RegisterEntry, RegisterLedger, CDDrug, KnownContact, EntryAnnotation } from '@pharmstation/types'
 import { cdQty, cdUnit, ukToday } from '@pharmstation/types'
-import { Download, Lock, MessageSquare } from 'lucide-react'
+import { Download, Lock } from 'lucide-react'
 import { EmptyState } from '../../components/ui/EmptyState'
 import { PageHeader } from '../../components/ui/PageHeader'
 import { RegisterTable, type RowMerge } from '../../components/table/RegisterTable'
@@ -38,7 +38,7 @@ import {
   schedule6Params,
   type CollectorType,
 } from '../../utils/cdRegisterExport'
-import { CircleCheck } from 'lucide-react'
+import { CircleCheck, MessageSquare, Pencil } from 'lucide-react'
 
 const columnHelper = createColumnHelper<RegisterEntry>()
 
@@ -1127,7 +1127,7 @@ export function CDLedgerPage() {
           title="Edit details"
           onClick={() => openEditContactModal(type, contact)}
         >
-          ✎
+          <Pencil size={16} aria-hidden="true" />
         </button>
         <button
           type="button"
