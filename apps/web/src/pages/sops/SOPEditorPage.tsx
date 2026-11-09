@@ -4,6 +4,7 @@ import { useAuthStore, useSOPStore, canManageSOPs } from '@pharmstation/core'
 import type { SOPNode } from '@pharmstation/types'
 import { RichTextEditor } from '../../components/sop/RichTextEditor'
 import { Modal } from '../../components/Modal'
+import { FilePen, FileText, Folder } from 'lucide-react'
 
 // ── Tree node (recursive) ─────────────────────────────────────
 function TreeNodeItem({
@@ -410,10 +411,10 @@ export function SOPEditorPage() {
                 {doc && (doc.status !== 'published' || hasChanges) && (
                   <button className="ps-btn ps-btn-primary" onClick={handlePublish} disabled={saving}>
                     {doc.status === 'archived' && !hasChanges
-                      ? '♻️ Restore'
+                      ? 'Restore'
                       : neverPublished
-                        ? '🚀 Publish'
-                        : '🔄 Publish New Version'}
+                        ? 'Publish'
+                        : 'Publish New Version'}
                   </button>
                 )}
               </>
@@ -513,7 +514,7 @@ export function SOPEditorPage() {
           {!selectedNode ? (
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 1, color: 'var(--ps-text-muted)' }}>
               <div style={{ textAlign: 'center' }}>
-                <div style={{ fontSize: 48, marginBottom: 12 }}>📝</div>
+                <span className="ps-empty-icon" aria-hidden="true"><FilePen size={26} strokeWidth={1.75} /></span>
                 <p>Select a section from the tree to edit its content,<br />or click <strong>+ Add</strong> to create a new section.</p>
               </div>
             </div>
@@ -550,7 +551,7 @@ export function SOPEditorPage() {
                         fontWeight: selectedNode.content_type === ct ? 600 : 400,
                       }}
                     >
-                      {ct === 'rich_text' ? '📝 Text' : ct === 'pdf' ? '📄 PDF' : '📁 Header only'}
+                      {ct === 'rich_text' ? 'Text' : ct === 'pdf' ? 'PDF' : 'Header only'}
                     </button>
                   ))}
                 </div>
@@ -620,7 +621,7 @@ export function SOPEditorPage() {
                         }}
                         onClick={() => fileInputRef.current?.click()}
                       >
-                        <div style={{ fontSize: 36, marginBottom: 8 }}>📄</div>
+                        <span className="ps-empty-icon" aria-hidden="true"><FileText size={26} strokeWidth={1.75} /></span>
                         <p>Click to upload a PDF</p>
                         <p style={{ fontSize: 12 }}>The PDF will be stored securely and accessible to assigned staff</p>
                       </div>
@@ -638,7 +639,7 @@ export function SOPEditorPage() {
                       borderRadius: 8,
                     }}
                   >
-                    <div style={{ fontSize: 32, marginBottom: 8 }}>📁</div>
+                    <span className="ps-empty-icon" aria-hidden="true"><Folder size={26} strokeWidth={1.75} /></span>
                     <p>This section is a header/folder with no content.</p>
                     <p style={{ fontSize: 13 }}>Add child sections using the tree, or change the content type above.</p>
                   </div>

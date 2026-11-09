@@ -21,10 +21,10 @@ const cardStyle: React.CSSProperties = { padding: 'var(--ps-space-lg)', marginBo
 const hintStyle: React.CSSProperties = { color: 'var(--ps-slate)', margin: '0 0 var(--ps-space-md)', fontSize: '0.9rem' }
 
 const CHANNELS: { key: keyof AlertChannelConfig; label: string; comingSoon?: boolean }[] = [
-  { key: 'web', label: '🖥️ Web dashboard' },
-  { key: 'sms', label: '📱 Text message (SMS)' },
-  { key: 'mobile', label: '📲 Mobile app' },
-  { key: 'desktop', label: '💻 Desktop app', comingSoon: true },
+  { key: 'web', label: 'Web dashboard' },
+  { key: 'sms', label: 'Text message (SMS)' },
+  { key: 'mobile', label: 'Mobile app' },
+  { key: 'desktop', label: 'Desktop app', comingSoon: true },
 ]
 
 export function AlertSettingsTab() {

@@ -21,8 +21,8 @@ const FAILED_STATUSES = ['failed', 'permanent-failure', 'temporary-failure', 'te
  *  until the webhook reports, so we present it as pending. */
 const STATUS_LABELS: Record<string, string> = {
   created: 'Created',
-  sending: '⏳ Pending',
-  sent: '⏳ Pending',
+  sending: 'Pending',
+  sent: 'Pending',
   delivered: '✓ Delivered',
   failed: 'Failed',
   'permanent-failure': 'Perm. failure',
@@ -385,7 +385,7 @@ export function MessageHistoryPage() {
             <div style={{ display: 'flex', gap: 'var(--ps-space-sm)', flexWrap: 'wrap' }}>
               {selected.notify_message_id && (
                 <button className="ps-btn ps-btn-secondary" disabled={checking} onClick={() => handleCheckStatus(selected)}>
-                  {checking ? 'Checking…' : '🔄 Check status'}
+                  {checking ? 'Checking…' : 'Check status'}
                 </button>
               )}
               {FAILED_STATUSES.includes(selected.status) && selected.body && (

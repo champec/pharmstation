@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useAuthStore, useAppointmentStore } from '@pharmstation/core'
 import type { Patient } from '@pharmstation/types'
 import { Modal } from '../../components/Modal'
+import { Users } from 'lucide-react'
 
 export function PatientsPage() {
   const navigate = useNavigate()
@@ -147,7 +148,7 @@ export function PatientsPage() {
       {/* Empty */}
       {!loading && patients.length === 0 && (
         <div className="ps-card" style={{ padding: 'var(--ps-space-2xl)', textAlign: 'center' }}>
-          <div style={{ fontSize: '48px', marginBottom: 'var(--ps-space-md)' }}>👥</div>
+          <span className="ps-empty-icon" aria-hidden="true"><Users size={26} strokeWidth={1.75} /></span>
           <h2 style={{ color: 'var(--ps-midnight)', marginBottom: 'var(--ps-space-sm)' }}>No patients yet</h2>
           <p style={{ color: 'var(--ps-slate)', marginBottom: 'var(--ps-space-lg)' }}>
             Add your first patient to get started.

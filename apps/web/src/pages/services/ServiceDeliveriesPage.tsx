@@ -8,6 +8,7 @@ import {
   patientName,
   type DeliveryListRow,
 } from '../../components/services/serviceRecord'
+import { ClipboardList } from 'lucide-react'
 
 const PAGE_SIZE = 25
 
@@ -172,7 +173,7 @@ export function ServiceDeliveriesPage() {
 
       {!loading && rows.length === 0 && (
         <div className="ps-card" style={{ padding: 'var(--ps-space-2xl)', textAlign: 'center' }}>
-          <div style={{ fontSize: '48px', marginBottom: 'var(--ps-space-md)' }}>📋</div>
+          <span className="ps-empty-icon" aria-hidden="true"><ClipboardList size={26} strokeWidth={1.75} /></span>
           <h2 style={{ color: 'var(--ps-midnight)', marginBottom: 'var(--ps-space-sm)' }}>No records found</h2>
           <p style={{ color: 'var(--ps-slate)', maxWidth: 400, margin: '0 auto' }}>
             Records appear here once a service is delivered. Try clearing the filters.
@@ -210,7 +211,7 @@ export function ServiceDeliveriesPage() {
                   <td style={{ ...td, color: 'var(--ps-slate)' }}>{d.deliverer?.full_name || '—'}</td>
                   <td style={td}>
                     <span className={`ps-badge ${d.status === 'completed' ? 'ps-badge-green' : 'ps-badge-amber'}`}>
-                      {d.status === 'completed' ? '✓ Completed' : '⏳ Draft'}
+                      {d.status === 'completed' ? '✓ Completed' : 'Draft'}
                     </span>
                     {(d.amendment_count ?? 0) > 0 && <span className="ps-badge" style={{ marginLeft: 4 }}>Amended</span>}
                   </td>

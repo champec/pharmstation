@@ -4,6 +4,9 @@ import { useAuthStore, useNetworkStore } from '@pharmstation/core'
 import { NETWORK_LABEL_CONFIG } from '@pharmstation/types'
 import type { NetworkMessage } from '@pharmstation/types'
 import { PharmacyMapModal } from '../../../components/maps/PharmacyMapModal'
+import { Settings, Map as MapIcon, MessagesSquare, MailOpen, Send, Inbox } from 'lucide-react'
+import { PageHeader } from '../../../components/ui/PageHeader'
+import { EmptyState } from '../../../components/ui/EmptyState'
 
 function relativeTime(iso: string): string {
   const diff = Date.now() - new Date(iso).getTime()
@@ -109,7 +112,7 @@ export function NetworkHubPage() {
             {fromMe ? 'You: ' : ''}{msg.body.slice(0, 80)}{msg.body.length > 80 ? '…' : ''}
           </span>
         </td>
-        <td><span className={labelCfg.cssClass}>{labelCfg.icon} {labelCfg.label}</span></td>
+        <td><span className={labelCfg.cssClass}>{labelCfg.label}</span></td>
         <td>
           {fromMe ? (
             <span className={msg.is_read ? 'ps-badge ps-badge-green' : 'ps-badge ps-badge-blue'}>
@@ -128,45 +131,27 @@ export function NetworkHubPage() {
 
   return (
     <div>
-      <div className="page-header">
-        <div className="breadcrumbs">
-          <a href="/" onClick={(e) => { e.preventDefault(); navigate('/') }}>Dashboard</a>
-          <span className="separator">/</span>
-          <a href="/messaging" onClick={(e) => { e.preventDefault(); navigate('/messaging') }}>Messaging</a>
-          <span className="separator">/</span>
-          <span>Pharmacy Network</span>
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--ps-space-md)' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--ps-space-sm)' }}>
-            <h1>Pharmacy Network</h1>
-            {unreadCount > 0 && (
-              <span className="ps-badge ps-badge-red" style={{ fontSize: '0.8rem' }}>
-                {unreadCount} new
-              </span>
-            )}
-          </div>
-          <div style={{ display: 'flex', gap: 'var(--ps-space-sm)' }}>
-            <button className="ps-btn ps-btn-ghost" onClick={() => navigate('/messaging/network/settings')}>
-              Settings
-            </button>
-            <button
-              className="ps-btn ps-btn-ghost"
-              onClick={() => setShowMap(true)}
-              title="Open pharmacy map"
-            >
-              Map
-            </button>
-            <button
-              className="ps-btn ps-btn-primary"
-              onClick={() => navigate('/messaging/network/compose')}
-              disabled={!isNetworkEnabled || !myLink || awaitingVerification}
-              title={awaitingVerification ? 'Available once your pharmacy is verified' : !myLink ? 'Link your pharmacy first' : undefined}
-            >
-              + New Message
-            </button>
-          </div>
-        </div>
-      </div>
+      <PageHeader
+        breadcrumbs={[{ label: 'Dashboard', to: '/' }, { label: 'Messaging', to: '/messaging' }, { label: 'Pharmacy Network' }]}
+        title={<>Pharmacy Network{unreadCount > 0 && <span className="ps-badge ps-badge-blue" style={{ marginLeft: 'var(--ps-space-sm)', verticalAlign: 'middle' }}>{unreadCount} new</span>}</>}
+        subtitle="Message verified pharmacies near you about stock, prescriptions and local alerts."
+        actions={<>
+          <button className="ps-btn ps-btn-secondary" onClick={() => navigate('/messaging/network/settings')}>
+            <Settings size={16} strokeWidth={1.75} aria-hidden="true" /> Settings
+          </button>
+          <button className="ps-btn ps-btn-secondary" onClick={() => setShowMap(true)}>
+            <MapIcon size={16} strokeWidth={1.75} aria-hidden="true" /> Map
+          </button>
+          <button
+            className="ps-btn ps-btn-primary"
+            onClick={() => navigate('/messaging/network/compose')}
+            disabled={!isNetworkEnabled || !myLink || awaitingVerification}
+            title={awaitingVerification ? 'Available once your pharmacy is verified' : !myLink ? 'Link your pharmacy first' : !isNetworkEnabled ? 'Turn the network back on in Settings' : undefined}
+          >
+            + New message
+          </button>
+        </>}
+      />
 
       {error && (
         <div className="auth-error" style={{ marginBottom: 'var(--ps-space-md)' }}>
@@ -219,7 +204,7 @@ export function NetworkHubPage() {
           border: '1px solid var(--ps-amber)',
         }}>
           <p style={{ margin: 0 }}>
-            ⚠️ Network messaging is currently <strong>disabled</strong> for your pharmacy.{' '}
+            You are <strong>not accepting new messages</strong>, so other pharmacies can&rsquo;t start conversations with you.{' '}
             <button className="ps-btn ps-btn-ghost" style={{ padding: 0 }} onClick={() => navigate('/messaging/network/settings')}>
               Enable in Settings →
             </button>
@@ -254,12 +239,12 @@ export function NetworkHubPage() {
       {/* Quick stats */}
       <div className="ps-stat-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 'var(--ps-space-md)', marginBottom: 'var(--ps-space-lg)' }}>
         {[
-          { label: 'Conversations', value: conversations.length, icon: '💬' },
-          { label: 'Unread messages', value: unreadCount, icon: '🔵' },
-          { label: 'Messages sent', value: sent.length, icon: '📤' },
+          { label: 'Conversations', value: conversations.length, icon: MessagesSquare },
+          { label: 'Unread messages', value: unreadCount, icon: MailOpen },
+          { label: 'Messages sent', value: sent.length, icon: Send },
         ].map((card) => (
           <div key={card.label} className="ps-card" style={{ padding: 'var(--ps-space-lg)', textAlign: 'center' }}>
-            <div style={{ fontSize: '1.4rem', marginBottom: 4 }}>{card.icon}</div>
+            <card.icon size={22} strokeWidth={1.75} aria-hidden="true" style={{ color: 'var(--ps-slate)', marginBottom: 4 }} />
             <div style={{ fontSize: '1.75rem', fontWeight: 700, color: 'var(--ps-deep-blue)' }}>{card.value}</div>
             <div style={{ fontSize: '0.85rem', color: 'var(--ps-slate)' }}>{card.label}</div>
           </div>
@@ -292,13 +277,18 @@ export function NetworkHubPage() {
             <div className="loading-spinner" />
           </div>
         ) : shown.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: 'var(--ps-space-2xl)', color: 'var(--ps-slate)' }}>
+          <EmptyState
+            bare
+            icon={Inbox}
+            title={tab === 'unread' ? 'You are all caught up' : tab === 'sent' ? 'You haven’t messaged anyone yet' : 'No conversations yet'}
+            actions={tab !== 'unread' && myLink && !awaitingVerification && isNetworkEnabled
+              ? <button className="ps-btn ps-btn-primary" onClick={() => navigate('/messaging/network/compose')}>+ New message</button>
+              : undefined}
+          >
             {tab === 'unread'
-              ? 'You are all caught up.'
-              : tab === 'sent'
-                ? 'You haven’t messaged anyone yet. Use “New Message” to ask a nearby pharmacy about stock or a prescription.'
-                : 'No conversations yet. Ask nearby pharmacies about stock, prescriptions or local alerts, and their replies appear here.'}
-          </div>
+              ? 'New messages from other pharmacies will show here.'
+              : 'Ask nearby pharmacies about stock, prescriptions or local alerts. Their replies appear here.'}
+          </EmptyState>
         ) : (
           <table className="ps-table ps-table-stack">
             <thead>
