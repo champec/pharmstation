@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useAuthStore, usePepsStore, useAppointmentStore, useMessagingStore, PepsWrongPinError } from '@pharmstation/core'
 import {
   pepsCdSchedule,
+  pepsDate,
   pepsCdBlocked,
   PEPS_CD_LABELS,
   type Patient,
@@ -444,7 +445,7 @@ export function PEPSWritePage() {
           </div>
           <div className="form-group">
             <label>Date</label>
-            <input className="ps-input" value={today} disabled />
+            <input className="ps-input" value={pepsDate(today)} disabled />
           </div>
         </div>
 
@@ -600,7 +601,7 @@ export function PEPSWritePage() {
                 <>
                   <strong style={{ fontSize: 'var(--ps-font-lg)' }}>{patientText}</strong>
                   <div style={{ fontSize: 'var(--ps-font-sm)' }}>
-                    DOB {ptDob}{ptDob && ageFromDob(ptDob) !== null ? ` (age ${ageFromDob(ptDob)})` : ''}
+                    DOB {pepsDate(ptDob)}{ptDob && ageFromDob(ptDob) !== null ? ` (age ${ageFromDob(ptDob)})` : ''}
                   </div>
                   <div style={{ fontSize: 'var(--ps-font-sm)', color: 'var(--ps-slate)' }}>{ptAddress}</div>
                 </>
@@ -613,7 +614,7 @@ export function PEPSWritePage() {
               )}
             </div>
             <div style={{ textAlign: 'right', fontSize: 'var(--ps-font-sm)' }}>
-              <div>{today}</div>
+              <div>{pepsDate(today)}</div>
               {repeats > 0 && <div>{repeats} repeat{repeats > 1 ? 's' : ''}</div>}
             </div>
           </div>

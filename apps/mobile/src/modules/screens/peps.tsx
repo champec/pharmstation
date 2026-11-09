@@ -803,7 +803,14 @@ function ItemRow({ item, vet, onChange, onRemove, canRemove }: {
   const results = useSearch<DmdResult>(async (q) => {
     const { data, error } = await userClient.rpc('ps_peps_dmd_search', { p_query: q, p_include_cd: true })
     if (error) throw error
-    return (data ?? []) as DmdResult[]
+    // Many AMPs share a name (one per supplier): keep one row per name, VMP first
+    const seen = new Map<string, DmdResult>()
+    for (const r of (data ?? []) as DmdResult[]) {
+      const k = r.name.trim().toLowerCase()
+      const prev = seen.get(k)
+      if (!prev || (prev.dmd_type !== 'vmp' && r.dmd_type === 'vmp')) seen.set(k, r)
+    }
+    return [...seen.values()]
   }, item.drug_name, focused && !item.dmd_code)
   return (
     <View style={[styles.block, { gap: 8 }]}>

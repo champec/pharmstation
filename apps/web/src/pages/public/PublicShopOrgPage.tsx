@@ -283,7 +283,7 @@ export function PublicShopOrgPage() {
       )}
 
       <main className="patient-shop-store-main">
-        <div className="patient-shop-store-heading"><div><span className="patient-shop-eyebrow">Shop the pharmacy</span><h2>Everyday health & wellbeing</h2></div><span>{products.length} products</span></div>
+        <div className="patient-shop-store-heading"><div><span className="patient-shop-eyebrow">Shop the pharmacy</span><h2>Everyday health & wellbeing</h2></div><span>{products.length} product{products.length === 1 ? '' : 's'}</span></div>
         <div className="patient-shop-store-tools">
           <label className="patient-shop-search"><span>⌕</span><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search this pharmacy" /></label>
           <div className="patient-shop-categories">
@@ -314,12 +314,17 @@ export function PublicShopOrgPage() {
                       <span className="patient-shop-out">Out of stock</span>
                     ) : inCart ? (
                       <div className="patient-shop-quantity">
-                        <button type="button" onClick={() => updateCartQuantity(p.id, inCart.quantity - 1)}>−</button><span>{inCart.quantity}</span><button type="button" onClick={() => addProductToCart(p)} disabled={inCart.quantity >= maxQty(p)}>+</button>
+                        <button type="button" onClick={() => updateCartQuantity(p.id, inCart.quantity - 1)}>−</button><span>{inCart.quantity}</span><button type="button" onClick={() => addProductToCart(p)} disabled={inCart.quantity >= maxQty(p)} aria-label={`Add another ${p.name}`}>+</button>
                       </div>
                     ) : (
                       <button type="button" onClick={() => addProductToCart(p)}>Add to basket</button>
                     )}
                   </div>
+                  {inCart && !out && inCart.quantity >= maxQty(p) && (
+                    <small className="shop-max-note">
+                      {p.max_per_order && maxQty(p) === p.max_per_order ? `Max ${p.max_per_order} per order` : `Only ${p.stock_quantity} in stock`}
+                    </small>
+                  )}
                 </div>
               </article>
             )
@@ -352,7 +357,10 @@ export function PublicShopOrgPage() {
                     <div key={c.product.id} style={{ display: 'flex', gap: 10, alignItems: 'center', borderBottom: '1px solid #f1f5f9', paddingBottom: 12 }}>
                       <div style={{ flex: 1 }}>
                         <div style={{ fontWeight: 600, fontSize: 14, color: '#0f172a' }}>{c.product.name}</div>
-                        <div style={{ color: '#64748b', fontSize: 13 }}>{formatPrice(c.product.price_pence)} each</div>
+                        <div style={{ color: '#64748b', fontSize: 13 }}>
+                          {formatPrice(c.product.price_pence)} each
+                          {c.quantity >= maxQty(c.product) && (c.product.max_per_order && maxQty(c.product) === c.product.max_per_order ? ` · max ${c.product.max_per_order} per order` : ` · only ${c.product.stock_quantity} in stock`)}
+                        </div>
                       </div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                         <button onClick={() => updateCartQuantity(c.product.id, c.quantity - 1)} style={{ width: 26, height: 26, borderRadius: 8, border: '1px solid #e2e8f0', background: 'white', cursor: 'pointer' }}>−</button>

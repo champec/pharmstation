@@ -11,6 +11,7 @@ import type {
   PepsVerifyResult,
   Patient,
 } from '@pharmstation/types'
+import { pepsDedupeDmd } from '@pharmstation/types'
 import { getUserClient } from '@pharmstation/supabase-client'
 
 // Shape passed in when writing a new prescription
@@ -224,7 +225,7 @@ export const usePepsStore = create<PepsState>((set, get) => ({
       p_include_cd: includeCd,
     })
     if (error) throw error
-    return (data ?? []) as PepsDmdResult[]
+    return pepsDedupeDmd((data ?? []) as PepsDmdResult[])
   },
 
   searchPatients: async (orgId, query) => {

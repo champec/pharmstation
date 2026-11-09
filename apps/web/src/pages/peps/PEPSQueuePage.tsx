@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuthStore, usePepsStore } from '@pharmstation/core'
-import type { PepsPrescription, PepsSpineResult } from '@pharmstation/types'
+import { pepsDate, type PepsPrescription, type PepsSpineResult } from '@pharmstation/types'
 import { PageHeader } from '../../components/ui'
 
 function statusBadge(rx: PepsPrescription) {
@@ -244,7 +244,7 @@ export function PEPSQueuePage() {
                   <tr key={r.id}>
                     <td>{r.prescription_ref}</td>
                     <td>{r.patient_name ?? '—'}</td>
-                    <td>{r.prescription_date}</td>
+                    <td>{pepsDate(r.prescription_date)}</td>
                     <td>{r.status}</td>
                     <td>{r.is_open ? <span className="ps-badge ps-badge-success">{r.location}</span> : r.location}</td>
                   </tr>
@@ -287,7 +287,7 @@ export function PEPSQueuePage() {
                   <td>{r.patient_snapshot?.full_name ?? '—'}</td>
                   <td>{r.prescription_type === 'vet' ? 'Vet' : 'Private'}</td>
                   <td>{r.items?.length ?? 0}</td>
-                  <td>{r.prescription_date}</td>
+                  <td>{pepsDate(r.prescription_date)}</td>
                   <td>{r.repeats > 0 ? `${r.repeats_dispensed}/${r.repeats + 1}` : '—'}</td>
                   <td>{statusBadge(r)}</td>
                 </tr>

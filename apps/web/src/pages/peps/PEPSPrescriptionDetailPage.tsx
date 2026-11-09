@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useAuthStore, usePepsStore } from '@pharmstation/core'
-import { pepsCdSchedule, PEPS_CD_LABELS, type PepsEvent, type PepsVerifyResult } from '@pharmstation/types'
+import { pepsDate, pepsDateTime, pepsCdSchedule, PEPS_CD_LABELS, type PepsEvent, type PepsVerifyResult } from '@pharmstation/types'
 import { getUserClient } from '@pharmstation/supabase-client'
 import { Autocomplete } from '../../components/forms/Autocomplete'
 import { Modal } from '../../components/Modal'
@@ -144,7 +144,7 @@ export function PEPSPrescriptionDetailPage() {
         title={rx.prescription_ref}
         subtitle={rx.expires_at && rx.status !== 'cancelled'
           ? <span style={{ color: expired ? 'var(--ps-error)' : undefined }}>
-              {expired ? 'Expired' : 'Valid until'} {new Date(rx.expires_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+              {expired ? 'Expired' : 'Valid until'} {pepsDate(rx.expires_at)}
             </span>
           : undefined}
         actions={
@@ -156,7 +156,7 @@ export function PEPSPrescriptionDetailPage() {
 
       {rx.status === 'cancelled' && (
         <div className="ps-alert ps-alert-error" style={{ marginBottom: 'var(--ps-space-md)' }}>
-          Cancelled by the prescriber{rx.cancelled_at ? ` on ${new Date(rx.cancelled_at).toLocaleDateString('en-GB')}` : ''}
+          Cancelled by the prescriber{rx.cancelled_at ? ` on ${pepsDate(rx.cancelled_at)}` : ''}
           {rx.cancel_reason ? `: ${rx.cancel_reason}` : ''}. Do not dispense.
         </div>
       )}
@@ -184,14 +184,14 @@ export function PEPSPrescriptionDetailPage() {
               </div>
               <strong style={{ fontSize: 'var(--ps-font-lg)' }}>{rx.patient_snapshot?.full_name ?? '—'}</strong>
               {rx.patient_snapshot?.nhs_number && <div style={{ color: 'var(--ps-slate)' }}>NHS {rx.patient_snapshot.nhs_number}</div>}
-              {rx.patient_snapshot?.dob && <div style={{ color: 'var(--ps-slate)' }}>DOB {rx.patient_snapshot.dob}</div>}
+              {rx.patient_snapshot?.dob && <div style={{ color: 'var(--ps-slate)' }}>DOB {pepsDate(rx.patient_snapshot.dob)}</div>}
               {rx.patient_snapshot?.address && <div style={{ color: 'var(--ps-slate)' }}>{rx.patient_snapshot.address}</div>}
               {rx.prescription_type === 'vet' && rx.animal_name && (
                 <div>Animal: {rx.animal_name}{rx.animal_owner ? ` (owner: ${rx.animal_owner})` : ''}</div>
               )}
             </div>
             <div style={{ textAlign: 'right', fontSize: 'var(--ps-font-sm)' }}>
-              <div>{rx.prescription_date}</div>
+              <div>{pepsDate(rx.prescription_date)}</div>
               {rx.repeats > 0 && <div>{rx.repeats_dispensed}/{totalIssues} issued</div>}
             </div>
           </div>
@@ -228,7 +228,7 @@ export function PEPSPrescriptionDetailPage() {
             <div style={{ marginTop: 'var(--ps-space-md)', fontSize: 'var(--ps-font-sm)' }}>
               {verify.status === 'verified' && (
                 <span className="ps-badge ps-badge-success">
-                  ✓ Electronically signed{verify.signed_at ? ` ${new Date(verify.signed_at).toLocaleString('en-GB')}` : ''} · unchanged since signing
+                  ✓ Electronically signed{verify.signed_at ? ` ${pepsDateTime(verify.signed_at)}` : ''} · unchanged since signing
                 </span>
               )}
               {verify.status === 'altered' && <span className="ps-badge ps-badge-danger">Changed since signing</span>}
@@ -302,7 +302,7 @@ export function PEPSPrescriptionDetailPage() {
                 <li key={ev.id} style={{ padding: '6px 0', borderBottom: '1px solid var(--ps-off-white)', fontSize: 'var(--ps-font-sm)' }}>
                   <strong>{formatEventLabel(ev)}</strong>
                   <div style={{ color: 'var(--ps-slate)', fontSize: 'var(--ps-font-xs)' }}>
-                    {new Date(ev.created_at).toLocaleString()}
+                    {pepsDateTime(ev.created_at)}
                   </div>
                 </li>
               ))}

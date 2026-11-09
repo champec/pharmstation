@@ -247,7 +247,10 @@ export function ShopProductsPage() {
         <div>
           <strong>Shop status:</strong>{' '}
           {settings?.shop_enabled
-            ? <span style={{ color: 'var(--ps-success)' }}>● Live on the marketplace</span>
+            ? ((organisation as { is_public?: boolean } | null)?.is_public === false
+              ? <span style={{ color: 'var(--ps-warning)' }}>● Published, but hidden until you list your pharmacy in{' '}
+                  <a href="/settings?tab=appointments" onClick={(e) => { e.preventDefault(); navigate('/settings?tab=appointments') }}>Settings › Bookings</a></span>
+              : <span style={{ color: 'var(--ps-success)' }}>● Live on the marketplace</span>)
             : <span style={{ color: 'var(--ps-slate)' }}>○ Not published</span>}
           {settings?.shop_enabled && (
             <span style={{ marginLeft: 12, color: 'var(--ps-slate)', fontSize: 'var(--ps-font-sm)' }}>

@@ -29,7 +29,9 @@ export function PersonalLoginPage() {
       await userLogin(email, password, { requireOrgMembership: false })
       if (useAuthStore.getState().isUserLoggedIn) {
         // Locums go straight to their portal; everyone else to their account.
-        navigate(useAuthStore.getState().locumProfile ? '/locum/dashboard' : '/me', { replace: true })
+        const { locumProfile, userSession } = useAuthStore.getState()
+        const signedUpAsLocum = userSession?.user?.user_metadata?.default_role === 'locum'
+        navigate(locumProfile ? '/locum/dashboard' : signedUpAsLocum ? '/locum/complete-profile' : '/me', { replace: true })
       }
     } catch (err: unknown) {
       const message =

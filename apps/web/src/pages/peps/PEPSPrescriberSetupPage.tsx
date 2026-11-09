@@ -1,8 +1,10 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuthStore, usePepsStore } from '@pharmstation/core'
+import { getUserClient } from '@pharmstation/supabase-client'
 import {
   PEPS_PRESCRIBER_TYPE_LABELS,
+  PEPS_REGISTER_LINKS,
   type PepsPrescriberType,
 } from '@pharmstation/types'
 import { CanvasField } from '../../components/forms/CanvasField'
@@ -89,8 +91,12 @@ export function PEPSPrescriberSetupPage() {
       setPhone(myPrescriber.phone ?? '')
       setAddress(myPrescriber.address ?? '')
       setSignature(myPrescriber.signature_data ?? '')
-    } else if (activeUser?.full_name && !fullName) {
-      setFullName(activeUser.full_name)
+    } else {
+      if (activeUser?.full_name && !fullName) setFullName(activeUser.full_name)
+      if (!email) {
+        getUserClient().auth.getUser().then(({ data }) => { if (data.user?.email) setEmail((e) => e || data.user!.email!) })
+      }
+      if (!regBody) setRegBody(PEPS_REGISTER_LINKS[type]?.body ?? '')
     }
   }, [myPrescriber, activeUser]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -175,7 +181,13 @@ export function PEPSPrescriberSetupPage() {
 
         <div className="form-group">
           <label>Prescriber type *</label>
-          <select className="ps-input" value={type} onChange={(e) => setType(e.target.value as PepsPrescriberType)}>
+          <select className="ps-input" value={type} onChange={(e) => {
+            const t = e.target.value as PepsPrescriberType
+            const oldBody = PEPS_REGISTER_LINKS[type]?.body ?? ''
+            setType(t)
+            // Fill the register from the type unless the prescriber typed something else
+            if (!regBody.trim() || regBody.trim() === oldBody) setRegBody(PEPS_REGISTER_LINKS[t]?.body ?? '')
+          }}>
             {Object.entries(PEPS_PRESCRIBER_TYPE_LABELS).map(([k, v]) => (
               <option key={k} value={k}>{v}</option>
             ))}

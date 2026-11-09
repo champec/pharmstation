@@ -59,6 +59,8 @@ export function ShopOrdersPage() {
   useEffect(() => { load() }, [load])
 
   const filtered = orders.filter((o) => {
+    // Keep the open order in view after it moves on (e.g. New → Confirmed).
+    if (o.id === expandedId) return true
     if (statusFilter === 'all') return true
     if (statusFilter === 'active') return !['completed', 'cancelled'].includes(o.status)
     return o.status === statusFilter
