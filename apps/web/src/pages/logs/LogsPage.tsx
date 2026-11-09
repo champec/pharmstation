@@ -4,7 +4,10 @@ import { useAuthStore, useLogStore } from '@pharmstation/core'
 import type { LogEntry, LogSubscription } from '@pharmstation/types'
 import { Drawer } from '../../components/Drawer'
 import { LogEntryForm } from './LogEntryForm'
-import { Celebration, ProgressRing, StreakBadge, useCelebration } from './LogBits'
+import { NotebookPen, Trophy } from 'lucide-react'
+import { PageHeader } from '../../components/ui/PageHeader'
+import { EmptyState } from '../../components/ui/EmptyState'
+import { Celebration, CategoryIcon, ProgressRing, StreakBadge, useCelebration } from './LogBits'
 import {
   addDays,
   categoryOf,
@@ -91,9 +94,9 @@ export function LogsPage() {
       const title = quickSub.custom_title || quickSub.template?.title || 'Log'
       setQuickSub(null)
       if (isScheduled(quickSub.template) && remaining === 0 && due.length > 0) {
-        celebrate('Every log done for today!', 'Lovely work. See you tomorrow.', '🏆')
+        celebrate('Every log done for today!', 'Lovely work. See you tomorrow.', Trophy)
       } else {
-        celebrate(cheer(), remaining > 0 ? `${title} saved. ${remaining} left today.` : `${title} saved.`, categoryOf(quickSub.template).emoji)
+        celebrate(cheer(), remaining > 0 ? `${title} saved. ${remaining} left today.` : `${title} saved.`, categoryOf(quickSub.template).icon)
       }
     } catch (e) {
       setSaveError(e instanceof Error ? e.message : 'Could not save')
@@ -106,23 +109,15 @@ export function LogsPage() {
 
   return (
     <div className="logs-page">
-      <div className="page-header">
-        <div className="breadcrumbs">
-          <a href="/" onClick={(e) => { e.preventDefault(); navigate('/') }}>Dashboard</a>
-          <span className="separator">/</span>
-          <span>Logs</span>
-        </div>
-        <div className="logs-header">
-          <div>
-            <h1>Logs</h1>
-            <p className="log-muted">{formatDay(today, { weekday: 'long', day: 'numeric', month: 'long' })}</p>
-          </div>
-          <div className="logs-header-actions">
-            <button className="ps-btn ps-btn-secondary" onClick={() => navigate('/logs/library')}>Library</button>
-            <button className="ps-btn ps-btn-primary" onClick={() => navigate('/logs/new')}>+ New log</button>
-          </div>
-        </div>
-      </div>
+      <PageHeader
+        breadcrumbs={[{ label: 'Dashboard', to: '/' }, { label: 'Logs' }]}
+        title="Logs"
+        subtitle={formatDay(today, { weekday: 'long', day: 'numeric', month: 'long' })}
+        actions={<>
+          <button className="ps-btn ps-btn-secondary" onClick={() => navigate('/logs/library')}>Library</button>
+          <button className="ps-btn ps-btn-primary" onClick={() => navigate('/logs/new')}>+ New log</button>
+        </>}
+      />
 
       {error && (
         <div className="auth-error" style={{ marginBottom: 'var(--ps-space-md)' }}>
@@ -143,7 +138,7 @@ export function LogsPage() {
               </>
             ) : allDone ? (
               <>
-                <h2>All done for today 🎉</h2>
+                <h2>All done for today</h2>
                 <p className="log-muted">Every log that's due today has been filled in.</p>
               </>
             ) : (
@@ -154,7 +149,7 @@ export function LogsPage() {
                     const cat = categoryOf(c.sub.template)
                     return (
                       <button key={c.sub.id} className="logs-today-chip" style={{ ['--cat' as string]: cat.color }} onClick={() => openQuick(c.sub)}>
-                        <span aria-hidden>{cat.emoji}</span> {c.sub.custom_title || c.sub.template?.title}
+                        <cat.icon size={16} strokeWidth={1.75} aria-hidden="true" /> {c.sub.custom_title || c.sub.template?.title}
                         <span className="logs-today-chip-go">Log now →</span>
                       </button>
                     )
@@ -173,18 +168,16 @@ export function LogsPage() {
       )}
 
       {!loading && subscriptions.length === 0 && (
-        <div className="ps-card logs-empty">
-          <div className="logs-empty-emoji">📒</div>
-          <h2>Start your first log</h2>
-          <p className="log-muted">
-            Add a fridge temperature log, cleaning rota or visitor book from the library in one click,
-            or build your own.
-          </p>
-          <div className="logs-header-actions" style={{ justifyContent: 'center' }}>
-            <button className="ps-btn ps-btn-primary" onClick={() => navigate('/logs/library')}>Browse the library</button>
+        <EmptyState
+          icon={NotebookPen}
+          title="No logs yet"
+          actions={<>
             <button className="ps-btn ps-btn-secondary" onClick={() => navigate('/logs/new')}>+ Build your own</button>
-          </div>
-        </div>
+            <button className="ps-btn ps-btn-primary" onClick={() => navigate('/logs/library')}>Browse the library</button>
+          </>}
+        >
+          Add a fridge temperature log, cleaning rota or visitor book from the library in one click, or build your own.
+        </EmptyState>
       )}
 
       {cards.length > 0 && (
@@ -201,7 +194,7 @@ export function LogsPage() {
               >
                 <button className="log-card-main" onClick={() => navigate(`/logs/${sub.id}`)}>
                   <div className="log-card-top">
-                    <span className="log-card-emoji" aria-hidden>{cat.emoji}</span>
+                    <CategoryIcon icon={cat.icon} />
                     <div className="log-card-titles">
                       <h3>{sub.custom_title || template?.title || 'Untitled log'}</h3>
                       <span className="log-muted">{scheduleLabel(template?.schedule_type, template?.required_days)}</span>
@@ -246,7 +239,7 @@ export function LogsPage() {
       <Drawer
         isOpen={!!quickSub}
         onClose={() => setQuickSub(null)}
-        title={`${categoryOf(quickSub?.template).emoji} ${quickSub?.custom_title || quickSub?.template?.title || 'Log'}`}
+        title={quickSub?.custom_title || quickSub?.template?.title || 'Log'}
         width="520px"
       >
         {quickSub && !quickFieldsReady && <p className="log-muted">Loading…</p>}

@@ -1,14 +1,15 @@
+import { CalendarCheck, ClipboardList, Pill, SprayCan, Thermometer, UserRound, type LucideIcon } from 'lucide-react'
 import type { LogCategory, LogEntry, LogField, LogScheduleType, LogTemplate } from '@pharmstation/types'
 
 /* ---- Category look and feel ---- */
 
-export const CATEGORY_CONFIG: Record<LogCategory, { label: string; emoji: string; color: string; tint: string; cta: string }> = {
-  fridge: { label: 'Fridge', emoji: '🌡️', color: '#0891b2', tint: '#ecfeff', cta: 'Log temperatures' },
-  cleaning: { label: 'Cleaning', emoji: '🧹', color: '#16a34a', tint: '#f0fdf4', cta: 'Log a clean' },
-  cd: { label: 'CD', emoji: '💊', color: '#9333ea', tint: '#faf5ff', cta: 'Add entry' },
-  visitor: { label: 'Visitor', emoji: '👤', color: '#d97706', tint: '#fffbeb', cta: 'Sign a visitor in' },
-  date_check: { label: 'Date check', emoji: '📅', color: '#ea580c', tint: '#fff7ed', cta: 'Log a date check' },
-  custom: { label: 'Custom', emoji: '📋', color: '#475569', tint: '#f8fafc', cta: 'Add entry' },
+export const CATEGORY_CONFIG: Record<LogCategory, { label: string; icon: LucideIcon; color: string; tint: string; cta: string }> = {
+  fridge: { label: 'Fridge', icon: Thermometer, color: 'var(--ps-deep-blue)', tint: 'var(--log-info-bg)', cta: 'Log temperatures' },
+  cleaning: { label: 'Cleaning', icon: SprayCan, color: 'var(--ps-deep-blue)', tint: 'var(--log-info-bg)', cta: 'Log a clean' },
+  cd: { label: 'CD', icon: Pill, color: 'var(--ps-deep-blue)', tint: 'var(--log-info-bg)', cta: 'Add entry' },
+  visitor: { label: 'Visitor', icon: UserRound, color: 'var(--ps-deep-blue)', tint: 'var(--log-info-bg)', cta: 'Sign a visitor in' },
+  date_check: { label: 'Date check', icon: CalendarCheck, color: 'var(--ps-deep-blue)', tint: 'var(--log-info-bg)', cta: 'Log a date check' },
+  custom: { label: 'Custom', icon: ClipboardList, color: 'var(--ps-deep-blue)', tint: 'var(--log-info-bg)', cta: 'Add entry' },
 }
 
 export function categoryOf(template?: Pick<LogTemplate, 'category'> | null) {

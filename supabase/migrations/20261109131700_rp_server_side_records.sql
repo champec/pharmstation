@@ -305,8 +305,7 @@ begin
   return new;
 end;
 $$;
-drop trigger if exists ps_rp_entries_guard on public.ps_register_entries;
-create trigger ps_rp_entries_guard before insert on public.ps_register_entries
+create or replace trigger ps_rp_entries_guard before insert on public.ps_register_entries
   for each row execute function public.ps_rp_entries_guard();
 
 revoke all on function public.ps_rp_overlaps(uuid, timestamptz, timestamptz, uuid) from public, anon, authenticated;

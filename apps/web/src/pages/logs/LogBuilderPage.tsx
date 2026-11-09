@@ -1,30 +1,28 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuthStore, useLogStore } from '@pharmstation/core'
-import type { LogCategory, LogScheduleType, FieldType } from '@pharmstation/types'
+import type { LogCategory, LogField, LogScheduleType, FieldType } from '@pharmstation/types'
+import { AlignLeft, CalendarDays, Hash, List, ListChecks, PenLine, ToggleLeft, Type, X, type LucideIcon } from 'lucide-react'
+import { PageHeader } from '../../components/ui/PageHeader'
+import { CATEGORY_CONFIG } from './logUtils'
 
 /* ---- Constants ---- */
 
-const FIELD_TYPES: { type: FieldType; label: string; icon: string }[] = [
-  { type: 'text', label: 'Text', icon: '📝' },
-  { type: 'number', label: 'Number', icon: '🔢' },
-  { type: 'boolean', label: 'Yes / No', icon: '✅' },
-  { type: 'select', label: 'Dropdown', icon: '📋' },
-  { type: 'multiselect', label: 'Multi-select', icon: '☑️' },
-  { type: 'date', label: 'Date', icon: '📅' },
-  { type: 'textarea', label: 'Text Area', icon: '📄' },
-  { type: 'signature', label: 'Signature', icon: '✍️' },
-  { type: 'canvas', label: 'Canvas', icon: '🎨' },
+const FIELD_TYPES: { type: FieldType; label: string; icon: LucideIcon }[] = [
+  { type: 'text', label: 'Text', icon: Type },
+  { type: 'number', label: 'Number', icon: Hash },
+  { type: 'boolean', label: 'Yes / No', icon: ToggleLeft },
+  { type: 'select', label: 'Dropdown', icon: List },
+  { type: 'multiselect', label: 'Multi-select', icon: ListChecks },
+  { type: 'date', label: 'Date and time', icon: CalendarDays },
+  { type: 'textarea', label: 'Long text', icon: AlignLeft },
+  { type: 'signature', label: 'Signature', icon: PenLine },
+  { type: 'canvas', label: 'Drawing', icon: PenLine },
 ]
 
-const CATEGORIES: { value: LogCategory; label: string; icon: string }[] = [
-  { value: 'fridge', label: 'Fridge', icon: '🌡️' },
-  { value: 'cleaning', label: 'Cleaning', icon: '🧹' },
-  { value: 'cd', label: 'CD', icon: '💊' },
-  { value: 'visitor', label: 'Visitor', icon: '👤' },
-  { value: 'date_check', label: 'Date Check', icon: '📅' },
-  { value: 'custom', label: 'Custom', icon: '📋' },
-]
+const CATEGORIES: { value: LogCategory; label: string; icon: LucideIcon }[] = (
+  ['fridge', 'cleaning', 'cd', 'visitor', 'date_check', 'custom'] as LogCategory[]
+).map((value) => ({ value, label: CATEGORY_CONFIG[value].label, icon: CATEGORY_CONFIG[value].icon }))
 
 const DAY_LABELS = [
   { day: 0, label: 'Sun' },
@@ -50,6 +48,8 @@ interface LocalField {
   range_min: string
   range_max: string
   range_unit: string
+  /** Saved fields keep their key so past entries stay linked when the label changes */
+  keyLocked?: boolean
 }
 
 function rangeOf(options: unknown): { min: string; max: string; unit: string } {
@@ -79,6 +79,7 @@ export function LogBuilderPage() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const editTemplateId = searchParams.get('edit')
+  const returnSub = searchParams.get('sub')
 
   const { organisation } = useAuthStore()
   const {
@@ -88,6 +89,7 @@ export function LogBuilderPage() {
     error,
     fetchTemplateDetail,
     buildTemplate,
+    updateTemplate,
     subscribeToLibrary,
     clearError,
   } = useLogStore()
@@ -129,6 +131,7 @@ export function LogBuilderPage() {
           range_min: rangeOf(f.options).min,
           range_max: rangeOf(f.options).max,
           range_unit: rangeOf(f.options).unit,
+          keyLocked: true,
         }))
       )
     }
@@ -150,7 +153,13 @@ export function LogBuilderPage() {
       {
         _key: nextKey(),
         label: `New ${label.toLowerCase()} field`,
-        field_key: toFieldKey(`New ${label.toLowerCase()} field`),
+        field_key: (() => {
+          const base = toFieldKey(`New ${label.toLowerCase()} field`)
+          let candidate = base
+          let n = 2
+          while (prev.some((o) => o.field_key === candidate)) candidate = `${base}_${n++}`
+          return candidate
+        })(),
         field_type: type,
         options: type === 'select' || type === 'multiselect' ? ['Option 1', 'Option 2'] : null,
         is_required: false,
@@ -167,8 +176,12 @@ export function LogBuilderPage() {
       prev.map((f) => {
         if (f._key !== key) return f
         const updated = { ...f, ...updates }
-        if (updates.label !== undefined) {
-          updated.field_key = toFieldKey(updates.label)
+        if (updates.label !== undefined && !f.keyLocked) {
+          const base = toFieldKey(updates.label) || 'field'
+          let candidate = base
+          let n = 2
+          while (prev.some((o) => o._key !== key && o.field_key === candidate)) candidate = `${base}_${n++}`
+          updated.field_key = candidate
         }
         return updated
       })
@@ -199,40 +212,45 @@ export function LogBuilderPage() {
 
   /* ---- Save ---- */
 
+  const fieldPayload = () =>
+    fields.map((f, i) => ({
+      label: f.label,
+      field_key: f.field_key,
+      field_type: f.field_type,
+      options: (
+        f.field_type === 'number'
+          ? (f.range_min.trim() || f.range_max.trim()
+              ? {
+                  ...(f.range_min.trim() ? { min: Number(f.range_min) } : {}),
+                  ...(f.range_max.trim() ? { max: Number(f.range_max) } : {}),
+                  ...(f.range_unit.trim() ? { unit: f.range_unit.trim() } : {}),
+                }
+              : null)
+          : f.options) as unknown as LogField['options'],
+      is_required: f.is_required,
+      column_width: f.column_width || null,
+      display_order: i,
+    }))
+
+  const isEditingOwn = !!editTemplateId && activeTemplate?.id === editTemplateId && !activeTemplate.is_library && activeTemplate.org_id === organisation?.id
+
   const handleSave = async () => {
     if (!organisation?.id || !title.trim()) return
     setSaving(true)
     try {
-      const template = await buildTemplate(
-        {
-          org_id: organisation.id,
-          title: title.trim(),
-          description: description.trim(),
-          category,
-          schedule_type: scheduleType,
-          required_days: scheduleType !== 'sporadic' ? requiredDays : [],
-        },
-        fields.map((f, i) => ({
-          label: f.label,
-          field_key: f.field_key,
-          field_type: f.field_type,
-          options:
-            f.field_type === 'number'
-              ? (f.range_min.trim() || f.range_max.trim()
-                  ? {
-                      ...(f.range_min.trim() ? { min: Number(f.range_min) } : {}),
-                      ...(f.range_max.trim() ? { max: Number(f.range_max) } : {}),
-                      ...(f.range_unit.trim() ? { unit: f.range_unit.trim() } : {}),
-                    }
-                  : null)
-              : (f.options as any),
-          is_required: f.is_required,
-          column_width: f.column_width || null,
-          display_order: i,
-        }))
-      )
-
-      // Auto-subscribe the org
+      const templateData = {
+        title: title.trim(),
+        description: description.trim(),
+        category,
+        schedule_type: scheduleType,
+        required_days: scheduleType !== 'sporadic' ? requiredDays : [],
+      }
+      if (isEditingOwn) {
+        await updateTemplate(editTemplateId!, templateData, fieldPayload())
+        navigate(returnSub ? `/logs/${returnSub}` : '/logs')
+        return
+      }
+      const template = await buildTemplate({ org_id: organisation.id, ...templateData }, fieldPayload())
       const sub = await subscribeToLibrary(organisation.id, template.id)
       navigate(`/logs/${sub.id}`)
     } catch {
@@ -244,30 +262,17 @@ export function LogBuilderPage() {
 
   return (
     <div>
-      {/* Header */}
-      <div className="page-header">
-        <div className="breadcrumbs">
-          <a href="/" onClick={(e) => { e.preventDefault(); navigate('/') }}>Dashboard</a>
-          <span className="separator">/</span>
-          <a href="/logs" onClick={(e) => { e.preventDefault(); navigate('/logs') }}>Logs</a>
-          <span className="separator">/</span>
-          <span>{editTemplateId ? 'Edit Log' : 'New Log'}</span>
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <h1>{editTemplateId ? 'Edit Custom Log' : 'Create Custom Log'}</h1>
-          <div style={{ display: 'flex', gap: 'var(--ps-space-sm)' }}>
-            <button
-              className={`ps-btn ps-btn-sm ${previewMode ? 'ps-btn-primary' : 'ps-btn-secondary'}`}
-              onClick={() => setPreviewMode(!previewMode)}
-            >
-              {previewMode ? '✏️ Edit' : '👁 Preview'}
-            </button>
-            <button className="ps-btn ps-btn-secondary" onClick={() => navigate('/logs')}>
-              ← Cancel
-            </button>
-          </div>
-        </div>
-      </div>
+      <PageHeader
+        breadcrumbs={[{ label: 'Dashboard', to: '/' }, { label: 'Logs', to: '/logs' }, { label: editTemplateId ? 'Edit log' : 'New log' }]}
+        title={editTemplateId ? 'Edit log' : 'Build a log'}
+        subtitle={editTemplateId ? 'Changes apply from now on. Past entries keep the values they were saved with.' : 'Add the fields your team fills in each time.'}
+        actions={<>
+          <button className="ps-btn ps-btn-secondary" onClick={() => navigate(returnSub ? `/logs/${returnSub}` : '/logs')}>Cancel</button>
+          <button className="ps-btn ps-btn-secondary" onClick={() => setPreviewMode(!previewMode)}>
+            {previewMode ? 'Back to editing' : 'Preview'}
+          </button>
+        </>}
+      />
 
       {error && (
         <div className="auth-error" style={{ marginBottom: 'var(--ps-space-md)' }}>
@@ -289,7 +294,7 @@ export function LogBuilderPage() {
                 <div key={f._key} className="form-group">
                   <label style={{ fontWeight: 500 }}>
                     {f.label}
-                    {f.is_required && <span style={{ color: '#ef4444' }}> *</span>}
+                    {f.is_required && <span className="log-req"> *</span>}
                   </label>
                   {f.field_type === 'textarea' ? (
                     <textarea className="ps-input" rows={2} placeholder={f.label} disabled />
@@ -326,7 +331,7 @@ export function LogBuilderPage() {
                     onClick={() => addField(ft.type)}
                     style={{ justifyContent: 'flex-start', textAlign: 'left' }}
                   >
-                    {ft.icon} {ft.label}
+                    <ft.icon size={16} strokeWidth={1.75} aria-hidden="true" /> {ft.label}
                   </button>
                 ))}
               </div>
@@ -372,7 +377,7 @@ export function LogBuilderPage() {
                       className={`ps-btn ps-btn-sm ${category === c.value ? 'ps-btn-primary' : 'ps-btn-secondary'}`}
                       onClick={() => setCategory(c.value)}
                     >
-                      {c.icon} {c.label}
+                      <c.icon size={16} strokeWidth={1.75} aria-hidden="true" /> {c.label}
                     </button>
                   ))}
                 </div>
@@ -458,7 +463,7 @@ export function LogBuilderPage() {
                       <div style={{ display: 'flex', gap: '2px' }}>
                         <button className="ps-btn ps-btn-ghost ps-btn-sm" onClick={() => moveField(f._key, -1)} disabled={idx === 0} style={{ fontSize: '10px' }}>▲</button>
                         <button className="ps-btn ps-btn-ghost ps-btn-sm" onClick={() => moveField(f._key, 1)} disabled={idx === fields.length - 1} style={{ fontSize: '10px' }}>▼</button>
-                        <button className="ps-btn ps-btn-ghost ps-btn-sm" onClick={() => removeField(f._key)} style={{ color: '#ef4444', fontSize: '10px' }}>✕</button>
+                        <button className="ps-btn ps-btn-ghost ps-btn-sm" onClick={() => removeField(f._key)} aria-label={`Remove ${f.label}`} title="Remove field"><X size={14} strokeWidth={1.75} aria-hidden="true" /></button>
                       </div>
                     </div>
 
