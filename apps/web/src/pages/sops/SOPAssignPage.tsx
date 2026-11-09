@@ -1,8 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { useAuthStore, useSOPStore, canManageSOPs } from '@pharmstation/core'
+import { useAuthStore, useSOPStore, canManageSOPs, fetchActiveOrgMembers } from '@pharmstation/core'
 import type { OrganisationMember } from '@pharmstation/types'
-import { getUserClient } from '@pharmstation/supabase-client'
 
 export function SOPAssignPage() {
   const { docId } = useParams<{ docId: string }>()
@@ -47,17 +46,10 @@ export function SOPAssignPage() {
   useEffect(() => {
     if (!organisation?.id) return
     setMembersLoading(true)
-    getUserClient()
-      .from('ps_organisation_members')
-      .select('*, user_profile:ps_user_profiles!user_id(*)')
-      .eq('organisation_id', organisation.id)
-      .eq('status', 'active')
-      .order('created_at')
-      .then(({ data, error: e }) => {
-        setMembersLoading(false)
-        if (e) { setError(e.message); return }
-        setMembers(data as OrganisationMember[])
-      })
+    fetchActiveOrgMembers(organisation.id)
+      .then((list) => setMembers(list))
+      .catch((e) => setError(e.message))
+      .finally(() => setMembersLoading(false))
   }, [organisation?.id])
 
   const handleToggleAll = async () => {
@@ -203,8 +195,8 @@ export function SOPAssignPage() {
                       <div style={{ fontWeight: 600, fontSize: 14 }}>
                         {m.user_profile?.full_name ?? m.user_id}
                       </div>
-                      <div style={{ fontSize: 12, color: 'var(--ps-text-muted)', textTransform: 'capitalize' }}>
-                        {m.role}
+                      <div style={{ fontSize: 12, color: 'var(--ps-text-muted)' }}>
+                        <span style={{ textTransform: 'capitalize' }}>{m.role}</span>
                         {m.user_profile?.email ? ` · ${m.user_profile.email}` : ''}
                       </div>
                     </div>

@@ -7,6 +7,7 @@ import { SOPReviewBadge } from '../../components/sop/SOPReviewBar'
 import { PageHeader } from '../../components/ui/PageHeader'
 import { EmptyState } from '../../components/ui/EmptyState'
 import { BookOpen, Trash2 } from 'lucide-react'
+import { SOP_TEMPLATES } from '../../components/sop/sopTemplates'
 
 type Tab = 'my-sops' | 'manage'
 
@@ -26,6 +27,8 @@ export function SOPsPage() {
     fetchDocuments,
     fetchMyDocuments,
     createDocument,
+    createNode,
+    updateNode,
     deleteDocument,
     clearError,
   } = useSOPStore()
@@ -41,6 +44,8 @@ export function SOPsPage() {
   const [newDesc, setNewDesc] = useState('')
   const [saving, setSaving] = useState(false)
   const [createError, setCreateError] = useState<string | null>(null)
+  const [templateId, setTemplateId] = useState('')
+  const template = SOP_TEMPLATES.find((t) => t.id === templateId) ?? null
 
   const load = useCallback(() => {
     if (!organisation?.id || !membership?.id) return
@@ -64,9 +69,16 @@ export function SOPsPage() {
         description: newDesc.trim() || undefined,
         created_by: activeUser.id,
       })
+      if (template) {
+        for (const [i, section] of template.sections.entries()) {
+          const node = await createNode({ document_id: doc.id, parent_id: null, title: section.title, sort_order: i })
+          await updateNode(node.id, { content_type: 'rich_text', rich_content: section.html })
+        }
+      }
       setShowCreate(false)
       setNewTitle('')
       setNewDesc('')
+      setTemplateId('')
       navigate(`/sops/${doc.id}/edit`)
     } catch (e: any) {
       setCreateError(e.message)
@@ -140,13 +152,18 @@ export function SOPsPage() {
           icon={BookOpen}
           title={tab === 'manage' ? 'No SOPs yet' : 'No SOPs assigned to you'}
           actions={isManager && tab === 'manage' ? (
-            <button className="ps-btn ps-btn-primary" onClick={() => setShowCreate(true)}>
-              Create SOP
-            </button>
+            <>
+              <button className="ps-btn ps-btn-secondary" onClick={() => { setTemplateId(SOP_TEMPLATES[0].id); setNewTitle(SOP_TEMPLATES[0].title); setNewDesc(SOP_TEMPLATES[0].description); setShowCreate(true) }}>
+                Start from a template
+              </button>
+              <button className="ps-btn ps-btn-primary" onClick={() => setShowCreate(true)}>
+                Create SOP
+              </button>
+            </>
           ) : undefined}
         >
           {tab === 'manage'
-            ? 'Create your first SOP, publish it, then assign it to staff to read and sign.'
+            ? 'Start from one of our templates (dispensing, RP, controlled drugs, fridge, complaints, incidents) or write your own. Publish it, then assign it to staff to read and sign.'
             : 'When your pharmacy assigns you an SOP it will appear here for you to read and sign.'}
         </EmptyState>
       ) : (
@@ -244,15 +261,38 @@ export function SOPsPage() {
       )}
 
       {/* Create modal */}
-      <Modal isOpen={showCreate} onClose={() => { setShowCreate(false); setNewTitle(''); setNewDesc(''); setCreateError(null) }} title="New SOP Document">
+      <Modal isOpen={showCreate} onClose={() => { setShowCreate(false); setNewTitle(''); setNewDesc(''); setTemplateId(''); setCreateError(null) }} title="New SOP">
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          <div className="ps-form-group">
+            <label className="ps-label" htmlFor="sop-template">Start from</label>
+            <select
+              id="sop-template"
+              className="ps-input"
+              value={templateId}
+              onChange={(e) => {
+                const t = SOP_TEMPLATES.find((x) => x.id === e.target.value)
+                setTemplateId(e.target.value)
+                if (t) { setNewTitle(t.title); setNewDesc(t.description) }
+              }}
+            >
+              <option value="">Blank SOP</option>
+              {SOP_TEMPLATES.map((t) => (
+                <option key={t.id} value={t.id}>Template: {t.title}</option>
+              ))}
+            </select>
+            {template && (
+              <p style={{ margin: '6px 0 0', fontSize: 12, color: 'var(--ps-text-muted)' }}>
+                {template.sections.length} sections to get you started. Review and adapt them to your pharmacy before you publish.
+              </p>
+            )}
+          </div>
           <div className="ps-form-group">
             <label className="ps-label">Title *</label>
             <input
               className="ps-input"
               value={newTitle}
               onChange={(e) => setNewTitle(e.target.value)}
-              placeholder="e.g. Dispensing Procedures"
+              placeholder="e.g. Dispensing process"
               autoFocus
             />
           </div>
@@ -270,7 +310,7 @@ export function SOPsPage() {
           <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
             <button className="ps-btn ps-btn-secondary" onClick={() => setShowCreate(false)}>Cancel</button>
             <button className="ps-btn ps-btn-primary" onClick={handleCreate} disabled={saving || !newTitle.trim()}>
-              {saving ? 'Creating…' : 'Create & Edit'}
+              {saving ? 'Creating…' : 'Create and edit'}
             </button>
           </div>
         </div>

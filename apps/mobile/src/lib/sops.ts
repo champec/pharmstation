@@ -199,21 +199,15 @@ export async function fetchTeamSOPs(orgId: string): Promise<TeamSOP[]> {
     userClient.from('ps_sop_documents').select('*').eq('org_id', orgId).neq('status', 'draft').order('title'),
     userClient.from('ps_sop_assignments').select('document_id, member_id').eq('org_id', orgId),
     userClient.from('ps_sop_completions').select('*').eq('org_id', orgId),
-    userClient
-      .from('ps_organisation_members')
-      .select('id, role, status, access_expires_at, user_profile:ps_user_profiles(full_name)')
-      .eq('organisation_id', orgId)
-      .eq('status', 'active'),
+    // Staff can only read their own membership row, so use the member list RPC.
+    userClient.rpc('ps_org_list_members', { p_org_id: orgId }),
   ])
   for (const r of [docsRes, assignRes, compRes, memRes]) if (r.error) throw r.error
   const assignments = (assignRes.data ?? []) as { document_id: string; member_id: string | null }[]
   const comps = (compRes.data ?? []) as SOPCompletion[]
-  const members = ((memRes.data ?? []) as unknown as {
-    id: string
-    role: string
-    access_expires_at: string | null
-    user_profile: { full_name: string | null } | null
-  }[]).filter((m) => !m.access_expires_at)
+  const members = ((memRes.data ?? []) as { member_id: string; role: string; status: string; full_name: string | null }[])
+    .filter((m) => m.status === 'active')
+    .map((m) => ({ id: m.member_id, role: m.role, user_profile: { full_name: m.full_name } }))
 
   return ((docsRes.data ?? []) as SOPDoc[]).map((d) => {
     const mine = assignments.filter((a) => a.document_id === d.id)
