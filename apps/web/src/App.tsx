@@ -298,7 +298,7 @@ export function App() {
         {/* Personal (individual-tier) login — bypasses org entirely */}
         <Route
           path="/me/login"
-          element={isUserLoggedIn ? <Navigate to="/me" replace /> : <PersonalLoginPage />}
+          element={isUserLoggedIn ? <Navigate to={locumProfile ? '/locum/dashboard' : '/me'} replace /> : <PersonalLoginPage />}
         />
         <Route
           path="/me/signup"

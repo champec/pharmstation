@@ -62,7 +62,7 @@ begin
     select nullif(trim(coalesce(gphc_premises_number, '')), '') into v_premises
     from ps_organisations where id = new.org_id;
     if v_premises is null then
-      raise exception 'Add your GPhC premises number in Settings before opening the shop';
+      raise exception 'Your pharmacy has no GPhC premises number on record. Contact PharmStation support to add it before opening the shop.';
     end if;
     if new.pharmacist_in_charge_name is null or new.pharmacist_in_charge_gphc is null then
       raise exception 'Add the pharmacist in charge (name and GPhC number) before opening the shop';

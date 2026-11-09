@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { getUserClient } from '@pharmstation/supabase-client'
+import { bookingModeLabel, bookingStatusLabel, complianceLabel, paymentModeLabel, shiftStatusLabel } from '../../components/locum/labels'
 import { useAuthStore } from '@pharmstation/core'
 
 interface Shift {
@@ -249,7 +250,7 @@ export function ShiftDetailPage() {
           <div>
             <h1 className="page-title">
               {fmt(shift.start_time)} – {fmt(shift.end_time)} &nbsp;
-              <span className={STATUS_COLOURS[shift.status] ?? 'ps-badge'}>{shift.status}</span>
+              <span className={STATUS_COLOURS[shift.status] ?? 'ps-badge'}>{shiftStatusLabel(shift.status)}</span>
             </h1>
             <p className="page-subtitle">{fmtDate(shift.date)} · {hours}h · £{Number(shift.rate_per_hour).toFixed(2)}/hr</p>
           </div>
@@ -287,7 +288,7 @@ export function ShiftDetailPage() {
                 <div className="review-row"><span>Email</span><strong>{confirmedBooking.locum?.email ?? '—'}</strong></div>
                 <div className="review-row"><span>Phone</span><strong>{confirmedBooking.locum?.phone ?? '—'}</strong></div>
                 <div className="review-row"><span>GPhC</span><strong>{confirmedBooking.locum?.gphc_number ?? '—'}</strong></div>
-                <div className="review-row"><span>Indemnity</span><strong>{confirmedBooking.locum?.indemnity_provider ?? '—'}</strong></div>
+                <div className="review-row"><span>Indemnity</span><strong>{confirmedBooking.locum?.indemnity_provider ?? <span className="ps-badge ps-badge-warning">None on file</span>}</strong></div>
                 <div className="review-row"><span>Smartcard</span><strong>{confirmedBooking.locum?.smart_card_held == null ? '—' : confirmedBooking.locum.smart_card_held ? 'Yes' : 'No'}</strong></div>
                 {confirmedBooking.status === 'approved' && shiftStarted && (
                   <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.75rem', flexWrap: 'wrap' }}>
@@ -340,13 +341,16 @@ export function ShiftDetailPage() {
                   {pendingBookings.map((b) => (
                     <tr key={b.id}>
                       <td>{b.locum?.full_name ?? '—'}</td>
-                      <td>{b.locum?.gphc_number ?? '—'}</td>
+                      <td>
+                        {b.locum?.gphc_number ?? '—'}
+                        {!b.locum?.indemnity_provider && <div><span className="ps-badge ps-badge-warning">No indemnity on file</span></div>}
+                      </td>
                       <td>{fmtTs(b.applied_at)}</td>
                       <td>
                         {b.locum?.compliance_status === 'approved' ? (
                           <span className="ps-badge ps-badge-success">Approved</span>
                         ) : b.locum?.compliance_status ? (
-                          <span className="ps-badge ps-badge-warning">{b.locum.compliance_status}</span>
+                          <span className="ps-badge ps-badge-warning">{complianceLabel(b.locum.compliance_status)}</span>
                         ) : '—'}
                       </td>
                       <td>
@@ -386,7 +390,7 @@ export function ShiftDetailPage() {
                   {bookings.filter((b) => b.status !== 'pending').map((b) => (
                     <tr key={b.id}>
                       <td>{b.locum?.full_name ?? '—'}</td>
-                      <td><span className={BOOKING_STATUS_COLOURS[b.status] ?? 'ps-badge'}>{b.status}</span></td>
+                      <td><span className={BOOKING_STATUS_COLOURS[b.status] ?? 'ps-badge'}>{bookingStatusLabel(b.status)}</span></td>
                       <td>{fmtTs(b.applied_at)}</td>
                       <td>{b.reviewed_at ? fmtTs(b.reviewed_at) : '—'}</td>
                     </tr>
@@ -415,8 +419,8 @@ export function ShiftDetailPage() {
               <div className="review-row"><span>Duration</span><strong>{hours}h</strong></div>
               <div className="review-row"><span>Rate</span><strong>£{Number(shift.rate_per_hour).toFixed(2)}/hr</strong></div>
               <div className="review-row"><span>Total est.</span><strong>£{(Number(shift.rate_per_hour) * parseFloat(hours)).toFixed(2)}</strong></div>
-              <div className="review-row"><span>Booking Mode</span><strong>{shift.booking_mode}</strong></div>
-              <div className="review-row"><span>Payment</span><strong>{shift.payment_mode}</strong></div>
+              <div className="review-row"><span>Booking Mode</span><strong>{bookingModeLabel(shift.booking_mode)}</strong></div>
+              <div className="review-row"><span>Payment</span><strong>{paymentModeLabel(shift.payment_mode)}</strong></div>
               {shift.notes && (
                 <div style={{ marginTop: '0.75rem', padding: '0.5rem', background: 'var(--ps-surface)', borderRadius: 4, fontSize: '0.875rem' }}>
                   {shift.notes}

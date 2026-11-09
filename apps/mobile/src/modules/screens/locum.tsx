@@ -316,7 +316,7 @@ function BookingCard({ booking }: { booking: LocumBooking }) {
 
   return (
     <View style={styles.bookingCard}>
-      <View style={styles.between}><Text style={styles.bookingDate}>{dateLabel(booking.shift.date, true)}</Text><StatusPill label={booking.status === 'approved' ? 'Confirmed' : booking.status === 'pending' ? 'Requested' : booking.status.replace('_', ' ')} tone={booking.status === 'approved' || booking.status === 'completed' ? 'success' : booking.status === 'pending' ? 'warning' : 'neutral'} /></View>
+      <View style={styles.between}><Text style={styles.bookingDate}>{dateLabel(booking.shift.date, true)}</Text><StatusPill label={({ approved: 'Confirmed', pending: 'Requested', completed: 'Worked', cancelled: 'Cancelled', rejected: 'Not successful', no_show: 'No-show' } as Record<string, string>)[booking.status] ?? booking.status} tone={booking.status === 'approved' || booking.status === 'completed' ? 'success' : booking.status === 'pending' ? 'warning' : 'neutral'} /></View>
       <Text style={styles.bookingOrg}>{booking.shift.org_name}</Text>
       <View style={styles.bookingFacts}><Fact icon="time-outline" text={`${timeLabel(booking.shift.start_time)} - ${timeLabel(booking.shift.end_time)}`} /><Fact icon="cash-outline" text={`${money(shiftTotal(booking.shift))} estimated`} /></View>
       {booking.shift.org_address ? <Fact icon="location-outline" text={booking.shift.org_address} /> : null}

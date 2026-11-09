@@ -1,15 +1,13 @@
 import { useEditor, EditorContent } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
-import Underline from '@tiptap/extension-underline'
 import TextAlign from '@tiptap/extension-text-align'
-import Link from '@tiptap/extension-link'
 import { TextStyle } from '@tiptap/extension-text-style'
 import Color from '@tiptap/extension-color'
 import { Table } from '@tiptap/extension-table'
 import TableRow from '@tiptap/extension-table-row'
 import TableCell from '@tiptap/extension-table-cell'
 import TableHeader from '@tiptap/extension-table-header'
-import { useEffect, useCallback } from 'react'
+import { useEffect, useCallback, useRef } from 'react'
 
 interface RichTextEditorProps {
   content: string
@@ -49,14 +47,17 @@ const ToolbarButton = ({
 )
 
 export function RichTextEditor({ content, onChange, editable = true, placeholder }: RichTextEditorProps) {
+  // Always call the latest onChange (the editor is created once).
+  const onChangeRef = useRef(onChange)
+  onChangeRef.current = onChange
+
   const editor = useEditor({
     extensions: [
-      StarterKit,
-      Underline,
+      // StarterKit v3 already includes Link and Underline.
+      StarterKit.configure({ link: { openOnClick: false } }),
       TextStyle,
       Color,
       TextAlign.configure({ types: ['heading', 'paragraph'] }),
-      Link.configure({ openOnClick: false }),
       Table.configure({ resizable: true }),
       TableRow,
       TableHeader,
@@ -64,16 +65,22 @@ export function RichTextEditor({ content, onChange, editable = true, placeholder
     ],
     content: content || '',
     editable,
-    onUpdate: ({ editor: e }) => {
-      onChange(e.getHTML())
+    // Only real edits by the user count as changes. Loading or switching
+    // content must never trigger a save (it used to wipe sections).
+    onUpdate: ({ editor: e, transaction }) => {
+      if (!transaction.docChanged || transaction.getMeta('preventUpdate')) return
+      onChangeRef.current(e.getHTML())
     },
   })
 
   // Sync external content changes (e.g. switching nodes)
   useEffect(() => {
-    if (editor && content !== editor.getHTML()) {
-      editor.commands.setContent(content || '')
-    }
+    if (!editor) return
+    const next = content || ''
+    const current = editor.getHTML()
+    // An empty editor reports '<p></p>'; treat that as the same as ''.
+    if (next === current || (!next && editor.isEmpty)) return
+    editor.commands.setContent(next, { emitUpdate: false })
   }, [content, editor])
 
   useEffect(() => {

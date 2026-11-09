@@ -348,14 +348,18 @@ export function ShopProductsPage() {
             Category
             <select className="ps-input" value={fCategoryId} onChange={(e) => setFCategoryId(e.target.value)} style={{ width: '100%' }}>
               <option value="">Uncategorised</option>
-              {categories.filter((c) => !c.parent_id).map((parent) => (
+              {categories.filter((c) => !c.parent_id && c.name.toLowerCase() !== 'uncategorised').map((parent) => {
+                const subs = categories.filter((c) => c.parent_id === parent.id)
+                if (!subs.length) return <option key={parent.id} value={parent.id}>{parent.name}</option>
+                return (
                 <optgroup key={parent.id} label={parent.name}>
                   <option value={parent.id}>{parent.name} (general)</option>
-                  {categories.filter((c) => c.parent_id === parent.id).map((sub) => (
+                  {subs.map((sub) => (
                     <option key={sub.id} value={sub.id}>{sub.name}</option>
                   ))}
                 </optgroup>
-              ))}
+                )
+              })}
             </select>
           </label>
           <label>
@@ -446,17 +450,17 @@ export function ShopProductsPage() {
             <strong>Publish shop on the marketplace</strong>
           </label>
           <p style={{ margin: 0, color: 'var(--ps-slate)', fontSize: 'var(--ps-font-sm)' }}>
-            Your organisation must also be public (Settings → Public Booking) for customers to find your shop.
+            Customers can only find your shop if your pharmacy is public. Turn that on in{' '}
+            <a href="/settings?tab=appointments" onClick={(e) => { e.preventDefault(); navigate('/settings?tab=appointments') }}>Settings › Bookings</a>.
           </p>
-          {settingsError && (
-            <div role="alert" style={{ background: '#fee2e2', color: '#991b1b', borderRadius: 8, padding: '8px 12px', fontSize: 'var(--ps-font-sm)' }}>{settingsError}</div>
-          )}
           <hr style={{ border: 'none', borderTop: '1px solid var(--ps-off-white)' }} />
           <div>
             <strong>Shown to customers</strong>
             <p style={{ margin: '2px 0 8px', color: 'var(--ps-slate)', fontSize: 'var(--ps-font-sm)' }}>
               The law requires online pharmacies to show who is responsible for selling medicines. Your shop can't open without these.
-              Your GPhC premises number comes from Settings{organisation?.gphc_premises_number ? ` (currently ${organisation.gphc_premises_number})` : ' and is not set yet'}.
+              {organisation?.gphc_premises_number
+                ? `Your GPhC premises number (${organisation.gphc_premises_number}) is shown too.`
+                : 'Your GPhC premises number is shown too. We don\'t have one on record for your pharmacy yet, so contact PharmStation support to add it.'}
             </p>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 'var(--ps-space-md)' }}>
               <label>
@@ -516,6 +520,9 @@ export function ShopProductsPage() {
               </span>
             )}
           </label>
+          {settingsError && (
+            <div role="alert" style={{ background: '#fee2e2', color: '#991b1b', borderRadius: 8, padding: '8px 12px', fontSize: 'var(--ps-font-sm)' }}>Not saved: {settingsError}</div>
+          )}
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 'var(--ps-space-sm)' }}>
             <button className="ps-btn ps-btn-secondary" onClick={() => setShowSettingsModal(false)}>Cancel</button>
             <button className="ps-btn ps-btn-primary" disabled={saving} onClick={handleSaveSettings}>

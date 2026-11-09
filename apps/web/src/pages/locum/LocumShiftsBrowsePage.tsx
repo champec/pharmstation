@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { getUserClient } from '@pharmstation/supabase-client'
 import { Bell } from 'lucide-react'
 import { PageHeader } from '../../components/ui'
+import { bookingModeLabel } from '../../components/locum/labels'
 import { useAuthStore } from '@pharmstation/core'
 
 interface ShiftWithCriteria {
@@ -297,7 +298,7 @@ export function LocumShiftsBrowsePage() {
                   <div style={{ display: 'flex', gap: '1rem', fontSize: '0.875rem', color: 'var(--ps-slate)', flexWrap: 'wrap' }}>
                     <span>£{Number(shift.rate_per_hour).toFixed(2)}/hr · £{total} total</span>
                     {orgNames[shift.org_id] && <span>{orgNames[shift.org_id]}</span>}
-                    <span className="ps-badge">{shift.booking_mode}</span>
+                    <span className="ps-badge">{bookingModeLabel(shift.booking_mode)}</span>
                     {shift.criteria?.references_required && <span className="ps-badge ps-badge-warning">References req.</span>}
                     {shift.criteria?.sop_required && <span className="ps-badge ps-badge-warning">SOP sign-off req.</span>}
                   </div>
