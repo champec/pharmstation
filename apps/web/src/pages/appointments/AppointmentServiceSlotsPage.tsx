@@ -4,6 +4,7 @@ import { useAuthStore, useAppointmentStore, useServiceStore } from '@pharmstatio
 import type { AppointmentSlot } from '@pharmstation/types'
 import { Modal } from '../../components/Modal'
 import { expandRecurrenceDates, toLocalDateString, RECURRENCE_HORIZON_DAYS } from '../../lib/recurrence'
+import { alertDialog, confirmDialog } from '../../components/ui/dialog'
 
 function toDateInputValue(date: Date) {
   const year = date.getFullYear()
@@ -270,11 +271,11 @@ export function AppointmentServiceSlotsPage() {
   }
 
   const handleDeactivate = async (slotId: string) => {
-    if (!confirm('Deactivate this slot? It will no longer accept bookings.')) return
+    if (!await confirmDialog('Deactivate this slot? It will no longer accept bookings.')) return
     try {
       await deleteSlot(slotId)
     } catch (e: any) {
-      alert(e.message)
+      alertDialog(e.message)
     }
   }
 

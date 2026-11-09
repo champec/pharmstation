@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useAuthStore, useNetworkStore } from '@pharmstation/core'
 import { getUserClient } from '@pharmstation/supabase-client'
 import { PageHeader } from '../../../components/ui/PageHeader'
+import { confirmDialog } from '../../../components/ui/dialog'
 
 interface OdsPharmacy {
   id: number
@@ -82,7 +83,7 @@ export function NetworkOnboardingPage() {
 
   async function handleUnlink() {
     if (!organisation?.id) return
-    if (!window.confirm('Unlink this pharmacy? Other pharmacies will no longer be able to find you.')) return
+    if (!await confirmDialog('Unlink this pharmacy? Other pharmacies will no longer be able to find you.')) return
     setUnlinking(true)
     await unlinkPharmacy(organisation.id)
     setUnlinking(false)

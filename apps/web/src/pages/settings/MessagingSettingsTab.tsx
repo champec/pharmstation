@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useAuthStore, useMessagingStore } from '@pharmstation/core'
 import type { SmsInboundFilterMode, SmsTemplate } from '@pharmstation/types'
+import { confirmDialog } from '../../components/ui/dialog'
 
 // ============================================================
 // Messaging Settings — SMS Works first (platform SMS provider)
@@ -142,7 +143,7 @@ export function MessagingSettingsTab() {
 
   const handleReleaseReplyNumber = async () => {
     if (!orgId) return
-    if (!window.confirm('Release your reply number? Patients will no longer be able to reply to your messages, and the monthly rental stops.')) return
+    if (!await confirmDialog('Release your reply number? Patients will no longer be able to reply to your messages, and the monthly rental stops.')) return
     setReplyBusy(true)
     setReplyNotice(null)
     try {
@@ -176,7 +177,7 @@ export function MessagingSettingsTab() {
 
   const handleDeleteTemplate = useCallback(async (t: SmsTemplate) => {
     if (!orgId) return
-    if (!window.confirm(`Delete template "${t.name}"?`)) return
+    if (!await confirmDialog(`Delete template "${t.name}"?`)) return
     try { await deleteSmsTemplate(orgId, t.id) } catch { /* surfaced via error banner */ }
   }, [orgId, deleteSmsTemplate])
 

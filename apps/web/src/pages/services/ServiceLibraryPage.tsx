@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useAuthStore, useServiceStore } from '@pharmstation/core'
 import type { ServiceLibraryItem } from '@pharmstation/types'
 import { NHS_SERVICES_ENABLED } from '../../lib/features'
+import { confirmDialog } from '../../components/ui/dialog'
 
 const CATEGORY_LABELS: Record<string, string> = {
   vaccination: 'Vaccinations',
@@ -87,7 +88,7 @@ export function ServiceLibraryPage() {
     if (!organisation?.id) return
     const svc = services.find((s) => s.library_service_id === libraryItemId)
     if (!svc) return
-    if (!window.confirm(`Remove "${svc.name}" from your services? Records already made for it are kept in Service History.`)) return
+    if (!await confirmDialog(`Remove "${svc.name}" from your services? Records already made for it are kept in Service History.`)) return
     setSubscribeError(null)
     try {
       await archiveService(svc.id)

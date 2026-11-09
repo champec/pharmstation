@@ -2,6 +2,7 @@ import { useEffect, useCallback, useState, type ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuthStore, useDriverStore, formatTimeWindow } from '@pharmstation/core'
 import type { DeliveryRound, DeliveryRoundStatus } from '@pharmstation/types'
+import { alertDialog } from '../../components/ui/dialog'
 
 const STATUS_BADGE: Record<DeliveryRoundStatus, { cls: string; label: string }> = {
   draft: { cls: 'ps-badge-muted', label: 'Draft' },
@@ -107,7 +108,7 @@ export function DriverDashboardPage() {
       await claimRound(roundId, membership.id)
       navigate(`/driver/${roundId}`)
     } catch (e: any) {
-      alert(e.message)
+      alertDialog(e.message)
       load()
     }
     setClaiming(null)

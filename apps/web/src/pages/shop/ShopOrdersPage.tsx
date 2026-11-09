@@ -12,6 +12,7 @@ import { EmptyState } from '../../components/ui/EmptyState'
 import { useAuthStore, useShopStore, useDeliveryRoundStore } from '@pharmstation/core'
 import type { ShopOrder, ShopOrderStatus } from '@pharmstation/types'
 import { Modal } from '../../components/Modal'
+import { confirmDialog, promptDialog } from '../../components/ui/dialog'
 
 const formatPrice = (pence: number) => `£${(pence / 100).toFixed(2)}`
 
@@ -69,7 +70,7 @@ export function ShopOrdersPage() {
   const handleStatus = async (order: ShopOrder, status: ShopOrderStatus) => {
     if (
       status === 'cancelled'
-      && !window.confirm(`Cancel order ${order.order_number}? Its items go back into stock${order.payment_status === 'paid' ? ' and the customer is refunded in full' : ''}. A cancelled order can't be reopened.`)
+      && !await confirmDialog(`Cancel order ${order.order_number}? Its items go back into stock${order.payment_status === 'paid' ? ' and the customer is refunded in full' : ''}. A cancelled order can't be reopened.`)
     ) return
     try {
       if (status === 'cancelled' && order.payment_status === 'paid') {
@@ -87,10 +88,10 @@ export function ShopOrdersPage() {
   const handleReview = async (order: ShopOrder, approve: boolean) => {
     let notes: string | null = null
     if (approve) {
-      notes = window.prompt(`Approve ${order.order_number}? Add a note for the record (optional):`, '')
+      notes = await promptDialog(`Approve ${order.order_number}? Add a note for the record (optional):`, '')
       if (notes === null) return
     } else {
-      notes = window.prompt(`Reject ${order.order_number}? The order is cancelled and its stock goes back${order.payment_status === 'paid' ? ', and the customer is refunded in full' : ''}. Reason (required, kept on record):`, '')
+      notes = await promptDialog(`Reject ${order.order_number}? The order is cancelled and its stock goes back${order.payment_status === 'paid' ? ', and the customer is refunded in full' : ''}. Reason (required, kept on record):`, '')
       if (notes === null) return
       if (!notes.trim()) { useShopStore.setState({ error: 'Please give a reason for rejecting the order' }); return }
     }

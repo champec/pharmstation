@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { useAuthStore, useDeliveryRoundStore, useAppointmentStore } from '@pharmstation/core'
 import { getUserClient } from '@pharmstation/supabase-client'
 import type { Patient } from '@pharmstation/types'
+import { alertDialog, confirmDialog } from '../../components/ui/dialog'
 
 export function RoundTemplateDetailPage() {
   const { id } = useParams<{ id: string }>()
@@ -64,19 +65,19 @@ export function RoundTemplateDetailPage() {
       setPatientSearch('')
       fetchTemplate(id)
     } catch (e: any) {
-      alert(e.message)
+      alertDialog(e.message)
     }
     setSaving(false)
   }
 
   const handleRemovePatient = async (tpId: string) => {
-    if (!id || !confirm('Remove patient from template?')) return
+    if (!id || !await confirmDialog('Remove patient from template?')) return
     setSaving(true)
     try {
       await getUserClient().from('ps_delivery_round_template_patients').delete().eq('id', tpId)
       fetchTemplate(id)
     } catch (e: any) {
-      alert(e.message)
+      alertDialog(e.message)
     }
     setSaving(false)
   }
@@ -88,7 +89,7 @@ export function RoundTemplateDetailPage() {
       await updateTemplate(id, { name: name.trim(), notes: notes.trim() || null } as any)
       navigate('/deliveries/templates')
     } catch (e: any) {
-      alert(e.message)
+      alertDialog(e.message)
     }
     setSaving(false)
   }

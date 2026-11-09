@@ -12,6 +12,7 @@ import { EmptyState } from '../../components/ui/EmptyState'
 import { useAuthStore, useShopStore } from '@pharmstation/core'
 import type { ShopProduct, ShopMedicineClass, ShopPaymentMethods } from '@pharmstation/types'
 import { Modal } from '../../components/Modal'
+import { confirmDialog } from '../../components/ui/dialog'
 
 const formatPrice = (pence: number) => `£${(pence / 100).toFixed(2)}`
 
@@ -155,7 +156,7 @@ export function ShopProductsPage() {
   }
 
   const handleDelete = async (p: ShopProduct) => {
-    if (!window.confirm(`Delete "${p.name}"? This cannot be undone.`)) return
+    if (!await confirmDialog(`Delete "${p.name}"? This cannot be undone.`)) return
     try { await deleteProduct(p.id) } catch (e: any) { setModalError(e.message) }
   }
 

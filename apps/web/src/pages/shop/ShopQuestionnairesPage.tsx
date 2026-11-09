@@ -13,6 +13,7 @@ import { PageHeader } from '../../components/ui/PageHeader'
 import { useAuthStore, useShopStore } from '@pharmstation/core'
 import type { ShopQuestionnaire, ShopQuestion, ShopQuestionType } from '@pharmstation/types'
 import { Modal } from '../../components/Modal'
+import { confirmDialog } from '../../components/ui/dialog'
 
 const newQuestion = (): ShopQuestion => ({
   id: `q_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
@@ -113,7 +114,7 @@ export function ShopQuestionnairesPage() {
   }
 
   const handleDelete = async (q: ShopQuestionnaire) => {
-    if (!window.confirm(`Delete "${q.name}"? Products using it will no longer require a consultation.`)) return
+    if (!await confirmDialog(`Delete "${q.name}"? Products using it will no longer require a consultation.`)) return
     try { await deleteQuestionnaire(q.id) } catch { /* store error */ }
   }
 

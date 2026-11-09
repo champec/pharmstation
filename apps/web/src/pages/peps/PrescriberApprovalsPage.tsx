@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { getUserClient } from '@pharmstation/supabase-client'
 import { pepsDate, PEPS_REGISTER_LINKS, PEPS_PRESCRIBER_TYPE_LABELS, type PepsPrescriberType } from '@pharmstation/types'
 import { PageHeader } from '../../components/ui'
+import { alertDialog, confirmDialog } from '../../components/ui/dialog'
 
 // PharmStation platform admins verify each prescriber's registration with the
 // regulator before activating them. Access is enforced in the database
@@ -55,7 +56,7 @@ export function PrescriberApprovalsPage() {
   useEffect(() => { load() }, [load])
 
   const setStatus = async (row: Row, status: string) => {
-    if (status === 'active' && !window.confirm(
+    if (status === 'active' && !await confirmDialog(
       `Activate ${row.full_name}?\n\nOnly do this after confirming registration ${row.registration_number} on the ${row.registration_body || 'regulator'} register, with a matching name.`,
     )) return
     setBusyId(row.id)
@@ -66,12 +67,12 @@ export function PrescriberApprovalsPage() {
   }
 
   const resetPin = async (row: Row) => {
-    if (!window.confirm(`Reset ${row.full_name}'s signing PIN?\n\nOnly do this after confirming who is asking. They will have to set a new PIN before they can send prescriptions.`)) return
+    if (!await confirmDialog(`Reset ${row.full_name}'s signing PIN?\n\nOnly do this after confirming who is asking. They will have to set a new PIN before they can send prescriptions.`)) return
     setBusyId(row.id)
     const { error } = await getUserClient().rpc('ps_admin_reset_signing_pin', { p_prescriber_id: row.id })
     setBusyId(null)
     if (error) setError(error.message)
-    else window.alert('Signing PIN reset.')
+    else alertDialog('Signing PIN reset.')
   }
 
   return (

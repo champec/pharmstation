@@ -3,6 +3,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom'
 import { getUserClient } from '@pharmstation/supabase-client'
 import { bookingModeLabel, bookingStatusLabel, complianceLabel, paymentModeLabel, shiftStatusLabel } from '../../components/locum/labels'
 import { useAuthStore } from '@pharmstation/core'
+import { confirmDialog, promptDialog } from '../../components/ui/dialog'
 
 interface Shift {
   id: string
@@ -157,7 +158,7 @@ export function ShiftDetailPage() {
     if (!activeUser?.id) return
     let reason: string | null = null
     if (action === 'reject') {
-      reason = window.prompt('Reason (optional, the locum sees this):', '')
+      reason = await promptDialog('Reason (optional, the locum sees this):', '')
       if (reason === null) return
     }
     setActionLoading(bookingId)
@@ -179,7 +180,7 @@ export function ShiftDetailPage() {
   }
 
   async function handleCancelShift() {
-    const reason = window.prompt('Cancel this shift? Applications are turned down and any confirmed locum is told it is cancelled.\n\nReason (optional, locums see this):', '')
+    const reason = await promptDialog('Cancel this shift? Applications are turned down and any confirmed locum is told it is cancelled.\n\nReason (optional, locums see this):', '')
     if (reason === null) return
     setActionLoading('cancel')
     setError(null)
@@ -198,7 +199,7 @@ export function ShiftDetailPage() {
     const question = status === 'completed'
       ? 'Confirm this locum worked the shift?'
       : 'Record that this locum did not turn up?'
-    if (!window.confirm(question)) return
+    if (!await confirmDialog(question)) return
     setActionLoading(status)
     setError(null)
     try {

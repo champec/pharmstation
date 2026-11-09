@@ -8,6 +8,7 @@ import { MedicationPrescriber, createEmptyMedication, type PrescribedMedication 
 import { ServicePrescribingField } from '../../components/forms/ServicePrescribingField'
 import { NHS_SERVICES_ENABLED } from '../../lib/features'
 import { SignatureCapture, type SignatureCaptureRef } from '../../components/SignatureCapture'
+import { confirmDialog } from '../../components/ui/dialog'
 
 /* ---- Human-readable labels for NHS field option codes ---- */
 const NHS_OPTION_LABELS: Record<string, string> = {
@@ -666,7 +667,7 @@ export function ServiceDeliveryPage() {
   }
 
   const discardDraft = async (id: string) => {
-    if (!window.confirm('Discard this unfinished draft? This cannot be undone.')) return
+    if (!await confirmDialog('Discard this unfinished draft? This cannot be undone.')) return
     const { error } = await getUserClient().from('ps_service_deliveries').delete().eq('id', id).eq('status', 'draft')
     if (error) {
       setSubmitError(error.message)

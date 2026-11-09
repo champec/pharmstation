@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { getUserClient } from '@pharmstation/supabase-client'
 import { useAuthStore, canManageLocumSOPs } from '@pharmstation/core'
+import { confirmDialog } from '../../components/ui/dialog'
 
 const MAX_FILE_BYTES = 20 * 1024 * 1024
 const ALLOWED_TYPES = ['application/pdf', 'image/jpeg', 'image/png']
@@ -180,7 +181,7 @@ export function ShiftSOPsPage() {
     if (!orgId) return
     const fileProblem = checkFile(file)
     if (fileProblem) { setError(fileProblem); return }
-    if (!confirm(`Upload this file as version ${sop.version + 1} of "${sop.title}"? Locums will need to read and sign it again. The old version and its sign-offs are kept.`)) return
+    if (!await confirmDialog(`Upload this file as version ${sop.version + 1} of "${sop.title}"? Locums will need to read and sign it again. The old version and its sign-offs are kept.`)) return
     setError(null)
     setUploadingVersion(sop.id)
     try {

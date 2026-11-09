@@ -11,6 +11,7 @@ import {
 } from '@pharmstation/core'
 import type { DeliveryRoundPatient, DeliveryMethod } from '@pharmstation/types'
 import { Modal } from '../../components/Modal'
+import { alertDialog } from '../../components/ui/dialog'
 
 const PATIENT_STATUS_BADGE: Record<string, { cls: string; label: string }> = {
   pending: { cls: 'ps-badge-slate', label: 'Pending' },
@@ -112,7 +113,7 @@ export function DriverRoutePage() {
     try {
       await startRound(roundId)
     } catch (e: any) {
-      alert(e.message)
+      alertDialog(e.message)
     }
     setStarting(false)
   }

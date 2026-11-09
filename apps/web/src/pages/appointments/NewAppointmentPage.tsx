@@ -4,6 +4,7 @@ import { useAuthStore, useAppointmentStore, useServiceStore, psNotify } from '@p
 import { getUserClient } from '@pharmstation/supabase-client'
 import type { Service, ServiceForm, ServiceFormField, AppointmentSlot } from '@pharmstation/types'
 import { CalendarCheck } from 'lucide-react'
+import { alertDialog, promptDialog } from '../../components/ui/dialog'
 
 /* ---- Patient search option ---- */
 interface PatientOption {
@@ -149,7 +150,7 @@ export function NewAppointmentPage() {
       setSelectedPatient(data as PatientOption)
       setShowNewPatient(false)
     } catch (e: any) {
-      alert(e.message)
+      alertDialog(e.message)
     }
   }
 
@@ -742,7 +743,7 @@ function FormField({ field, value, onChange }: { field: ServiceFormField; value:
       {field.field_type === 'signature' && (
         <div
           style={{ border: '2px dashed var(--ps-cloud-blue)', borderRadius: 'var(--ps-radius-md)', padding: 'var(--ps-space-lg)', textAlign: 'center', color: 'var(--ps-mist)', cursor: 'pointer' }}
-          onClick={() => { const name = window.prompt('Type name for signature:'); if (name) onChange(name) }}
+          onClick={async () => { const name = await promptDialog('Type name for signature:'); if (name) onChange(name) }}
         >
           {value ? <span style={{ color: 'var(--ps-midnight)', fontStyle: 'italic', fontSize: 'var(--ps-font-lg)' }}>{value as string}</span> : 'Click to sign'}
         </div>

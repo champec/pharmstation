@@ -12,6 +12,7 @@ import { ScanUploadModal } from '../../components/scan/ScanUploadModal'
 import { ScanReviewModal } from '../../components/scan/ScanReviewModal'
 import { BarcodeScanModal } from '../../components/scan/BarcodeScanModal'
 import { ScanLine, Trash2 } from 'lucide-react'
+import { confirmDialog } from '../../components/ui/dialog'
 
 const CONFIDENCE_CONFIG: Record<number, { label: string; dot: string; border: string }> = {
   0: { label: 'Rejected', dot: '#6b7280', border: '#d1d5db' },
@@ -57,7 +58,7 @@ export function ScanQueuePage() {
 
   const handleDelete = async (scanId: string, e: React.MouseEvent) => {
     e.stopPropagation()
-    if (!confirm('Delete this scan? This cannot be undone.')) return
+    if (!await confirmDialog('Delete this scan? This cannot be undone.')) return
     await deleteScan(scanId)
   }
 

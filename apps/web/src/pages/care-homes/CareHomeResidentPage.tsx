@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { useAuthStore, useCareHomeStore, usePatientMedicationStore } from '@pharmstation/core'
 import type { BnfDrugSearchResult, CareHomeMedicationScheduleType, CareHomeResidentNoteType } from '@pharmstation/types'
 import { chLabel, chRange } from './careHomeLabels'
+import { promptDialog } from '../../components/ui/dialog'
 
 const weekdays = [
   { value: 1, label: 'Mon' },
@@ -155,7 +156,7 @@ export function CareHomeResidentPage() {
   }
 
   const handleStopSchedule = async (scheduleId: string, completed: boolean) => {
-    const reason = window.prompt(completed ? 'Why was this course completed?' : 'Why was this medicine stopped?')
+    const reason = await promptDialog(completed ? 'Why was this course completed?' : 'Why was this medicine stopped?')
     if (!reason?.trim()) return
     await stopMedicationSchedule(scheduleId, reason, completed)
   }

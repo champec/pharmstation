@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useAuthStore, useDeliveryRoundStore, usePatientMedicationStore, useAppointmentStore } from '@pharmstation/core'
 import type { Patient, PatientMedication } from '@pharmstation/types'
+import { confirmDialog } from '../../components/ui/dialog'
 
 export function EditDeliveryRoundPage() {
   const { id } = useParams<{ id: string }>()
@@ -84,7 +85,7 @@ export function EditDeliveryRoundPage() {
   }
 
   const handleRemovePatient = async (rpId: string) => {
-    if (!confirm('Remove this patient from the round?')) return
+    if (!await confirmDialog('Remove this patient from the round?')) return
     setSaving(true)
     try { await removePatientFromRound(rpId) } catch (e: any) { setError(e.message) }
     setSaving(false)

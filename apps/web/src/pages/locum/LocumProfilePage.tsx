@@ -3,6 +3,7 @@ import { getUserClient } from '@pharmstation/supabase-client'
 import { groupServices } from '../../components/locum/services'
 import { locumErrorText } from '../../components/locum/labels'
 import { useAuthStore } from '@pharmstation/core'
+import { confirmDialog } from '../../components/ui/dialog'
 
 type Tab = 'profile' | 'services' | 'documents' | 'payments'
 
@@ -251,7 +252,7 @@ export function LocumProfilePage() {
   }
 
   async function handleDeleteDoc(doc: DocRecord) {
-    if (!window.confirm('Remove this document?')) return
+    if (!await confirmDialog('Remove this document?')) return
     await getUserClient().storage.from('locum-documents').remove([doc.file_url])
     await getUserClient().from('ps_locum_documents').update({ is_current: false }).eq('id', doc.id)
     setDocuments((prev) => prev.filter((d) => d.id !== doc.id))

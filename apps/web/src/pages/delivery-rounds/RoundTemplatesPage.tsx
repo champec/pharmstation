@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useAuthStore, useDeliveryRoundStore } from '@pharmstation/core'
 import { Modal } from '../../components/Modal'
 import { LayoutTemplate } from 'lucide-react'
+import { alertDialog, confirmDialog } from '../../components/ui/dialog'
 
 export function RoundTemplatesPage() {
   const navigate = useNavigate()
@@ -43,14 +44,14 @@ export function RoundTemplatesPage() {
       setNewName('')
       setNewNotes('')
     } catch (e: any) {
-      alert(e.message)
+      alertDialog(e.message)
     }
     setSaving(false)
   }
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Delete this template? This cannot be undone.')) return
-    try { await deleteTemplate(id) } catch (e: any) { alert(e.message) }
+    if (!await confirmDialog('Delete this template? This cannot be undone.')) return
+    try { await deleteTemplate(id) } catch (e: any) { alertDialog(e.message) }
   }
 
   const handleCreateRound = async (templateId: string) => {
@@ -60,7 +61,7 @@ export function RoundTemplatesPage() {
       const round = await createRoundFromTemplate(templateId, organisation.id, membership.user_id)
       navigate(`/deliveries/${round.id}`)
     } catch (e: any) {
-      alert(e.message)
+      alertDialog(e.message)
     }
     setSaving(false)
   }

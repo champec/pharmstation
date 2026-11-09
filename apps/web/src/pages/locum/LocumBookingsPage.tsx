@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { getUserClient } from '@pharmstation/supabase-client'
 import { useAuthStore } from '@pharmstation/core'
 import { bookingModeLabel, bookingStatusLabel } from '../../components/locum/labels'
+import { confirmDialog } from '../../components/ui/dialog'
 
 interface BookingRow {
   id: string
@@ -139,7 +140,7 @@ export function LocumBookingsPage() {
   }
 
   async function handleCancelApplication(bookingId: string) {
-    if (!window.confirm('Withdraw this application?')) return
+    if (!await confirmDialog('Withdraw this application?')) return
     setActionId(bookingId)
     try {
       // The RPC records the reason and reopens an instant-book shift

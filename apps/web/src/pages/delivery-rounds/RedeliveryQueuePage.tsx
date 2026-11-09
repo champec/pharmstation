@@ -4,6 +4,7 @@ import { useAuthStore, useDeliveryRoundStore } from '@pharmstation/core'
 import type { DeliveryRoundPatient } from '@pharmstation/types'
 import { Modal } from '../../components/Modal'
 import { CircleCheck } from 'lucide-react'
+import { alertDialog, confirmDialog } from '../../components/ui/dialog'
 
 export function RedeliveryQueuePage() {
   const navigate = useNavigate()
@@ -52,7 +53,7 @@ export function RedeliveryQueuePage() {
       setShowMoveModal(false)
       setMovingPatientId(null)
     } catch (e: any) {
-      alert(e.message)
+      alertDialog(e.message)
     }
     setSaving(false)
   }
@@ -65,22 +66,22 @@ export function RedeliveryQueuePage() {
       setSelectedIds([])
       navigate(`/deliveries/${round.id}`)
     } catch (e: any) {
-      alert(e.message)
+      alertDialog(e.message)
     }
     setSaving(false)
   }
 
   const handleReturned = async (rpId: string) => {
-    if (!confirm('Mark medications as returned to pharmacy?')) return
+    if (!await confirmDialog('Mark medications as returned to pharmacy?')) return
     setSaving(true)
-    try { await markReturned(rpId) } catch (e: any) { alert(e.message) }
+    try { await markReturned(rpId) } catch (e: any) { alertDialog(e.message) }
     setSaving(false)
   }
 
   const handleCancel = async (rpId: string) => {
-    if (!confirm('Cancel redelivery for this patient?')) return
+    if (!await confirmDialog('Cancel redelivery for this patient?')) return
     setSaving(true)
-    try { await cancelRedelivery(rpId) } catch (e: any) { alert(e.message) }
+    try { await cancelRedelivery(rpId) } catch (e: any) { alertDialog(e.message) }
     setSaving(false)
   }
 

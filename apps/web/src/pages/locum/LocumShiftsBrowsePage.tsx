@@ -4,6 +4,7 @@ import { Bell } from 'lucide-react'
 import { PageHeader } from '../../components/ui'
 import { bookingModeLabel } from '../../components/locum/labels'
 import { useAuthStore } from '@pharmstation/core'
+import { confirmDialog } from '../../components/ui/dialog'
 
 interface ShiftWithCriteria {
   id: string
@@ -218,7 +219,7 @@ export function LocumShiftsBrowsePage() {
     if (!locumProfile) return
     const rate = Number(filterRateMin) || 0
     const name = [rate ? `£${rate}+/hr` : '', filterEligible ? 'eligible only' : ''].filter(Boolean).join(', ') || 'All shifts'
-    if (!window.confirm(`Get a notification on the PharmStation phone app when a new shift is posted that matches: ${name}?\n\nManage alerts in the app under Locum Shifts › Profile.`)) return
+    if (!await confirmDialog(`Get a notification on the PharmStation phone app when a new shift is posted that matches: ${name}?\n\nManage alerts in the app under Locum Shifts › Profile.`)) return
     const { error: e } = await getUserClient().from('ps_locum_saved_searches').insert({
       locum_id: locumProfile.id, name, minimum_rate: rate, date_filter: 'all', eligible_only: filterEligible, alerts_enabled: true,
     })

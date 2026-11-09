@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { useAuthStore, useLogStore } from '@pharmstation/core'
 import { PageHeader } from '../../components/ui/PageHeader'
 import { scheduleLabel } from './logUtils'
+import { confirmDialog } from '../../components/ui/dialog'
 
 
 export function LogSettingsPage() {
@@ -64,7 +65,7 @@ export function LogSettingsPage() {
 
   const handleDeactivate = async () => {
     if (!subscriptionId) return
-    if (!confirm('Remove this log from your Logs page? Its entries are kept, and they come back if you add the log again.')) return
+    if (!await confirmDialog('Remove this log from your Logs page? Its entries are kept, and they come back if you add the log again.')) return
     setDeactivating(true)
     try {
       await deactivateSubscription(subscriptionId)

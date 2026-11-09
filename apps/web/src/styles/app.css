@@ -14884,3 +14884,87 @@ textarea.form-input {
   font-size: var(--ps-font-xs);
   color: var(--ps-slate);
 }
+
+/* In-app confirm / prompt / alert (components/ui/dialog.tsx) */
+.ps-dialog-backdrop { z-index: 1000; }
+.ps-dialog-container { z-index: 1001; }
+
+.ps-dialog {
+  max-width: 440px;
+  padding: var(--ps-space-lg);
+}
+
+.ps-dialog-main {
+  display: flex;
+  gap: var(--ps-space-md);
+  align-items: flex-start;
+}
+
+.ps-dialog-icon {
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--ps-off-white);
+  color: var(--ps-deep-blue);
+}
+
+.ps-dialog.danger .ps-dialog-icon {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.ps-dialog-text {
+  min-width: 0;
+  flex: 1;
+}
+
+.ps-dialog-text h2 {
+  margin: 6px 0 0;
+  font-size: var(--ps-font-lg);
+  font-weight: 700;
+  line-height: 1.3;
+  color: var(--ps-midnight);
+  overflow-wrap: anywhere;
+}
+
+.ps-dialog-text p {
+  margin: var(--ps-space-sm) 0 0;
+  font-size: var(--ps-font-sm);
+  line-height: 1.5;
+  color: var(--ps-slate);
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
+
+.ps-dialog-field {
+  display: grid;
+  gap: 4px;
+  margin-top: var(--ps-space-md);
+  font-size: var(--ps-font-sm);
+  font-weight: 600;
+  color: var(--ps-midnight);
+}
+
+.ps-dialog-field .ps-input {
+  width: 100%;
+}
+
+.ps-dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--ps-space-sm);
+  margin-top: var(--ps-space-lg);
+}
+
+@media (max-width: 480px) {
+  .ps-dialog-actions {
+    flex-direction: column-reverse;
+  }
+
+  .ps-dialog-actions .ps-btn {
+    width: 100%;
+  }
+}

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { LifeBuoy } from 'lucide-react'
 import { getUserClient } from '@pharmstation/supabase-client'
 import { EmptyState, PageHeader } from '../../components/ui'
+import { promptDialog } from '../../components/ui/dialog'
 
 // PharmStation platform admins triage messages from the contact page and the
 // in-app Help & support form. Each one is also emailed to the team inbox; reply
@@ -74,8 +75,8 @@ export function SupportInboxPage() {
     else load(filter)
   }
 
-  const editNote = (t: Ticket) => {
-    const note = window.prompt('Internal note (only admins see this)', t.admin_note ?? '')
+  const editNote = async (t: Ticket) => {
+    const note = await promptDialog('Internal note (only admins see this)', t.admin_note ?? '')
     if (note === null) return
     update(t, { admin_note: note.trim() || null })
   }

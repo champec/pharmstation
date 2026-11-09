@@ -12,6 +12,7 @@ import { useShopStore, type ShopFrontOrg } from '@pharmstation/core'
 import type { ShopPlaceOrderResult, ShopQuestion } from '@pharmstation/types'
 import { PublicFooter } from '../../components/public/PublicFooter'
 import { usePageTitle } from '../../seo/RouteMeta'
+import { confirmDialog } from '../../components/ui/dialog'
 
 const formatPrice = (pence: number) => `£${(pence / 100).toFixed(2)}`
 /** Most of one product a customer can put in the basket: stock, capped by the pharmacy's per-order limit. */
@@ -115,9 +116,9 @@ export function PublicShopOrgPage() {
     setQAnswers((prev) => ({ ...prev, [productId]: { ...(prev[productId] || {}), [questionId]: value } }))
   }
 
-  const addProductToCart = (product: typeof publicProducts[number]) => {
+  const addProductToCart = async (product: typeof publicProducts[number]) => {
     if (cart.length && cartOrgId && cartOrgId !== product.org_id) {
-      const shouldSwitch = window.confirm(
+      const shouldSwitch = await confirmDialog(
         `Your basket contains items from ${cartOwner?.name || 'another pharmacy'}. `
         + `Pharmacies are checked out separately, so starting an order with ${org?.name || 'this pharmacy'} will clear that basket. Continue?`,
       )

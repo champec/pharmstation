@@ -9,6 +9,7 @@ import type {
 } from '@pharmstation/types'
 import { getUserClient } from '@pharmstation/supabase-client'
 import { DeliveryRouteMap } from '../../components/maps/DeliveryRouteMap'
+import { alertDialog, confirmDialog, promptDialog } from '../../components/ui/dialog'
 
 const ROUND_STATUS_BADGE: Record<DeliveryRoundStatus, { cls: string; label: string }> = {
   draft: { cls: 'ps-badge-muted', label: 'Draft' },
@@ -159,7 +160,7 @@ export function DeliveryRoundDetailPage() {
   }
 
   const handleCancel = async () => {
-    if (!id || !confirm('Cancel this delivery?')) return
+    if (!id || !await confirmDialog('Cancel this delivery?')) return
     setSaving(true)
     try { await cancelRound(id) } catch (e: any) { setActionError(e.message) }
     setSaving(false)
@@ -167,14 +168,14 @@ export function DeliveryRoundDetailPage() {
 
   const handleSaveTemplate = async () => {
     if (!id || !organisation?.id || !membership?.user_id) return
-    const name = prompt('Template name:')
+    const name = await promptDialog('Template name:')
     if (!name) return
     setSaving(true)
     try {
       await saveAsTemplate(id, name, organisation.id, membership.user_id)
-      alert('Saved as template!')
+      alertDialog('Saved as template!')
     } catch (e: any) {
-      alert(e.message)
+      alertDialog(e.message)
     }
     setSaving(false)
   }
@@ -186,14 +187,14 @@ export function DeliveryRoundDetailPage() {
       const newRound = await repeatRound(id, organisation.id, membership.user_id)
       navigate(`/deliveries/${newRound.id}`)
     } catch (e: any) {
-      alert(e.message)
+      alertDialog(e.message)
     }
     setSaving(false)
   }
 
   const handleNotifyPatients = async () => {
     if (!id || !organisation?.id) return
-    if (!confirm('Send SMS notifications to all patients in this delivery?')) return
+    if (!await confirmDialog('Send SMS notifications to all patients in this delivery?')) return
     setNotifying(true)
     try {
       const result = await sendRoundNotifications(id, organisation.id)
@@ -201,9 +202,9 @@ export function DeliveryRoundDetailPage() {
         result.noPhone ? `${result.noPhone} with no mobile number` : '',
         result.optedOut ? `${result.optedOut} opted out of texts` : '',
       ].filter(Boolean).join(', ')
-      alert(`Texts sent: ${result.sent}. Failed: ${result.failed}.${extra ? ` Not sent: ${extra}.` : ''}`)
+      alertDialog(`Texts sent: ${result.sent}. Failed: ${result.failed}.${extra ? ` Not sent: ${extra}.` : ''}`)
     } catch (e: any) {
-      alert(`Failed to send notifications: ${e.message}`)
+      alertDialog(`Failed to send notifications: ${e.message}`)
     }
     setNotifying(false)
   }

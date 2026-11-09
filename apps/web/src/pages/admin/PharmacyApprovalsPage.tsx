@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { getUserClient } from '@pharmstation/supabase-client'
 import type { OrganisationAddress } from '@pharmstation/types'
+import { confirmDialog, promptDialog } from '../../components/ui/dialog'
 
 // PharmStation platform admins check each self-registered pharmacy against the
 // GPhC premises register before it can use network messaging or list itself
@@ -66,7 +67,7 @@ function PendingNetworkLinks() {
     const question = approve
       ? `Confirm ${row.org_name} is ${row.pharmacy_name} (${row.pharmacy_ods}, ${row.pharmacy_postcode ?? 'no postcode'})?\n\nCheck the GPhC register entry for premises ${row.org_gphc ?? '(none given)'} shows this address.`
       : `Remove ${row.org_name}'s link to ${row.pharmacy_name}? They can link the right pharmacy afterwards.`
-    if (!window.confirm(question)) return
+    if (!await confirmDialog(question)) return
     setBusy(row.org_id)
     const { error } = await getUserClient().rpc('ps_admin_review_network_link', { p_org_id: row.org_id, p_approve: approve })
     setBusy(null)
@@ -137,11 +138,11 @@ export function PharmacyApprovalsPage() {
 
   const setStatus = async (row: Row, status: Row['verification_status']) => {
     let note: string | null = null
-    if (status === 'verified' && !window.confirm(
+    if (status === 'verified' && !await confirmDialog(
       `Verify ${row.name}?\n\nOnly do this after finding premises ${row.gphc_premises_number ?? '(none given)'} on the GPhC register with a matching name and address, and checking the owner is connected to it.`,
     )) return
     if (status === 'rejected') {
-      note = window.prompt('Reason (shown to the pharmacy):', 'We couldn’t match these details to the GPhC register.')
+      note = await promptDialog('Reason (shown to the pharmacy):', 'We couldn’t match these details to the GPhC register.')
       if (note === null) return
     }
     setBusyId(row.id)
@@ -155,7 +156,7 @@ export function PharmacyApprovalsPage() {
 
   const toggleGeniePatientData = async (row: Row) => {
     const enable = !geniePatientData.has(row.id)
-    if (enable && !window.confirm(
+    if (enable && !await confirmDialog(
       `Let Genie see patient data for ${row.name}?\n\nPatient and prescriber names from their registers will be sent to the AI provider (zero data retention). Only do this once the DPIA and privacy notice cover it.`,
     )) return
     setBusyId(row.id)

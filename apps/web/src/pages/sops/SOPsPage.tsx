@@ -8,6 +8,7 @@ import { PageHeader } from '../../components/ui/PageHeader'
 import { EmptyState } from '../../components/ui/EmptyState'
 import { BookOpen, Trash2 } from 'lucide-react'
 import { SOP_TEMPLATES } from '../../components/sop/sopTemplates'
+import { alertDialog, confirmDialog } from '../../components/ui/dialog'
 
 type Tab = 'my-sops' | 'manage'
 
@@ -88,11 +89,11 @@ export function SOPsPage() {
   }
 
   const handleDelete = async (doc: SOPDocument) => {
-    if (!confirm(`Delete "${doc.title}"? This removes all its sections, files and assignments. An SOP that anyone has signed can't be deleted; archive it instead so its sign-off history is kept.`)) return
+    if (!await confirmDialog(`Delete "${doc.title}"? This removes all its sections, files and assignments. An SOP that anyone has signed can't be deleted; archive it instead so its sign-off history is kept.`)) return
     try {
       await deleteDocument(doc.id)
     } catch (e: any) {
-      alert(e.message)
+      alertDialog(e.message)
     }
   }
 

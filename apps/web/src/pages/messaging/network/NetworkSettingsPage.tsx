@@ -4,6 +4,7 @@ import { useAuthStore, useNetworkStore } from '@pharmstation/core'
 import type { NetworkSmsContact } from '@pharmstation/types'
 import { Trash2 } from 'lucide-react'
 import { PageHeader } from '../../../components/ui/PageHeader'
+import { confirmDialog } from '../../../components/ui/dialog'
 
 function timeLabel(t: string) {
   return t ? t.slice(0, 5) : '—'
@@ -331,7 +332,7 @@ export function NetworkSettingsPage() {
                     <button
                       className="ps-btn ps-btn-ghost"
                       style={{ fontSize: '0.8rem', padding: '4px 8px', color: 'var(--ps-red, crimson)' }}
-                      onClick={() => { if (window.confirm(`Remove ${c.phone_number} from urgent text alerts?`)) deleteSmsContact(c.id) }}
+                      onClick={async () => { if (await confirmDialog(`Remove ${c.phone_number} from urgent text alerts?`)) deleteSmsContact(c.id) }}
                       aria-label={`Remove ${c.phone_number}`}
                       title="Remove number"
                     >

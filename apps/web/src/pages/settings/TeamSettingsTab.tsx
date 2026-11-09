@@ -16,6 +16,7 @@ import {
   type TeamMember,
   type UserRole,
 } from '@pharmstation/types'
+import { alertDialog, confirmDialog, promptDialog } from '../../components/ui/dialog'
 
 const STAFF_ROLES: InvitableRole[] = ['pharmacist', 'technician', 'dispenser', 'locum']
 const SENIOR_ROLES: InvitableRole[] = ['owner', 'manager']
@@ -105,12 +106,12 @@ export function TeamSettingsTab() {
       await navigator.clipboard.writeText(newInvite.link)
       setCopied(true)
     } catch {
-      window.prompt('Copy this invite link', newInvite.link)
+      await promptDialog({ title: 'Copy this invite link', body: 'Your browser blocked automatic copying. Select the link below and copy it.', defaultValue: newInvite.link, confirmLabel: 'Done' })
     }
   }
 
   const change = async (m: TeamMember, changes: { role?: UserRole; status?: 'active' | 'suspended' | 'revoked' }, confirmText?: string) => {
-    if (confirmText && !window.confirm(confirmText)) return
+    if (confirmText && !await confirmDialog(confirmText)) return
     setBusyId(m.member_id)
     setError(null)
     try {
@@ -124,12 +125,12 @@ export function TeamSettingsTab() {
   }
 
   const resetTwoStep = async (m: TeamMember) => {
-    if (!window.confirm(`Reset two-step sign-in for ${m.full_name}? Use this if they've lost their phone. They'll sign in with just their password and${m.role === 'owner' || m.role === 'manager' ? ' be asked to' : ' can'} set up a new authenticator app.`)) return
+    if (!await confirmDialog(`Reset two-step sign-in for ${m.full_name}? Use this if they've lost their phone. They'll sign in with just their password and${m.role === 'owner' || m.role === 'manager' ? ' be asked to' : ' can'} set up a new authenticator app.`)) return
     setBusyId(m.member_id)
     setError(null)
     try {
       await resetMemberTwoStep(m.member_id)
-      window.alert(`Two-step sign-in reset for ${m.full_name}.`)
+      alertDialog(`Two-step sign-in reset for ${m.full_name}.`)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not reset two-step sign-in')
     } finally {
@@ -138,7 +139,7 @@ export function TeamSettingsTab() {
   }
 
   const revoke = async (inv: OrganisationInvite) => {
-    if (!window.confirm(`Cancel the invite for ${inv.email}? The link will stop working.`)) return
+    if (!await confirmDialog(`Cancel the invite for ${inv.email}? The link will stop working.`)) return
     setBusyId(inv.id)
     try {
       await revokeInvite(inv.id)

@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { useAuthStore, useCareHomeStore } from '@pharmstation/core'
 import type { CareHomeMedicationRequest, CareHomeMedicationRequestStatus, CareHomeMedicationRequestType } from '@pharmstation/types'
 import { chLabel } from './careHomeLabels'
+import { confirmDialog } from '../../components/ui/dialog'
 
 const OPEN_STATUSES: CareHomeMedicationRequestStatus[] = ['draft', 'submitted', 'acknowledged', 'approved', 'sent_to_gp', 'outstanding', 'received', 'part_received', 'refused', 'ordered', 'ready']
 
@@ -277,12 +278,12 @@ export function CareHomeRequestsManagerPage() {
                       </button>
                     )}
                     {canReview && ['submitted', 'acknowledged'].includes(request.status) && activeUser?.id && (
-                      <button className="ps-btn ps-btn-ghost ps-btn-sm" type="button" disabled={saving} onClick={() => { if (window.confirm('Decline this request? The care home will see it as declined.')) void updateRequestStatus(request.id, 'declined', activeUser.id) }}>
+                      <button className="ps-btn ps-btn-ghost ps-btn-sm" type="button" disabled={saving} onClick={async () => { if (await confirmDialog('Decline this request? The care home will see it as declined.')) void updateRequestStatus(request.id, 'declined', activeUser.id) }}>
                         Decline
                       </button>
                     )}
                     {isCareHome && canRequest && request.status === 'submitted' && request.requested_by === activeUser?.id && (
-                      <button className="ps-btn ps-btn-ghost ps-btn-sm" type="button" disabled={saving} onClick={() => { if (window.confirm('Cancel this request?')) void updateRequestStatus(request.id, 'cancelled', activeUser.id) }}>
+                      <button className="ps-btn ps-btn-ghost ps-btn-sm" type="button" disabled={saving} onClick={async () => { if (await confirmDialog('Cancel this request?')) void updateRequestStatus(request.id, 'cancelled', activeUser.id) }}>
                         Cancel request
                       </button>
                     )}

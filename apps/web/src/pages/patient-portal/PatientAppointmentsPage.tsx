@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { usePatientStore } from '@pharmstation/core'
 import { getPatientClient } from '@pharmstation/supabase-client'
 import type { Appointment, AppointmentStatus } from '@pharmstation/types'
+import { alertDialog, confirmDialog } from '../../components/ui/dialog'
 
 const STATUS_BADGE: Record<AppointmentStatus, { cls: string; label: string }> = {
   pending: { cls: 'ps-badge-amber', label: 'Pending' },
@@ -49,7 +50,7 @@ export function PatientAppointmentsPage() {
   }, [patient, isLoggedIn, authLoading, navigate])
 
   const handleCancel = async (apptId: string) => {
-    if (!confirm('Cancel this appointment? If you paid and cancel in good time, you will be refunded automatically.')) return
+    if (!await confirmDialog('Cancel this appointment? If you paid and cancel in good time, you will be refunded automatically.')) return
     setCancelling(apptId)
     try {
       const { data, error } = await getPatientClient().functions.invoke('appointments', {
@@ -66,10 +67,10 @@ export function PatientAppointmentsPage() {
       setAppointments((prev) =>
         prev.map((a) => (a.id === apptId ? { ...a, status: 'cancelled' as AppointmentStatus } : a))
       )
-      if (data?.refund_error) alert(data.refund_error)
-      else if (data?.refunded_pence) alert(`Cancelled. £${(data.refunded_pence / 100).toFixed(2)} will be refunded to your card within 5 to 10 days.`)
+      if (data?.refund_error) alertDialog(data.refund_error)
+      else if (data?.refunded_pence) alertDialog(`Cancelled. £${(data.refunded_pence / 100).toFixed(2)} will be refunded to your card within 5 to 10 days.`)
     } catch (e: any) {
-      alert(e.message || 'Failed to cancel appointment.')
+      alertDialog(e.message || 'Failed to cancel appointment.')
     }
     setCancelling(null)
   }

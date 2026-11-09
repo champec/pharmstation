@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { getUserClient } from '@pharmstation/supabase-client'
+import { confirmDialog, promptDialog } from '../../components/ui/dialog'
 
 // PharmStation platform admins check each locum's GPhC registration, indemnity
 // and documents before they can book shifts (ps_locum_book_shift requires
@@ -95,18 +96,18 @@ export function LocumApprovalsPage() {
     let notes: string | null = null
     const who = row.full_name ?? row.email ?? 'this locum'
     if (status === 'approved') {
-      if (!window.confirm(
+      if (!await confirmDialog(
         `Approve ${who}?\n\nOnly do this after finding GPhC ${row.gphc_number ?? '(none given)'} on the GPhC register as a current pharmacist, and checking their indemnity and documents.`,
       )) return
-      notes = window.prompt('Note for the locum (optional):', '') ?? ''
+      notes = await promptDialog('Note for the locum (optional):', '') ?? ''
     }
     if (status === 'rejected') {
-      notes = window.prompt('Reason (the locum sees this):', 'We couldn’t verify your GPhC registration. Please check your details and documents.')
+      notes = await promptDialog('Reason (the locum sees this):', 'We couldn’t verify your GPhC registration. Please check your details and documents.')
       if (notes === null) return
       if (!notes.trim()) { setError('Give the locum a reason when rejecting.'); return }
     }
     if (status === 'suspended') {
-      notes = window.prompt('Reason for suspending (the locum sees this). Their upcoming bookings will be cancelled:', '')
+      notes = await promptDialog('Reason for suspending (the locum sees this). Their upcoming bookings will be cancelled:', '')
       if (notes === null) return
       if (!notes.trim()) { setError('Give the locum a reason when suspending.'); return }
     }

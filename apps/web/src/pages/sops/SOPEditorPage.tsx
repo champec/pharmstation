@@ -6,6 +6,7 @@ import { RichTextEditor } from '../../components/sop/RichTextEditor'
 import { Modal } from '../../components/Modal'
 import { SOPReviewBar } from '../../components/sop/SOPReviewBar'
 import { FileText, Folder, Pencil, X } from 'lucide-react'
+import { alertDialog, confirmDialog } from '../../components/ui/dialog'
 
 // ── Tree node (recursive) ─────────────────────────────────────
 function TreeNodeItem({
@@ -319,7 +320,7 @@ export function SOPEditorPage() {
     const msg = childCount > 0
       ? `Delete "${node.title}" and its ${childCount} child section(s)?`
       : `Delete "${node.title}"?`
-    if (!confirm(msg)) return
+    if (!await confirmDialog(msg)) return
     await deleteNode(node.id)
   }
 
@@ -351,7 +352,7 @@ export function SOPEditorPage() {
       const path = await uploadNodePDF(selectedNodeId, docId, file)
       setPdfUrl(await getNodePDFUrl(path))
     } catch (e: any) {
-      alert(`Upload failed: ${e.message}`)
+      alertDialog(`Upload failed: ${e.message}`)
     } finally {
       setPdfLoading(false)
     }
@@ -370,9 +371,9 @@ export function SOPEditorPage() {
     } else {
       msg = 'Publish a new version? Assigned staff will be asked to read and sign it again. Their sign-offs for the old version are kept.'
     }
-    if (!confirm(msg)) return
+    if (!await confirmDialog(msg)) return
     if (!(await flushSave())) {
-      alert('Your latest changes could not be saved, so the SOP was not published. Check your connection and try again.')
+      alertDialog('Your latest changes could not be saved, so the SOP was not published. Check your connection and try again.')
       return
     }
     await publishDocument(docId)
@@ -380,7 +381,7 @@ export function SOPEditorPage() {
 
   const handleArchive = async () => {
     if (!docId) return
-    if (!confirm('Archive this SOP? Staff will no longer see it. Its sign-off history is kept and you can restore it later.')) return
+    if (!await confirmDialog('Archive this SOP? Staff will no longer see it. Its sign-off history is kept and you can restore it later.')) return
     await archiveDocument(docId)
   }
 

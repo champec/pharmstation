@@ -8,6 +8,7 @@ import TableRow from '@tiptap/extension-table-row'
 import TableCell from '@tiptap/extension-table-cell'
 import TableHeader from '@tiptap/extension-table-header'
 import { useEffect, useCallback, useRef } from 'react'
+import { promptDialog } from '../ui/dialog'
 
 interface RichTextEditorProps {
   content: string
@@ -87,9 +88,9 @@ export function RichTextEditor({ content, onChange, editable = true, placeholder
     if (editor) editor.setEditable(editable)
   }, [editable, editor])
 
-  const addLink = useCallback(() => {
+  const addLink = useCallback(async () => {
     if (!editor) return
-    const url = prompt('Enter URL:')
+    const url = await promptDialog('Enter URL:')
     if (url) {
       editor.chain().focus().setLink({ href: url }).run()
     }

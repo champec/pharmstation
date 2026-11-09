@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { getUserClient } from '@pharmstation/supabase-client'
+import { confirmDialog } from '../../components/ui/dialog'
 
 // PharmStation platform admins post app-wide announcements. The mobile app
 // shows live ones as a full-screen notice when it's freshly opened. Access is
@@ -95,7 +96,7 @@ export function AnnouncementsPage() {
   }
 
   const remove = async (a: Announcement) => {
-    if (!window.confirm(`Delete "${a.title}"?`)) return
+    if (!await confirmDialog(`Delete "${a.title}"?`)) return
     const { error } = await getUserClient().from('ps_app_announcements').delete().eq('id', a.id)
     if (error) setError(error.message)
     else load()
