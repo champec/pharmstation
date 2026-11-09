@@ -15,6 +15,7 @@ import { communicationsScreens } from '@/modules/screens/communications'
 import { deliveriesScreens } from '@/modules/screens/deliveries'
 import { genieScreens } from '@/modules/screens/genie'
 import { locumScreens } from '@/modules/screens/locum'
+import { pepsScreens } from '@/modules/screens/peps'
 import { pharmacyScreens } from '@/modules/screens/pharmacy'
 import { productScannerScreens } from '@/modules/screens/product-scanner'
 import { scanningScreens } from '@/modules/screens/scanning'
@@ -35,6 +36,7 @@ export const MODULE_SCREENS: Record<string, ModuleScreens> = {
   shop: shopScreens,
   genie: genieScreens,
   billing: billingScreens,
+  peps: pepsScreens,
 }
 
 export function getTabComponent(

@@ -305,6 +305,46 @@ export const MODULES: MobileModule[] = [
   },
 
   {
+    id: 'peps',
+    title: 'Prescriptions',
+    description: 'Private and vet e-prescriptions (PEPS)',
+    icon: 'document-text-outline',
+    color: '#1B5E8C',
+    // User tier: prescribers may not belong to a pharmacy. Pharmacy tabs need one.
+    tier: 'user',
+    platform: 'both',
+    visible: () => true,
+    tabs: [
+      {
+        id: 'queue',
+        title: 'Queue',
+        icon: 'file-tray-full-outline',
+        visible: (ctx) => ctx.isOrgConnected,
+        blurb: 'Prescriptions sent to or held by your pharmacy',
+      },
+      {
+        id: 'collect',
+        title: 'Collect',
+        icon: 'barcode-outline',
+        visible: (ctx) => ctx.isOrgConnected,
+        blurb: 'Claim a spine prescription with its reference',
+      },
+      {
+        id: 'written',
+        title: 'Written',
+        icon: 'documents-outline',
+        blurb: 'Prescriptions you have written',
+      },
+      {
+        id: 'write',
+        title: 'Write',
+        icon: 'create-outline',
+        blurb: 'Write, sign and send a prescription',
+      },
+    ],
+  },
+
+  {
     id: 'billing',
     title: 'Plan & Billing',
     description: 'Your PharmStation plan and text credits',
