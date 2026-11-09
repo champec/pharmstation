@@ -15,6 +15,7 @@ import { Ionicons } from '@expo/vector-icons'
 import { userClient } from '@/lib/supabase'
 import { useAuthStore } from '@/stores/auth-store'
 import { palette, radius } from '@/theme/palette'
+import { EmptyState as SharedEmptyState } from '@/components/ui/EmptyState'
 
 const ACCENT = '#6D28D9'
 const ACCENT_TINT = '#F1EAFE'
@@ -211,7 +212,7 @@ function RecordScreen() {
 
 const Pill = ({ text, tone }: { text: string; tone: string }) => <View style={[styles.pill, { borderColor: tone }]}><Text style={[styles.pillText, { color: tone }]}>{text}</Text></View>
 const ErrorBox = ({ text }: { text: string }) => <View style={styles.error}><Ionicons name="alert-circle" size={18} color={palette.danger} /><Text style={styles.errorText}>{text}</Text></View>
-const Empty = ({ text }: { text: string }) => <View style={styles.empty}><Ionicons name="calendar-clear-outline" size={26} color={ACCENT} /><Text style={styles.meta}>{text}</Text></View>
+const Empty = ({ text }: { text: string }) => <SharedEmptyState icon="calendar-clear-outline" color={ACCENT} title={text} />
 
 export const locumCoverScreens: Record<string, ComponentType> = {
   shifts: ShiftsScreen,

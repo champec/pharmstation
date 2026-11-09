@@ -34,6 +34,7 @@ import { useAuthStore } from '@/stores/auth-store'
 import { NetworkSetupModal, NetworkStatusBanner, networkBlocker } from '@/modules/screens/network-setup'
 import { userClient } from '@/lib/supabase'
 import { palette, radius } from '@/theme/palette'
+import { EmptyState as SharedEmptyState } from '@/components/ui/EmptyState'
 
 const COLOR = '#0EA5E9'
 const COLOR_TINT = '#E0F2FE'
@@ -759,11 +760,7 @@ function Loading() {
 
 function Empty({ icon, title, text }: { icon: keyof typeof Ionicons.glyphMap; title: string; text: string }) {
   return (
-    <View style={styles.empty}>
-      <View style={styles.emptyIcon}><Ionicons name={icon} size={26} color={COLOR} /></View>
-      <Text style={styles.emptyTitle}>{title}</Text>
-      <Text style={styles.emptyText}>{text}</Text>
-    </View>
+    <SharedEmptyState icon={icon} title={title} text={text} color={COLOR} />
   )
 }
 
