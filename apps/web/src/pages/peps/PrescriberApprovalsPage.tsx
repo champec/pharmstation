@@ -83,7 +83,7 @@ export function PrescriberApprovalsPage() {
           <span className="separator">/</span>
           <span>Approve prescribers</span>
         </div>
-        <h1>🪪 Approve prescribers</h1>
+        <h1>Approve prescribers</h1>
         <p style={{ color: 'var(--ps-slate)', marginTop: '4px' }}>
           Check each registration number and name on the regulator's register before activating.
         </p>

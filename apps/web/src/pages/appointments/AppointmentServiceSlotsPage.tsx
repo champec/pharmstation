@@ -439,7 +439,7 @@ export function AppointmentServiceSlotsPage() {
         </div>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--ps-space-md)', flexWrap: 'wrap' }}>
           <div>
-            <h1 style={{ marginBottom: 'var(--ps-space-xs)' }}>⏰ {service?.name || 'Service'} Slots</h1>
+            <h1 style={{ marginBottom: 'var(--ps-space-xs)' }}>{service?.name || 'Service'} Slots</h1>
             <p style={{ margin: 0, color: 'var(--ps-slate)' }}>
               Focus on one service at a time. Recurring slots collapse into a series row and expand into their individual occurrences.
             </p>
@@ -541,7 +541,7 @@ export function AppointmentServiceSlotsPage() {
                       <td style={{ padding: 'var(--ps-space-sm) var(--ps-space-md)', textAlign: 'right' }}>
                         <div style={{ display: 'flex', gap: 'var(--ps-space-xs)', justifyContent: 'flex-end' }}>
                           <button className="ps-btn ps-btn-secondary ps-btn-sm" onClick={() => openEdit(slot)}>
-                            ✏️ Edit
+                            Edit
                           </button>
                           <button className="ps-btn ps-btn-ghost ps-btn-sm" onClick={() => handleDeactivate(slot.id)} style={{ color: 'var(--ps-error)' }}>
                             ✕
@@ -580,7 +580,7 @@ export function AppointmentServiceSlotsPage() {
                             {row.slots.length} slots
                           </span>
                           <button className="ps-btn ps-btn-secondary ps-btn-sm" onClick={() => openEditSeries(row.key)}>
-                            ✏️ Edit Series
+                            Edit Series
                           </button>
                         </div>
                       </td>
@@ -604,7 +604,7 @@ export function AppointmentServiceSlotsPage() {
                         <td style={{ padding: 'var(--ps-space-sm) var(--ps-space-md)', textAlign: 'right' }}>
                           <div style={{ display: 'flex', gap: 'var(--ps-space-xs)', justifyContent: 'flex-end' }}>
                             <button className="ps-btn ps-btn-secondary ps-btn-sm" onClick={() => openEdit(slot)}>
-                              ✏️ Edit
+                              Edit
                             </button>
                             <button className="ps-btn ps-btn-ghost ps-btn-sm" onClick={() => handleDeactivate(slot.id)} style={{ color: 'var(--ps-error)' }}>
                               ✕

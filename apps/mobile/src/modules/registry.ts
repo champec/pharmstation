@@ -304,6 +304,44 @@ export const MODULES: MobileModule[] = [
     ],
   },
 
+  {
+    id: 'billing',
+    title: 'Plan & Billing',
+    description: 'Your PharmStation plan and text credits',
+    icon: 'card-outline',
+    color: '#257BB4',
+    tier: 'org',
+    platform: 'both',
+    visible: (ctx) => ctx.isOrgConnected,
+    tabs: [
+      {
+        id: 'plan',
+        title: 'Plan',
+        icon: 'card-outline',
+        blurb: 'Current plan, renewal date and text credits',
+      },
+    ],
+  },
+
+  {
+    id: 'genie',
+    title: 'Genie',
+    description: 'Ask about your registers, RP log and team',
+    icon: 'sparkles-outline',
+    color: '#6D28D9',
+    tier: 'org',
+    platform: 'both',
+    visible: (ctx) => ctx.isOrgConnected,
+    tabs: [
+      {
+        id: 'ask',
+        title: 'Ask',
+        icon: 'sparkles-outline',
+        blurb: 'Your pharmacy AI assistant',
+      },
+    ],
+  },
+
   // ---------- WEB-ONLY (surfaced as informational cards) ----------
   {
     id: 'video',

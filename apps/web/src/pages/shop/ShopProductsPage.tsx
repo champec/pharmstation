@@ -198,11 +198,11 @@ export function ShopProductsPage() {
           <span>Shop</span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--ps-space-md)' }}>
-          <h1>🛍️ Shop — Products & Inventory</h1>
+          <h1>Shop — Products & Inventory</h1>
           <div style={{ display: 'flex', gap: 'var(--ps-space-sm)' }}>
-            <button className="ps-btn ps-btn-secondary" onClick={() => navigate('/shop-admin/orders')}>📦 Orders</button>
-            <button className="ps-btn ps-btn-secondary" onClick={() => navigate('/shop-admin/questionnaires')}>📝 Questionnaires</button>
-            <button className="ps-btn ps-btn-secondary" onClick={openSettings}>⚙️ Shop Settings</button>
+            <button className="ps-btn ps-btn-secondary" onClick={() => navigate('/shop-admin/orders')}>Orders</button>
+            <button className="ps-btn ps-btn-secondary" onClick={() => navigate('/shop-admin/questionnaires')}>Questionnaires</button>
+            <button className="ps-btn ps-btn-secondary" onClick={openSettings}>Shop Settings</button>
             <button className="ps-btn ps-btn-primary" onClick={openCreate}>+ New Product</button>
           </div>
         </div>
@@ -267,10 +267,10 @@ export function ShopProductsPage() {
                 <strong>{p.name}</strong>
                 {!p.is_active && <span className="ps-badge" style={{ background: 'var(--ps-off-white)', color: 'var(--ps-slate)' }}>Hidden</span>}
                 {p.requires_availability_check && <span className="ps-badge" style={{ background: '#fef3c7', color: '#92400e' }}>Check availability</span>}
-                {p.medicine_class === 'p' && <span className="ps-badge" style={{ background: '#fee2e2', color: '#991b1b' }}>💊 P medicine</span>}
+                {p.medicine_class === 'p' && <span className="ps-badge" style={{ background: '#fee2e2', color: '#991b1b' }}>P medicine</span>}
                 {p.medicine_class === 'gsl' && <span className="ps-badge" style={{ background: '#e0f2fe', color: '#075985' }}>GSL</span>}
                 {p.max_per_order && <span className="ps-badge">Max {p.max_per_order}</span>}
-                {p.questionnaire_id && <span className="ps-badge" style={{ background: '#ede9fe', color: '#5b21b6' }}>📝 Consultation</span>}
+                {p.questionnaire_id && <span className="ps-badge" style={{ background: '#ede9fe', color: '#5b21b6' }}>Consultation</span>}
               </div>
               <div style={{ color: 'var(--ps-slate)', fontSize: 'var(--ps-font-sm)' }}>
                 {p.category?.name || 'Uncategorised'}{p.sku ? ` · SKU ${p.sku}` : ''}

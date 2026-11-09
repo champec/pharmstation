@@ -198,7 +198,7 @@ export function NewAppointmentPage() {
   if (completed) {
     return (
       <div>
-        <div className="page-header"><h1>✅ Appointment Booked</h1></div>
+        <div className="page-header"><h1>Appointment Booked</h1></div>
         <div className="ps-card" style={{ padding: 'var(--ps-space-2xl)', textAlign: 'center' }}>
           <div style={{ fontSize: '64px', marginBottom: 'var(--ps-space-md)' }}>📅</div>
           <h2 style={{ color: 'var(--ps-midnight)', marginBottom: 'var(--ps-space-sm)' }}>
@@ -211,7 +211,7 @@ export function NewAppointmentPage() {
           </p>
           {confirmationNote && (
             <p style={{ color: 'var(--ps-slate)', fontSize: 'var(--ps-font-sm)', marginBottom: 'var(--ps-space-lg)' }}>
-              📲 {confirmationNote}
+              {confirmationNote}
             </p>
           )}
           <div style={{ display: 'flex', gap: 'var(--ps-space-sm)', justifyContent: 'center' }}>
@@ -242,7 +242,7 @@ export function NewAppointmentPage() {
           <span>New</span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <h1>📅 New Appointment</h1>
+          <h1>New Appointment</h1>
           <button className="ps-btn ps-btn-secondary" onClick={() => navigate('/appointments')}>← Back to Appointments</button>
         </div>
       </div>
@@ -284,7 +284,7 @@ export function NewAppointmentPage() {
       {step === 'service' && (
         <div className="ps-card" style={{ padding: 'var(--ps-space-lg)' }}>
           <h2 style={{ fontSize: 'var(--ps-font-lg)', fontWeight: 600, color: 'var(--ps-midnight)', marginBottom: 'var(--ps-space-md)' }}>
-            🩺 Select Service (optional)
+            Select Service (optional)
           </h2>
           <p style={{ color: 'var(--ps-slate)', fontSize: 'var(--ps-font-sm)', marginBottom: 'var(--ps-space-md)' }}>
             Choose a service for this appointment, or skip if it's a general consultation.
@@ -305,7 +305,7 @@ export function NewAppointmentPage() {
               >
                 <h3 style={{ fontSize: 'var(--ps-font-md)', margin: 0 }}>{service.name}</h3>
                 <p style={{ fontSize: 'var(--ps-font-sm)', color: 'var(--ps-slate)', margin: 'var(--ps-space-xs) 0 0' }}>
-                  ⏱ {service.duration_minutes} min
+                  {service.duration_minutes} min
                 </p>
               </div>
             ))}
@@ -338,7 +338,7 @@ export function NewAppointmentPage() {
       {step === 'patient' && (
         <div className="ps-card" style={{ padding: 'var(--ps-space-lg)' }}>
           <h2 style={{ fontSize: 'var(--ps-font-lg)', fontWeight: 600, color: 'var(--ps-midnight)', marginBottom: 'var(--ps-space-md)' }}>
-            👤 Select or Create Patient
+            Select or Create Patient
           </h2>
 
           <div className="form-group">
@@ -446,7 +446,7 @@ export function NewAppointmentPage() {
       {step === 'slot' && (
         <div className="ps-card" style={{ padding: 'var(--ps-space-lg)' }}>
           <h2 style={{ fontSize: 'var(--ps-font-lg)', fontWeight: 600, color: 'var(--ps-midnight)', marginBottom: 'var(--ps-space-md)' }}>
-            🕐 Select Time Slot
+            Select Time Slot
           </h2>
 
           <div className="form-group">
@@ -510,7 +510,7 @@ export function NewAppointmentPage() {
         <div className="ps-card" style={{ padding: 'var(--ps-space-lg)' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 'var(--ps-space-lg)' }}>
             <h2 style={{ fontSize: 'var(--ps-font-lg)', fontWeight: 600, color: 'var(--ps-midnight)', margin: 0 }}>
-              📝 {selectedForm?.name || 'Service Form'}
+              {selectedForm?.name || 'Service Form'}
             </h2>
             {activeForms.length > 1 && (
               <select
@@ -564,7 +564,7 @@ export function NewAppointmentPage() {
       {step === 'confirm' && (
         <div className="ps-card" style={{ padding: 'var(--ps-space-lg)' }}>
           <h2 style={{ fontSize: 'var(--ps-font-lg)', fontWeight: 600, color: 'var(--ps-midnight)', marginBottom: 'var(--ps-space-lg)' }}>
-            ✅ Review & Confirm
+            Review & Confirm
           </h2>
 
           <div style={{ display: 'grid', gridTemplateColumns: '140px 1fr', gap: 'var(--ps-space-sm)', fontSize: 'var(--ps-font-sm)', marginBottom: 'var(--ps-space-lg)' }}>

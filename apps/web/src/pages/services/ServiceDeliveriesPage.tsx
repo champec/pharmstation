@@ -114,7 +114,7 @@ export function ServiceDeliveriesPage() {
           <span>Service History</span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <h1>📋 Service History</h1>
+          <h1>Service History</h1>
           <button className="ps-btn ps-btn-secondary" onClick={() => navigate('/services')}>
             ← Back to Services
           </button>

@@ -122,7 +122,7 @@ export function UserLoginPage() {
                 className={`saved-staff-item ${email === staffEmail ? 'selected' : ''}`}
                 onClick={() => handleStaffSelect(staffEmail)}
               >
-                👤 {staffEmail}
+                {staffEmail}
               </button>
             ))}
           </div>

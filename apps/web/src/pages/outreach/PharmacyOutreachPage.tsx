@@ -659,26 +659,26 @@ export function PharmacyOutreachPage() {
                 <div className="outreach-nhs-info-header">NHS pharmacy information</div>
                 <div className="outreach-nhs-contacts">
                   <div className="outreach-nhs-row">
-                    <span className="outreach-nhs-label">📞 Phone</span>
+                    <span className="outreach-nhs-label">Phone</span>
                     <span>{nhsContacts?.phone ? <a href={`tel:${nhsContacts.phone}`}>{nhsContacts.phone}</a> : <em>Not listed</em>}</span>
                   </div>
                   <div className="outreach-nhs-row">
-                    <span className="outreach-nhs-label">✉ Email</span>
+                    <span className="outreach-nhs-label">Email</span>
                     <span>{nhsContacts?.email ? <a href={`mailto:${nhsContacts.email}`}>{nhsContacts.email}</a> : <em>Not listed</em>}</span>
                   </div>
                   <div className="outreach-nhs-row">
-                    <span className="outreach-nhs-label">🌐 Website</span>
+                    <span className="outreach-nhs-label">Website</span>
                     <span>{nhsContacts?.website
                       ? <a href={nhsContacts.website} target="_blank" rel="noreferrer">{nhsContacts.website.replace(/^https?:\/\//, '').slice(0, 50)}</a>
                       : <em>Not listed</em>}
                     </span>
                   </div>
                   <div className="outreach-nhs-row outreach-nhs-hours">
-                    <span className="outreach-nhs-label">🕐 Hours</span>
+                    <span className="outreach-nhs-label">Hours</span>
                     <OpeningHoursBlock opening_times={selected.pharmacy.opening_times} />
                   </div>
                   <div className="outreach-nhs-row">
-                    <span className="outreach-nhs-label">🔄 ODS</span>
+                    <span className="outreach-nhs-label">ODS</span>
                     <span style={{ fontFamily: 'monospace', fontSize: '12px' }}>{selected.pharmacy.ods_code}</span>
                   </div>
                 </div>

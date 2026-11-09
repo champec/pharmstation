@@ -225,19 +225,19 @@ export function GeniePanel() {
                   className="genie-suggestion"
                   onClick={() => sendSuggestion('Show me today\'s CD register entries')}
                 >
-                  📑 Today's CD entries
+                  Today's CD entries
                 </button>
                 <button
                   className="genie-suggestion"
                   onClick={() => sendSuggestion('Who was the RP yesterday?')}
                 >
-                  👤 Yesterday's RP
+                  Yesterday's RP
                 </button>
                 <button
                   className="genie-suggestion"
                   onClick={() => sendSuggestion('Check balance for morphine')}
                 >
-                  💊 Drug balance
+                  Drug balance
                 </button>
               </div>
             </div>
@@ -291,7 +291,7 @@ export function GeniePanel() {
         )}
         {isStreaming && (
           <button className="genie-stop-btn" onClick={stopStreaming}>
-            ⏹ Stop
+            Stop
           </button>
         )}
         <div className="genie-input-wrapper">

@@ -107,7 +107,7 @@ export function ServiceLibraryPage() {
           <span>Library</span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <h1>📚 Service Library</h1>
+          <h1>Service Library</h1>
           <button className="ps-btn ps-btn-secondary" onClick={() => navigate('/services')}>
             ← Back to Services
           </button>

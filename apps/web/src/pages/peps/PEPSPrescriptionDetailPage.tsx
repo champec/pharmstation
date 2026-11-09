@@ -145,7 +145,7 @@ export function PEPSPrescriptionDetailPage() {
           <span>{rx.prescription_ref}</span>
         </div>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <h1>℞ {rx.prescription_ref}</h1>
+          <h1>{rx.prescription_ref}</h1>
           <span className={`ps-badge ${rx.status === 'held' && !expired ? 'ps-badge-success' : ''}`}>
             {expired && rx.status !== 'dispensed' && rx.status !== 'cancelled' ? 'EXPIRED' : rx.status.toUpperCase()}
           </span>
@@ -247,13 +247,13 @@ export function PEPSPrescriptionDetailPage() {
             {canPrintDocument && (
               <button className="ps-btn ps-btn-primary" style={{ width: '100%', marginBottom: 8 }} disabled={busy}
                 onClick={openPrintPage}>
-                🖨 Open A4 print page
+                Open A4 print page
               </button>
             )}
             {downloadable && !heldByMe && (
               <button className="ps-btn ps-btn-primary" style={{ width: '100%', marginBottom: 8 }} disabled={busy}
                 onClick={handleDownloadAndPrint}>
-                📥 Download and print
+                Download and print
               </button>
             )}
             {heldByMe && (
