@@ -1,20 +1,24 @@
+import { CalendarCheck, ClipboardList, Pill, SprayCan, Thermometer, UserRound, type LucideIcon } from 'lucide-react'
 import type { LogCategory, LogEntry, LogField, LogScheduleType, LogTemplate } from '@pharmstation/types'
 
 /* ---- Category look and feel ---- */
 
-export const CATEGORY_CONFIG: Record<LogCategory, { label: string; emoji: string; color: string; tint: string; cta: string }> = {
-  fridge: { label: 'Fridge', emoji: '🌡️', color: '#0891b2', tint: '#ecfeff', cta: 'Log temperatures' },
-  cleaning: { label: 'Cleaning', emoji: '🧹', color: '#16a34a', tint: '#f0fdf4', cta: 'Log a clean' },
-  cd: { label: 'CD', emoji: '💊', color: '#9333ea', tint: '#faf5ff', cta: 'Add entry' },
-  visitor: { label: 'Visitor', emoji: '👤', color: '#d97706', tint: '#fffbeb', cta: 'Sign a visitor in' },
-  date_check: { label: 'Date check', emoji: '📅', color: '#ea580c', tint: '#fff7ed', cta: 'Log a date check' },
-  custom: { label: 'Custom', emoji: '📋', color: '#475569', tint: '#f8fafc', cta: 'Add entry' },
+export const CATEGORY_CONFIG: Record<LogCategory, { label: string; icon: LucideIcon; color: string; tint: string; cta: string }> = {
+  fridge: { label: 'Fridge', icon: Thermometer, color: 'var(--ps-deep-blue)', tint: 'var(--log-info-bg)', cta: 'Log temperatures' },
+  cleaning: { label: 'Cleaning', icon: SprayCan, color: 'var(--ps-deep-blue)', tint: 'var(--log-info-bg)', cta: 'Log a clean' },
+  cd: { label: 'CD', icon: Pill, color: 'var(--ps-deep-blue)', tint: 'var(--log-info-bg)', cta: 'Add entry' },
+  visitor: { label: 'Visitor', icon: UserRound, color: 'var(--ps-deep-blue)', tint: 'var(--log-info-bg)', cta: 'Sign a visitor in' },
+  date_check: { label: 'Date check', icon: CalendarCheck, color: 'var(--ps-deep-blue)', tint: 'var(--log-info-bg)', cta: 'Log a date check' },
+  custom: { label: 'Custom', icon: ClipboardList, color: 'var(--ps-deep-blue)', tint: 'var(--log-info-bg)', cta: 'Add entry' },
 }
 
 export function categoryOf(template?: Pick<LogTemplate, 'category'> | null) {
   const cat = (template?.category || 'custom') as LogCategory
   return CATEGORY_CONFIG[cat] ?? CATEGORY_CONFIG.custom
 }
+
+/** Library "Shift Handover" log (notes for the next shift, also used by the mobile app) */
+export const HANDOVER_TEMPLATE_ID = '00000000-0000-0000-0001-000000000006'
 
 /* ---- UK dates (the pharmacy's day, not UTC) ---- */
 
@@ -131,9 +135,13 @@ export function missedDays(
   loggedDates: Set<string>,
   start: string,
   today = ukDate(),
+  /** First day the log was in use (yyyy-mm-dd); days before it are never "missed" */
+  startedOn?: string | null,
 ): string[] {
   if (!isScheduled(template)) return []
-  return dateList(start, addDays(today, -1)).filter((d) => isRequiredOn(template, d) && !loggedDates.has(d))
+  const from = startedOn && startedOn > start ? startedOn : start
+  if (from > addDays(today, -1)) return []
+  return dateList(from, addDays(today, -1)).filter((d) => isRequiredOn(template, d) && !loggedDates.has(d))
 }
 
 /* ---- Fields, ranges and validation ---- */

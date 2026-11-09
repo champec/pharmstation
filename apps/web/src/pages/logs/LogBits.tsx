@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { CircleCheck, type LucideIcon } from 'lucide-react'
 import { useLogStore } from '@pharmstation/core'
 import type { LogEntry, LogField } from '@pharmstation/types'
 import { Modal } from '../../components/Modal'
@@ -6,7 +7,7 @@ import { dataFields, displayValue, formatDateTime, isOutOfRange } from './logUti
 
 /* ---- Toast shown after a save ---- */
 
-export interface CelebrationState { id: number; title: string; detail?: string; emoji?: string }
+export interface CelebrationState { id: number; title: string; detail?: string; icon?: LucideIcon }
 
 export function useCelebration() {
   const [state, setState] = useState<CelebrationState | null>(null)
@@ -17,7 +18,7 @@ export function useCelebration() {
   }, [state])
   return {
     celebration: state,
-    celebrate: (title: string, detail?: string, emoji = '🎉') => setState({ id: Date.now(), title, detail, emoji }),
+    celebrate: (title: string, detail?: string, icon: LucideIcon = CircleCheck) => setState({ id: Date.now(), title, detail, icon }),
     dismiss: () => setState(null),
   }
 }
@@ -26,7 +27,7 @@ export function Celebration({ state, onDismiss }: { state: CelebrationState | nu
   if (!state) return null
   return (
     <div className="log-toast" role="status" key={state.id} onClick={onDismiss}>
-      <span className="log-toast-emoji" aria-hidden>{state.emoji}</span>
+      <span className="log-toast-emoji" aria-hidden="true">{state.icon ? <state.icon size={26} strokeWidth={1.75} /> : <CircleCheck size={26} strokeWidth={1.75} />}</span>
       <div>
         <strong>{state.title}</strong>
         {state.detail && <div className="log-toast-detail">{state.detail}</div>}
@@ -174,5 +175,15 @@ export function VoidEntryModal({ entry, onClose, onDone }: { entry: LogEntry | n
         <button className="ps-btn ps-btn-danger" onClick={submit} disabled={saving}>{saving ? 'Removing…' : 'Remove entry'}</button>
       </div>
     </Modal>
+  )
+}
+
+/* ---- Category icon tile ---- */
+
+export function CategoryIcon({ icon: Icon, size = 20 }: { icon: LucideIcon; size?: number }) {
+  return (
+    <span className="log-card-emoji" aria-hidden="true">
+      <Icon size={size} strokeWidth={1.75} />
+    </span>
   )
 }

@@ -34,6 +34,8 @@ export interface LogState {
   /** Every version of an entry, oldest first */
   fetchEntryHistory: (rootId: string) => Promise<LogEntry[]>
   buildTemplate: (template: Partial<LogTemplate>, fields: Partial<LogField>[]) => Promise<LogTemplate>
+  /** Edits the pharmacy's own log in place (fields matched by key, so past entries keep their values) */
+  updateTemplate: (templateId: string, template: Partial<LogTemplate>, fields: Partial<LogField>[]) => Promise<LogTemplate>
   updateSubscription: (subscriptionId: string, updates: Partial<LogSubscription>) => Promise<void>
   deactivateSubscription: (subscriptionId: string) => Promise<void>
   clearError: () => void
@@ -209,6 +211,20 @@ export const useLogStore = create<LogState>((set, get) => ({
       .order('created_at', { ascending: true })
     if (error) throw error
     return data as LogEntry[]
+  },
+
+  updateTemplate: async (templateId, template, fields) => {
+    const { data, error } = await getUserClient().rpc('ps_log_update_template', {
+      p_template_id: templateId,
+      p_template: template,
+      p_fields: fields,
+    })
+    if (error) {
+      const msg = friendlyLogError(error.message)
+      set({ error: msg })
+      throw new Error(msg)
+    }
+    return data as LogTemplate
   },
 
   buildTemplate: async (template, fields) => {

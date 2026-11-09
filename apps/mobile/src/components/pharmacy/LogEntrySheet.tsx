@@ -352,7 +352,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
     color: palette.success,
-    backgroundColor: '#ECFDF5',
+    backgroundColor: palette.successTint,
     paddingHorizontal: 10,
     paddingVertical: 3,
     borderRadius: radius.pill,
@@ -371,7 +371,7 @@ const styles = StyleSheet.create({
   },
   textarea: { minHeight: 110, paddingTop: 12 },
   numberInput: { flex: 1, minWidth: 0, width: 0, textAlign: 'center', fontSize: 22, fontWeight: '700' },
-  inputWarn: { borderColor: palette.warning, backgroundColor: '#FFFBEB' },
+  inputWarn: { borderColor: palette.warning, backgroundColor: palette.warningTint },
   inputError: { borderColor: palette.danger },
   row: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   stepper: {

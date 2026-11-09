@@ -14,7 +14,10 @@ import {
   type ExportCell,
 } from '../../utils/registerExport'
 import { LogEntryForm } from './LogEntryForm'
-import { Celebration, EntryHistoryModal, StreakBadge, VoidEntryModal, useCelebration } from './LogBits'
+import { Download, Inbox, PencilLine, Settings, Trash2 } from 'lucide-react'
+import { PageHeader } from '../../components/ui/PageHeader'
+import { EmptyState } from '../../components/ui/EmptyState'
+import { Celebration, CategoryIcon, EntryHistoryModal, StreakBadge, VoidEntryModal, useCelebration } from './LogBits'
 import {
   addDays,
   categoryOf,
@@ -105,8 +108,15 @@ export function LogViewPage() {
   const dates = useMemo(() => dateList(range.start, range.end > today ? today : range.end), [range, today])
   const inRange = (e: LogEntry) => e.entry_date >= range.start && e.entry_date <= range.end
 
+  // Days before the log was added (or before the first entry, if earlier) can't be "missed".
+  const startedOn = useMemo(() => {
+    const added = subscription?.subscribed_at ? ukDate(new Date(subscription.subscribed_at)) : null
+    const first = liveEntries.reduce<string | null>((m, e) => (m === null || e.entry_date < m ? e.entry_date : m), null)
+    return [added, first].filter((d): d is string => !!d).sort()[0] ?? null
+  }, [subscription?.subscribed_at, liveEntries])
+
   const stats = useMemo(() => {
-    const requiredDates = dates.filter((d) => isRequiredOn(template, d) && d !== today)
+    const requiredDates = dates.filter((d) => isRequiredOn(template, d) && d !== today && (!startedOn || d >= startedOn))
     const logged = requiredDates.filter((d) => loggedDates.has(d)).length
     const warnings = liveEntries.filter((e) => inRange(e) && entryHasWarning(fields, e)).length
     return {
@@ -118,7 +128,7 @@ export function LogViewPage() {
       count: liveEntries.filter(inRange).length,
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dates, template, loggedDates, liveEntries, fields, today, range])
+  }, [dates, template, loggedDates, liveEntries, fields, today, range, startedOn])
 
   const todayDue = scheduled && isRequiredOn(template, today) && !entryByDate[today]
 
@@ -130,11 +140,11 @@ export function LogViewPage() {
     try {
       if (editor.mode === 'edit') {
         await saveEntry({ subscriptionId, data, replacesId: editor.entry.id, editReason: reason })
-        celebrate('Change saved', 'The original is kept in the history.', '✏️')
+        celebrate('Change saved', 'The original is kept in the history.', PencilLine)
       } else {
         await saveEntry({ subscriptionId, entryDate: editor.date, data })
         const late = editor.date !== today
-        celebrate(cheer(), late ? `Logged for ${formatDay(editor.date)} (marked as a late entry).` : `${logTitle} saved.`, cat.emoji)
+        celebrate(cheer(), late ? `Logged for ${formatDay(editor.date)} (marked as a late entry).` : `${logTitle} saved.`, cat.icon)
       }
       setEditor(null)
     } catch (e) {
@@ -227,7 +237,7 @@ export function LogViewPage() {
 
   const entryMeta = (entry: LogEntry) => (
     <div className="log-meta">
-      <span>{entry.entered_by_profile?.full_name ?? 'Unknown'} · {formatTime(entry.created_at)}</span>
+      <span>{entry.entered_by_profile?.full_name ?? 'Not recorded'} · {formatTime(entry.created_at)}</span>
       {entry.entry_date !== ukDate(new Date(entry.created_at)) && <span className="ps-badge ps-badge-amber" title={`Entered ${formatDay(ukDate(new Date(entry.created_at)))}`}>Late entry</span>}
       {entry.supersedes_id && (
         <button className="log-link" onClick={() => setHistoryEntry(entry)} title={entry.edit_reason ?? ''}>Edited · history</button>
@@ -240,32 +250,23 @@ export function LogViewPage() {
 
   return (
     <div className="logs-page" style={{ ['--cat' as string]: cat.color, ['--cat-tint' as string]: cat.tint }}>
-      <div className="page-header">
-        <div className="breadcrumbs">
-          <a href="/" onClick={(e) => { e.preventDefault(); navigate('/') }}>Dashboard</a>
-          <span className="separator">/</span>
-          <a href="/logs" onClick={(e) => { e.preventDefault(); navigate('/logs') }}>Logs</a>
-          <span className="separator">/</span>
-          <span>{logTitle}</span>
-        </div>
-        <div className="logs-header">
-          <div className="log-view-title">
-            <span className="log-card-emoji" aria-hidden>{cat.emoji}</span>
-            <div>
-              <h1>{logTitle}</h1>
-              <p className="log-muted">{scheduleLabel(template?.schedule_type, template?.required_days)}{template?.description ? ` · ${template.description}` : ''}</p>
-            </div>
-          </div>
-          <div className="logs-header-actions">
-            {!scheduled && template && (
-              <button className="ps-btn ps-btn-primary" onClick={() => openNew(today)}>+ {cat.cta}</button>
-            )}
-            <button className="ps-btn ps-btn-secondary" onClick={handleLogPrint} disabled={!template}>Print / PDF</button>
-            <button className="ps-btn ps-btn-secondary" onClick={handleLogCsv} disabled={!template}>⬇ CSV</button>
-            <button className="ps-btn ps-btn-ghost" onClick={() => navigate(`/logs/${subscriptionId}/settings`)} aria-label="Settings">⚙️</button>
-          </div>
-        </div>
-      </div>
+      <PageHeader
+        breadcrumbs={[{ label: 'Dashboard', to: '/' }, { label: 'Logs', to: '/logs' }, { label: logTitle }]}
+        title={<span className="log-view-title"><CategoryIcon icon={cat.icon} />{logTitle}</span>}
+        subtitle={`${scheduleLabel(template?.schedule_type, template?.required_days)}${template?.description ? ` · ${template.description}` : ''}`}
+        actions={<>
+          <button className="ps-btn ps-btn-ghost" onClick={() => navigate(`/logs/${subscriptionId}/settings`)} aria-label="Log settings" title="Log settings">
+            <Settings size={16} strokeWidth={1.75} aria-hidden="true" />
+          </button>
+          <button className="ps-btn ps-btn-secondary" onClick={handleLogPrint} disabled={!template}>Print / PDF</button>
+          <button className="ps-btn ps-btn-secondary" onClick={handleLogCsv} disabled={!template}>
+            <Download size={16} strokeWidth={1.75} aria-hidden="true" /> CSV
+          </button>
+          {!scheduled && template && (
+            <button className="ps-btn ps-btn-primary" onClick={() => openNew(today)}>+ {cat.cta}</button>
+          )}
+        </>}
+      />
 
       {error && (
         <div className="auth-error" style={{ marginBottom: 'var(--ps-space-md)' }}>
@@ -298,7 +299,7 @@ export function LogViewPage() {
           {scheduled ? (
             <>
               <div className="log-stat"><span className="log-stat-num">{stats.required ? Math.round((stats.logged / stats.required) * 100) : 100}%</span><span>days logged</span></div>
-              <div className="log-stat"><span className="log-stat-num">{stats.streak}</span><span>day streak 🔥</span></div>
+              <div className="log-stat"><span className="log-stat-num">{stats.streak}</span><span>day streak</span></div>
               <div className={`log-stat${stats.missed ? ' is-warn' : ''}`}><span className="log-stat-num">{stats.missed}</span><span>missed days</span></div>
             </>
           ) : (
@@ -345,7 +346,7 @@ export function LogViewPage() {
                 const required = isRequiredOn(template, date)
                 const entry = entryByDate[date]
                 const isToday = date === today
-                const missing = required && !entry && !isToday
+                const missing = required && !entry && !isToday && (!startedOn || date >= startedOn)
                 return (
                   <tr key={date} className={`${isToday ? 'is-today' : ''}${!required ? ' is-off' : ''}${missing ? ' is-missing' : ''}`}>
                     <td className="log-day">
@@ -389,12 +390,13 @@ export function LogViewPage() {
       {!scheduled && template && (
         <>
           {sporadicEntries.length === 0 && !loading && (
-            <div className="ps-card logs-empty">
-              <div className="logs-empty-emoji">{cat.emoji}</div>
-              <h2>No entries in these dates</h2>
-              <p className="log-muted">Add one now, or pick a wider date range.</p>
-              <button className="ps-btn ps-btn-primary" onClick={() => openNew(today)}>+ {cat.cta}</button>
-            </div>
+            <EmptyState
+              icon={Inbox}
+              title="No entries in these dates"
+              actions={<button className="ps-btn ps-btn-primary" onClick={() => openNew(today)}>+ {cat.cta}</button>}
+            >
+              Add one now, or pick a wider date range.
+            </EmptyState>
           )}
           <div className="log-feed">
             {sporadicEntries.map((entry) => (
@@ -440,7 +442,7 @@ export function LogViewPage() {
       <Drawer
         isOpen={!!editor}
         onClose={() => setEditor(null)}
-        title={editor?.mode === 'edit' ? `Edit entry` : `${cat.emoji} ${logTitle}`}
+        title={editor?.mode === 'edit' ? 'Edit entry' : logTitle}
         width="520px"
       >
         {editor && (
@@ -460,7 +462,7 @@ export function LogViewPage() {
       </Drawer>
 
       <EntryHistoryModal entry={historyEntry} fields={fields} onClose={() => setHistoryEntry(null)} />
-      <VoidEntryModal entry={voidTarget} onClose={() => setVoidTarget(null)} onDone={() => { setVoidTarget(null); celebrate('Entry removed', 'It stays in the history with your reason.', '🗑') }} />
+      <VoidEntryModal entry={voidTarget} onClose={() => setVoidTarget(null)} onDone={() => { setVoidTarget(null); celebrate('Entry removed', 'It stays in the history with your reason.', Trash2) }} />
       <Celebration state={celebration} onDismiss={dismiss} />
     </div>
   )

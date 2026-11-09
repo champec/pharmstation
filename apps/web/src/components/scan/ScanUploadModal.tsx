@@ -6,7 +6,7 @@
 import { useState, useRef, useCallback, useEffect } from 'react'
 import { useAuthStore, useScanStore } from '@pharmstation/core'
 import { Modal } from '../Modal'
-import { FileUp } from 'lucide-react'
+import { Camera, FileUp } from 'lucide-react'
 
 interface ScanUploadModalProps {
   isOpen: boolean
@@ -267,7 +267,7 @@ export function ScanUploadModal({ isOpen, onClose }: ScanUploadModalProps) {
             <div className="scan-camera-frame" aria-hidden="true"><span>Align document inside frame</span></div>
             <div className="scan-camera-controls">
               <button className="ps-btn ps-btn-ghost" onClick={stopCamera}>✕ Cancel</button>
-              <button className="scan-camera-shutter" onClick={capturePhoto} title="Take photo">📸</button>
+              <button className="scan-camera-shutter" onClick={capturePhoto} title="Take photo"><Camera size={16} aria-hidden="true" /></button>
               <div style={{ width: 80 }} />
             </div>
             <canvas ref={canvasRef} style={{ display: 'none' }} />

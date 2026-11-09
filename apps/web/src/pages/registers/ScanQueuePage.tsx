@@ -11,7 +11,7 @@ import type { ScanQueueItem } from '@pharmstation/types'
 import { ScanUploadModal } from '../../components/scan/ScanUploadModal'
 import { ScanReviewModal } from '../../components/scan/ScanReviewModal'
 import { BarcodeScanModal } from '../../components/scan/BarcodeScanModal'
-import { ScanLine } from 'lucide-react'
+import { ScanLine, Trash2 } from 'lucide-react'
 
 const CONFIDENCE_CONFIG: Record<number, { label: string; dot: string; border: string }> = {
   0: { label: 'Rejected', dot: '#6b7280', border: '#d1d5db' },
@@ -271,7 +271,7 @@ function ScanQueueRow({
           onClick={onDelete}
           title="Delete"
         >
-          🗑
+          <Trash2 size={16} aria-hidden="true" />
         </button>
       </div>
     </div>
