@@ -289,8 +289,13 @@ export function NetworkComposePage() {
                             </div>
                           )}
                           {ph.is_on_platform
-                            ? <span className="ps-badge ps-badge-green" style={{ fontSize: '0.7rem' }}>On Platform</span>
+                            ? <span className="ps-badge ps-badge-green" style={{ fontSize: '0.7rem' }}>On PharmStation</span>
                             : <span className="ps-badge" style={{ fontSize: '0.7rem' }}>Not on PharmStation</span>}
+                          {ph.is_on_platform && ph.accepts_sms_pings && (
+                            <div style={{ fontSize: '0.7rem', color: 'var(--ps-slate)', marginTop: 2 }} title="This pharmacy gets a text for messages you mark urgent">
+                              📱 Urgent texts on
+                            </div>
+                          )}
                         </div>
                       </div>
                     )

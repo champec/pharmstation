@@ -31,6 +31,7 @@ import {
   type SmsConversation,
 } from '@/stores/comms-store'
 import { useAuthStore } from '@/stores/auth-store'
+import { NetworkSetupModal, NetworkStatusBanner, networkBlocker } from '@/modules/screens/network-setup'
 import { palette, radius } from '@/theme/palette'
 
 const COLOR = '#0EA5E9'
@@ -65,6 +66,7 @@ function useComms() {
     if (!orgId) return
     const s = useCommsStore.getState()
     void s.loadNetwork()
+    void s.loadSetup()
     void s.loadSms()
     void s.loadAlerts()
     subscribe()
@@ -119,13 +121,31 @@ function NetworkList({ onOpen, onCompose }: { onOpen: (t: NetworkThread) => void
   const loading = useCommsStore((s) => s.networkLoading)
   const error = useCommsStore((s) => s.networkError)
   const load = useCommsStore((s) => s.loadNetwork)
+  const setup = useCommsStore((s) => s.setup)
+  const [setupOpen, setSetupOpen] = useState(false)
+  const blocked = !!networkBlocker(setup) && !(setup?.link && !setup.networkEnabled && setup.verification !== 'pending' && setup.verification !== 'rejected')
 
   return (
     <View style={styles.flex}>
-      <Pressable style={({ pressed }) => [styles.newButton, pressed && styles.pressed]} onPress={onCompose}>
-        <Ionicons name="create-outline" size={18} color="#FFFFFF" />
-        <Text style={styles.newButtonText}>Message a pharmacy</Text>
-      </Pressable>
+      <View style={styles.actionsRow}>
+        <Pressable
+          style={({ pressed }) => [styles.newButton, styles.flex, pressed && styles.pressed, blocked && styles.disabled]}
+          onPress={onCompose}
+          disabled={blocked}
+        >
+          <Ionicons name="create-outline" size={18} color="#FFFFFF" />
+          <Text style={styles.newButtonText}>Message pharmacies</Text>
+        </Pressable>
+        <Pressable
+          style={({ pressed }) => [styles.iconButton, pressed && styles.pressed]}
+          onPress={() => setSetupOpen(true)}
+          accessibilityLabel="Network settings"
+        >
+          <Ionicons name="settings-outline" size={20} color={COLOR} />
+        </Pressable>
+      </View>
+      <NetworkStatusBanner onOpenSetup={() => setSetupOpen(true)} />
+      <NetworkSetupModal visible={setupOpen} onClose={() => { setSetupOpen(false); void load() }} />
       <ErrorBanner message={error} />
       <FlatList
         data={threads}
@@ -395,7 +415,8 @@ function ComposeModal({ visible, onClose, onSent }: { visible: boolean; onClose:
   const searching = useCommsStore((s) => s.searchLoading)
   const send = useCommsStore((s) => s.sendNetworkMessage)
   const [query, setQuery] = useState('')
-  const [to, setTo] = useState<NetworkPharmacy | null>(null)
+  const [to, setTo] = useState<NetworkPharmacy[]>([])
+  const [picking, setPicking] = useState(true)
   const [label, setLabel] = useState<NetworkLabel>('stock_query')
   const [subject, setSubject] = useState('')
   const [body, setBody] = useState('')
@@ -404,21 +425,28 @@ function ComposeModal({ visible, onClose, onSent }: { visible: boolean; onClose:
 
   useEffect(() => {
     if (!visible) return
-    setQuery(''); setTo(null); setLabel('stock_query'); setSubject(''); setBody(''); setUrgent(false)
+    setQuery(''); setTo([]); setPicking(true); setLabel('stock_query'); setSubject(''); setBody(''); setUrgent(false)
     void search('')
   }, [visible, search])
 
   useEffect(() => {
-    if (!visible || to) return
+    if (!visible || !picking) return
     const t = setTimeout(() => void search(query), 350)
     return () => clearTimeout(t)
-  }, [query, visible, to, search])
+  }, [query, visible, picking, search])
+
+  const toggle = (p: NetworkPharmacy) =>
+    setTo((cur) => (cur.some((x) => x.linked_org_id === p.linked_org_id)
+      ? cur.filter((x) => x.linked_org_id !== p.linked_org_id)
+      : cur.length >= 50 ? cur : [...cur, p]))
+  const anyTexts = to.some((p) => p.accepts_sms_pings)
 
   const submit = async () => {
-    if (!to?.linked_org_id || !body.trim()) return
+    const ids = to.map((p) => p.linked_org_id).filter((x): x is string => !!x)
+    if (!ids.length || !body.trim()) return
     setSending(true)
     try {
-      const note = await send({ toOrgIds: [to.linked_org_id], body: body.trim(), subject: subject.trim() || null, label, urgent })
+      const note = await send({ toOrgIds: ids, body: body.trim(), subject: subject.trim() || null, label, urgent })
       if (note) Alert.alert('Message sent', note)
       onSent()
     } catch (e) {
@@ -429,9 +457,14 @@ function ComposeModal({ visible, onClose, onSent }: { visible: boolean; onClose:
   }
 
   return (
-    <ModalShell visible={visible} title="Message a pharmacy" subtitle="PharmStation network" onClose={onClose}>
+    <ModalShell
+      visible={visible}
+      title={picking ? 'Choose pharmacies' : 'New message'}
+      subtitle={to.length ? `${to.length} selected · each gets a private conversation` : 'PharmStation network'}
+      onClose={picking && to.length ? () => setPicking(false) : onClose}
+    >
       <ScrollView contentContainerStyle={styles.composeContent} keyboardShouldPersistTaps="handled">
-        {!to ? (
+        {picking ? (
           <>
             <View style={styles.searchBox}>
               <Ionicons name="search" size={18} color={palette.textMuted} />
@@ -440,28 +473,47 @@ function ComposeModal({ visible, onClose, onSent }: { visible: boolean; onClose:
             <Text style={styles.hint}>{query.trim() ? 'Pharmacies on PharmStation' : 'Nearby pharmacies on PharmStation'}</Text>
             {searching ? <Loading /> : results.length === 0 ? (
               <Empty icon="search-outline" title="No pharmacies found" text="Only pharmacies that have joined the PharmStation network can receive messages." />
-            ) : results.map((p) => (
-              <Pressable key={`${p.pharmacy_id}-${p.linked_org_id}`} style={({ pressed }) => [styles.row, pressed && styles.pressed]} onPress={() => setTo(p)}>
-                <View style={[styles.avatar, { backgroundColor: COLOR_TINT }]}><Ionicons name="business" size={20} color={COLOR} /></View>
-                <View style={styles.rowBody}>
-                  <Text style={styles.rowTitle} numberOfLines={1}>{p.linked_org_name ?? p.organisation_name}</Text>
-                  <Text style={styles.rowMeta} numberOfLines={1}>
-                    {[p.address1, p.city, p.postcode].filter(Boolean).join(', ')}
-                    {p.distance_km != null ? ` · ${p.distance_km.toFixed(1)} km` : ''}
-                  </Text>
-                </View>
-                <Ionicons name="chevron-forward" size={18} color={palette.textMuted} />
+            ) : results.map((p) => {
+              const selected = to.some((x) => x.linked_org_id === p.linked_org_id)
+              return (
+                <Pressable
+                  key={`${p.pharmacy_id}-${p.linked_org_id}`}
+                  style={({ pressed }) => [styles.row, selected && styles.rowSelected, pressed && styles.pressed]}
+                  onPress={() => toggle(p)}
+                  accessibilityRole="checkbox"
+                  accessibilityState={{ checked: selected }}
+                >
+                  <View style={[styles.avatar, { backgroundColor: COLOR_TINT }]}><Ionicons name="business" size={20} color={COLOR} /></View>
+                  <View style={styles.rowBody}>
+                    <Text style={styles.rowTitle} numberOfLines={1}>{p.linked_org_name ?? p.organisation_name}</Text>
+                    <Text style={styles.rowMeta} numberOfLines={1}>
+                      {[p.address1, p.city, p.postcode].filter(Boolean).join(', ')}
+                      {p.distance_km != null ? ` · ${p.distance_km.toFixed(1)} km` : ''}
+                    </Text>
+                    {p.accepts_sms_pings ? <Text style={styles.rowMeta}>Gets urgent texts</Text> : null}
+                  </View>
+                  <Ionicons name={selected ? 'checkmark-circle' : 'ellipse-outline'} size={24} color={selected ? COLOR : palette.textMuted} />
+                </Pressable>
+              )
+            })}
+            {to.length ? (
+              <Pressable style={[styles.newButton, styles.stickyNext]} onPress={() => setPicking(false)}>
+                <Text style={styles.newButtonText}>Next: write message ({to.length})</Text>
+                <Ionicons name="arrow-forward" size={17} color="#FFFFFF" />
               </Pressable>
-            ))}
+            ) : null}
           </>
         ) : (
           <>
-            <Pressable style={styles.toCard} onPress={() => setTo(null)}>
+            <Pressable style={styles.toCard} onPress={() => setPicking(true)}>
               <Text style={styles.fieldLabel}>To</Text>
               <View style={styles.rowTop}>
-                <Text style={styles.rowTitle} numberOfLines={1}>{to.linked_org_name ?? to.organisation_name}</Text>
+                <Text style={styles.rowTitle} numberOfLines={2}>
+                  {to.map((p) => p.linked_org_name ?? p.organisation_name).join(', ')}
+                </Text>
                 <Text style={styles.changeLink}>Change</Text>
               </View>
+              {to.length > 1 ? <Text style={styles.rowMeta}>Each pharmacy gets its own private conversation; they can’t see each other.</Text> : null}
             </Pressable>
 
             <Text style={styles.fieldLabel}>Type</Text>
@@ -486,7 +538,11 @@ function ComposeModal({ visible, onClose, onSent }: { visible: boolean; onClose:
             <View style={styles.urgentRow}>
               <View style={styles.flex}>
                 <Text style={styles.urgentTitle}>Urgent: also send a text alert</Text>
-                <Text style={styles.urgentText}>Texts their pharmacy to check PharmStation, if they allow it.</Text>
+                <Text style={styles.urgentText}>
+                  {anyTexts
+                    ? 'Texts their phone to check PharmStation. Never includes your message, so patient details stay safe. Uses your SMS credits.'
+                    : 'None of the selected pharmacies have urgent texts turned on, so no text will be sent.'}
+                </Text>
               </View>
               <Switch value={urgent} onValueChange={setUrgent} trackColor={{ true: COLOR, false: '#CBD5E1' }} />
             </View>
@@ -637,6 +693,10 @@ const styles = StyleSheet.create({
 
   newButton: { minHeight: 48, borderRadius: radius.md, backgroundColor: COLOR, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, marginBottom: 12 },
   newButtonText: { color: '#FFFFFF', fontWeight: '800', fontSize: 15 },
+  actionsRow: { flexDirection: 'row', gap: 8 },
+  iconButton: { width: 48, height: 48, borderRadius: radius.md, borderWidth: 1, borderColor: palette.border, backgroundColor: palette.surface, alignItems: 'center', justifyContent: 'center' },
+  rowSelected: { borderColor: COLOR, backgroundColor: COLOR_TINT },
+  stickyNext: { marginTop: 8 },
 
   listContent: { paddingBottom: 24, gap: 8, flexGrow: 1 },
   row: { flexDirection: 'row', gap: 12, alignItems: 'flex-start', backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.border, borderRadius: radius.md, padding: 12 },
