@@ -198,7 +198,7 @@ export function ShopProductsPage() {
           <span>Shop</span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--ps-space-md)' }}>
-          <h1>Shop — Products & Inventory</h1>
+          <h1>Products and stock</h1>
           <div style={{ display: 'flex', gap: 'var(--ps-space-sm)' }}>
             <button className="ps-btn ps-btn-secondary" onClick={() => navigate('/shop-admin/orders')}>Orders</button>
             <button className="ps-btn ps-btn-secondary" onClick={() => navigate('/shop-admin/questionnaires')}>Questionnaires</button>
