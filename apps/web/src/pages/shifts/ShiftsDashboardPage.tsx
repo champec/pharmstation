@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { getUserClient } from '@pharmstation/supabase-client'
+import { bookingModeLabel, shiftStatusLabel } from '../../components/locum/labels'
 import { useAuthStore } from '@pharmstation/core'
 
 interface ShiftRow {
@@ -234,8 +235,8 @@ export function ShiftsDashboardPage() {
                   <td>{fmtDate(shift.date)}</td>
                   <td>{fmt(shift.start_time)} – {fmt(shift.end_time)}</td>
                   <td>£{Number(shift.rate_per_hour).toFixed(2)}/hr</td>
-                  <td><span className="ps-badge">{shift.booking_mode}</span></td>
-                  <td><span className={statusBadgeClass(shift.status)}>{shift.status}</span></td>
+                  <td><span className="ps-badge">{bookingModeLabel(shift.booking_mode)}</span></td>
+                  <td><span className={statusBadgeClass(shift.status)}>{shiftStatusLabel(shift.status)}</span></td>
                   <td>
                     <button
                       className="ps-btn ps-btn-ghost ps-btn-xs"
