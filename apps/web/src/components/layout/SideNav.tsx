@@ -175,6 +175,7 @@ const menuSections: NavSection[] = [
       { to: '/shifts/new', icon: '➕', label: 'New Shift' },
       { to: '/shifts/locums', icon: '👤', label: 'Locum Directory' },
       { to: '/shifts/sops', icon: '📄', label: 'SOPs' },
+      { to: '/shifts/timesheets', icon: '🕒', label: 'Timesheets' },
       { to: '/shifts/payments', icon: '💳', label: 'Payments' },
     ],
   },
