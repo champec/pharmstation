@@ -334,7 +334,8 @@ function PaymentsSettingsTab() {
 
             {!canManage && status?.status !== 'active' && (
               <p style={{ color: 'var(--ps-slate)', fontSize: 'var(--ps-font-sm)', marginTop: 'var(--ps-space-md)', marginBottom: 0 }}>
-                Only the pharmacy owner, or staff they give billing access, can set up payouts. Sign in with your own staff account to do it.
+                Only the pharmacy owner, or staff they give billing access, can set up payouts.
+                {!membership && ' Sign in with your own staff account to do it.'}
               </p>
             )}
 

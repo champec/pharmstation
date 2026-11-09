@@ -268,10 +268,12 @@ async function createCheckout(db: Db, caller: Caller, body: Record<string, unkno
   const session = await stripe.checkout.sessions.create({
     mode: 'subscription',
     customer: customerId,
+    // UK-only product: always charge in pounds, never a converted currency.
+    ...({ adaptive_pricing: { enabled: false } } as Record<string, unknown>),
     client_reference_id: orgId,
     line_items: [{ price: price.id, quantity: 1 }],
     allow_promotion_codes: true,
-    billing_address_collection: 'required',
+    billing_address_collection: 'auto',
     customer_update: { address: 'auto', name: 'auto' },
     tax_id_collection: { enabled: true },
     ...(Deno.env.get('STRIPE_AUTOMATIC_TAX') === 'true' ? { automatic_tax: { enabled: true } } : {}),
@@ -345,6 +347,7 @@ async function buySmsCredits(db: Db, caller: Caller, body: Record<string, unknow
   const session = await stripe.checkout.sessions.create({
     mode: 'payment',
     customer: customerId,
+    ...({ adaptive_pricing: { enabled: false } } as Record<string, unknown>),
     client_reference_id: orgId,
     line_items: [
       {
