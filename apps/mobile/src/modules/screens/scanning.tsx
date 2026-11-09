@@ -6,6 +6,8 @@ import {
   Modal,
   Pressable,
   RefreshControl,
+  Switch,
+  TextInput,
   ScrollView,
   StyleSheet,
   Text,
@@ -16,6 +18,7 @@ import * as ImagePicker from 'expo-image-picker'
 import { Ionicons } from '@expo/vector-icons'
 import { SafeAreaView } from 'react-native-safe-area-context'
 
+import { approveScanLine, canApproveCdScan, rejectScanLine, type SupplyDetails } from '@/lib/cd-scan-approval'
 import { userClient } from '@/lib/supabase'
 import { useAuthStore } from '@/stores/auth-store'
 import { palette, radius } from '@/theme/palette'
@@ -28,6 +31,7 @@ type ScanStatus = 'uploading' | 'processing' | 'ready' | 'partially_approved' | 
 
 interface ScanQueueItem {
   id: string
+  organisation_id: string
   image_path: string | null
   document_type: 'prescription' | 'invoice' | 'unknown' | null
   overall_confidence: 0 | 1 | 2 | 3 | null
@@ -49,6 +53,7 @@ interface ScanQueueItem {
 
 interface ScanDrugItem {
   id: string
+  matched_drug_id: string | null
   drug_name_raw: string | null
   drug_form_raw: string | null
   drug_strength_raw: string | null
@@ -117,7 +122,7 @@ function DocumentScanScreen() {
     try {
       await addToScanQueue(organisation.id, userSession.access_token, image)
       setImage(null)
-      Alert.alert('Added to review queue', 'The document is processing. A pharmacist or pharmacy technician must check and approve it on the web before it goes in the CD register.')
+      Alert.alert('Added to review queue', 'The document is processing. A pharmacist or pharmacy technician must check and approve each line (in the Queue tab or on the web) before it goes in the CD register.')
     } catch (error) {
       Alert.alert('Upload failed', messageFrom(error))
     } finally { setBusy(false) }
@@ -206,6 +211,15 @@ function ScanDetail({ scan, onClose }: { scan: ScanQueueItem | null; onClose: ()
   const [items, setItems] = useState<ScanDrugItem[]>([])
   const [imageUrl, setImageUrl] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+  const membership = useAuthStore((state) => state.membership)
+  const permissions = useAuthStore((state) => state.permissions)
+  const profile = useAuthStore((state) => state.userProfile)
+  const canApprove = !!permissions?.cd_register_write && canApproveCdScan(membership?.role, profile?.gphc_number)
+  const reloadItems = useCallback(async () => {
+    if (!scan) return
+    const { data } = await userClient.from('ps_ai_scan_items').select('*').eq('scan_id', scan.id).order('created_at')
+    setItems((data as ScanDrugItem[]) ?? [])
+  }, [scan])
   useEffect(() => {
     if (!scan) return
     setLoading(true)
@@ -222,7 +236,7 @@ function ScanDetail({ scan, onClose }: { scan: ScanQueueItem | null; onClose: ()
   return (
     <Modal visible={!!scan} animationType="slide" presentationStyle="fullScreen" onRequestClose={onClose}>
       <SafeAreaView style={styles.modal} edges={['top', 'bottom', 'left', 'right']}>
-        <View style={styles.modalHeader}><View style={styles.flex}><Text style={styles.heading}>Scan review</Text><Text style={styles.queueMeta}>View only on mobile · a pharmacist or technician approves it on the web</Text></View><IconButton icon="close" label="Close" onPress={onClose} /></View>
+        <View style={styles.modalHeader}><View style={styles.flex}><Text style={styles.heading}>Scan review</Text><Text style={styles.headerNote}>{canApprove ? 'Check each line against the document, then approve it into the CD register' : 'View only · a pharmacist or pharmacy technician must approve these lines'}</Text></View><IconButton icon="close" label="Close" onPress={onClose} /></View>
         {loading ? <ActivityIndicator style={styles.loader} color={COLOR} /> : scan ? (
           <ScrollView style={styles.detailScroll} contentContainerStyle={styles.detailContent} showsVerticalScrollIndicator={false}>
             {imageUrl ? <Image source={{ uri: imageUrl }} style={styles.documentImage} resizeMode="contain" /> : null}
@@ -232,7 +246,7 @@ function ScanDetail({ scan, onClose }: { scan: ScanQueueItem | null; onClose: ()
               <Detail label="Handwritten notes" value={scan.handwritten_notes} /><Detail label="AI notes" value={scan.ai_notes} /><Detail label="Error" value={scan.error_message} />
             </View>
             <Text style={styles.sectionTitle}>Extracted medicines ({items.length})</Text>
-            {items.map((item) => <View key={item.id} style={styles.drugCard}><View style={styles.rowBetween}><Text style={styles.drugName}>{item.matched_drug_brand ?? item.drug_name_raw ?? 'Unidentified medicine'}</Text><Text style={styles.statusText}>{item.status}</Text></View><Text style={styles.panelText}>{[item.matched_drug_form ?? item.drug_form_raw, item.matched_drug_strength ?? item.drug_strength_raw].filter(Boolean).join(' · ')}</Text><Text style={styles.quantity}>Quantity: {item.quantity ?? 'Not read'} · Confidence: {item.confidence ?? 0}/3</Text>{item.confidence_notes ? <Text style={styles.queueNote}>{item.confidence_notes}</Text> : null}</View>)}
+            {items.map((item) => <ScanLine key={item.id} scan={scan} item={item} canApprove={canApprove} userId={profile?.id ?? null} onChanged={reloadItems} />)}
           </ScrollView>
         ) : null}
         <View style={styles.modalFooter}><Button icon="checkmark" label="Done" onPress={onClose} /></View>
@@ -241,16 +255,94 @@ function ScanDetail({ scan, onClose }: { scan: ScanQueueItem | null; onClose: ()
   )
 }
 
+function ScanLine({ scan, item, canApprove, userId, onChanged }: { scan: ScanQueueItem; item: ScanDrugItem; canApprove: boolean; userId: string | null; onChanged: () => Promise<void> }) {
+  const isSupply = scan.document_type !== 'invoice'
+  const [open, setOpen] = useState(false)
+  const [quantity, setQuantity] = useState(item.quantity != null ? String(item.quantity) : '')
+  const [collector, setCollector] = useState<SupplyDetails['collectorType'] | ''>('')
+  const [collectorName, setCollectorName] = useState('')
+  const [idRequested, setIdRequested] = useState(false)
+  const [idProvided, setIdProvided] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const pending = item.status === 'pending'
+
+  const approve = async () => {
+    if (!userId) return
+    if (isSupply && !collector) return setError('Choose who collected the medicine.')
+    if (isSupply && collector !== 'patient' && !collectorName.trim()) return setError('Enter who collected it.')
+    setBusy(true); setError(null)
+    const result = await approveScanLine({
+      scan, item, userId, quantity: Number(quantity.replace(',', '.')),
+      supply: isSupply && collector ? { collectorType: collector, collectorDetails: collectorName, wasIdRequested: idRequested, wasIdProvided: idProvided } : undefined,
+    })
+    setBusy(false)
+    if (!result.ok) return setError(result.error)
+    setOpen(false)
+    await onChanged()
+  }
+  const reject = async () => {
+    if (!userId) return
+    setBusy(true); setError(null)
+    const result = await rejectScanLine(scan.id, item.id, userId)
+    setBusy(false)
+    if (!result.ok) return setError(result.error)
+    await onChanged()
+  }
+
+  return (
+    <View style={styles.drugCard}>
+      <View style={styles.rowBetween}><Text style={styles.drugName}>{item.matched_drug_brand ?? item.drug_name_raw ?? 'Unidentified medicine'}</Text><Text style={[styles.statusText, item.status === 'approved' && { color: palette.success }, item.status === 'rejected' && { color: palette.danger }]}>{item.status}</Text></View>
+      <Text style={styles.panelText}>{[item.matched_drug_form ?? item.drug_form_raw, item.matched_drug_strength ?? item.drug_strength_raw].filter(Boolean).join(' · ')}</Text>
+      <Text style={styles.quantity}>Quantity: {item.quantity ?? 'Not read'} · Confidence: {item.confidence ?? 0}/3</Text>
+      {item.confidence_notes ? <Text style={styles.queueNote}>{item.confidence_notes}</Text> : null}
+      {canApprove && pending && !item.matched_drug_id ? <Text style={styles.queueNote}>No drug matched. Pick the drug on the web review screen.</Text> : null}
+      {canApprove && pending && item.matched_drug_id && !open ? (
+        <View style={styles.row}>
+          <Button icon="close" label="Reject" secondary onPress={reject} disabled={busy} />
+          <Button icon="checkmark" label="Check & approve" onPress={() => setOpen(true)} disabled={busy} />
+        </View>
+      ) : null}
+      {open ? (
+        <View style={styles.approveBox}>
+          <Text style={styles.detailLabel}>{isSupply ? 'Quantity supplied' : 'Quantity received'}</Text>
+          <TextInput style={styles.input} value={quantity} onChangeText={setQuantity} keyboardType="decimal-pad" accessibilityLabel="Quantity" />
+          {isSupply ? (
+            <>
+              <Text style={styles.detailLabel}>Who collected it?</Text>
+              <View style={styles.chips}>
+                {([['patient', 'Patient'], ['representative', "Patient's representative"], ['hcp', 'Healthcare professional']] as const).map(([value, label]) => (
+                  <Pressable key={value} onPress={() => setCollector(value)} style={[styles.chip, collector === value && styles.chipOn]} accessibilityRole="radio" accessibilityState={{ selected: collector === value }}>
+                    <Text style={[styles.chipText, collector === value && styles.chipTextOn]}>{label}</Text>
+                  </Pressable>
+                ))}
+              </View>
+              {collector && collector !== 'patient' ? <TextInput style={styles.input} value={collectorName} onChangeText={setCollectorName} placeholder={collector === 'hcp' ? 'Name and address of the professional' : "Representative's name"} placeholderTextColor={palette.textMuted} /> : null}
+              <View style={styles.switchRow}><Text style={styles.detailValue}>ID was asked for</Text><Switch value={idRequested} onValueChange={setIdRequested} accessibilityLabel="ID was asked for" /></View>
+              <View style={styles.switchRow}><Text style={styles.detailValue}>ID was seen</Text><Switch value={idProvided} onValueChange={setIdProvided} accessibilityLabel="ID was seen" /></View>
+            </>
+          ) : null}
+          {error ? <Text style={styles.errorText}>{error}</Text> : null}
+          <View style={styles.row}>
+            <Button icon="arrow-back" label="Back" secondary onPress={() => { setOpen(false); setError(null) }} disabled={busy} />
+            <Button icon="checkmark-done" label={busy ? 'Saving...' : 'Approve into register'} onPress={approve} disabled={busy} />
+          </View>
+        </View>
+      ) : error ? <Text style={styles.errorText}>{error}</Text> : null}
+    </View>
+  )
+}
+
 function Detail({ label, value }: { label: string; value: string | null }) { return value ? <View style={styles.detailRow}><Text style={styles.detailLabel}>{label}</Text><Text style={styles.detailValue}>{value}</Text></View> : null }
 function statusColor(status: ScanStatus) { return status === 'error' || status === 'rejected' ? palette.danger : status === 'ready' || status === 'fully_approved' ? palette.success : COLOR }
 
 function Button({ icon, label, onPress, secondary, disabled }: { icon: keyof typeof Ionicons.glyphMap; label: string; onPress: () => void; secondary?: boolean; disabled?: boolean }) {
-  return <Pressable disabled={disabled} onPress={onPress} style={({ pressed }) => [styles.button, secondary && styles.buttonSecondary, (pressed || disabled) && styles.buttonDim]}><Ionicons name={icon} size={19} color={secondary ? COLOR : palette.textInverse} /><Text style={[styles.buttonText, secondary && styles.buttonTextSecondary]}>{label}</Text></Pressable>
+  return <Pressable accessibilityRole="button" disabled={disabled} onPress={onPress} style={({ pressed }) => [styles.button, secondary && styles.buttonSecondary, (pressed || disabled) && styles.buttonDim]}><Ionicons name={icon} size={19} color={secondary ? COLOR : palette.textInverse} /><Text style={[styles.buttonText, secondary && styles.buttonTextSecondary]}>{label}</Text></Pressable>
 }
 function IconButton({ icon, label, onPress }: { icon: keyof typeof Ionicons.glyphMap; label: string; onPress: () => void }) { return <Pressable onPress={onPress} style={styles.iconButton} accessibilityLabel={label}><Ionicons name={icon} size={24} color={palette.text} /></Pressable> }
 
 export const scanningScreens = { scan: DocumentScanScreen, queue: ScanQueueScreen }
 
 const styles = StyleSheet.create({
-  flex: { flex: 1 }, content: { paddingVertical: 12, gap: 14 }, heading: { fontSize: 22, fontWeight: '800', color: palette.text }, subheading: { marginTop: 4, color: palette.textMuted, lineHeight: 20 }, capturePanel: { backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.border, borderRadius: radius.lg, padding: 20, gap: 12, alignItems: 'stretch' }, captureIcon: { width: 64, height: 64, alignSelf: 'center', borderRadius: radius.lg, backgroundColor: '#FEF3C7', alignItems: 'center', justifyContent: 'center' }, panelTitle: { fontSize: 17, fontWeight: '800', color: palette.text, textAlign: 'center' }, panelText: { color: palette.textMuted, lineHeight: 20 }, button: { minHeight: 48, borderRadius: radius.md, backgroundColor: COLOR, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingHorizontal: 14, flex: 1 }, buttonSecondary: { backgroundColor: '#FFFBEB', borderWidth: 1, borderColor: '#FCD34D' }, buttonDim: { opacity: 0.55 }, buttonText: { color: palette.textInverse, fontWeight: '800' }, buttonTextSecondary: { color: '#92400E' }, previewPanel: { gap: 12 }, preview: { width: '100%', height: 430, borderRadius: radius.md, backgroundColor: '#111827' }, row: { flexDirection: 'row', gap: 10 }, rowBetween: { flexDirection: 'row', gap: 8, justifyContent: 'space-between' }, cameraWrap: { flex: 1, marginHorizontal: -16, overflow: 'hidden' }, documentFrame: { position: 'absolute', left: 28, right: 28, top: '10%', bottom: '22%', borderWidth: 2, borderColor: '#FFFFFF', borderRadius: radius.sm }, cameraActions: { position: 'absolute', left: 20, right: 20, bottom: 28, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }, shutter: { width: 72, height: 72, borderRadius: 36, borderWidth: 4, borderColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center' }, shutterInner: { width: 56, height: 56, borderRadius: 28, backgroundColor: '#FFFFFF' }, actionSpacer: { width: 44 }, iconButton: { width: 44, height: 44, borderRadius: 22, backgroundColor: palette.surface, alignItems: 'center', justifyContent: 'center' }, queueRow: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.border, borderRadius: radius.md, padding: 13 }, pressed: { opacity: 0.65 }, statusIcon: { width: 44, height: 44, borderRadius: radius.md, alignItems: 'center', justifyContent: 'center' }, queueTitle: { fontWeight: '800', color: palette.text, fontSize: 15 }, queueMeta: { color: palette.textMuted, fontSize: 12, marginTop: 3, textTransform: 'capitalize' }, queueNote: { color: palette.textMuted, fontSize: 13, marginTop: 5, lineHeight: 18 }, empty: { paddingVertical: 70, gap: 10, alignItems: 'center' }, modal: { flex: 1, backgroundColor: palette.bg }, modalHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 16, borderBottomWidth: 1, borderBottomColor: palette.border }, modalFooter: { paddingHorizontal: 16, paddingTop: 10, paddingBottom: 8, backgroundColor: palette.surface, borderTopWidth: 1, borderTopColor: palette.border }, loader: { flex: 1 }, detailScroll: { flex: 1 }, detailContent: { padding: 16, gap: 14, paddingBottom: 24 }, documentImage: { width: '100%', height: 360, backgroundColor: '#111827', borderRadius: radius.md }, infoPanel: { backgroundColor: palette.surface, borderRadius: radius.md, borderWidth: 1, borderColor: palette.border, padding: 15, gap: 10 }, sectionTitle: { fontSize: 17, fontWeight: '800', color: palette.text }, detailRow: { gap: 2 }, detailLabel: { color: palette.textMuted, fontSize: 12, fontWeight: '700' }, detailValue: { color: palette.text, lineHeight: 20 }, drugCard: { padding: 14, borderRadius: radius.md, backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.border, gap: 6 }, drugName: { flex: 1, fontWeight: '800', color: palette.text }, statusText: { color: COLOR, fontSize: 12, fontWeight: '800', textTransform: 'capitalize' }, quantity: { color: palette.text, fontWeight: '700', fontSize: 13 },
+  flex: { flex: 1 }, content: { paddingVertical: 12, gap: 14 }, heading: { fontSize: 22, fontWeight: '800', color: palette.text }, subheading: { marginTop: 4, color: palette.textMuted, lineHeight: 20 }, capturePanel: { backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.border, borderRadius: radius.lg, padding: 20, gap: 12, alignItems: 'stretch' }, captureIcon: { width: 64, height: 64, alignSelf: 'center', borderRadius: radius.lg, backgroundColor: '#FEF3C7', alignItems: 'center', justifyContent: 'center' }, panelTitle: { fontSize: 17, fontWeight: '800', color: palette.text, textAlign: 'center' }, panelText: { color: palette.textMuted, lineHeight: 20 }, button: { minHeight: 48, borderRadius: radius.md, backgroundColor: COLOR, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingHorizontal: 14, flex: 1 }, buttonSecondary: { backgroundColor: '#FFFBEB', borderWidth: 1, borderColor: '#FCD34D' }, buttonDim: { opacity: 0.55 }, buttonText: { color: palette.textInverse, fontWeight: '800' }, buttonTextSecondary: { color: '#92400E' }, previewPanel: { gap: 12 }, preview: { width: '100%', height: 430, borderRadius: radius.md, backgroundColor: '#111827' }, row: { flexDirection: 'row', gap: 10 }, rowBetween: { flexDirection: 'row', gap: 8, justifyContent: 'space-between' }, cameraWrap: { flex: 1, marginHorizontal: -16, overflow: 'hidden' }, documentFrame: { position: 'absolute', left: 28, right: 28, top: '10%', bottom: '22%', borderWidth: 2, borderColor: '#FFFFFF', borderRadius: radius.sm }, cameraActions: { position: 'absolute', left: 20, right: 20, bottom: 28, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }, shutter: { width: 72, height: 72, borderRadius: 36, borderWidth: 4, borderColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center' }, shutterInner: { width: 56, height: 56, borderRadius: 28, backgroundColor: '#FFFFFF' }, actionSpacer: { width: 44 }, iconButton: { width: 44, height: 44, borderRadius: 22, backgroundColor: palette.surface, alignItems: 'center', justifyContent: 'center' }, queueRow: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.border, borderRadius: radius.md, padding: 13 }, pressed: { opacity: 0.65 }, statusIcon: { width: 44, height: 44, borderRadius: radius.md, alignItems: 'center', justifyContent: 'center' }, queueTitle: { fontWeight: '800', color: palette.text, fontSize: 15 }, queueMeta: { color: palette.textMuted, fontSize: 12, marginTop: 3, textTransform: 'capitalize' }, headerNote: { color: palette.textMuted, fontSize: 12, marginTop: 3, lineHeight: 16 }, queueNote: { color: palette.textMuted, fontSize: 13, marginTop: 5, lineHeight: 18 }, empty: { paddingVertical: 70, gap: 10, alignItems: 'center' }, modal: { flex: 1, backgroundColor: palette.bg }, modalHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 16, borderBottomWidth: 1, borderBottomColor: palette.border }, modalFooter: { paddingHorizontal: 16, paddingTop: 10, paddingBottom: 8, backgroundColor: palette.surface, borderTopWidth: 1, borderTopColor: palette.border }, loader: { flex: 1 }, detailScroll: { flex: 1 }, detailContent: { padding: 16, gap: 14, paddingBottom: 24 }, documentImage: { width: '100%', height: 360, backgroundColor: '#111827', borderRadius: radius.md }, infoPanel: { backgroundColor: palette.surface, borderRadius: radius.md, borderWidth: 1, borderColor: palette.border, padding: 15, gap: 10 }, sectionTitle: { fontSize: 17, fontWeight: '800', color: palette.text }, detailRow: { gap: 2 }, detailLabel: { color: palette.textMuted, fontSize: 12, fontWeight: '700' }, detailValue: { color: palette.text, lineHeight: 20 }, drugCard: { padding: 14, borderRadius: radius.md, backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.border, gap: 6 }, drugName: { flex: 1, fontWeight: '800', color: palette.text }, statusText: { color: COLOR, fontSize: 12, fontWeight: '800', textTransform: 'capitalize' }, quantity: { color: palette.text, fontWeight: '700', fontSize: 13 }, approveBox: { gap: 8, marginTop: 6, paddingTop: 10, borderTopWidth: 1, borderTopColor: palette.border }, input: { minHeight: 48, borderWidth: 1, borderColor: palette.border, borderRadius: radius.md, paddingHorizontal: 12, fontSize: 16, color: palette.text, backgroundColor: palette.surface }, chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 }, chip: { paddingHorizontal: 12, minHeight: 40, justifyContent: 'center', borderRadius: radius.pill, borderWidth: 1, borderColor: palette.border, backgroundColor: palette.surface }, chipOn: { backgroundColor: COLOR, borderColor: COLOR }, chipText: { color: palette.text, fontWeight: '600' }, chipTextOn: { color: palette.textInverse }, switchRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', minHeight: 44 }, errorText: { color: palette.danger, fontWeight: '600', lineHeight: 19 },
 })

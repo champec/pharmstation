@@ -21,7 +21,7 @@ export function PublicBookingHomePage() {
       .eq('is_public', true)
       .order('name')
       .then(({ data }) => {
-        setOrgs((data as Organisation[]) || [])
+        setOrgs((data as unknown as Organisation[]) || [])
         setLoading(false)
       })
   }, [])

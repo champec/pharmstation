@@ -4,6 +4,7 @@ import 'mapbox-gl/dist/mapbox-gl.css'
 import type { DeliveryRoundPatient, DeliveryLocationUpdate } from '@pharmstation/types'
 import { getUserClient } from '@pharmstation/supabase-client'
 import { useMapboxToken } from '../../hooks/useMapboxToken'
+import { stopAddress } from '@pharmstation/core'
 
 // UK default center
 const DEFAULT_CENTER = { latitude: 53.5, longitude: -1.5, zoom: 6 }
@@ -47,7 +48,7 @@ export function DeliveryRouteMap({ patients, roundId, driverId, height = 400, sh
   const [patientCoords, setPatientCoords] = useState<Map<string, { lat: number; lng: number }>>(new Map())
   const [driverLocation, setDriverLocation] = useState<{ lat: number; lng: number } | null>(null)
   const [loading, setLoading] = useState(true)
-  const { token: mapboxToken, loading: mapboxTokenLoading, error: mapboxTokenError } = useMapboxToken()
+  const { token: mapboxToken, loading: mapboxTokenLoading } = useMapboxToken()
 
   // Geocode all patient postcodes
   useEffect(() => {
@@ -157,9 +158,23 @@ export function DeliveryRouteMap({ patients, roundId, driverId, height = 400, sh
   }
 
   if (!mapboxToken) {
+    const stops = patients
+      .filter((p) => p.status === 'pending' || p.status === 'in_transit' || p.status === 'arrived')
+      .map((p) => stopAddress(p as any))
+      .filter(Boolean)
+      .slice(0, 10)
+    const routeLink = stops.length
+      ? `https://www.google.com/maps/dir/${stops.map((a) => encodeURIComponent(a)).join('/')}`
+      : null
     return (
-      <div style={{ height, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--ps-off-white)', borderRadius: 'var(--ps-radius-md)', color: 'var(--ps-slate)' }}>
-        {mapboxTokenError ?? 'Map configuration is unavailable. Please try again later.'}
+      // No map key configured: fall back to opening the whole route in Google Maps.
+      <div style={{ padding: 'var(--ps-space-lg)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 'var(--ps-space-sm)', background: 'var(--ps-off-white)', borderRadius: 'var(--ps-radius-md)', color: 'var(--ps-slate)', textAlign: 'center' }}>
+        <span>The map can’t be shown right now.</span>
+        {routeLink && (
+          <a className="ps-btn ps-btn-secondary ps-btn-sm" href={routeLink} target="_blank" rel="noreferrer">
+            Open the route in Google Maps
+          </a>
+        )}
       </div>
     )
   }

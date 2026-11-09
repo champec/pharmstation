@@ -148,8 +148,24 @@ export function DriverRouteScreen() {
 
   const saveDelivery = async () => {
     if (!selectedStop) return
+    const signatureData = signatureRef.current?.getData() ?? undefined
+    const name = recipientName.trim()
+    // Proof rules (same as the website): the patient signs or gives their
+    // name, a representative gives their name, a safe place is described.
+    if (deliveryMethod === 'handed_to_patient' && !signatureData && !name) {
+      Alert.alert('Proof needed', 'Ask the patient to sign, or type their name.')
+      return
+    }
+    if (deliveryMethod === 'handed_to_representative' && !name) {
+      Alert.alert('Proof needed', 'Type the name of the person who took the medicines.')
+      return
+    }
+    if (deliveryMethod === 'left_in_safe_place' && !name) {
+      Alert.alert('Proof needed', 'Say where you left the medicines, for example "porch, behind the plant pot".')
+      return
+    }
     await completeDelivery(selectedStop.id, {
-      signatureData: signatureRef.current?.getData() ?? undefined,
+      signatureData,
       deliveryMethod,
       recipientName,
       evidenceFiles,
@@ -327,7 +343,13 @@ export function DriverRouteScreen() {
                 style={styles.recipientInput}
                 value={recipientName}
                 onChangeText={setRecipientName}
-                placeholder={deliveryMethod === 'left_in_safe_place' ? 'Safe place details (optional)' : 'Recipient name (optional)'}
+                placeholder={
+                  deliveryMethod === 'left_in_safe_place'
+                    ? 'Where did you leave it? (required)'
+                    : deliveryMethod === 'handed_to_representative'
+                      ? 'Name of the person who took it (required)'
+                      : 'Patient name (or ask them to sign below)'
+                }
               />
               <Text style={styles.fieldLabel}>Photo evidence (optional)</Text>
               <View style={styles.photoActions}>
@@ -356,7 +378,9 @@ export function DriverRouteScreen() {
                   ))}
                 </View>
               ) : null}
-              <Text style={styles.fieldLabel}>Customer signature (optional)</Text>
+              <Text style={styles.fieldLabel}>
+                {deliveryMethod === 'handed_to_patient' ? 'Signature (or type their name above)' : 'Signature (optional)'}
+              </Text>
               <SignaturePad ref={signatureRef} />
               <Pressable onPress={() => signatureRef.current?.clear()}>
                 <Text style={styles.clearSignature}>Clear signature</Text>

@@ -6,7 +6,6 @@ import type {
   DeliveryPatientMedication,
   DeliveryRoundTemplate,
   DeliveryRoundTemplatePatient,
-  OrganisationMember,
   PatientMedication,
 } from '@pharmstation/types'
 import { getUserClient } from '@pharmstation/supabase-client'
@@ -42,7 +41,7 @@ export interface DeliveryRoundState {
   redeliveryQueue: DeliveryRoundPatient[]
   templates: DeliveryRoundTemplate[]
   activeTemplate: DeliveryRoundTemplate | null
-  availableDrivers: OrganisationMember[]
+  availableDrivers: DeliveryDriverOption[]
   loading: boolean
   error: string | null
 
@@ -71,6 +70,22 @@ export interface DeliveryRoundState {
   // Driver
   assignDriver: (roundId: string, driverId: string | null) => Promise<void>
   fetchAvailableDrivers: (orgId: string) => Promise<void>
+  /** Create a round with its stops and medicines in one transaction; returns the round id. */
+  createRoundWithStops: (input: {
+    orgId: string
+    title: string | null
+    scheduledDate: string | null
+    timeStart: string | null
+    timeEnd: string | null
+    notes: string | null
+    driverId: string | null
+    stops: Array<{
+      patientId: string
+      notes?: string
+      address?: { line1?: string; line2?: string; city?: string; postcode?: string }
+      medications: Array<{ patient_medication_id: string; quantity?: number | null }>
+    }>
+  }) => Promise<string>
 
   // Redelivery queue
   fetchRedeliveryQueue: (orgId: string) => Promise<void>
@@ -99,6 +114,12 @@ export interface DeliveryRoundState {
 
   // UI
   clearError: () => void
+}
+
+export interface DeliveryDriverOption {
+  id: string
+  full_name: string
+  role: string
 }
 
 export const useDeliveryRoundStore = create<DeliveryRoundState>((set, get) => ({
@@ -311,18 +332,37 @@ export const useDeliveryRoundStore = create<DeliveryRoundState>((set, get) => ({
 
   fetchAvailableDrivers: async (orgId) => {
     try {
-      const { data, error } = await getUserClient()
-        .from('ps_organisation_members')
-        .select('*, user_profile:ps_user_profiles!user_id(id, full_name)')
-        .eq('organisation_id', orgId)
-        .eq('status', 'active')
+      // Staff can only read their own membership row, so the list of people
+      // who can drive comes from a database function (id, name, role only).
+      const { data, error } = await getUserClient().rpc('ps_delivery_list_drivers', { p_org_id: orgId })
       if (error) throw error
-      // Filter client-side for members with delivery_drive permission
-      // (permissions are resolved client-side via resolvePermissions)
-      set({ availableDrivers: (data ?? []) as OrganisationMember[] })
+      set({
+        availableDrivers: ((data ?? []) as Array<{ member_id: string; full_name: string; role: string }>)
+          .map((d) => ({ id: d.member_id, full_name: d.full_name, role: d.role })),
+      })
     } catch (e: any) {
       set({ error: e.message })
     }
+  },
+
+  createRoundWithStops: async (input) => {
+    const { data, error } = await getUserClient().rpc('ps_delivery_create_round', {
+      p_org_id: input.orgId,
+      p_title: input.title,
+      p_scheduled_date: input.scheduledDate,
+      p_time_start: input.timeStart,
+      p_time_end: input.timeEnd,
+      p_notes: input.notes,
+      p_driver_id: input.driverId,
+      p_stops: input.stops.map((s) => ({
+        patient_id: s.patientId,
+        notes: s.notes ?? null,
+        address: s.address ?? null,
+        medications: s.medications,
+      })),
+    })
+    if (error) throw error
+    return data as string
   },
 
   // ── Redelivery Queue ──

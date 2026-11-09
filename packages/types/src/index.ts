@@ -1588,6 +1588,12 @@ export interface SOPDocument {
   published_at: string | null
   /** Sections changed since the last publish; staff still read the last published copy. */
   has_unpublished_changes?: boolean
+  /** How often the SOP must be reviewed (months, default 12). */
+  review_interval_months?: number
+  /** Date (YYYY-MM-DD) the next review is due. Set by publishing or marking reviewed. */
+  next_review_due?: string | null
+  last_reviewed_at?: string | null
+  last_reviewed_by?: string | null
   created_at: string
   updated_at: string
   // Joined
@@ -1647,6 +1653,20 @@ export interface SOPDocumentVersion {
   nodes: Pick<SOPNode, 'id' | 'parent_id' | 'title' | 'content_type' | 'rich_content' | 'pdf_storage_path' | 'sort_order'>[]
   published_at: string
   published_by: string | null
+}
+
+/** One entry in an SOP's review history (written by the database). */
+export interface SOPReview {
+  id: string
+  document_id: string
+  org_id: string
+  version: number
+  outcome: 'first_published' | 'new_version' | 'no_changes'
+  notes: string | null
+  reviewed_at: string
+  reviewed_by: string | null
+  reviewer_name: string | null
+  next_review_due: string | null
 }
 
 // Rich view used in the progress page
@@ -2702,6 +2722,11 @@ export interface ShopSettings {
   collection_enabled: boolean
   /** How shop customers can pay: in store / on delivery, card online, or either. */
   payment_methods: ShopPaymentMethods
+  /** Shown on the shop front. Opening the shop needs the pharmacist in charge and a contact. */
+  pharmacist_in_charge_name: string | null
+  pharmacist_in_charge_gphc: string | null
+  contact_phone: string | null
+  contact_email: string | null
   created_at: string
   updated_at: string
 }
