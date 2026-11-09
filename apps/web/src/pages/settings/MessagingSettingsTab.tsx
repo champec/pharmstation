@@ -300,7 +300,7 @@ export function MessagingSettingsTab() {
         <h3 style={{ margin: '0 0 var(--ps-space-sm)' }}>Two-way Replies</h3>
         <p style={hintStyle}>
           Rent a dedicated virtual number so patients can reply to your messages. Replies appear in your
-          Messaging inbox. The number has a small monthly rental, shown in Plan &amp; billing before it's added.
+          Messaging inbox. Reply numbers come with the Complete plan.
         </p>
 
         {smsSettings?.reply_enabled && smsSettings.reply_number ? (
