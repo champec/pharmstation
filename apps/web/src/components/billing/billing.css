@@ -94,7 +94,7 @@
   padding: var(--ps-space-xl);
   text-align: center;
 }
-.plan-gate-icon { font-size: 2.5rem; margin-bottom: var(--ps-space-sm); }
+.plan-gate-icon { color: var(--ps-slate); margin-bottom: var(--ps-space-sm); }
 .plan-gate h2 { margin: 0 0 var(--ps-space-sm); font-size: var(--ps-font-xl); }
 .plan-gate p { color: var(--ps-slate); margin: 0 0 var(--ps-space-md); }
 .plan-gate ul {
