@@ -6,6 +6,9 @@
 
 import { useEffect, useCallback, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { RefreshCw, ShoppingBag } from 'lucide-react'
+import { PageHeader } from '../../components/ui/PageHeader'
+import { EmptyState } from '../../components/ui/EmptyState'
 import { useAuthStore, useShopStore, useDeliveryRoundStore } from '@pharmstation/core'
 import type { ShopOrder, ShopOrderStatus } from '@pharmstation/types'
 import { Modal } from '../../components/Modal'
@@ -137,19 +140,12 @@ export function ShopOrdersPage() {
 
   return (
     <div>
-      <div className="page-header">
-        <div className="breadcrumbs">
-          <a href="/" onClick={(e) => { e.preventDefault(); navigate('/') }}>Dashboard</a>
-          <span className="separator">/</span>
-          <a href="/shop-admin" onClick={(e) => { e.preventDefault(); navigate('/shop-admin') }}>Shop</a>
-          <span className="separator">/</span>
-          <span>Orders</span>
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--ps-space-md)' }}>
-          <h1>Shop Orders</h1>
-          <button className="ps-btn ps-btn-secondary" onClick={load}>↻ Refresh</button>
-        </div>
-      </div>
+      <PageHeader
+        breadcrumbs={[{ label: 'Dashboard', to: '/' }, { label: 'Shop', to: '/shop-admin' }, { label: 'Orders' }]}
+        title="Shop orders"
+        subtitle="Orders from your online shop. Check medicines, prepare orders and let customers know when they're ready."
+        actions={<button className="ps-btn ps-btn-secondary" onClick={load}><RefreshCw size={16} strokeWidth={1.75} aria-hidden="true" /> Refresh</button>}
+      />
 
       {error && (
         <div className="ps-card" style={{ padding: 'var(--ps-space-md)', marginBottom: 'var(--ps-space-md)', color: 'var(--ps-error, #dc2626)' }}>
@@ -164,13 +160,11 @@ export function ShopOrdersPage() {
             key={s}
             className="ps-btn ps-btn-secondary"
             onClick={() => setStatusFilter(s)}
-            style={statusFilter === s ? { background: 'var(--ps-deep-blue, #0077B6)', color: 'white' } : undefined}
+            style={statusFilter === s ? { background: 'var(--ps-deep-blue)', color: 'white' } : undefined}
           >
             {s === 'active' ? 'Active' : s === 'all' ? 'All' : STATUS_META[s].label}
             {s === 'new' && orders.some((o) => o.status === 'new') && (
-              <span style={{ marginLeft: 6, background: '#dc2626', color: 'white', borderRadius: 999, padding: '0 7px', fontSize: 12 }}>
-                {orders.filter((o) => o.status === 'new').length}
-              </span>
+              <span style={{ marginLeft: 4 }}>({orders.filter((o) => o.status === 'new').length})</span>
             )}
           </button>
         ))}
@@ -179,9 +173,15 @@ export function ShopOrdersPage() {
       {loading && <p style={{ color: 'var(--ps-slate)' }}>Loading…</p>}
 
       {!loading && filtered.length === 0 && (
-        <div className="ps-card" style={{ padding: 'var(--ps-space-xl)', textAlign: 'center', color: 'var(--ps-slate)' }}>
-          No orders here yet. When customers order from your shop they will appear in this list.
-        </div>
+        orders.length === 0 ? (
+          <EmptyState icon={ShoppingBag} title="No orders yet">
+            When customers order from your shop, their orders appear here.
+          </EmptyState>
+        ) : (
+          <EmptyState icon={ShoppingBag} title="No orders match this filter" actions={<button className="ps-btn ps-btn-secondary" onClick={() => setStatusFilter('all')}>Show all orders</button>}>
+            Try another filter to see more orders.
+          </EmptyState>
+        )
       )}
 
       <div style={{ display: 'grid', gap: 'var(--ps-space-sm)' }}>
@@ -215,7 +215,7 @@ export function ShopOrdersPage() {
                   <span className="ps-badge" style={{ background: '#fee2e2', color: '#991b1b' }}>Rejected by pharmacist</span>
                 )}
                 <span style={{ color: 'var(--ps-slate)', fontSize: 'var(--ps-font-sm)' }}>
-                  {o.fulfilment_method === 'delivery' ? '🚚 Delivery' : '🏪 Collection'}
+                  {o.fulfilment_method === 'delivery' ? 'Delivery' : 'Collection'}
                 </span>
                 <span style={{ flex: 1, color: 'var(--ps-slate)', fontSize: 'var(--ps-font-sm)' }}>
                   {o.guest_name || 'Registered patient'}{o.guest_phone ? ` · ${o.guest_phone}` : ''}
@@ -272,7 +272,7 @@ export function ShopOrdersPage() {
                   )}
                   {o.customer_notes && (
                     <p style={{ margin: 'var(--ps-space-sm) 0 0', fontSize: 'var(--ps-font-sm)' }}>
-                      💬 <em>{o.customer_notes}</em>
+                      <strong>Customer note:</strong> <em>{o.customer_notes}</em>
                     </p>
                   )}
 

@@ -6,6 +6,9 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { Package, Settings, Trash2 } from 'lucide-react'
+import { PageHeader } from '../../components/ui/PageHeader'
+import { EmptyState } from '../../components/ui/EmptyState'
 import { useAuthStore, useShopStore } from '@pharmstation/core'
 import type { ShopProduct, ShopMedicineClass, ShopPaymentMethods } from '@pharmstation/types'
 import { Modal } from '../../components/Modal'
@@ -209,22 +212,17 @@ export function ShopProductsPage() {
 
   return (
     <div>
-      <div className="page-header">
-        <div className="breadcrumbs">
-          <a href="/" onClick={(e) => { e.preventDefault(); navigate('/') }}>Dashboard</a>
-          <span className="separator">/</span>
-          <span>Shop</span>
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--ps-space-md)' }}>
-          <h1>Shop — Products & Inventory</h1>
-          <div style={{ display: 'flex', gap: 'var(--ps-space-sm)' }}>
-            <button className="ps-btn ps-btn-secondary" onClick={() => navigate('/shop-admin/orders')}>Orders</button>
-            <button className="ps-btn ps-btn-secondary" onClick={() => navigate('/shop-admin/questionnaires')}>Questionnaires</button>
-            <button className="ps-btn ps-btn-secondary" onClick={openSettings}>Shop Settings</button>
-            <button className="ps-btn ps-btn-primary" onClick={openCreate}>+ New Product</button>
-          </div>
-        </div>
-      </div>
+      <PageHeader
+        breadcrumbs={[{ label: 'Dashboard', to: '/' }, { label: 'Shop' }]}
+        title="Products and stock"
+        subtitle="What you sell in your online shop, with prices and stock."
+        actions={<>
+          <button className="ps-btn ps-btn-secondary" onClick={() => navigate('/shop-admin/orders')}>Orders</button>
+          <button className="ps-btn ps-btn-secondary" onClick={() => navigate('/shop-admin/questionnaires')}>Questionnaires</button>
+          <button className="ps-btn ps-btn-secondary" onClick={openSettings}><Settings size={16} strokeWidth={1.75} aria-hidden="true" /> Shop settings</button>
+          <button className="ps-btn ps-btn-primary" onClick={openCreate}>+ Add product</button>
+        </>}
+      />
 
       {!isPharmacy && (
         <div className="ps-card" style={{ padding: 'var(--ps-space-lg)', marginBottom: 'var(--ps-space-lg)', borderLeft: '4px solid var(--ps-warning, #f59e0b)' }}>
@@ -243,15 +241,15 @@ export function ShopProductsPage() {
         <div>
           <strong>Shop status:</strong>{' '}
           {settings?.shop_enabled
-            ? <span style={{ color: 'var(--ps-success, #16a34a)' }}>● Live on the marketplace</span>
+            ? <span style={{ color: 'var(--ps-success)' }}>● Live on the marketplace</span>
             : <span style={{ color: 'var(--ps-slate)' }}>○ Not published</span>}
           {settings?.shop_enabled && (
             <span style={{ marginLeft: 12, color: 'var(--ps-slate)', fontSize: 'var(--ps-font-sm)' }}>
-              {settings.delivery_enabled ? `🚚 Delivery within ${settings.delivery_radius_km} km` : 'Collection only'}
+              {settings.delivery_enabled ? `Delivery within ${settings.delivery_radius_km} km` : 'Collection only'}
             </span>
           )}
         </div>
-        <button className="ps-btn ps-btn-secondary" onClick={() => window.open('/shop', '_blank')}>View marketplace →</button>
+        <button className="ps-btn ps-btn-secondary" onClick={() => window.open(`/shop/${(organisation as { slug?: string | null } | null)?.slug || organisation?.id || ''}`, '_blank')}>View your shop →</button>
       </div>
 
       <div style={{ marginBottom: 'var(--ps-space-md)' }}>
@@ -267,9 +265,15 @@ export function ShopProductsPage() {
       {loading && <p style={{ color: 'var(--ps-slate)' }}>Loading…</p>}
 
       {!loading && filtered.length === 0 && (
-        <div className="ps-card" style={{ padding: 'var(--ps-space-xl)', textAlign: 'center', color: 'var(--ps-slate)' }}>
-          {search ? 'No products match your search.' : 'No products yet. Add your first product to start selling.'}
-        </div>
+        search ? (
+          <EmptyState icon={Package} title="No products match your search" actions={<button className="ps-btn ps-btn-secondary" onClick={() => setSearch('')}>Clear search</button>}>
+            Try a different name or SKU.
+          </EmptyState>
+        ) : (
+          <EmptyState icon={Package} title="No products yet" actions={<button className="ps-btn ps-btn-primary" onClick={openCreate}>+ Add product</button>}>
+            Add your first product to start selling online.
+          </EmptyState>
+        )
       )}
 
       <div style={{ display: 'grid', gap: 'var(--ps-space-sm)' }}>
@@ -278,7 +282,7 @@ export function ShopProductsPage() {
             {p.image_url ? (
               <img src={p.image_url} alt={p.name} style={{ width: 48, height: 48, borderRadius: 'var(--ps-radius-md)', objectFit: 'cover' }} />
             ) : (
-              <div style={{ width: 48, height: 48, borderRadius: 'var(--ps-radius-md)', background: 'var(--ps-off-white)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.3rem' }}>📦</div>
+              <div style={{ width: 48, height: 48, borderRadius: 'var(--ps-radius-md)', background: 'var(--ps-off-white)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--ps-slate)' }}><Package size={22} strokeWidth={1.75} aria-hidden="true" /></div>
             )}
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
@@ -302,14 +306,14 @@ export function ShopProductsPage() {
             </div>
             <div style={{ display: 'flex', gap: 'var(--ps-space-xs)' }}>
               <button className="ps-btn ps-btn-secondary" onClick={() => openEdit(p)}>Edit</button>
-              <button className="ps-btn ps-btn-secondary" onClick={() => handleDelete(p)}>🗑️</button>
+              <button className="ps-btn ps-btn-secondary" onClick={() => handleDelete(p)} aria-label={`Delete ${p.name}`} title="Delete"><Trash2 size={16} strokeWidth={1.75} aria-hidden="true" /></button>
             </div>
           </div>
         ))}
       </div>
 
       {/* Product modal */}
-      <Modal isOpen={showProductModal} onClose={() => setShowProductModal(false)} title={editing ? 'Edit Product' : 'New Product'}>
+      <Modal isOpen={showProductModal} onClose={() => setShowProductModal(false)} title={editing ? 'Edit product' : 'New product'}>
         <div style={{ display: 'grid', gap: 'var(--ps-space-md)' }}>
           {modalError && <div style={{ color: 'var(--ps-error, #dc2626)' }}>{modalError}</div>}
           <label>
@@ -364,7 +368,7 @@ export function ShopProductsPage() {
                 onChange={(e) => handleImageFile(e.target.files?.[0])}
               />
               <button className="ps-btn ps-btn-secondary" disabled={uploadingImage} onClick={() => fileInputRef.current?.click()}>
-                {uploadingImage ? 'Uploading…' : fImageUrl ? '📷 Replace image' : '📷 Upload image'}
+                {uploadingImage ? 'Uploading…' : fImageUrl ? 'Replace image' : 'Upload image'}
               </button>
               {fImageUrl && (
                 <button className="ps-btn ps-btn-secondary" onClick={() => setFImageUrl('')}>Remove</button>
@@ -422,14 +426,14 @@ export function ShopProductsPage() {
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 'var(--ps-space-sm)' }}>
             <button className="ps-btn ps-btn-secondary" onClick={() => setShowProductModal(false)}>Cancel</button>
             <button className="ps-btn ps-btn-primary" disabled={saving || !fName.trim()} onClick={handleSaveProduct}>
-              {saving ? 'Saving…' : editing ? 'Save Changes' : 'Add Product'}
+              {saving ? 'Saving…' : editing ? 'Save changes' : 'Add product'}
             </button>
           </div>
         </div>
       </Modal>
 
       {/* Settings modal */}
-      <Modal isOpen={showSettingsModal} onClose={() => setShowSettingsModal(false)} title="Shop Settings">
+      <Modal isOpen={showSettingsModal} onClose={() => setShowSettingsModal(false)} title="Shop settings">
         <div style={{ display: 'grid', gap: 'var(--ps-space-md)' }}>
           <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <input type="checkbox" checked={sEnabled} onChange={(e) => setSEnabled(e.target.checked)} />
@@ -509,7 +513,7 @@ export function ShopProductsPage() {
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 'var(--ps-space-sm)' }}>
             <button className="ps-btn ps-btn-secondary" onClick={() => setShowSettingsModal(false)}>Cancel</button>
             <button className="ps-btn ps-btn-primary" disabled={saving} onClick={handleSaveSettings}>
-              {saving ? 'Saving…' : 'Save Settings'}
+              {saving ? 'Saving…' : 'Save settings'}
             </button>
           </div>
         </div>
