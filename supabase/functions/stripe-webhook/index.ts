@@ -59,8 +59,17 @@ type Db = ReturnType<typeof getAdminClient>
 // Event handlers
 // ============================================
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+/** Our ps_payments id from Stripe metadata, or null if missing or malformed
+ *  (e.g. a session someone created by hand in the Stripe dashboard). */
+function paymentIdFrom(metadata: Stripe.Metadata | null | undefined): string | null {
+  const id = metadata?.payment_id
+  return id && UUID_RE.test(id) ? id : null
+}
+
 async function onCheckoutCompleted(db: Db, session: Stripe.Checkout.Session) {
-  const paymentId = session.metadata?.payment_id
+  const paymentId = paymentIdFrom(session.metadata)
   const update = {
     status: 'succeeded',
     stripe_payment_intent_id: (session.payment_intent as string) ?? null,
@@ -119,7 +128,7 @@ async function appointmentFor(db: Db, session: Stripe.Checkout.Session): Promise
 }
 
 async function onCheckoutExpired(db: Db, session: Stripe.Checkout.Session) {
-  const paymentId = session.metadata?.payment_id
+  const paymentId = paymentIdFrom(session.metadata)
   const q = paymentId
     ? db.from('ps_payments').update({ status: 'canceled' }).eq('id', paymentId).in('status', ['pending', 'processing'])
     : db.from('ps_payments').update({ status: 'canceled' }).eq('stripe_checkout_session_id', session.id).in('status', ['pending', 'processing'])
@@ -139,7 +148,7 @@ async function onCheckoutExpired(db: Db, session: Stripe.Checkout.Session) {
 }
 
 async function onPaymentFailed(db: Db, pi: Stripe.PaymentIntent) {
-  const paymentId = pi.metadata?.payment_id
+  const paymentId = paymentIdFrom(pi.metadata)
   if (!paymentId) return
   const { error } = await db
     .from('ps_payments')
@@ -196,7 +205,7 @@ async function onSmsCreditsPaid(db: Db, session: Stripe.Checkout.Session) {
     p_credits: credits,
     p_reason: 'purchase',
     p_checkout_session_id: session.id,
-    p_payment_id: session.metadata?.payment_id ?? null,
+    p_payment_id: paymentIdFrom(session.metadata),
     p_note: `${credits} text credits bought`,
   })
   if (error) throw new Error(`ps_sms_add_credits failed: ${error.message}`)
