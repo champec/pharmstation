@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { LifeBuoy } from 'lucide-react'
 import { getUserClient } from '@pharmstation/supabase-client'
 import { EmptyState, PageHeader } from '../../components/ui'
+import { promptDialog } from '../../components/ui/dialog'
 
 // PharmStation platform admins triage messages from the contact page and the
 // in-app Help & support form. Each one is also emailed to the team inbox; reply
@@ -12,7 +13,7 @@ type Ticket = {
   id: string
   reference: string
   source: 'public' | 'app'
-  topic: 'support' | 'sales' | 'billing' | 'privacy' | 'safety' | 'other'
+  topic: 'support' | 'sales' | 'billing' | 'privacy' | 'safety' | 'network' | 'other'
   name: string
   email: string
   phone: string | null
@@ -26,7 +27,7 @@ type Ticket = {
 
 const TOPIC_LABELS: Record<Ticket['topic'], string> = {
   support: 'Help', sales: 'Demo / pricing', billing: 'Billing',
-  privacy: 'Data protection', safety: 'Clinical safety', other: 'Other',
+  privacy: 'Data protection', safety: 'Clinical safety', network: 'Network dispute', other: 'Other',
 }
 const STATUS_LABELS: Record<Ticket['status'], string> = {
   new: 'New', open: 'In progress', waiting: 'Waiting on them', closed: 'Closed',
@@ -74,8 +75,8 @@ export function SupportInboxPage() {
     else load(filter)
   }
 
-  const editNote = (t: Ticket) => {
-    const note = window.prompt('Internal note (only admins see this)', t.admin_note ?? '')
+  const editNote = async (t: Ticket) => {
+    const note = await promptDialog('Internal note (only admins see this)', t.admin_note ?? '')
     if (note === null) return
     update(t, { admin_note: note.trim() || null })
   }

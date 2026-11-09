@@ -1,3 +1,4 @@
+import { BookingNavAccount } from '../../components/public/BookingNavAccount'
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { getUserClient } from '@pharmstation/supabase-client'
@@ -5,6 +6,9 @@ import type { Organisation, Service } from '@pharmstation/types'
 import { orgSlugOrIdFilter } from '../../lib/orgSlugFilter'
 import { PublicFooter } from '../../components/public/PublicFooter'
 import { usePageTitle } from '../../seo/RouteMeta'
+
+// Anonymous visitors may only read these columns (column grants on ps_organisations).
+const PUBLIC_ORG_COLUMNS = 'id, name, slug, address, public_description, public_logo_url, is_public, is_active, organisation_type'
 
 export function PublicOrgPage() {
   const { orgSlug } = useParams<{ orgSlug: string }>()
@@ -22,7 +26,7 @@ export function PublicOrgPage() {
     // Try to find org by slug first, then by ID
     getUserClient()
       .from('ps_organisations')
-      .select('*')
+      .select(PUBLIC_ORG_COLUMNS)
       .eq('is_public', true)
       .or(orgSlugOrIdFilter(orgSlug))
       .limit(1)
@@ -33,7 +37,7 @@ export function PublicOrgPage() {
           setLoading(false)
           return
         }
-        const o = data as Organisation
+        const o = data as unknown as Organisation
         setOrg(o)
         // Fetch public services
         getUserClient()
@@ -68,7 +72,7 @@ export function PublicOrgPage() {
 
   return (
     <div className="booking-public">
-      <header className="booking-nav"><button type="button" className="booking-wordmark" onClick={() => navigate('/book')}>Pharm<span>Station</span><small>Book</small></button><nav><a href="/shop">Shop</a><a href="/maps">Find a pharmacy</a><a href="/patient/login">Sign in</a></nav></header>
+      <header className="booking-nav"><button type="button" className="booking-wordmark" onClick={() => navigate('/book')}>Pharm<span>Station</span><small>Book</small></button><nav><a href="/shop">Shop</a><a href="/maps">Find a pharmacy</a><BookingNavAccount /></nav></header>
       <main>
         <button type="button" className="booking-back" onClick={() => navigate('/book')}>← All pharmacies</button>
         <section className="booking-org-hero">

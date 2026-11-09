@@ -7,15 +7,54 @@ import type {
   SOPCompletion,
   OrganisationMember,
   SOPMemberProgress,
+  SOPReview,
 } from '@pharmstation/types'
 import { resolvePermissions } from '@pharmstation/types'
 import { getUserClient } from '@pharmstation/supabase-client'
+import type { TeamMember } from '@pharmstation/types'
 
 const SOP_BUCKET = 'sop-pdfs'
 
 // ============================================================
 // Helpers
 // ============================================================
+
+/**
+ * Active staff of a pharmacy, in the OrganisationMember shape the SOP pages use.
+ * Staff can only read their own membership row directly, so this goes through
+ * the ps_org_list_members RPC (emails only come back for managers).
+ */
+export async function fetchActiveOrgMembers(orgId: string): Promise<OrganisationMember[]> {
+  const { data, error } = await getUserClient().rpc('ps_org_list_members', { p_org_id: orgId })
+  if (error) throw error
+  return ((data ?? []) as TeamMember[])
+    .filter((m) => m.status === 'active')
+    .map((m) => ({
+      id: m.member_id,
+      organisation_id: orgId,
+      user_id: m.user_id,
+      role: m.role,
+      status: m.status,
+      permissions: m.permissions ?? {},
+      is_locum: m.is_locum,
+      created_at: m.created_at,
+      last_active_at: m.last_active_at,
+      user_profile: { id: m.user_id, full_name: m.full_name, email: m.email },
+    }) as unknown as OrganisationMember)
+}
+
+export type SOPReviewStatus = 'overdue' | 'due_soon' | 'ok' | null
+
+/** Review status of a published SOP: overdue, due within 30 days, or fine. */
+export function sopReviewStatus(doc: Pick<SOPDocument, 'status' | 'next_review_due'>, today = new Date()): SOPReviewStatus {
+  if (doc.status !== 'published' || !doc.next_review_due) return null
+  const due = new Date(doc.next_review_due + 'T00:00:00')
+  const start = new Date(today.getFullYear(), today.getMonth(), today.getDate())
+  const days = Math.round((due.getTime() - start.getTime()) / 86400000)
+  if (days < 0) return 'overdue'
+  if (days <= 30) return 'due_soon'
+  return 'ok'
+}
 
 /** Build a flat list into a tree, sorting by sort_order */
 export function buildNodeTree(nodes: SOPNode[]): SOPNode[] {
@@ -181,7 +220,8 @@ export interface SOPState {
   // --- Node actions ---
   fetchNodes: (docId: string) => Promise<void>
   createNode: (data: { document_id: string; parent_id: string | null; title: string; sort_order: number }) => Promise<SOPNode>
-  updateNode: (nodeId: string, updates: Partial<SOPNode>) => Promise<void>
+  /** Returns false (and sets `error`) when the save fails. */
+  updateNode: (nodeId: string, updates: Partial<SOPNode>) => Promise<boolean>
   deleteNode: (nodeId: string) => Promise<void>
   moveNode: (nodeId: string, newParentId: string | null, newOrder: number) => Promise<void>
   setSelectedNode: (nodeId: string | null) => void
@@ -190,6 +230,10 @@ export interface SOPState {
   uploadNodePDF: (nodeId: string, docId: string, file: File) => Promise<string>
   /** All sign-offs for an SOP, every version, with names, for the inspection export. */
   fetchSignOffHistory: (docId: string) => Promise<SOPCompletion[]>
+  fetchReviews: (docId: string) => Promise<SOPReview[]>
+  /** "Reviewed, no changes needed": moves the next review date on. */
+  markReviewed: (docId: string, notes?: string) => Promise<boolean>
+  setReviewInterval: (docId: string, months: number) => Promise<void>
   getNodePDFUrl: (path: string) => Promise<string>
 
   // --- Assignments ---
@@ -417,16 +461,20 @@ export const useSOPStore = create<SOPState>((set, get) => {
   updateNode: async (nodeId, updates) => {
     set({ saving: true })
     try {
-      const { error } = await getUserClient()
+      const { data, error } = await getUserClient()
         .from('ps_sop_nodes')
         .update({ ...updates, updated_at: new Date().toISOString() })
         .eq('id', nodeId)
+        .select('id')
       if (error) throw error
+      if (!data || data.length === 0) throw new Error('This section could not be saved. You may not have permission to edit this SOP.')
       const updated = get().activeNodes.map((n) => (n.id === nodeId ? { ...n, ...updates } : n))
       set({ saving: false, activeNodes: updated, activeNodeTree: buildNodeTree(updated) })
       markChanged()
+      return true
     } catch (e: any) {
       set({ error: e.message, saving: false })
+      return false
     }
   },
 
@@ -507,6 +555,59 @@ export const useSOPStore = create<SOPState>((set, get) => {
       .order('completed_at', { ascending: false })
     if (error) throw error
     return data as SOPCompletion[]
+  },
+
+  fetchReviews: async (docId) => {
+    const { data, error } = await getUserClient()
+      .from('ps_sop_reviews')
+      .select('*')
+      .eq('document_id', docId)
+      .order('reviewed_at', { ascending: false })
+    if (error) throw error
+    return data as SOPReview[]
+  },
+
+  markReviewed: async (docId, notes) => {
+    set({ saving: true, error: null })
+    try {
+      const { data, error } = await getUserClient().rpc('ps_sop_mark_reviewed', {
+        p_document_id: docId,
+        p_notes: notes?.trim() || null,
+      })
+      if (error) throw error
+      const reviewed = data as SOPDocument
+      set((s) => ({
+        saving: false,
+        documents: s.documents.map((d) => (d.id === docId ? { ...d, ...reviewed } : d)),
+        activeDocument: s.activeDocument?.id === docId ? { ...s.activeDocument, ...reviewed } : s.activeDocument,
+      }))
+      return true
+    } catch (e: any) {
+      set({ error: e.message, saving: false })
+      return false
+    }
+  },
+
+  setReviewInterval: async (docId, months) => {
+    set({ saving: true, error: null })
+    try {
+      // The database moves the next review date to match the new interval.
+      const { data, error } = await getUserClient()
+        .from('ps_sop_documents')
+        .update({ review_interval_months: months })
+        .eq('id', docId)
+        .select('review_interval_months, next_review_due')
+        .single()
+      if (error) throw error
+      const upd = data as Pick<SOPDocument, 'review_interval_months' | 'next_review_due'>
+      set((s) => ({
+        saving: false,
+        documents: s.documents.map((d) => (d.id === docId ? { ...d, ...upd } : d)),
+        activeDocument: s.activeDocument?.id === docId ? { ...s.activeDocument, ...upd } : s.activeDocument,
+      }))
+    } catch (e: any) {
+      set({ error: e.message, saving: false })
+    }
   },
 
   // ── Assignments ────────────────────────────────────────────
@@ -592,17 +693,12 @@ export const useSOPStore = create<SOPState>((set, get) => {
     set({ loading: true })
     try {
       const client = getUserClient()
-      const [membersRes, completionsRes, docRes, assignRes] = await Promise.all([
-        client
-          .from('ps_organisation_members')
-          .select('*, user_profile:ps_user_profiles(*)')
-          .eq('organisation_id', orgId)
-          .eq('status', 'active'),
+      const [allMembers, completionsRes, docRes, assignRes] = await Promise.all([
+        fetchActiveOrgMembers(orgId),
         client.from('ps_sop_completions').select('*').eq('document_id', docId).eq('org_id', orgId),
         client.from('ps_sop_documents').select('version').eq('id', docId).single(),
         client.from('ps_sop_assignments').select('*').eq('document_id', docId),
       ])
-      if (membersRes.error) throw membersRes.error
       if (completionsRes.error) throw completionsRes.error
       if (docRes.error) throw docRes.error
       if (assignRes.error) throw assignRes.error
@@ -614,7 +710,7 @@ export const useSOPStore = create<SOPState>((set, get) => {
       const assignedIds = new Set(assignments.map((a) => a.member_id))
 
       // Only the people it was assigned to (everyone when assigned to all).
-      const members = (membersRes.data as OrganisationMember[]).filter(
+      const members = allMembers.filter(
         (m) => assignedToAll || assignedIds.has(m.id),
       )
 

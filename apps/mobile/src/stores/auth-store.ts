@@ -37,6 +37,7 @@ import {
   userSignOut,
 } from '@/lib/supabase'
 import { unregisterPush } from '@/lib/push'
+import { logAuthEvent } from '@/lib/account'
 
 export interface AuthState {
   // --- User layer (primary) ---
@@ -119,7 +120,14 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
     // 1. User session
     try {
-      const userSession = await getUserSession()
+      let userSession = await getUserSession()
+      // A stored session can outlive the account (deleted, banned or signed
+      // out everywhere). Ask the server; if it refuses, start signed out.
+      if (userSession && (await accountGone())) {
+        await userClient.auth.signOut({ scope: 'local' }).catch(() => {})
+        await orgSignOut().catch(() => {})
+        userSession = null
+      }
       const mfa = userSession?.user ? await getMfaStatus().catch(() => null) : null
       if (userSession?.user && mfa?.needsCode) {
         set({ mfaPendingFactorId: mfa.factorId })
@@ -230,6 +238,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   userLogout: async () => {
     set({ busy: true })
     try {
+      if (get().membership) await logAuthEvent(get().organisation?.id, 'sign_out')
       await unregisterPush()
       await orgSignOut().catch(() => {})
       await userSignOut()
@@ -303,6 +312,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         isOrgConnected: true,
         busy: false,
       })
+      void logAuthEvent(organisation.id, 'sign_in')
     } catch (err) {
       set({ busy: false, error: messageFrom(err) })
       throw err
@@ -331,7 +341,27 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   clearError: () => set({ error: null }),
 }))
 
-/** Load the profile once the password (and code, if any) are done. */
+/** True when the server says the stored user session is no longer valid.
+ *  Network failures (offline) don't count, so the app still opens offline. */
+async function accountGone(): Promise<boolean> {
+  try {
+    const { error } = await userClient.auth.getUser()
+    if (!error) return false
+    const status = (error as { status?: number }).status ?? 0
+    if (status === 0) return false // offline
+    if (error.name !== 'AuthRetryableFetchError') return status >= 400
+    // auth-js reports any 5xx as retryable, and London answers /user with a
+    // 500 for a deleted or banned account. A refresh tells them apart: it is
+    // refused (4xx) for a gone account, and works when the server was just busy.
+    const { error: refreshError } = await userClient.auth.refreshSession()
+    if (!refreshError) return false
+    const refreshStatus = (refreshError as { status?: number }).status ?? 0
+    return refreshError.name !== 'AuthRetryableFetchError' && refreshStatus >= 400 && refreshStatus < 500
+  } catch {
+    return false
+  }
+}
+
 /** Reconnect the pharmacy saved on this phone, if any. */
 async function restoreOrgLayer() {
   const set = useAuthStore.setState
@@ -357,6 +387,7 @@ async function restoreOrgLayer() {
   }
 }
 
+/** Load the profile once the password (and code, if any) are done. */
 async function loadUserLayer() {
   const set = useAuthStore.setState
   const session = await getUserSession()

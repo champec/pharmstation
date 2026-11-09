@@ -8,9 +8,12 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { Trash2 } from 'lucide-react'
+import { PageHeader } from '../../components/ui/PageHeader'
 import { useAuthStore, useShopStore } from '@pharmstation/core'
 import type { ShopQuestionnaire, ShopQuestion, ShopQuestionType } from '@pharmstation/types'
 import { Modal } from '../../components/Modal'
+import { confirmDialog } from '../../components/ui/dialog'
 
 const newQuestion = (): ShopQuestion => ({
   id: `q_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
@@ -111,7 +114,7 @@ export function ShopQuestionnairesPage() {
   }
 
   const handleDelete = async (q: ShopQuestionnaire) => {
-    if (!window.confirm(`Delete "${q.name}"? Products using it will no longer require a consultation.`)) return
+    if (!await confirmDialog(`Delete "${q.name}"? Products using it will no longer require a consultation.`)) return
     try { await deleteQuestionnaire(q.id) } catch { /* store error */ }
   }
 
@@ -138,7 +141,7 @@ export function ShopQuestionnairesPage() {
             ) : (
               <>
                 <button className="ps-btn ps-btn-secondary" onClick={() => openEdit(q)}>Edit</button>
-                <button className="ps-btn ps-btn-secondary" onClick={() => handleDelete(q)}>🗑️</button>
+                <button className="ps-btn ps-btn-secondary" onClick={() => handleDelete(q)} aria-label={`Delete ${q.name}`} title="Delete"><Trash2 size={16} strokeWidth={1.75} aria-hidden="true" /></button>
               </>
             )}
           </div>
@@ -163,24 +166,12 @@ export function ShopQuestionnairesPage() {
 
   return (
     <div>
-      <div className="page-header">
-        <div className="breadcrumbs">
-          <a href="/" onClick={(e) => { e.preventDefault(); navigate('/') }}>Dashboard</a>
-          <span className="separator">/</span>
-          <a href="/shop-admin" onClick={(e) => { e.preventDefault(); navigate('/shop-admin') }}>Shop</a>
-          <span className="separator">/</span>
-          <span>Questionnaires</span>
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--ps-space-md)' }}>
-          <h1>Consultation Questionnaires</h1>
-          <button className="ps-btn ps-btn-primary" onClick={() => openCreate()}>+ New Questionnaire</button>
-        </div>
-      </div>
-
-      <p style={{ color: 'var(--ps-slate)', marginTop: 0, marginBottom: 'var(--ps-space-lg)' }}>
-        Attach a questionnaire to a product (P meds, EHC, ED treatments…) and customers must answer
-        before checkout. Answers arrive with the order for pharmacist review.
-      </p>
+      <PageHeader
+        breadcrumbs={[{ label: 'Dashboard', to: '/' }, { label: 'Shop', to: '/shop-admin' }, { label: 'Questionnaires' }]}
+        title="Consultation questionnaires"
+        subtitle="Customers answer these before buying a pharmacy medicine. A pharmacist checks the answers with the order."
+        actions={<button className="ps-btn ps-btn-primary" onClick={() => openCreate()}>+ New questionnaire</button>}
+      />
 
       {error && (
         <div className="ps-card" style={{ padding: 'var(--ps-space-md)', marginBottom: 'var(--ps-space-md)', color: 'var(--ps-error, #dc2626)' }}>
@@ -191,7 +182,7 @@ export function ShopQuestionnairesPage() {
       <h2 style={{ fontSize: 'var(--ps-font-lg)', margin: '0 0 var(--ps-space-sm)' }}>Your questionnaires</h2>
       {ownQuestionnaires.length === 0 ? (
         <div className="ps-card" style={{ padding: 'var(--ps-space-lg)', color: 'var(--ps-slate)', marginBottom: 'var(--ps-space-xl)' }}>
-          None yet — create one, or duplicate a public template below.
+          None yet. Create one, or duplicate a template below.
         </div>
       ) : (
         <div style={{ display: 'grid', gap: 'var(--ps-space-sm)', marginBottom: 'var(--ps-space-xl)' }}>
@@ -292,7 +283,7 @@ export function ShopQuestionnairesPage() {
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 'var(--ps-space-sm)' }}>
             <button className="ps-btn ps-btn-secondary" onClick={() => setShowModal(false)}>Cancel</button>
             <button className="ps-btn ps-btn-primary" disabled={saving || !fName.trim()} onClick={handleSave}>
-              {saving ? 'Saving…' : editing ? 'Save Changes' : 'Create Questionnaire'}
+              {saving ? 'Saving…' : editing ? 'Save changes' : 'Create questionnaire'}
             </button>
           </div>
         </div>

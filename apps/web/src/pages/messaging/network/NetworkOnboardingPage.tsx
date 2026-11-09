@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useAuthStore, useNetworkStore } from '@pharmstation/core'
 import { getUserClient } from '@pharmstation/supabase-client'
 import { PageHeader } from '../../../components/ui/PageHeader'
+import { confirmDialog } from '../../../components/ui/dialog'
 
 interface OdsPharmacy {
   id: number
@@ -18,8 +19,9 @@ interface OdsPharmacy {
 
 export function NetworkOnboardingPage() {
   const navigate = useNavigate()
-  const { organisation } = useAuthStore()
-  const { myLink, fetchMyLink, linkPharmacy, unlinkPharmacy, loading, error, clearError } = useNetworkStore()
+  const { organisation, permissions } = useAuthStore()
+  const { myLink, fetchMyLink, linkPharmacy, unlinkPharmacy, disputeLink, fetchOpenDisputes, loading, error, clearError } = useNetworkStore()
+  const canManage = permissions?.org_settings === true
 
   const [searchTerm, setSearchTerm] = useState('')
   const [results, setResults]       = useState<OdsPharmacy[]>([])
@@ -27,11 +29,19 @@ export function NetworkOnboardingPage() {
   const [unlinking, setUnlinking]   = useState(false)
   const [searchError, setSearchError] = useState<string | null>(null)
   const [takenIds, setTakenIds]     = useState<Set<number>>(new Set())
+  const [disputing, setDisputing]   = useState<OdsPharmacy | null>(null)
+  const [disputeText, setDisputeText] = useState('')
+  const [disputeRef, setDisputeRef] = useState<string | null>(null)
+  const [disputeBusy, setDisputeBusy] = useState(false)
+  const [openCases, setOpenCases] = useState<Record<string, string>>({})
   const verification = organisation?.verification_status
   const canLink = verification === undefined || verification === 'verified'
 
   useEffect(() => {
-    if (organisation?.id) fetchMyLink(organisation.id)
+    if (organisation?.id) {
+      fetchMyLink(organisation.id)
+      fetchOpenDisputes(organisation.id).then(setOpenCases).catch(() => undefined)
+    }
   }, [organisation?.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const doSearch = useCallback(async () => {
@@ -77,9 +87,27 @@ export function NetworkOnboardingPage() {
 
   async function handleUnlink() {
     if (!organisation?.id) return
+    if (!await confirmDialog('Unlink this pharmacy? Other pharmacies will no longer be able to find you.')) return
     setUnlinking(true)
     await unlinkPharmacy(organisation.id)
     setUnlinking(false)
+  }
+
+  async function handleDispute() {
+    if (!organisation?.id || !disputing) return
+    setDisputeBusy(true)
+    setSearchError(null)
+    try {
+      const ref = await disputeLink(organisation.id, disputing.id, disputeText)
+      setDisputeRef(ref)
+      setOpenCases((prev) => ({ ...prev, [disputing.ods_code]: ref }))
+      setDisputing(null)
+      setDisputeText('')
+    } catch (e: unknown) {
+      setSearchError((e as Error).message)
+    } finally {
+      setDisputeBusy(false)
+    }
   }
 
   return (
@@ -94,6 +122,18 @@ export function NetworkOnboardingPage() {
         <div className="auth-error" style={{ marginBottom: 'var(--ps-space-md)' }}>
           <span>{error ?? searchError}</span>
           <button className="ps-btn ps-btn-ghost" onClick={() => { clearError(); setSearchError(null) }}>✕</button>
+        </div>
+      )}
+
+      {!canManage && (
+        <div className="ps-alert ps-alert-info" style={{ marginBottom: 'var(--ps-space-md)' }}>
+          <span>Only owners and managers can link or change your pharmacy. Ask one of them to do this.</span>
+        </div>
+      )}
+
+      {disputeRef && (
+        <div className="ps-alert ps-alert-success" style={{ marginBottom: 'var(--ps-space-md)' }}>
+          <span>Thanks. We&rsquo;ve opened case <strong>{disputeRef}</strong> and will check who owns this pharmacy, usually within one working day.</span>
         </div>
       )}
 
@@ -112,7 +152,10 @@ export function NetworkOnboardingPage() {
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--ps-space-md)', flexWrap: 'wrap' }}>
             <div>
               <div style={{ fontWeight: 700, fontSize: '1.05rem', marginBottom: 4 }}>
-                Currently linked
+                Currently linked{' '}
+                {myLink.is_verified
+                  ? <span className="ps-badge ps-badge-green">Confirmed</span>
+                  : <span className="ps-badge" title="Your address didn't match the NHS record, so our team will confirm it">Being checked</span>}
               </div>
               <div style={{ fontWeight: 600 }}>
                 {myLink.pharmacy?.organisation_name ?? `Pharmacy #${myLink.pharmacy_id}`}
@@ -126,14 +169,16 @@ export function NetworkOnboardingPage() {
                 Linked {new Date(myLink.linked_at).toLocaleDateString('en-GB')}
               </div>
             </div>
-            <button
-              className="ps-btn ps-btn-ghost"
-              style={{ color: 'var(--ps-red, crimson)' }}
-              onClick={handleUnlink}
-              disabled={unlinking}
-            >
-              {unlinking ? 'Removing…' : 'Unlink'}
-            </button>
+            {canManage && (
+              <button
+                className="ps-btn ps-btn-ghost"
+                style={{ color: 'var(--ps-red, crimson)' }}
+                onClick={handleUnlink}
+                disabled={unlinking}
+              >
+                {unlinking ? 'Removing…' : 'Unlink'}
+              </button>
+            )}
           </div>
         </div>
       )}
@@ -144,7 +189,8 @@ export function NetworkOnboardingPage() {
           {myLink ? 'Change your linked pharmacy' : 'Find your pharmacy'}
         </h3>
         <p style={{ color: 'var(--ps-slate)', margin: '0 0 var(--ps-space-md)', fontSize: '0.9rem' }}>
-          Search by pharmacy name, postcode, or ODS code.
+          Search by pharmacy name, postcode, or ODS code. If your address on PharmStation matches the NHS record the link is
+          confirmed straight away; otherwise our team checks it first.
         </p>
 
         <div style={{ display: 'flex', gap: 'var(--ps-space-sm)', marginBottom: 'var(--ps-space-md)' }}>
@@ -188,7 +234,18 @@ export function NetworkOnboardingPage() {
                   {isCurrent ? (
                     <span className="ps-badge ps-badge-green">Current</span>
                   ) : takenIds.has(ph.id) ? (
-                    <span className="ps-badge" title="Another PharmStation account has linked this pharmacy">Already on PharmStation</span>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: 'var(--ps-space-sm)', flexShrink: 0 }}>
+                      <span className="ps-badge" title="Another PharmStation account has linked this pharmacy">Already on PharmStation</span>
+                      {openCases[ph.ods_code] ? (
+                        <span className="ps-badge" title="Our team is checking who owns this pharmacy">Case {openCases[ph.ods_code]} is open</span>
+                      ) : (
+                        <button className="ps-btn ps-btn-ghost" onClick={() => { setDisputing(ph); setDisputeRef(null) }}>
+                          This is ours
+                        </button>
+                      )}
+                    </span>
+                  ) : !canManage ? (
+                    <span className="ps-badge" title="Only owners and managers can link the pharmacy">Owners and managers only</span>
                   ) : !canLink ? (
                     <span className="ps-badge" title="Available once your pharmacy is verified">Awaiting verification</span>
                   ) : (
@@ -211,6 +268,30 @@ export function NetworkOnboardingPage() {
           </p>
         ) : null}
       </div>
+
+      {disputing && (
+        <div className="ps-card" style={{ padding: 'var(--ps-space-lg)', marginTop: 'var(--ps-space-lg)' }}>
+          <h3 style={{ margin: '0 0 var(--ps-space-sm)' }}>Claim {disputing.organisation_name}</h3>
+          <p style={{ color: 'var(--ps-slate)', margin: '0 0 var(--ps-space-md)', fontSize: '0.9rem' }}>
+            Another PharmStation account has linked this pharmacy. Tell us why it&rsquo;s yours (for example your GPhC premises
+            number) and our team will check the register and move it to the right account.
+          </p>
+          <textarea
+            className="ps-input"
+            rows={3}
+            value={disputeText}
+            onChange={(e) => setDisputeText(e.target.value)}
+            placeholder="e.g. We are the registered premises, GPhC 1234567"
+            style={{ width: '100%', marginBottom: 'var(--ps-space-md)' }}
+          />
+          <div style={{ display: 'flex', gap: 'var(--ps-space-sm)', justifyContent: 'flex-end' }}>
+            <button className="ps-btn ps-btn-secondary" onClick={() => setDisputing(null)} disabled={disputeBusy}>Cancel</button>
+            <button className="ps-btn ps-btn-primary" onClick={handleDispute} disabled={disputeBusy}>
+              {disputeBusy ? 'Sending…' : 'Send to PharmStation'}
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

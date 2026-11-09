@@ -34,6 +34,8 @@ export interface DriverState {
   saving: boolean
   error: string | null
   locationWatchId: number | null
+  /** Why location sharing isn't working, for a banner on the route page. */
+  locationError: string | null
 
   // Fetch
   fetchAssignedRounds: (memberId: string, orgId?: string) => Promise<void>
@@ -87,6 +89,7 @@ export const useDriverStore = create<DriverState>((set, get) => {
     saving: false,
     error: null,
     locationWatchId: null,
+    locationError: null,
 
     fetchAssignedRounds: async (memberId, orgId) => {
       set({ loading: true, error: null })
@@ -238,18 +241,28 @@ export const useDriverStore = create<DriverState>((set, get) => {
     },
 
     startLocationTracking: (roundId, driverId) => {
-      if (typeof navigator === 'undefined' || !navigator.geolocation) return
+      if (typeof navigator === 'undefined' || !navigator.geolocation) {
+        set({ locationError: 'This browser can’t share your location, so the pharmacy can’t see where you are.' })
+        return
+      }
       if (get().locationWatchId !== null) return
       lastFix = null
       const watchId = navigator.geolocation.watchPosition(
         (pos) => {
+          if (get().locationError) set({ locationError: null })
           const fix = { lat: pos.coords.latitude, lng: pos.coords.longitude, at: Date.now() }
           // Every 15 seconds or 50 metres, not every fix the browser gives.
           if (!shouldSendLocation(lastFix, fix)) return
           lastFix = fix
           void get().postLocationUpdate(roundId, driverId, fix.lat, fix.lng)
         },
-        (err) => console.error('Geolocation error:', err),
+        (err) => {
+          set({
+            locationError: err.code === 1
+              ? 'Location is off for this site, so the pharmacy can’t see where you are. Allow location in your browser settings to share it.'
+              : 'Your location can’t be found right now, so the pharmacy can’t see where you are. It will try again.',
+          })
+        },
         { enableHighAccuracy: true, maximumAge: 15000, timeout: 30000 },
       )
       set({ locationWatchId: watchId })
@@ -261,6 +274,7 @@ export const useDriverStore = create<DriverState>((set, get) => {
         navigator.geolocation.clearWatch(watchId)
         set({ locationWatchId: null })
       }
+      set({ locationError: null })
       lastFix = null
     },
 

@@ -3,6 +3,7 @@ import { getUserClient } from '@pharmstation/supabase-client'
 import { useAuthStore } from '@pharmstation/core'
 import { Modal } from '../../components/Modal'
 import { PharmacyMapModal, type BoundsPharmacy } from '../../components/maps/PharmacyMapModal'
+import { confirmDialog } from '../../components/ui/dialog'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -346,7 +347,7 @@ function ActivityEntry({
   }
 
   async function remove() {
-    if (!window.confirm('Remove this activity entry?')) return
+    if (!await confirmDialog('Remove this activity entry?')) return
     setBusy(true)
     await onDelete()
     setBusy(false)

@@ -151,7 +151,7 @@ export function LocumProfileScreen() {
       dbs_number: form.dbs_number.trim() || null, dbs_expiry: form.dbs_expiry || null,
     }).eq('id', locum.id)
     setBusy(null)
-    if (e) { setError(e.message); return }
+    if (e) { setError(e.message.includes('gphc_number_unique') ? 'That GPhC number is already registered to another PharmStation locum. Check the number, or contact support@pharmstation.co.uk.' : e.message); return }
     useAuthStore.setState({ locumProfile: { ...locum, gphc_number: form.gphc_number.trim() || null, gphc_expiry: form.gphc_expiry || null, indemnity_provider: form.indemnity_provider.trim() || null, indemnity_expiry: form.indemnity_expiry || null, dbs_number: form.dbs_number.trim() || null, dbs_expiry: form.dbs_expiry || null } })
     Alert.alert('Saved', 'Your details are saved. A change to your GPhC, DBS or indemnity goes back for a quick review.')
     void load()
@@ -328,7 +328,7 @@ const styles = StyleSheet.create({
   field: { gap: 4 },
   fieldLabel: { fontSize: 13, fontWeight: '600', color: palette.text },
   input: { borderWidth: 1, borderColor: palette.border, borderRadius: radius.md, paddingHorizontal: 12, paddingVertical: 10, fontSize: 15, color: palette.text, backgroundColor: palette.bg },
-  primary: { backgroundColor: ACCENT, borderRadius: radius.md, paddingVertical: 12, alignItems: 'center', marginTop: 4 },
+  primary: { backgroundColor: palette.brand, borderRadius: radius.md, paddingVertical: 12, alignItems: 'center', marginTop: 4 },
   primaryText: { color: '#fff', fontWeight: '700', fontSize: 15 },
   row: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 6 },
   rowCopy: { flex: 1 },

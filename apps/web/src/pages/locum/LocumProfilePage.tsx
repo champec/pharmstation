@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useState } from 'react'
 import { getUserClient } from '@pharmstation/supabase-client'
+import { groupServices } from '../../components/locum/services'
+import { locumErrorText } from '../../components/locum/labels'
 import { useAuthStore } from '@pharmstation/core'
+import { confirmDialog } from '../../components/ui/dialog'
 
 type Tab = 'profile' | 'services' | 'documents' | 'payments'
 
@@ -34,11 +37,6 @@ const DOC_TYPES = [
   { type: 'proof_of_id',           label: 'Proof of Identity',                hasExpiry: false },
 ]
 
-const CATEGORY_LABELS: Record<string, string> = {
-  consultation: 'Consultations',
-  nhs_advanced_service: 'NHS Advanced Services',
-  pharmacy_first: 'Pharmacy First',
-}
 
 export function LocumProfilePage() {
   const { locumProfile, activeUser: userProfile, refreshLocumProfile: refreshProfile } = useAuthStore()
@@ -111,7 +109,7 @@ export function LocumProfilePage() {
     setLoadingServices(true)
     const client = getUserClient()
     const [libRes, selRes] = await Promise.all([
-      client.from('ps_service_library').select('id, name, category').order('category').order('name'),
+      client.from('ps_service_library').select('id, name, category').eq('is_active', true).order('category').order('name'),
       client.from('ps_locum_services').select('service_library_id').eq('locum_id', locumProfile.id),
     ])
     setServiceOptions((libRes.data as ServiceOption[]) ?? [])
@@ -254,7 +252,7 @@ export function LocumProfilePage() {
   }
 
   async function handleDeleteDoc(doc: DocRecord) {
-    if (!window.confirm('Remove this document?')) return
+    if (!await confirmDialog('Remove this document?')) return
     await getUserClient().storage.from('locum-documents').remove([doc.file_url])
     await getUserClient().from('ps_locum_documents').update({ is_current: false }).eq('id', doc.id)
     setDocuments((prev) => prev.filter((d) => d.id !== doc.id))
@@ -301,7 +299,7 @@ export function LocumProfilePage() {
       await refreshProfile()
       setProfileMsg({ type: 'success', text: 'Profile updated successfully.' })
     } catch (err) {
-      setProfileMsg({ type: 'error', text: err instanceof Error ? err.message : 'Save failed.' })
+      setProfileMsg({ type: 'error', text: locumErrorText(err, 'Save failed.') })
     } finally {
       setSavingProfile(false)
     }
@@ -328,15 +326,14 @@ export function LocumProfilePage() {
     }
   }
 
-  function toggleService(id: string) {
-    setSelectedServiceIds((prev) => prev.includes(id) ? prev.filter((s) => s !== id) : [...prev, id])
+  function toggleService(ids: string[]) {
+    setSelectedServiceIds((prev) => {
+      const on = ids.some((id) => prev.includes(id))
+      return on ? prev.filter((s) => !ids.includes(s)) : [...new Set([...prev, ...ids])]
+    })
   }
 
-  const grouped = serviceOptions.reduce<Record<string, ServiceOption[]>>((acc, s) => {
-    if (!acc[s.category]) acc[s.category] = []
-    acc[s.category].push(s)
-    return acc
-  }, {})
+  const grouped = groupServices(serviceOptions)
 
   function expiryWarning(expiry: string) {
     if (!expiry) return null
@@ -507,14 +504,14 @@ export function LocumProfilePage() {
               </p>
               <div className="ps-card" style={{ marginBottom: '1rem' }}>
                 <div className="ps-card-body">
-                  {Object.entries(grouped).map(([cat, svcs]) => (
+                  {grouped.map(([cat, svcs]) => (
                     <div key={cat} style={{ marginBottom: '1.25rem' }}>
                       <h4 style={{ fontSize: '0.78rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--ps-slate)', marginBottom: '0.5rem' }}>
-                        {CATEGORY_LABELS[cat] ?? cat}
+                        {cat}
                       </h4>
                       {svcs.map((svc) => (
-                        <label key={svc.id} className="ps-checkbox-label" style={{ padding: '3px 0' }}>
-                          <input type="checkbox" checked={selectedServiceIds.includes(svc.id)} onChange={() => toggleService(svc.id)} />
+                        <label key={svc.key} className="ps-checkbox-label" style={{ padding: '3px 0' }}>
+                          <input type="checkbox" checked={svc.ids.some((id) => selectedServiceIds.includes(id))} onChange={() => toggleService(svc.ids)} />
                           {svc.name}
                         </label>
                       ))}
@@ -523,7 +520,7 @@ export function LocumProfilePage() {
                 </div>
               </div>
               <button className="ps-btn ps-btn-primary" onClick={handleSaveServices} disabled={savingServices}>
-                {savingServices ? 'Saving…' : `Save Services (${selectedServiceIds.length} selected)`}
+                {savingServices ? 'Saving…' : `Save services (${grouped.reduce((n, [, c]) => n + c.filter((x) => x.ids.some((id) => selectedServiceIds.includes(id))).length, 0)} selected)`}
               </button>
             </>
           )}

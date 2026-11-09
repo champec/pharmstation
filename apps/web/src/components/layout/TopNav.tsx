@@ -4,6 +4,7 @@ import { useIsMobile } from '../../hooks/useIsMobile'
 import { useAuthStore, useUIStore, useNetworkStore, useNHS111Store, useAlertStore } from '@pharmstation/core'
 import type { NotificationReceipt } from '@pharmstation/types'
 import { Bell, LogOut, Menu, Network, PhoneIncoming, RefreshCw } from 'lucide-react'
+import { confirmDialog } from '../ui/dialog'
 
 export function TopNav() {
   const navigate = useNavigate()
@@ -78,9 +79,9 @@ export function TopNav() {
     if (receipt.notification?.link) navigate(receipt.notification.link)
   }
 
-  function handleLogout() {
+  async function handleLogout() {
     const name = organisation?.name ?? 'this pharmacy'
-    if (window.confirm(`Log out ${name} on this device? Staff will need the pharmacy login to sign back in.`)) {
+    if (await confirmDialog(`Log out ${name} on this device? Staff will need the pharmacy login to sign back in.`)) {
       orgLogout()
     }
   }

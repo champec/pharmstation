@@ -6,9 +6,13 @@
 
 import { useEffect, useCallback, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { RefreshCw, ShoppingBag } from 'lucide-react'
+import { PageHeader } from '../../components/ui/PageHeader'
+import { EmptyState } from '../../components/ui/EmptyState'
 import { useAuthStore, useShopStore, useDeliveryRoundStore } from '@pharmstation/core'
 import type { ShopOrder, ShopOrderStatus } from '@pharmstation/types'
 import { Modal } from '../../components/Modal'
+import { confirmDialog, promptDialog } from '../../components/ui/dialog'
 
 const formatPrice = (pence: number) => `£${(pence / 100).toFixed(2)}`
 
@@ -56,6 +60,8 @@ export function ShopOrdersPage() {
   useEffect(() => { load() }, [load])
 
   const filtered = orders.filter((o) => {
+    // Keep the open order in view after it moves on (e.g. New → Confirmed).
+    if (o.id === expandedId) return true
     if (statusFilter === 'all') return true
     if (statusFilter === 'active') return !['completed', 'cancelled'].includes(o.status)
     return o.status === statusFilter
@@ -64,7 +70,7 @@ export function ShopOrdersPage() {
   const handleStatus = async (order: ShopOrder, status: ShopOrderStatus) => {
     if (
       status === 'cancelled'
-      && !window.confirm(`Cancel order ${order.order_number}? Its items go back into stock${order.payment_status === 'paid' ? ' and the customer is refunded in full' : ''}. A cancelled order can't be reopened.`)
+      && !await confirmDialog(`Cancel order ${order.order_number}? Its items go back into stock${order.payment_status === 'paid' ? ' and the customer is refunded in full' : ''}. A cancelled order can't be reopened.`)
     ) return
     try {
       if (status === 'cancelled' && order.payment_status === 'paid') {
@@ -82,10 +88,10 @@ export function ShopOrdersPage() {
   const handleReview = async (order: ShopOrder, approve: boolean) => {
     let notes: string | null = null
     if (approve) {
-      notes = window.prompt(`Approve ${order.order_number}? Add a note for the record (optional):`, '')
+      notes = await promptDialog(`Approve ${order.order_number}? Add a note for the record (optional):`, '')
       if (notes === null) return
     } else {
-      notes = window.prompt(`Reject ${order.order_number}? The order is cancelled and its stock goes back${order.payment_status === 'paid' ? ', and the customer is refunded in full' : ''}. Reason (required, kept on record):`, '')
+      notes = await promptDialog(`Reject ${order.order_number}? The order is cancelled and its stock goes back${order.payment_status === 'paid' ? ', and the customer is refunded in full' : ''}. Reason (required, kept on record):`, '')
       if (notes === null) return
       if (!notes.trim()) { useShopStore.setState({ error: 'Please give a reason for rejecting the order' }); return }
     }
@@ -137,19 +143,12 @@ export function ShopOrdersPage() {
 
   return (
     <div>
-      <div className="page-header">
-        <div className="breadcrumbs">
-          <a href="/" onClick={(e) => { e.preventDefault(); navigate('/') }}>Dashboard</a>
-          <span className="separator">/</span>
-          <a href="/shop-admin" onClick={(e) => { e.preventDefault(); navigate('/shop-admin') }}>Shop</a>
-          <span className="separator">/</span>
-          <span>Orders</span>
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--ps-space-md)' }}>
-          <h1>Shop Orders</h1>
-          <button className="ps-btn ps-btn-secondary" onClick={load}>↻ Refresh</button>
-        </div>
-      </div>
+      <PageHeader
+        breadcrumbs={[{ label: 'Dashboard', to: '/' }, { label: 'Shop', to: '/shop-admin' }, { label: 'Orders' }]}
+        title="Shop orders"
+        subtitle="Orders from your online shop. Check medicines, prepare orders and let customers know when they're ready."
+        actions={<button className="ps-btn ps-btn-secondary" onClick={load}><RefreshCw size={16} strokeWidth={1.75} aria-hidden="true" /> Refresh</button>}
+      />
 
       {error && (
         <div className="ps-card" style={{ padding: 'var(--ps-space-md)', marginBottom: 'var(--ps-space-md)', color: 'var(--ps-error, #dc2626)' }}>
@@ -164,13 +163,11 @@ export function ShopOrdersPage() {
             key={s}
             className="ps-btn ps-btn-secondary"
             onClick={() => setStatusFilter(s)}
-            style={statusFilter === s ? { background: 'var(--ps-deep-blue, #0077B6)', color: 'white' } : undefined}
+            style={statusFilter === s ? { background: 'var(--ps-deep-blue)', color: 'white' } : undefined}
           >
             {s === 'active' ? 'Active' : s === 'all' ? 'All' : STATUS_META[s].label}
             {s === 'new' && orders.some((o) => o.status === 'new') && (
-              <span style={{ marginLeft: 6, background: '#dc2626', color: 'white', borderRadius: 999, padding: '0 7px', fontSize: 12 }}>
-                {orders.filter((o) => o.status === 'new').length}
-              </span>
+              <span style={{ marginLeft: 4 }}>({orders.filter((o) => o.status === 'new').length})</span>
             )}
           </button>
         ))}
@@ -179,9 +176,15 @@ export function ShopOrdersPage() {
       {loading && <p style={{ color: 'var(--ps-slate)' }}>Loading…</p>}
 
       {!loading && filtered.length === 0 && (
-        <div className="ps-card" style={{ padding: 'var(--ps-space-xl)', textAlign: 'center', color: 'var(--ps-slate)' }}>
-          No orders here yet. When customers order from your shop they will appear in this list.
-        </div>
+        orders.length === 0 ? (
+          <EmptyState icon={ShoppingBag} title="No orders yet">
+            When customers order from your shop, their orders appear here.
+          </EmptyState>
+        ) : (
+          <EmptyState icon={ShoppingBag} title="No orders match this filter" actions={<button className="ps-btn ps-btn-secondary" onClick={() => setStatusFilter('all')}>Show all orders</button>}>
+            Try another filter to see more orders.
+          </EmptyState>
+        )
       )}
 
       <div style={{ display: 'grid', gap: 'var(--ps-space-sm)' }}>
@@ -272,7 +275,7 @@ export function ShopOrdersPage() {
                   )}
                   {o.customer_notes && (
                     <p style={{ margin: 'var(--ps-space-sm) 0 0', fontSize: 'var(--ps-font-sm)' }}>
-                      💬 <em>{o.customer_notes}</em>
+                      <strong>Customer note:</strong> <em>{o.customer_notes}</em>
                     </p>
                   )}
 

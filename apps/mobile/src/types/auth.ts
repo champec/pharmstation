@@ -15,6 +15,7 @@ export type UserRole =
   | 'technician'
   | 'dispenser'
   | 'locum'
+  | 'carehome_user'
 
 export type MemberStatus = 'active' | 'suspended' | 'revoked' | 'pending'
 
@@ -34,6 +35,8 @@ export interface Organisation {
   gphc_premises_number: string | null
   address: OrganisationAddress
   subscription_tier: 'base' | 'professional' | 'enterprise'
+  /** 'carehome' for a care home login (linked to a pharmacy). */
+  organisation_type?: 'pharmacy' | 'carehome'
   is_active: boolean
   created_at: string
   updated_at: string
@@ -90,6 +93,12 @@ export interface Permissions {
   services_manage?: boolean
   /** Correct a completed service record, with a reason (adds locum) */
   services_amend?: boolean
+  care_home_view?: boolean
+  care_home_manage?: boolean
+  care_home_medications?: boolean
+  care_home_requests?: boolean
+  care_home_mar_prepare?: boolean
+  care_home_mar_administer?: boolean
   [key: string]: boolean | undefined
 }
 
@@ -112,11 +121,11 @@ export interface OrganisationMember {
 export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, Permissions> = {
   owner: {
     cd_register_read: true,
-    cd_register_write: false,
+    cd_register_write: true,
     cd_register_correct: false,
     rp_log_sign: true,
     rp_log_view: true,
-    patient_returns_write: false,
+    patient_returns_write: true,
     sop_upload: true,
     handover_all: true,
     manage_users: true,
@@ -129,14 +138,20 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, Permissions> = {
     delivery_drive: true,
     services_manage: true,
     services_amend: true,
+    care_home_view: true,
+    care_home_manage: true,
+    care_home_medications: true,
+    care_home_requests: true,
+    care_home_mar_prepare: true,
+    care_home_mar_administer: true,
   },
   manager: {
     cd_register_read: true,
-    cd_register_write: false,
+    cd_register_write: true,
     cd_register_correct: false,
     rp_log_sign: false,
     rp_log_view: true,
-    patient_returns_write: false,
+    patient_returns_write: true,
     sop_upload: true,
     handover_all: true,
     manage_users: true,
@@ -149,6 +164,12 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, Permissions> = {
     delivery_drive: true,
     services_manage: true,
     services_amend: true,
+    care_home_view: true,
+    care_home_manage: true,
+    care_home_medications: true,
+    care_home_requests: true,
+    care_home_mar_prepare: true,
+    care_home_mar_administer: true,
   },
   pharmacist: {
     cd_register_read: true,
@@ -169,6 +190,12 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, Permissions> = {
     delivery_drive: false,
     services_manage: true,
     services_amend: true,
+    care_home_view: true,
+    care_home_manage: true,
+    care_home_medications: true,
+    care_home_requests: true,
+    care_home_mar_prepare: true,
+    care_home_mar_administer: true,
   },
   technician: {
     cd_register_read: true,
@@ -185,10 +212,16 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, Permissions> = {
     ai_scan_use: true,
     org_settings: false,
     billing: false,
-    delivery_manage: false,
+    delivery_manage: true,
     delivery_drive: true,
     services_manage: false,
     services_amend: false,
+    care_home_view: true,
+    care_home_manage: false,
+    care_home_medications: true,
+    care_home_requests: true,
+    care_home_mar_prepare: true,
+    care_home_mar_administer: false,
   },
   dispenser: {
     cd_register_read: false,
@@ -205,10 +238,16 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, Permissions> = {
     ai_scan_use: false,
     org_settings: false,
     billing: false,
-    delivery_manage: false,
+    delivery_manage: true,
     delivery_drive: true,
     services_manage: false,
     services_amend: false,
+    care_home_view: true,
+    care_home_manage: false,
+    care_home_medications: false,
+    care_home_requests: true,
+    care_home_mar_prepare: false,
+    care_home_mar_administer: false,
   },
   locum: {
     cd_register_read: true,
@@ -229,6 +268,18 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, Permissions> = {
     delivery_drive: false,
     services_manage: false,
     services_amend: true,
+    care_home_view: true,
+    care_home_manage: false,
+    care_home_medications: true,
+    care_home_requests: true,
+    care_home_mar_prepare: true,
+    care_home_mar_administer: false,
+  },
+  // Care home staff (a care home login, not pharmacy staff).
+  carehome_user: {
+    care_home_view: true,
+    care_home_requests: true,
+    care_home_mar_administer: true,
   },
 }
 

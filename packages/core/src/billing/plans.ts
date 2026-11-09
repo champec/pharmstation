@@ -125,6 +125,7 @@ export const PLANS: Record<PlanId, Plan> = {
       'Online booking with card payments to your bank',
       'Appointments calendar and video consultations',
       'Patient text messaging, inbox and broadcasts (texts bought as top-ups)',
+      'Your own two-way reply number for patient texts',
       'Delivery rounds and driver app',
       'Online shop and care homes',
       'Genie AI assistant (1,500 questions a month)',

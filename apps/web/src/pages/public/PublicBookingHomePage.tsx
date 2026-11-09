@@ -1,8 +1,12 @@
+import { BookingNavAccount } from '../../components/public/BookingNavAccount'
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { getUserClient } from '@pharmstation/supabase-client'
 import type { Organisation } from '@pharmstation/types'
 import { PublicFooter } from '../../components/public/PublicFooter'
+
+// Anonymous visitors may only read these columns (column grants on ps_organisations).
+const PUBLIC_ORG_COLUMNS = 'id, name, slug, address, public_description, public_logo_url, is_public, is_active, organisation_type'
 
 export function PublicBookingHomePage() {
   const navigate = useNavigate()
@@ -14,11 +18,11 @@ export function PublicBookingHomePage() {
     // Fetch all public orgs (anon read)
     getUserClient()
       .from('ps_organisations')
-      .select('*')
+      .select(PUBLIC_ORG_COLUMNS)
       .eq('is_public', true)
       .order('name')
       .then(({ data }) => {
-        setOrgs((data as Organisation[]) || [])
+        setOrgs((data as unknown as Organisation[]) || [])
         setLoading(false)
       })
   }, [])
@@ -37,7 +41,7 @@ export function PublicBookingHomePage() {
     <div className="booking-public">
       <header className="booking-nav">
         <button type="button" className="booking-wordmark" onClick={() => navigate('/book')}>Pharm<span>Station</span><small>Book</small></button>
-        <nav><a href="/shop">Shop</a><a href="/maps">Find a pharmacy</a><a href="/patient/login">Sign in</a></nav>
+        <nav><a href="/shop">Shop</a><a href="/maps">Find a pharmacy</a><BookingNavAccount /></nav>
       </header>
       <main>
         <section className="booking-discovery-hero">

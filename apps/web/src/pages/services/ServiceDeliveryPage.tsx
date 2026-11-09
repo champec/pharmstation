@@ -8,6 +8,7 @@ import { MedicationPrescriber, createEmptyMedication, type PrescribedMedication 
 import { ServicePrescribingField } from '../../components/forms/ServicePrescribingField'
 import { NHS_SERVICES_ENABLED } from '../../lib/features'
 import { SignatureCapture, type SignatureCaptureRef } from '../../components/SignatureCapture'
+import { confirmDialog } from '../../components/ui/dialog'
 
 /* ---- Human-readable labels for NHS field option codes ---- */
 const NHS_OPTION_LABELS: Record<string, string> = {
@@ -193,6 +194,17 @@ export function ServiceDeliveryPage() {
   const [medications, setMedications] = useState<PrescribedMedication[]>([])
   const [showMedModal, setShowMedModal] = useState(false)
 
+  // Drafts are only saved once the person has typed or picked something,
+  // not when template defaults fill the form on open.
+  const userEditedRef = useRef(false)
+  const [triedNext, setTriedNext] = useState(false)
+
+  /* ---- New patient (when search finds nobody) ---- */
+  const [addingPatient, setAddingPatient] = useState(false)
+  const [newPatient, setNewPatient] = useState({ first_name: '', last_name: '', dob: '', nhs_number: '', phone: '' })
+  const [savingPatient, setSavingPatient] = useState(false)
+  const [newPatientError, setNewPatientError] = useState<string | null>(null)
+
   /* ---- Outcome (starts from the form's OUTCOME answer, can be changed) ---- */
   const [outcomeChoice, setOutcomeChoice] = useState<OutcomeKind | null>(null)
   const [referralTo, setReferralTo] = useState('')
@@ -234,6 +246,9 @@ export function ServiceDeliveryPage() {
     setFormData({})
     setNotes('')
     setMedications([])
+    userEditedRef.current = false
+    setTriedNext(false)
+    setAddingPatient(false)
     setOutcomeChoice(null)
     setReferralTo('')
     setReferralReason('')
@@ -416,6 +431,7 @@ export function ServiceDeliveryPage() {
 
   /* ---- Form data handling ---- */
   const setFieldValue = (fieldKey: string, value: unknown) => {
+    userEditedRef.current = true
     setFormData((prev) => ({ ...prev, [fieldKey]: value }))
   }
 
@@ -507,6 +523,69 @@ export function ServiceDeliveryPage() {
     return created as PatientOption
   }, [selectedPatient, organisation?.id, pdsResult])
 
+  const createPatient = async () => {
+    if (!organisation?.id) return
+    setSavingPatient(true)
+    setNewPatientError(null)
+    try {
+      const client = getUserClient()
+      const nhs = newPatient.nhs_number.replace(/\s/g, '') || null
+      if (nhs) {
+        const { data: existing, error: findErr } = await client
+          .from('ps_patients')
+          .select('id, first_name, last_name, nhs_number, dob, phone')
+          .eq('organisation_id', organisation.id)
+          .eq('nhs_number', nhs)
+          .limit(1)
+          .maybeSingle()
+        if (findErr) throw findErr
+        if (existing) {
+          setSelectedPatient(existing as PatientOption)
+          setAddingPatient(false)
+          setPatientSearch('')
+          setSavingPatient(false)
+          return
+        }
+      }
+      const { data, error } = await client
+        .from('ps_patients')
+        .insert({
+          organisation_id: organisation.id,
+          first_name: newPatient.first_name.trim(),
+          last_name: newPatient.last_name.trim(),
+          dob: newPatient.dob || null,
+          nhs_number: nhs,
+          phone: newPatient.phone.trim() || null,
+        })
+        .select('id, first_name, last_name, nhs_number, dob, phone')
+        .single()
+      if (error) throw error
+      setSelectedPatient(data as PatientOption)
+      setSkipPatient(false)
+      setAddingPatient(false)
+      setPatientSearch('')
+      setPatientResults([])
+    } catch (e: any) {
+      setNewPatientError(e.message || 'The patient could not be added.')
+    }
+    setSavingPatient(false)
+  }
+
+  const startAddPatient = () => {
+    const q = cleanSearch(patientSearch)
+    const digits = q.replace(/\s/g, '')
+    const parts = q.split(/\s+/).filter(Boolean)
+    setNewPatient({
+      first_name: /^\d+$/.test(digits) ? '' : parts[0] ?? '',
+      last_name: /^\d+$/.test(digits) ? '' : parts.slice(1).join(' '),
+      dob: '',
+      nhs_number: /^\d{10}$/.test(digits) ? digits : '',
+      phone: /^0\d{9,10}$/.test(digits) ? digits : '',
+    })
+    setNewPatientError(null)
+    setAddingPatient(true)
+  }
+
   const goToForm = async () => {
     setSubmitError(null)
     setPreparingPatient(true)
@@ -558,7 +637,7 @@ export function ServiceDeliveryPage() {
   // Save a draft a few seconds after the last change on the form/review steps.
   const hasContent = Object.keys(formData).length > 0 || notes.trim().length > 0
   useEffect(() => {
-    if (step === 'patient' || completed || submitting || !hasContent) return
+    if (step === 'patient' || completed || submitting || !hasContent || !userEditedRef.current) return
     const timer = setTimeout(() => { saveDraft() }, 3000)
     return () => clearTimeout(timer)
   }, [formData, notes, selectedForm?.id, step, completed, submitting, hasContent, saveDraft])
@@ -581,13 +660,14 @@ export function ServiceDeliveryPage() {
     // Applied after the form's fields load, so template defaults don't win.
     setTimeout(() => setFormData(draft.form_data || {}), 0)
     setNotes(draft.notes || '')
+    userEditedRef.current = true
     setDraftId(draft.id)
     setMyDrafts((d) => d.filter((x) => x.id !== draft.id))
     setStep('form')
   }
 
   const discardDraft = async (id: string) => {
-    if (!window.confirm('Discard this unfinished draft? This cannot be undone.')) return
+    if (!await confirmDialog('Discard this unfinished draft? This cannot be undone.')) return
     const { error } = await getUserClient().from('ps_service_deliveries').delete().eq('id', id).eq('status', 'draft')
     if (error) {
       setSubmitError(error.message)
@@ -891,6 +971,61 @@ export function ServiceDeliveryPage() {
             </div>
           )}
 
+          {!searching && !selectedPatient && !addingPatient && cleanSearch(patientSearch).length >= 2 && patientResults.length === 0 && (
+            <div style={{ padding: 'var(--ps-space-sm) 0 var(--ps-space-md)', fontSize: 'var(--ps-font-sm)', color: 'var(--ps-slate)' }}>
+              No patients found for “{cleanSearch(patientSearch)}”.
+            </div>
+          )}
+
+          {!selectedPatient && !addingPatient && (
+            <div style={{ marginBottom: 'var(--ps-space-md)' }}>
+              <button type="button" className="ps-btn ps-btn-secondary ps-btn-sm" onClick={startAddPatient}>+ Add new patient</button>
+            </div>
+          )}
+
+          {addingPatient && !selectedPatient && (
+            <div className="ps-card" style={{ padding: 'var(--ps-space-md)', marginBottom: 'var(--ps-space-md)', maxWidth: 720 }}>
+              <h3 style={{ fontSize: 'var(--ps-font-md)', fontWeight: 600, margin: '0 0 var(--ps-space-sm)' }}>New patient</h3>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 'var(--ps-space-sm) var(--ps-space-md)' }}>
+                <div className="form-group" style={{ margin: 0 }}>
+                  <label htmlFor="np-first">First name *</label>
+                  <input id="np-first" className="ps-input" value={newPatient.first_name} onChange={(e) => setNewPatient((p) => ({ ...p, first_name: e.target.value }))} />
+                </div>
+                <div className="form-group" style={{ margin: 0 }}>
+                  <label htmlFor="np-last">Last name *</label>
+                  <input id="np-last" className="ps-input" value={newPatient.last_name} onChange={(e) => setNewPatient((p) => ({ ...p, last_name: e.target.value }))} />
+                </div>
+                <div className="form-group" style={{ margin: 0 }}>
+                  <label htmlFor="np-dob">Date of birth</label>
+                  <input id="np-dob" type="date" className="ps-input" value={newPatient.dob} max={new Date().toISOString().slice(0, 10)} onChange={(e) => setNewPatient((p) => ({ ...p, dob: e.target.value }))} />
+                </div>
+                <div className="form-group" style={{ margin: 0 }}>
+                  <label htmlFor="np-nhs">NHS number</label>
+                  <input id="np-nhs" className="ps-input" inputMode="numeric" value={newPatient.nhs_number} onChange={(e) => setNewPatient((p) => ({ ...p, nhs_number: e.target.value.replace(/[^\d\s]/g, '') }))} />
+                </div>
+                <div className="form-group" style={{ margin: 0 }}>
+                  <label htmlFor="np-phone">Mobile number</label>
+                  <input id="np-phone" className="ps-input" inputMode="tel" value={newPatient.phone} onChange={(e) => setNewPatient((p) => ({ ...p, phone: e.target.value }))} />
+                </div>
+              </div>
+              {newPatient.nhs_number && !/^\d{10}$/.test(newPatient.nhs_number.replace(/\s/g, '')) && (
+                <p style={{ fontSize: 'var(--ps-font-xs)', color: 'var(--ps-slate)', margin: 'var(--ps-space-xs) 0 0' }}>An NHS number has 10 digits.</p>
+              )}
+              {newPatientError && <div className="auth-error" role="alert" style={{ marginTop: 'var(--ps-space-sm)' }}>{newPatientError}</div>}
+              <div style={{ display: 'flex', gap: 'var(--ps-space-sm)', marginTop: 'var(--ps-space-md)' }}>
+                <button type="button" className="ps-btn ps-btn-secondary ps-btn-sm" onClick={() => setAddingPatient(false)} disabled={savingPatient}>Cancel</button>
+                <button
+                  type="button"
+                  className="ps-btn ps-btn-primary ps-btn-sm"
+                  onClick={createPatient}
+                  disabled={savingPatient || !newPatient.first_name.trim() || !newPatient.last_name.trim() || (!!newPatient.nhs_number && !/^\d{10}$/.test(newPatient.nhs_number.replace(/\s/g, '')))}
+                >
+                  {savingPatient ? 'Adding…' : 'Add patient'}
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* Selected patient */}
           {selectedPatient && (
             <div style={{
@@ -987,7 +1122,7 @@ export function ServiceDeliveryPage() {
                   disabled={pdsLoading || nhsNumberInput.replace(/\s/g, '').length < 10}
                   style={{ whiteSpace: 'nowrap' }}
                 >
-                  {pdsLoading ? 'Looking up…' : '🔍 PDS Lookup'}
+                  {pdsLoading ? 'Looking up…' : 'PDS Lookup'}
                 </button>
               </div>
               {pdsError && (
@@ -1277,7 +1412,7 @@ export function ServiceDeliveryPage() {
                     setShowMedModal(true)
                   }}
                 >
-                  {medications.filter(m => m.drug_name.trim()).length > 0 ? '✏️ Edit Medications' : '+ Add Medications'}
+                  {medications.filter(m => m.drug_name.trim()).length > 0 ? 'Edit Medications' : '+ Add Medications'}
                 </button>
               </div>
 
@@ -1307,16 +1442,21 @@ export function ServiceDeliveryPage() {
             <textarea
               className="ps-input"
               value={notes}
-              onChange={(e) => setNotes(e.target.value)}
+              onChange={(e) => { userEditedRef.current = true; setNotes(e.target.value) }}
               placeholder="Any additional notes about this service delivery…"
               rows={3}
             />
           </div>
 
-          {/* Required fields warning */}
-          {requiredFieldsMissing.length > 0 && (
+          {/* Required fields warning (after the person tries to move on) */}
+          {triedNext && requiredFieldsMissing.length > 0 && (
             <div style={{ fontSize: 'var(--ps-font-sm)', color: 'var(--ps-error)', marginBottom: 'var(--ps-space-md)' }}>
               Missing required fields: {requiredFieldsMissing.map((f) => f.label).join(', ')}
+            </div>
+          )}
+          {triedNext && referralMissing && (
+            <div style={{ fontSize: 'var(--ps-font-sm)', color: 'var(--ps-error)', marginBottom: 'var(--ps-space-md)' }}>
+              Say who the patient was referred to.
             </div>
           )}
 
@@ -1324,7 +1464,16 @@ export function ServiceDeliveryPage() {
             <button className="ps-btn ps-btn-secondary" onClick={() => setStep('patient')}>
               ← Back
             </button>
-            <button className="ps-btn ps-btn-primary" onClick={() => setStep('review')}>
+            <button
+              className="ps-btn ps-btn-primary"
+              onClick={() => {
+                if (requiredFieldsMissing.length > 0 || referralMissing) {
+                  setTriedNext(true)
+                  return
+                }
+                setStep('review')
+              }}
+            >
               Next: Review →
             </button>
           </div>

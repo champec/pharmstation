@@ -1,16 +1,19 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuthStore, usePepsStore } from '@pharmstation/core'
+import { getUserClient } from '@pharmstation/supabase-client'
 import {
   PEPS_PRESCRIBER_TYPE_LABELS,
+  PEPS_REGISTER_LINKS,
   type PepsPrescriberType,
 } from '@pharmstation/types'
 import { CanvasField } from '../../components/forms/CanvasField'
+import { PageHeader } from '../../components/ui'
 
 export function PEPSPrescriberSetupPage() {
   const navigate = useNavigate()
   const { activeUser } = useAuthStore()
-  const { myPrescriber, prescriberLoaded, fetchMyPrescriber, saveMyPrescriber } = usePepsStore()
+  const { myPrescriber, prescriberLoaded, fetchMyPrescriber, saveMyPrescriber, hasSigningPin, setSigningPin } = usePepsStore()
 
   const [fullName, setFullName] = useState('')
   const [type, setType] = useState<PepsPrescriberType>('doctor')
@@ -24,9 +27,55 @@ export function PEPSPrescriberSetupPage() {
   const [error, setError] = useState<string | null>(null)
   const [saved, setSaved] = useState(false)
 
+  // Signing PIN
+  const [pinSet, setPinSet] = useState<boolean | null>(null)
+  const [currentPin, setCurrentPin] = useState('')
+  const [newPin, setNewPin] = useState('')
+  const [confirmPin, setConfirmPin] = useState('')
+  const [pinSaving, setPinSaving] = useState(false)
+  const [pinError, setPinError] = useState<string | null>(null)
+  const [pinSaved, setPinSaved] = useState(false)
+
   const load = useCallback(async () => {
-    await fetchMyPrescriber()
-  }, [fetchMyPrescriber])
+    const p = await fetchMyPrescriber()
+    if (p) {
+      try {
+        setPinSet(await hasSigningPin())
+      } catch {
+        setPinSet(false)
+      }
+    }
+  }, [fetchMyPrescriber, hasSigningPin])
+
+  const handleSavePin = async () => {
+    setPinError(null)
+    if (!/^\d{6}$/.test(newPin)) {
+      setPinError('Your signing PIN must be 6 digits.')
+      return
+    }
+    if (newPin !== confirmPin) {
+      setPinError('The two new PINs do not match.')
+      return
+    }
+    if (pinSet && !/^\d{6}$/.test(currentPin)) {
+      setPinError('Enter your current 6-digit PIN.')
+      return
+    }
+    setPinSaving(true)
+    try {
+      await setSigningPin(newPin, pinSet ? currentPin : null)
+      setPinSet(true)
+      setCurrentPin('')
+      setNewPin('')
+      setConfirmPin('')
+      setPinSaved(true)
+      setTimeout(() => setPinSaved(false), 3000)
+    } catch (e: any) {
+      setPinError(e.message ?? 'Could not save your PIN.')
+    } finally {
+      setPinSaving(false)
+    }
+  }
 
   useEffect(() => {
     load()
@@ -42,8 +91,12 @@ export function PEPSPrescriberSetupPage() {
       setPhone(myPrescriber.phone ?? '')
       setAddress(myPrescriber.address ?? '')
       setSignature(myPrescriber.signature_data ?? '')
-    } else if (activeUser?.full_name && !fullName) {
-      setFullName(activeUser.full_name)
+    } else {
+      if (activeUser?.full_name && !fullName) setFullName(activeUser.full_name)
+      if (!email) {
+        getUserClient().auth.getUser().then(({ data }) => { if (data.user?.email) setEmail((e) => e || data.user!.email!) })
+      }
+      if (!regBody) setRegBody(PEPS_REGISTER_LINKS[type]?.body ?? '')
     }
   }, [myPrescriber, activeUser]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -51,6 +104,10 @@ export function PEPSPrescriberSetupPage() {
     setError(null)
     if (!fullName.trim() || !registration.trim()) {
       setError('Full name and registration number are required.')
+      return
+    }
+    if (address.trim().length < 5) {
+      setError('Your practice address is required. It is printed on every prescription you write.')
       return
     }
     if (!signature) {
@@ -88,17 +145,11 @@ export function PEPSPrescriberSetupPage() {
 
   return (
     <div>
-      <div className="page-header">
-        <div className="breadcrumbs">
-          <a href="/me" onClick={(e) => { e.preventDefault(); navigate('/me') }}>My Account</a>
-          <span className="separator">/</span>
-          <span>Prescriber Setup</span>
-        </div>
-        <h1>Prescriber Setup</h1>
-        <p style={{ color: 'var(--ps-slate)', marginTop: '4px' }}>
-          Your prescriber identity is global across PharmStation — any pharmacy can verify your registration.
-        </p>
-      </div>
+      <PageHeader
+        breadcrumbs={[{ label: 'My account', to: '/me' }, { label: 'Prescriber setup' }]}
+        title="Prescriber setup"
+        subtitle="Your prescriber identity works across PharmStation, so any pharmacy can check your registration."
+      />
 
       {myPrescriber && (
         <div className="ps-card" style={{ marginBottom: 'var(--ps-space-md)', display: 'flex', alignItems: 'center', gap: 'var(--ps-space-sm)' }}>
@@ -130,7 +181,13 @@ export function PEPSPrescriberSetupPage() {
 
         <div className="form-group">
           <label>Prescriber type *</label>
-          <select className="ps-input" value={type} onChange={(e) => setType(e.target.value as PepsPrescriberType)}>
+          <select className="ps-input" value={type} onChange={(e) => {
+            const t = e.target.value as PepsPrescriberType
+            const oldBody = PEPS_REGISTER_LINKS[type]?.body ?? ''
+            setType(t)
+            // Fill the register from the type unless the prescriber typed something else
+            if (!regBody.trim() || regBody.trim() === oldBody) setRegBody(PEPS_REGISTER_LINKS[t]?.body ?? '')
+          }}>
             {Object.entries(PEPS_PRESCRIBER_TYPE_LABELS).map(([k, v]) => (
               <option key={k} value={k}>{v}</option>
             ))}
@@ -160,7 +217,7 @@ export function PEPSPrescriberSetupPage() {
         </div>
 
         <div className="form-group">
-          <label>Default prescribing address</label>
+          <label>Practice address *</label>
           <textarea className="ps-input" rows={2} value={address} onChange={(e) => setAddress(e.target.value)} />
         </div>
 
@@ -186,6 +243,47 @@ export function PEPSPrescriberSetupPage() {
           )}
         </div>
       </div>
+
+      {myPrescriber && (
+        <div className="ps-card" style={{ maxWidth: 640, marginTop: 'var(--ps-space-md)' }}>
+          <h3 style={{ marginTop: 0 }}>Signing PIN</h3>
+          <p style={{ fontSize: 'var(--ps-font-sm)', color: 'var(--ps-slate)', marginTop: 0 }}>
+            You enter this 6-digit PIN each time you send a prescription. It is your electronic signature:
+            PharmStation records that you signed and seals the prescription so any later change can be detected.
+            Do not share it. After 5 wrong tries it locks for 15 minutes.
+            {pinSet === true && ' If you forget it, contact PharmStation support to reset it.'}
+          </p>
+          {pinError && <div className="ps-alert ps-alert-error" style={{ marginBottom: 'var(--ps-space-md)' }}>{pinError}</div>}
+          {pinSaved && <div className="ps-alert ps-alert-success" style={{ marginBottom: 'var(--ps-space-md)' }}>Signing PIN saved.</div>}
+          {pinSet === false && (
+            <div className="ps-alert ps-alert-warning" style={{ marginBottom: 'var(--ps-space-md)' }}>
+              You have not set a signing PIN yet. You need one to send prescriptions.
+            </div>
+          )}
+          <div style={{ display: 'grid', gridTemplateColumns: pinSet ? '1fr 1fr 1fr' : '1fr 1fr', gap: 'var(--ps-space-md)' }}>
+            {pinSet && (
+              <div className="form-group">
+                <label>Current PIN</label>
+                <input className="ps-input" type="password" inputMode="numeric" autoComplete="off" maxLength={6}
+                  value={currentPin} onChange={(e) => setCurrentPin(e.target.value.replace(/\D/g, ''))} />
+              </div>
+            )}
+            <div className="form-group">
+              <label>New PIN</label>
+              <input className="ps-input" type="password" inputMode="numeric" autoComplete="new-password" maxLength={6}
+                value={newPin} onChange={(e) => setNewPin(e.target.value.replace(/\D/g, ''))} />
+            </div>
+            <div className="form-group">
+              <label>Repeat new PIN</label>
+              <input className="ps-input" type="password" inputMode="numeric" autoComplete="new-password" maxLength={6}
+                value={confirmPin} onChange={(e) => setConfirmPin(e.target.value.replace(/\D/g, ''))} />
+            </div>
+          </div>
+          <button className="ps-btn ps-btn-primary" onClick={handleSavePin} disabled={pinSaving}>
+            {pinSaving ? 'Saving…' : pinSet ? 'Change PIN' : 'Set signing PIN'}
+          </button>
+        </div>
+      )}
     </div>
   )
 }

@@ -2,6 +2,8 @@ import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { getUserClient } from '@pharmstation/supabase-client'
 import { useAuthStore } from '@pharmstation/core'
+import { bookingModeLabel, bookingStatusLabel } from '../../components/locum/labels'
+import { confirmDialog } from '../../components/ui/dialog'
 
 interface BookingRow {
   id: string
@@ -20,6 +22,7 @@ interface BookingRow {
     status: string
     booking_mode: string
   } | null
+  org?: { name: string; address: string } | null
   sign_in: {
     id: string
     signed_in_at: string
@@ -87,7 +90,18 @@ export function LocumBookingsPage() {
         }
       }
 
-      setBookings(rows.map((b) => ({ ...b, sign_in: signInMap[b.id] ?? null })))
+      // Pharmacy name and address for each booking
+      const orgIds = [...new Set(rows.flatMap((b) => (b.shift ? [b.shift.org_id] : [])))]
+      const orgMap: Record<string, { name: string; address: string }> = {}
+      if (orgIds.length > 0) {
+        const { data: orgs } = await client.rpc('ps_locum_shift_orgs', { p_org_ids: orgIds })
+        for (const o of (orgs ?? []) as { id: string; name: string; address: Record<string, string> | null }[]) {
+          const a = o.address ?? {}
+          orgMap[o.id] = { name: o.name, address: [a.line_1 ?? a.line1, a.line_2 ?? a.line2, a.city ?? a.town, a.postcode].filter(Boolean).join(', ') }
+        }
+      }
+
+      setBookings(rows.map((b) => ({ ...b, org: b.shift ? orgMap[b.shift.org_id] ?? null : null, sign_in: signInMap[b.id] ?? null })))
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load bookings')
     } finally {
@@ -126,7 +140,7 @@ export function LocumBookingsPage() {
   }
 
   async function handleCancelApplication(bookingId: string) {
-    if (!window.confirm('Withdraw this application?')) return
+    if (!await confirmDialog('Withdraw this application?')) return
     setActionId(bookingId)
     try {
       // The RPC records the reason and reopens an instant-book shift
@@ -219,12 +233,20 @@ export function LocumBookingsPage() {
                       <span className="text-muted">·</span>
                       <span>{fmt(b.shift.start_time)} – {fmt(b.shift.end_time)}</span>
                       {hours && <span className="text-muted">({hours}h)</span>}
-                      <span className={BOOKING_BADGE[b.status] ?? 'ps-badge'}>{b.status}</span>
+                      <span className={BOOKING_BADGE[b.status] ?? 'ps-badge'}>{bookingStatusLabel(b.status)}</span>
                     </div>
+                    {b.org && (
+                      <div style={{ marginBottom: '0.25rem' }}>
+                        <strong>{b.org.name}</strong>
+                        {b.org.address && (
+                          <> · <a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${b.org.name}, ${b.org.address}`)}`} target="_blank" rel="noopener noreferrer">{b.org.address}</a></>
+                        )}
+                      </div>
+                    )}
                     <div style={{ fontSize: '0.875rem', color: 'var(--ps-slate)' }}>
                       £{Number(b.shift.rate_per_hour).toFixed(2)}/hr
                       {total && <> · {total} total</>}
-                      {' · '}<span className="ps-badge">{b.shift.booking_mode}</span>
+                      {' · '}<span className="ps-badge">{bookingModeLabel(b.shift.booking_mode)}</span>
                     </div>
                     {b.cancellation_reason && (
                       <p style={{ fontSize: '0.8rem', color: 'var(--ps-danger)', marginTop: '0.25rem' }}>

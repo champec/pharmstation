@@ -18,7 +18,14 @@ import { Ionicons } from '@expo/vector-icons'
 import { SafeAreaView } from 'react-native-safe-area-context'
 
 import { useCommsStore, type NetworkContact, type NetworkSetup } from '@/stores/comms-store'
+import { useAuthStore } from '@/stores/auth-store'
 import { palette, radius } from '@/theme/palette'
+
+/** "+447700900123" -> "07700 900123" for display. */
+function formatUkMobile(n: string): string {
+  const local = n.replace(/^\+44/, '0').replace(/\s/g, '')
+  return /^07\d{9}$/.test(local) ? `${local.slice(0, 5)} ${local.slice(5)}` : n
+}
 
 const COLOR = '#0EA5E9'
 const COLOR_TINT = '#E0F2FE'
@@ -43,6 +50,12 @@ export function networkBlocker(setup: NetworkSetup | null): { title: string; tex
       title: 'Link your pharmacy to join the network',
       text: 'Choose your NHS pharmacy record once so nearby pharmacies can find and message you.',
       action: 'Link pharmacy',
+    }
+  }
+  if (!setup.link.is_verified) {
+    return {
+      title: 'We’re checking your linked pharmacy',
+      text: 'Your address doesn’t match the NHS record for this pharmacy, so our team will confirm it before others can find or message you. This usually takes one working day.',
     }
   }
   if (!setup.networkEnabled) {
@@ -80,6 +93,7 @@ export function NetworkSetupModal({ visible, onClose }: { visible: boolean; onCl
   const loading = useCommsStore((s) => s.setupLoading)
   const loadSetup = useCommsStore((s) => s.loadSetup)
   const [linking, setLinking] = useState(false)
+  const canManage = useAuthStore((s) => s.permissions?.org_settings === true)
 
   useEffect(() => {
     if (visible) {
@@ -109,7 +123,7 @@ export function NetworkSetupModal({ visible, onClose }: { visible: boolean; onCl
           <LinkSearch onDone={() => setLinking(false)} />
         ) : (
           <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-            <NetworkStatusBanner onOpenSetup={() => (setup.link ? undefined : setLinking(true))} />
+            <NetworkStatusBanner onOpenSetup={() => (setup.link || !canManage ? undefined : setLinking(true))} />
 
             <Section title="Your pharmacy">
               {setup.link?.pharmacy ? (
@@ -118,6 +132,8 @@ export function NetworkSetupModal({ visible, onClose }: { visible: boolean; onCl
                   <Text style={styles.cardMeta}>
                     {[setup.link.pharmacy.ods_code && `ODS ${setup.link.pharmacy.ods_code}`, setup.link.pharmacy.address1, setup.link.pharmacy.city, setup.link.pharmacy.postcode].filter(Boolean).join(' · ')}
                   </Text>
+                  {!setup.link.is_verified ? <Text style={styles.tagMuted}>Being checked by PharmStation</Text> : null}
+                  {canManage ? (
                   <View style={styles.cardActions}>
                     <SmallButton label="Change" onPress={() => setLinking(true)} disabled={!verified} />
                     <SmallButton
@@ -133,7 +149,10 @@ export function NetworkSetupModal({ visible, onClose }: { visible: boolean; onCl
                       )}
                     />
                   </View>
+                  ) : null}
                 </View>
+              ) : !canManage ? (
+                <Text style={styles.hint}>Ask an owner or manager to link your pharmacy.</Text>
               ) : (
                 <Pressable
                   style={[styles.primary, !verified && styles.disabled]}
@@ -177,6 +196,37 @@ function LinkSearch({ onDone }: { onDone: () => void }) {
   const currentId = useCommsStore((s) => s.setup?.link?.pharmacy_id)
   const [query, setQuery] = useState('')
   const [busyId, setBusyId] = useState<number | null>(null)
+  const [openCases, setOpenCases] = useState<Record<string, string>>({})
+
+  useEffect(() => {
+    void useCommsStore.getState().fetchOpenDisputes().then(setOpenCases)
+  }, [])
+
+  const dispute = (p: { id: number; organisation_name: string; ods_code: string | null }) => {
+    const send = async (message: string) => {
+      try {
+        const ref = await useCommsStore.getState().disputeLink(p.id, message)
+        if (p.ods_code) setOpenCases((prev) => ({ ...prev, [p.ods_code as string]: ref }))
+        Alert.alert('Sent to PharmStation', `Case ${ref}. We’ll check who owns ${p.organisation_name}, usually within one working day.`)
+      } catch (e) {
+        Alert.alert('Not sent', (e as Error).message)
+      }
+    }
+    if (Alert.prompt) {
+      Alert.prompt(
+        'Is this your pharmacy?',
+        'Another PharmStation account has linked it. Tell us why it’s yours (for example your GPhC premises number) and we’ll check the register.',
+        [{ text: 'Cancel', style: 'cancel' }, { text: 'Send', onPress: (t?: string) => void send(t ?? '') }],
+        'plain-text',
+      )
+    } else {
+      Alert.alert(
+        'Is this your pharmacy?',
+        'Another PharmStation account has linked it. We’ll check the GPhC register and move it to the right account.',
+        [{ text: 'Cancel', style: 'cancel' }, { text: 'Ask PharmStation', onPress: () => void send('') }],
+      )
+    }
+  }
 
   useEffect(() => {
     const t = setTimeout(() => void search(query), 350)
@@ -224,7 +274,12 @@ function LinkSearch({ onDone }: { onDone: () => void }) {
               {current ? (
                 <Text style={styles.tag}>Your pharmacy</Text>
               ) : p.taken ? (
-                <Text style={styles.tagMuted}>Already on PharmStation</Text>
+                <>
+                  <Text style={styles.tagMuted}>Already on PharmStation</Text>
+                  {p.ods_code && openCases[p.ods_code]
+                    ? <Text style={styles.tagMuted}>Case {openCases[p.ods_code]} is open</Text>
+                    : <SmallButton label="This is ours" onPress={() => dispute(p)} />}
+                </>
               ) : (
                 <SmallButton label={busyId === p.id ? 'Linking…' : 'This is my pharmacy'} onPress={() => void link(p.id)} disabled={busyId !== null} />
               )}
@@ -271,7 +326,7 @@ function ContactsSection({ contacts }: { contacts: NetworkContact[] }) {
           <View style={styles.contactTop}>
             <View style={[styles.statusDot, { backgroundColor: !c.is_enabled ? palette.textMuted : paused(c) ? '#F59E0B' : palette.success }]} />
             <View style={styles.flex}>
-              <Text style={styles.cardTitle}>{c.phone_number.replace(/^\+44/, '0')}</Text>
+              <Text style={styles.cardTitle}>{formatUkMobile(c.phone_number)}</Text>
               <Text style={styles.cardMeta}>
                 {[c.label, `${c.notify_start.slice(0, 5)}–${c.notify_end.slice(0, 5)}`].filter(Boolean).join(' · ')}
                 {!c.is_enabled ? ' · Off' : paused(c) ? ` · Paused until ${new Date(c.pause_until!).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}` : ''}
@@ -291,7 +346,7 @@ function ContactsSection({ contacts }: { contacts: NetworkContact[] }) {
             <SmallButton
               label="Remove"
               danger
-              onPress={() => Alert.alert('Remove this number?', c.phone_number, [
+              onPress={() => Alert.alert('Remove this number?', formatUkMobile(c.phone_number), [
                 { text: 'Cancel', style: 'cancel' },
                 { text: 'Remove', style: 'destructive', onPress: () => act(useCommsStore.getState().deleteContact(c.id)) },
               ])}
@@ -398,12 +453,12 @@ const styles = StyleSheet.create({
 
   toggleRow: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.border, borderRadius: radius.md, padding: 12 },
 
-  primary: { minHeight: 48, borderRadius: radius.md, backgroundColor: COLOR, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
+  primary: { minHeight: 48, borderRadius: radius.md, backgroundColor: palette.brand, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
   primaryText: { color: '#FFFFFF', fontWeight: '800', fontSize: 15 },
   secondary: { minHeight: 44, borderRadius: radius.md, borderWidth: 1, borderColor: COLOR, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 },
   secondaryText: { color: COLOR, fontWeight: '800' },
   smallButton: { minHeight: 36, borderRadius: radius.sm, borderWidth: 1, borderColor: palette.border, paddingHorizontal: 12, justifyContent: 'center', backgroundColor: palette.surface },
-  smallPrimary: { backgroundColor: COLOR, borderColor: COLOR },
+  smallPrimary: { backgroundColor: palette.brand, borderColor: palette.brand },
   smallText: { color: palette.text, fontWeight: '700', fontSize: 13 },
 
   searchBox: { minHeight: 48, flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.border, borderRadius: radius.md, paddingHorizontal: 12 },

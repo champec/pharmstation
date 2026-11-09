@@ -2,7 +2,9 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { getUserClient } from '@pharmstation/supabase-client'
 import { Bell } from 'lucide-react'
 import { PageHeader } from '../../components/ui'
+import { bookingModeLabel } from '../../components/locum/labels'
 import { useAuthStore } from '@pharmstation/core'
+import { confirmDialog } from '../../components/ui/dialog'
 
 interface ShiftWithCriteria {
   id: string
@@ -217,7 +219,7 @@ export function LocumShiftsBrowsePage() {
     if (!locumProfile) return
     const rate = Number(filterRateMin) || 0
     const name = [rate ? `£${rate}+/hr` : '', filterEligible ? 'eligible only' : ''].filter(Boolean).join(', ') || 'All shifts'
-    if (!window.confirm(`Get a notification on the PharmStation phone app when a new shift is posted that matches: ${name}?\n\nManage alerts in the app under Locum Shifts › Profile.`)) return
+    if (!await confirmDialog(`Get a notification on the PharmStation phone app when a new shift is posted that matches: ${name}?\n\nManage alerts in the app under Locum Shifts › Profile.`)) return
     const { error: e } = await getUserClient().from('ps_locum_saved_searches').insert({
       locum_id: locumProfile.id, name, minimum_rate: rate, date_filter: 'all', eligible_only: filterEligible, alerts_enabled: true,
     })
@@ -297,7 +299,7 @@ export function LocumShiftsBrowsePage() {
                   <div style={{ display: 'flex', gap: '1rem', fontSize: '0.875rem', color: 'var(--ps-slate)', flexWrap: 'wrap' }}>
                     <span>£{Number(shift.rate_per_hour).toFixed(2)}/hr · £{total} total</span>
                     {orgNames[shift.org_id] && <span>{orgNames[shift.org_id]}</span>}
-                    <span className="ps-badge">{shift.booking_mode}</span>
+                    <span className="ps-badge">{bookingModeLabel(shift.booking_mode)}</span>
                     {shift.criteria?.references_required && <span className="ps-badge ps-badge-warning">References req.</span>}
                     {shift.criteria?.sop_required && <span className="ps-badge ps-badge-warning">SOP sign-off req.</span>}
                   </div>

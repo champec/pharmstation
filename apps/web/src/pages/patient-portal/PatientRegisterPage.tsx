@@ -15,19 +15,32 @@ export function PatientRegisterPage() {
   const [password, setPassword] = useState('')
   const [confirmPw, setConfirmPw] = useState('')
   const [orgId, setOrgId] = useState('')
+  const [orgName, setOrgName] = useState('')
+  const [orgQuery, setOrgQuery] = useState('')
   const [orgs, setOrgs] = useState<Organisation[]>([])
+  const [searchingOrgs, setSearchingOrgs] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const [sentTo, setSentTo] = useState<string | null>(null)
 
+  // Search listed pharmacies by name, town or postcode (2+ characters)
+  // instead of listing every pharmacy on PharmStation.
   useEffect(() => {
-    getUserClient()
-      .from('ps_organisations')
-      .select('id, name')
-      .eq('is_public', true)
-      .order('name')
-      .then(({ data }) => setOrgs((data as Organisation[]) || []))
-  }, [])
+    const q = orgQuery.trim().replace(/[%,()*]/g, ' ').trim()
+    if (orgId || q.length < 2) { setOrgs([]); return }
+    setSearchingOrgs(true)
+    const timer = setTimeout(() => {
+      getUserClient()
+        .from('ps_organisations')
+        .select('id, name, address')
+        .eq('is_public', true)
+        .or(`name.ilike.%${q}%,address->>city.ilike.%${q}%,address->>postcode.ilike.%${q}%`)
+        .order('name')
+        .limit(8)
+        .then(({ data }) => { setOrgs((data as Organisation[]) || []); setSearchingOrgs(false) })
+    }, 250)
+    return () => clearTimeout(timer)
+  }, [orgQuery, orgId])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -72,11 +85,11 @@ export function PatientRegisterPage() {
         <form onSubmit={handleSubmit}>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--ps-space-md)' }}>
             <div className="form-group">
-              <label>First Name *</label>
+              <label>First name *</label>
               <input className="ps-input" value={firstName} onChange={(e) => setFirstName(e.target.value)} autoFocus />
             </div>
             <div className="form-group">
-              <label>Last Name *</label>
+              <label>Last name *</label>
               <input className="ps-input" value={lastName} onChange={(e) => setLastName(e.target.value)} />
             </div>
           </div>
@@ -85,18 +98,48 @@ export function PatientRegisterPage() {
             <input className="ps-input" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" />
           </div>
           <div className="form-group">
-            <label>Your Pharmacy *</label>
-            <select className="ps-input" value={orgId} onChange={(e) => setOrgId(e.target.value)}>
-              <option value="">Select pharmacy…</option>
-              {orgs.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
-            </select>
+            <label htmlFor="pharmacy-search">Your pharmacy *</label>
+            {orgId ? (
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--ps-space-sm)' }}>
+                <strong>{orgName}</strong>
+                <button type="button" className="ps-btn ps-btn-ghost ps-btn-sm" onClick={() => { setOrgId(''); setOrgName(''); setOrgQuery('') }}>Change</button>
+              </div>
+            ) : (
+              <>
+                <input
+                  id="pharmacy-search"
+                  className="ps-input"
+                  value={orgQuery}
+                  onChange={(e) => setOrgQuery(e.target.value)}
+                  placeholder="Search by pharmacy name, town or postcode"
+                  autoComplete="off"
+                />
+                {orgQuery.trim().length >= 2 && (
+                  <div className="patient-pharmacy-results" role="listbox" aria-label="Matching pharmacies">
+                    {searchingOrgs && <span className="patient-pharmacy-hint">Searching…</span>}
+                    {!searchingOrgs && orgs.length === 0 && <span className="patient-pharmacy-hint">No listed pharmacy matches. Check the spelling, or try a town or postcode.</span>}
+                    {orgs.map((o) => {
+                      const addr = (o.address ?? {}) as { city?: string; postcode?: string }
+                      return (
+                        <button type="button" role="option" aria-selected={false} key={o.id}
+                          onClick={() => { setOrgId(o.id); setOrgName(o.name); setOrgs([]) }}>
+                          <strong>{o.name}</strong>
+                          {(addr.city || addr.postcode) && <span>{[addr.city, addr.postcode].filter(Boolean).join(', ')}</span>}
+                        </button>
+                      )
+                    })}
+                  </div>
+                )}
+                <small style={{ color: 'var(--ps-slate)' }}>The pharmacy you usually use. Your account still shows bookings you make at any pharmacy.</small>
+              </>
+            )}
           </div>
           <div className="form-group">
             <label>Password *</label>
             <PasswordInput className="ps-input" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="10+ characters, letters and numbers" />
           </div>
           <div className="form-group">
-            <label>Confirm Password *</label>
+            <label>Confirm password *</label>
             <PasswordInput className="ps-input" value={confirmPw} onChange={(e) => setConfirmPw(e.target.value)} />
           </div>
           <button
@@ -105,7 +148,7 @@ export function PatientRegisterPage() {
             disabled={loading || !firstName.trim() || !lastName.trim() || !email.trim() || !orgId || !password}
             style={{ width: '100%', marginTop: 'var(--ps-space-md)' }}
           >
-            {loading ? 'Creating account…' : 'Create Account'}
+            {loading ? 'Creating account…' : 'Create account'}
           </button>
         </form>
         )}

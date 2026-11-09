@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
-import { useUIStore, useChatStore, useSubscriptionStore, featureForPath } from '@pharmstation/core'
+import { useUIStore, useChatStore, useSubscriptionStore, useAuthStore, featureForPath } from '@pharmstation/core'
 import { useIsMobile } from '../../hooks/useIsMobile'
 import { PLANS_ENFORCED } from '../../lib/billing'
 import { BookMarked, BookOpenCheck, Building2, CalendarClock, CalendarDays, CalendarRange, Car, ChevronRight, ClipboardList, Clock, Contact, CreditCard, FileSignature, FileText, FolderOpen, History, Home, Inbox, LayoutDashboard, LayoutGrid, LayoutTemplate, Library, LifeBuoy, Link, List, Lock, Megaphone, MessageSquare, MessagesSquare, Network, NotebookPen, Package, PenLine, PhoneIncoming, Pill, Plus, Receipt, RotateCcw, ScanLine, Settings, Settings2, ShieldPlus, ShoppingBag, Sparkles, Stethoscope, StickyNote, Store, Timer, Truck, Undo2, UserCheck, Users, Video, Wrench, type LucideIcon } from 'lucide-react'
@@ -153,9 +153,10 @@ const menuSections: NavSection[] = [
     icon: Home,
     expandable: true,
     items: [
-      { to: '/care-homes', icon: LayoutGrid, label: 'Groups Board', match: /^\/care-homes\/(?!manage)[^/]+\/groups/ },
+      { to: '/care-homes', icon: LayoutGrid, label: 'Groups Board', match: /^\/care-homes\/(?!manage)[^/]+\/(groups|supplies)/ },
       { to: '/care-homes/manage', icon: Building2, label: 'Manage Care Homes', match: /^\/care-homes\/manage/ },
       { to: '/care-homes?view=residents', icon: Users, label: 'Residents', match: /^\/care-homes\/[^/]+\/residents/ },
+      { to: '/care-homes?view=mar', icon: BookOpenCheck, label: 'MAR Charts', match: /^\/care-homes\/[^/]+\/mar/ },
       { to: '/care-homes?view=requests', icon: ClipboardList, label: 'Requests Manager', match: /^\/care-homes\/[^/]+\/(requests|prescriptions)/ },
     ],
   },
@@ -223,6 +224,21 @@ export function SideNav() {
   const hasFeature = useSubscriptionStore((s) => s.hasFeature)
   useSubscriptionStore((s) => s.plan) // re-render when the plan changes
   /** True when plan enforcement is on and this item's feature isn't in the plan. */
+  const organisationType = useAuthStore((s) => s.organisation?.organisation_type)
+  const permissions = useAuthStore((s) => s.permissions)
+  const isCareHomeOrg = organisationType === 'carehome'
+  const canViewCareHomes = permissions?.care_home_view === true
+  const canManageCareHomes = !isCareHomeOrg && permissions?.care_home_manage === true
+  /** Care home logins only see their care home workspace; pharmacy staff need care_home_view. */
+  const visibleSections = useMemo(() => menuSections
+    .filter((section) => {
+      if (isCareHomeOrg) return section.title === '' || section.title === 'Care Homes'
+      if (section.title === 'Care Homes') return canViewCareHomes
+      return true
+    })
+    .map((section) => section.title === 'Care Homes' && !canManageCareHomes
+      ? { ...section, items: section.items.filter((item) => item.to !== '/care-homes/manage') }
+      : section), [isCareHomeOrg, canViewCareHomes, canManageCareHomes])
   const isLocked = (to: string) => {
     if (!PLANS_ENFORCED || !planLoaded) return false
     const feature = featureForPath(to.split('?')[0])
@@ -289,7 +305,7 @@ export function SideNav() {
       </div>
 
       <nav className="side-nav-menu">
-        {menuSections.map((section, i) => {
+        {visibleSections.map((section, i) => {
           const sectionOpen = expandedSection === section.title
           const sectionActive = section.items.some((item) => item.to === activeTo)
           const showItems = !section.expandable || !isExpanded || sectionOpen

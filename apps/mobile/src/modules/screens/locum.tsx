@@ -28,6 +28,7 @@ import {
 import { palette, radius } from '@/theme/palette'
 import { useAuthStore } from '@/stores/auth-store'
 import { LocumProfileScreen, saveShiftAlert } from '@/modules/screens/locum-profile'
+import { EmptyState as SharedEmptyState } from '@/components/ui/EmptyState'
 
 const ACCENT = '#6D28D9'
 const ACCENT_TINT = '#F1EAFE'
@@ -315,7 +316,7 @@ function BookingCard({ booking }: { booking: LocumBooking }) {
 
   return (
     <View style={styles.bookingCard}>
-      <View style={styles.between}><Text style={styles.bookingDate}>{dateLabel(booking.shift.date, true)}</Text><StatusPill label={booking.status === 'approved' ? 'Confirmed' : booking.status === 'pending' ? 'Requested' : booking.status.replace('_', ' ')} tone={booking.status === 'approved' || booking.status === 'completed' ? 'success' : booking.status === 'pending' ? 'warning' : 'neutral'} /></View>
+      <View style={styles.between}><Text style={styles.bookingDate}>{dateLabel(booking.shift.date, true)}</Text><StatusPill label={({ approved: 'Confirmed', pending: 'Requested', completed: 'Worked', cancelled: 'Cancelled', rejected: 'Not successful', no_show: 'No-show' } as Record<string, string>)[booking.status] ?? booking.status} tone={booking.status === 'approved' || booking.status === 'completed' ? 'success' : booking.status === 'pending' ? 'warning' : 'neutral'} /></View>
       <Text style={styles.bookingOrg}>{booking.shift.org_name}</Text>
       <View style={styles.bookingFacts}><Fact icon="time-outline" text={`${timeLabel(booking.shift.start_time)} - ${timeLabel(booking.shift.end_time)}`} /><Fact icon="cash-outline" text={`${money(shiftTotal(booking.shift))} estimated`} /></View>
       {booking.shift.org_address ? <Fact icon="location-outline" text={booking.shift.org_address} /> : null}
@@ -353,7 +354,7 @@ function ScreenHeader({ title, subtitle, loading, onRefresh }: { title: string; 
 }
 
 function FilterChip({ label, active, onPress, icon }: { label: string; active: boolean; onPress: () => void; icon?: keyof typeof Ionicons.glyphMap }) {
-  return <Pressable onPress={onPress} style={[styles.filterChip, active && styles.filterChipActive]}>{icon ? <Ionicons name={icon} size={15} color={active ? ACCENT : palette.textMuted} /> : null}<Text style={[styles.filterText, active && styles.filterTextActive]}>{label}</Text></Pressable>
+  return <Pressable onPress={onPress} style={[styles.filterChip, active && styles.filterChipActive]}>{icon ? <Ionicons name={icon} size={15} color={active ? palette.brand : palette.textMuted} /> : null}<Text style={[styles.filterText, active && styles.filterTextActive]}>{label}</Text></Pressable>
 }
 
 function SegmentedControl({ options, value, onChange }: { options: string[]; value: string; onChange: (value: string) => void }) {
@@ -385,7 +386,7 @@ function LoadingState() {
 }
 
 function EmptyState({ icon, title, text }: { icon: keyof typeof Ionicons.glyphMap; title: string; text: string }) {
-  return <View style={styles.empty}><View style={styles.emptyIcon}><Ionicons name={icon} size={25} color={ACCENT} /></View><Text style={styles.emptyTitle}>{title}</Text><Text style={styles.emptyText}>{text}</Text></View>
+  return <SharedEmptyState icon={icon} title={title} text={text} color={ACCENT} />
 }
 
 const calendarTheme = {
@@ -416,19 +417,19 @@ const styles = StyleSheet.create({
   alertButton: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 10, paddingVertical: 6, borderRadius: radius.pill, backgroundColor: ACCENT_TINT, marginLeft: 'auto', marginRight: 8 },
   alertButtonText: { color: ACCENT, fontWeight: '700', fontSize: 13 },
   scrollContent: { paddingBottom: 28, gap: 12 },
-  hero: { backgroundColor: '#17142B', borderRadius: radius.lg, padding: 18, flexDirection: 'row', alignItems: 'center', marginBottom: 2 },
+  hero: { backgroundColor: palette.brand, borderRadius: radius.lg, padding: 18, flexDirection: 'row', alignItems: 'center', marginBottom: 2 },
   heroCopy: { flex: 1 },
-  eyebrow: { color: '#C4B5FD', fontSize: 10, fontWeight: '800', letterSpacing: 0 },
+  eyebrow: { color: 'rgba(255,255,255,0.82)', fontSize: 10, fontWeight: '800', letterSpacing: 0 },
   heroTitle: { color: '#FFFFFF', fontSize: 24, fontWeight: '800', marginTop: 5 },
-  heroText: { color: '#C7C4D7', fontSize: 13, marginTop: 4 },
+  heroText: { color: 'rgba(255,255,255,0.82)', fontSize: 13, marginTop: 4 },
   heroIcon: { width: 48, height: 48, borderRadius: radius.md, backgroundColor: '#EEE9FF', alignItems: 'center', justifyContent: 'center' },
   searchBox: { height: 48, borderRadius: radius.md, backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.border, paddingHorizontal: 13, flexDirection: 'row', alignItems: 'center', gap: 9 },
   searchInput: { flex: 1, color: palette.text, fontSize: 15, paddingVertical: 0 },
   filters: { gap: 8, paddingVertical: 2 },
   filterChip: { height: 36, borderRadius: radius.pill, borderWidth: 1, borderColor: palette.border, backgroundColor: palette.surface, paddingHorizontal: 12, flexDirection: 'row', gap: 5, alignItems: 'center' },
-  filterChipActive: { borderColor: '#C4B5FD', backgroundColor: ACCENT_TINT },
+  filterChipActive: { borderColor: palette.brand, backgroundColor: palette.brandTint },
   filterText: { color: palette.textMuted, fontSize: 12, fontWeight: '700' },
-  filterTextActive: { color: ACCENT },
+  filterTextActive: { color: palette.brandDark },
   resultRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 2 },
   sectionTitle: { fontSize: 18, fontWeight: '800', color: palette.text },
   resultCount: { color: palette.textMuted, fontSize: 12, fontWeight: '600' },
@@ -466,7 +467,7 @@ const styles = StyleSheet.create({
   requirementText: { color: palette.textMuted, fontSize: 12, flex: 1 },
   cardActions: { borderTopWidth: 1, borderTopColor: palette.border, padding: 10, flexDirection: 'row', gap: 8 },
   iconAction: { width: 42, height: 40, borderRadius: radius.sm, backgroundColor: '#F1F5F9', alignItems: 'center', justifyContent: 'center' },
-  primaryAction: { height: 40, borderRadius: radius.sm, backgroundColor: ACCENT, flex: 1, flexDirection: 'row', gap: 7, alignItems: 'center', justifyContent: 'center' },
+  primaryAction: { height: 40, borderRadius: radius.sm, backgroundColor: palette.brand, flex: 1, flexDirection: 'row', gap: 7, alignItems: 'center', justifyContent: 'center' },
   actionDisabled: { backgroundColor: '#A8A3B3' },
   primaryActionText: { color: palette.textInverse, fontSize: 13, fontWeight: '800' },
   calendarHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingBottom: 12 },
@@ -500,10 +501,10 @@ const styles = StyleSheet.create({
   secondaryActionText: { color: palette.textMuted, fontSize: 12, fontWeight: '700' },
   clockButton: { height: 38, borderRadius: radius.sm, backgroundColor: palette.success, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center', gap: 6 },
   clockButtonText: { color: palette.textInverse, fontSize: 12, fontWeight: '800' },
-  earningsHero: { backgroundColor: '#17142B', borderRadius: radius.lg, padding: 20 },
-  earningsLabel: { color: '#C4B5FD', fontSize: 10, fontWeight: '800' },
+  earningsHero: { backgroundColor: palette.brand, borderRadius: radius.lg, padding: 20 },
+  earningsLabel: { color: 'rgba(255,255,255,0.82)', fontSize: 10, fontWeight: '800' },
   earningsValue: { color: '#FFFFFF', fontSize: 36, fontWeight: '800', marginTop: 5 },
-  earningsMeta: { color: '#C7C4D7', fontSize: 12, marginTop: 3 },
+  earningsMeta: { color: 'rgba(255,255,255,0.82)', fontSize: 12, marginTop: 3 },
   statGrid: { flexDirection: 'row', gap: 10 },
   stat: { flex: 1, minHeight: 112, backgroundColor: palette.surface, borderRadius: radius.md, borderWidth: 1, borderColor: palette.border, padding: 13 },
   statIcon: { width: 32, height: 32, borderRadius: radius.sm, backgroundColor: ACCENT_TINT, alignItems: 'center', justifyContent: 'center' },

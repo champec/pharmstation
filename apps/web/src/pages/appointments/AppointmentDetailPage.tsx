@@ -6,6 +6,7 @@ import type { AppointmentStatus } from '@pharmstation/types'
 import { Modal } from '../../components/Modal'
 import { PageHeader } from '../../components/ui'
 import { ArrowLeftRight, Check, FileText, Link2, Play, TriangleAlert, Video, X } from 'lucide-react'
+import { alertDialog } from '../../components/ui/dialog'
 
 const STATUS_COLOURS: Record<AppointmentStatus, { bg: string; text: string; label: string }> = {
   pending: { bg: '#fef3c7', text: '#92400e', label: 'Pending' },
@@ -64,7 +65,7 @@ export function AppointmentDetailPage() {
       await updateStatus(id, newStatus)
       fetchAppointmentDetail(id)
     } catch (e: any) {
-      alert(e.message)
+      alertDialog(e.message)
     }
   }
 
@@ -83,10 +84,10 @@ export function AppointmentDetailPage() {
         try { msg = (await ctx.json())?.error } catch { /* ignore */ }
       }
       if (error || msg) throw new Error(msg || error?.message || 'Update failed')
-      if (data?.refund_error) alert(data.refund_error)
+      if (data?.refund_error) alertDialog(data.refund_error)
       fetchAppointmentDetail(id)
     } catch (e: any) {
-      alert(e.message)
+      alertDialog(e.message)
     }
     setBusy(false)
   }
@@ -109,7 +110,7 @@ export function AppointmentDetailPage() {
       const out = await callFn({ action: 'staff_slots', appointment_id: id })
       setMoveSlots(out.slots)
       setMoveTo('')
-    } catch (e: any) { alert(e.message) }
+    } catch (e: any) { alertDialog(e.message) }
   }
   const doMove = async () => {
     if (!moveTo || !id) return
@@ -118,7 +119,7 @@ export function AppointmentDetailPage() {
       await callFn({ action: 'staff_reschedule', appointment_id: id, slot_id: moveTo })
       setMoveSlots(null)
       fetchAppointmentDetail(id)
-    } catch (e: any) { alert(e.message) }
+    } catch (e: any) { alertDialog(e.message) }
     setBusy(false)
   }
 
@@ -158,7 +159,7 @@ export function AppointmentDetailPage() {
       })
       if (error || data?.error) throw new Error(data?.error || error?.message)
       navigate(`/video/${data.consultation.id}`)
-    } catch (e: any) { alert(e.message || 'Could not set up the video call') }
+    } catch (e: any) { alertDialog(e.message || 'Could not set up the video call') }
     setBusy(false)
   }
 
@@ -179,7 +180,7 @@ export function AppointmentDetailPage() {
       setEditingNotes(false)
       fetchAppointmentDetail(id)
     } catch (e: any) {
-      alert(e.message)
+      alertDialog(e.message)
     }
     setSavingNotes(false)
   }

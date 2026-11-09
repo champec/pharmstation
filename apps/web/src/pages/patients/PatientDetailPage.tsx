@@ -5,6 +5,7 @@ import { getUserClient } from '@pharmstation/supabase-client'
 import type { Appointment, AppointmentStatus } from '@pharmstation/types'
 import { Modal } from '../../components/Modal'
 import { PatientServicesTab } from '../../components/services/PatientServicesTab'
+import { alertDialog } from '../../components/ui/dialog'
 
 const STATUS_BADGE: Record<AppointmentStatus, { cls: string; label: string }> = {
   pending: { cls: 'ps-badge-amber', label: 'Pending' },
@@ -106,7 +107,7 @@ export function PatientDetailPage() {
       setShowEditModal(false)
       fetchPatientDetail(patientId)
     } catch (e: any) {
-      alert(e.message)
+      alertDialog(e.message)
     }
     setSaving(false)
   }

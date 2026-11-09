@@ -28,6 +28,10 @@ export interface ModuleContext {
   permissions: Permissions | null
   isOrgConnected: boolean
   isLocumUser: boolean
+  /** Owner, manager, pharmacist or sop_upload, with permanent access (same rule as the web). */
+  canManageSOPs?: boolean
+  /** Signed in with a care home login: only the care homes module applies. */
+  isCareHomeOrg?: boolean
 }
 
 export type VisibilityRule = (ctx: ModuleContext) => boolean

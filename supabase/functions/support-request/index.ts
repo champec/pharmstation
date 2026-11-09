@@ -23,6 +23,7 @@ const TOPICS = {
   billing: { label: 'Billing', to: 'billing@pharmstation.co.uk' },
   privacy: { label: 'Data protection request', to: 'privacy@pharmstation.co.uk' },
   safety: { label: 'Clinical safety concern', to: 'safety@pharmstation.co.uk' },
+  network: { label: 'Pharmacy Network dispute', to: 'support@pharmstation.co.uk' },
   other: { label: 'Something else', to: 'hello@pharmstation.co.uk' },
 } as const
 type Topic = keyof typeof TOPICS
@@ -119,10 +120,28 @@ Deno.serve(async (req: Request) => {
   let body: Record<string, unknown>
   try { body = await req.json() } catch { return json({ error: 'Invalid request' }, 400) }
 
+  // Email a ticket the database already saved (e.g. a Pharmacy Network
+  // dispute raised through ps_network_dispute_link). Only the ticket's own
+  // signed-in author can ask, and only once.
+  if (body.action === 'forward') {
+    const admin = adminClient()
+    const { userId } = await signedInUser(req, admin, null)
+    if (!userId) return json({ error: 'Sign in first.' }, 401)
+    const { data: t } = await admin.from('ps_support_tickets')
+      .select('id, reference, source, topic, name, email, phone, organisation_name, message, org_id, email_forwarded')
+      .eq('reference', text(body.reference, 40)).eq('user_id', userId).maybeSingle()
+    if (!t) return json({ error: 'Ticket not found' }, 404)
+    if (t.email_forwarded) return json({ ok: true, reference: t.reference })
+    const topicKey = (t.topic in TOPICS ? t.topic : 'other') as Topic
+    const sent = await forwardByEmail({ ...t, topic: topicKey })
+    if (sent) await admin.from('ps_support_tickets').update({ email_forwarded: true }).eq('id', t.id)
+    return json({ ok: true, reference: t.reference, emailed: sent })
+  }
+
   // Honeypot: a hidden field people never see. Pretend success for bots.
   if (text(body.website, 200)) return json({ ok: true, reference: reference() })
 
-  const topic = (String(body.topic || 'support') in TOPICS ? String(body.topic || 'support') : 'other') as Topic
+  const topic = (String(body.topic || 'support') in TOPICS && body.topic !== 'network' ? String(body.topic || 'support') : 'other') as Topic
   const name = text(body.name, 120)
   const email = text(body.email, 254).toLowerCase()
   const phone = text(body.phone, 40) || null

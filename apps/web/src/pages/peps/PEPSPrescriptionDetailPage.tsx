@@ -1,10 +1,11 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useAuthStore, usePepsStore } from '@pharmstation/core'
-import type { PepsEvent } from '@pharmstation/types'
+import { pepsDate, pepsDateTime, pepsCdSchedule, PEPS_CD_LABELS, type PepsEvent, type PepsVerifyResult } from '@pharmstation/types'
 import { getUserClient } from '@pharmstation/supabase-client'
 import { Autocomplete } from '../../components/forms/Autocomplete'
 import { Modal } from '../../components/Modal'
+import { PageHeader } from '../../components/ui'
 
 const EVENT_LABELS: Record<PepsEvent['event_type'], string> = {
   created: 'Created',
@@ -26,15 +27,14 @@ export function PEPSPrescriptionDetailPage() {
   const { organisation } = useAuthStore()
   const {
     activePrescription: rx, activeItems, activeEvents, loading, error,
-    fetchPrescription, dispense, cancel, release, transfer, downloadFromSpine, searchPharmacies, logEvent,
+    fetchPrescription, dispense, cancel, release, transfer, downloadFromSpine, searchPharmacies, verifyPrescription,
   } = usePepsStore()
 
   const [busy, setBusy] = useState(false)
   const [actionError, setActionError] = useState<string | null>(null)
   const [showDispense, setShowDispense] = useState(false)
   const [showTransfer, setShowTransfer] = useState(false)
-  const [controlledDispenseAck, setControlledDispenseAck] = useState(false)
-  const [controlledDispenseEvidence, setControlledDispenseEvidence] = useState<File | null>(null)
+  const [verify, setVerify] = useState<PepsVerifyResult | null>(null)
   const [showCancel, setShowCancel] = useState(false)
   const [cancelReason, setCancelReason] = useState('')
   const [supplyNote, setSupplyNote] = useState('')
@@ -44,6 +44,11 @@ export function PEPSPrescriptionDetailPage() {
 
   const load = useCallback(() => { if (id) fetchPrescription(id) }, [id, fetchPrescription])
   useEffect(() => { load() }, [load])
+  useEffect(() => {
+    setVerify(null)
+    if (!id || rx?.id !== id) return
+    verifyPrescription(id).then(setVerify).catch(() => setVerify(null))
+  }, [id, rx?.id, rx?.status, verifyPrescription])
   useEffect(() => {
     getUserClient().auth.getUser().then(({ data }) => setMyUserId(data.user?.id ?? null))
   }, [])
@@ -66,9 +71,9 @@ export function PEPSPrescriptionDetailPage() {
   // Only prescriptions sent to this pharmacy can be downloaded here. Open-spine ones are claimed from the queue.
   const downloadable = rx.status === 'available' && !!orgId && rx.assigned_org_id === orgId && !expired
   const canPrintDocument = !!orgId && rx.assigned_org_id === orgId && (rx.status === 'held' || rx.status === 'dispensed')
-  const controlledDrugDeclared = activeEvents.some(
-    (ev) => ev.event_type === 'created' && Boolean((ev.metadata as Record<string, unknown> | null)?.controlled_drug_declared),
-  )
+  const cdItems = activeItems.filter((it) => pepsCdSchedule(it.cd_category) !== 'none')
+  const altered = verify?.status === 'altered'
+  const prescriberBlocked = verify?.prescriber_status === 'suspended' || verify?.prescriber_status === 'revoked'
   const totalIssues = rx.repeats + 1
 
   const formatEventLabel = (ev: PepsEvent): string => {
@@ -117,43 +122,14 @@ export function PEPSPrescriptionDetailPage() {
 
   const handleDispense = async () => {
     if (!showDispense) return
-    if (controlledDrugDeclared && !controlledDispenseAck) {
-      setActionError('You must acknowledge the controlled-drug legal statement before dispensing.')
-      return
-    }
-
     setShowDispense(false)
     await run(async () => {
-      if (controlledDrugDeclared) {
-        if (!controlledDispenseEvidence) {
-          throw new Error('Attach a scan/photo of the physical controlled-drug prescription before dispensing.')
-        }
-        if (controlledDispenseEvidence.size > 2 * 1024 * 1024) {
-          throw new Error('Evidence file is too large. Please attach an image/PDF smaller than 2MB.')
-        }
-        const safeName = controlledDispenseEvidence.name.replace(/[^a-zA-Z0-9._-]/g, '_')
-        const evidencePath = `peps/${rx.id}/controlled-drug/${Date.now()}-${safeName}`
-        const { error: uploadError } = await getUserClient()
-          .storage
-          .from('scan-images')
-          .upload(evidencePath, controlledDispenseEvidence, { upsert: false })
-        if (uploadError) throw new Error(`Could not upload evidence: ${uploadError.message}`)
-        await logEvent(rx.id, 'cd_evidence_attached', {
-          controlled_drug_evidence: true,
-          attachment_name: controlledDispenseEvidence.name,
-          attachment_type: controlledDispenseEvidence.type,
-          attachment_size: controlledDispenseEvidence.size,
-          attachment_storage_bucket: 'scan-images',
-          attachment_storage_path: evidencePath,
-          legal_acknowledged: true,
-          recorded_at: new Date().toISOString(),
-        })
-      }
       await dispense(
         rx.id,
         activeItems.map((it) => ({
           item: it.drug_name,
           quantity: it.quantity,
+          ...(it.cd_category && it.cd_category !== '0000' ? { cd_category: it.cd_category } : {}),
           ...(supplyNote.trim() ? { note: supplyNote.trim() } : {}),
         })),
       )
@@ -163,29 +139,36 @@ export function PEPSPrescriptionDetailPage() {
 
   return (
     <div>
-      <div className="page-header">
-        <div className="breadcrumbs">
-          <a href="/peps" onClick={(e) => { e.preventDefault(); navigate('/peps') }}>PEPS</a>
-          <span className="separator">/</span>
-          <span>{rx.prescription_ref}</span>
-        </div>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <h1>{rx.prescription_ref}</h1>
+      <PageHeader
+        breadcrumbs={[{ label: 'PEPS', to: '/peps' }, { label: rx.prescription_ref }]}
+        title={rx.prescription_ref}
+        subtitle={rx.expires_at && rx.status !== 'cancelled'
+          ? <span style={{ color: expired ? 'var(--ps-error)' : undefined }}>
+              {expired ? 'Expired' : 'Valid until'} {pepsDate(rx.expires_at)}
+            </span>
+          : undefined}
+        actions={
           <span className={`ps-badge ${rx.status === 'held' && !expired ? 'ps-badge-success' : ''}`}>
-            {expired && rx.status !== 'dispensed' && rx.status !== 'cancelled' ? 'EXPIRED' : rx.status.toUpperCase()}
+            {expired && rx.status !== 'dispensed' && rx.status !== 'cancelled' ? 'Expired' : rx.status[0].toUpperCase() + rx.status.slice(1)}
           </span>
-        </div>
-        {rx.expires_at && rx.status !== 'cancelled' && (
-          <p style={{ color: expired ? 'var(--ps-danger, #b91c1c)' : 'var(--ps-slate)', margin: '4px 0 0', fontSize: 'var(--ps-font-sm)' }}>
-            {expired ? 'Expired' : 'Valid until'} {new Date(rx.expires_at).toLocaleDateString('en-GB')}
-          </p>
-        )}
-      </div>
+        }
+      />
 
       {rx.status === 'cancelled' && (
         <div className="ps-alert ps-alert-error" style={{ marginBottom: 'var(--ps-space-md)' }}>
-          Cancelled by the prescriber{rx.cancelled_at ? ` on ${new Date(rx.cancelled_at).toLocaleDateString('en-GB')}` : ''}
+          Cancelled by the prescriber{rx.cancelled_at ? ` on ${pepsDate(rx.cancelled_at)}` : ''}
           {rx.cancel_reason ? `: ${rx.cancel_reason}` : ''}. Do not dispense.
+        </div>
+      )}
+
+      {altered && (
+        <div className="ps-alert ps-alert-error" style={{ marginBottom: 'var(--ps-space-md)' }}>
+          This prescription has been changed since the prescriber signed it. Do not dispense it. Contact the prescriber.
+        </div>
+      )}
+      {prescriberBlocked && rx.status !== 'dispensed' && rx.status !== 'cancelled' && (
+        <div className="ps-alert ps-alert-error" style={{ marginBottom: 'var(--ps-space-md)' }}>
+          The prescriber's PharmStation account is {verify?.prescriber_status}. Do not dispense this prescription; contact the prescriber or the patient.
         </div>
       )}
 
@@ -201,13 +184,14 @@ export function PEPSPrescriptionDetailPage() {
               </div>
               <strong style={{ fontSize: 'var(--ps-font-lg)' }}>{rx.patient_snapshot?.full_name ?? '—'}</strong>
               {rx.patient_snapshot?.nhs_number && <div style={{ color: 'var(--ps-slate)' }}>NHS {rx.patient_snapshot.nhs_number}</div>}
-              {rx.patient_snapshot?.dob && <div style={{ color: 'var(--ps-slate)' }}>DOB {rx.patient_snapshot.dob}</div>}
+              {rx.patient_snapshot?.dob && <div style={{ color: 'var(--ps-slate)' }}>DOB {pepsDate(rx.patient_snapshot.dob)}</div>}
+              {rx.patient_snapshot?.address && <div style={{ color: 'var(--ps-slate)' }}>{rx.patient_snapshot.address}</div>}
               {rx.prescription_type === 'vet' && rx.animal_name && (
                 <div>Animal: {rx.animal_name}{rx.animal_owner ? ` (owner: ${rx.animal_owner})` : ''}</div>
               )}
             </div>
             <div style={{ textAlign: 'right', fontSize: 'var(--ps-font-sm)' }}>
-              <div>{rx.prescription_date}</div>
+              <div>{pepsDate(rx.prescription_date)}</div>
               {rx.repeats > 0 && <div>{rx.repeats_dispensed}/{totalIssues} issued</div>}
             </div>
           </div>
@@ -217,6 +201,9 @@ export function PEPSPrescriptionDetailPage() {
             {activeItems.map((it) => (
               <li key={it.id} style={{ marginBottom: 10 }}>
                 <strong>{it.drug_name}</strong> — {it.quantity}
+                {pepsCdSchedule(it.cd_category) !== 'none' && (
+                  <span className="ps-badge" style={{ marginLeft: 6 }}>{PEPS_CD_LABELS[pepsCdSchedule(it.cd_category)]}</span>
+                )}
                 {it.dosage && <div style={{ fontSize: 'var(--ps-font-sm)', color: 'var(--ps-slate)' }}>{it.dosage}</div>}
                 {it.dmd_code && <div style={{ fontSize: 'var(--ps-font-xs)', color: 'var(--ps-mist)' }}>dm+d {it.dmd_type?.toUpperCase()} {it.dmd_code}</div>}
               </li>
@@ -233,9 +220,21 @@ export function PEPSPrescriptionDetailPage() {
               <div><strong>{rx.prescriber_snapshot?.full_name}</strong></div>
               <div style={{ color: 'var(--ps-slate)' }}>{rx.prescriber_snapshot?.registration_body} {rx.prescriber_snapshot?.registration_number}</div>
               {rx.prescribing_org_snapshot?.name && <div style={{ color: 'var(--ps-slate)' }}>{rx.prescribing_org_snapshot.name}</div>}
+              {rx.prescriber_snapshot?.address && <div style={{ color: 'var(--ps-slate)' }}>{rx.prescriber_snapshot.address}</div>}
             </div>
             {rx.signature_data && <img src={rx.signature_data} alt="signature" style={{ height: 56, maxWidth: 200, objectFit: 'contain' }} />}
           </div>
+          {verify && (
+            <div style={{ marginTop: 'var(--ps-space-md)', fontSize: 'var(--ps-font-sm)' }}>
+              {verify.status === 'verified' && (
+                <span className="ps-badge ps-badge-success">
+                  ✓ Electronically signed{verify.signed_at ? ` ${pepsDateTime(verify.signed_at)}` : ''} · unchanged since signing
+                </span>
+              )}
+              {verify.status === 'altered' && <span className="ps-badge ps-badge-danger">Changed since signing</span>}
+              {verify.status === 'unsigned' && <span className="ps-badge">Not sealed (written before PIN signing)</span>}
+            </div>
+          )}
         </div>
 
         {/* Actions + history */}
@@ -256,7 +255,7 @@ export function PEPSPrescriptionDetailPage() {
             )}
             {heldByMe && (
               <>
-                <button className="ps-btn ps-btn-primary" style={{ width: '100%', marginBottom: 8 }} disabled={busy}
+                <button className="ps-btn ps-btn-primary" style={{ width: '100%', marginBottom: 8 }} disabled={busy || altered || prescriberBlocked}
                   onClick={() => setShowDispense(true)}>
                   ✓ Dispense
                 </button>
@@ -303,7 +302,7 @@ export function PEPSPrescriptionDetailPage() {
                 <li key={ev.id} style={{ padding: '6px 0', borderBottom: '1px solid var(--ps-off-white)', fontSize: 'var(--ps-font-sm)' }}>
                   <strong>{formatEventLabel(ev)}</strong>
                   <div style={{ color: 'var(--ps-slate)', fontSize: 'var(--ps-font-xs)' }}>
-                    {new Date(ev.created_at).toLocaleString()}
+                    {pepsDateTime(ev.created_at)}
                   </div>
                 </li>
               ))}
@@ -326,29 +325,15 @@ export function PEPSPrescriptionDetailPage() {
           <label>Batch / supply note (optional)</label>
           <input className="ps-input" value={supplyNote} onChange={(e) => setSupplyNote(e.target.value)} placeholder="e.g. batch AB123, exp 03/2028" />
         </div>
-        {controlledDrugDeclared && (
-          <>
-            <div className="ps-alert ps-alert-warning" style={{ marginBottom: 'var(--ps-space-md)' }}>
-              Controlled-drug declaration detected. Ensure the physical compliant paper is retained and sent legally. Receiving pharmacies can only print copies.
-            </div>
-            <div className="form-group" style={{ marginBottom: 'var(--ps-space-sm)' }}>
-              <label>Attach scan/photo of physical prescription *</label>
-              <input
-                className="ps-input"
-                type="file"
-                accept="image/*,.pdf"
-                onChange={(e) => setControlledDispenseEvidence(e.target.files?.[0] ?? null)}
-              />
-            </div>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 'var(--ps-space-md)', fontSize: 'var(--ps-font-sm)' }}>
-              <input type="checkbox" checked={controlledDispenseAck} onChange={(e) => setControlledDispenseAck(e.target.checked)} />
-              I confirm legal handling obligations for this controlled-drug paper prescription.
-            </label>
-          </>
+        {cdItems.length > 0 && (
+          <div className="ps-alert ps-alert-warning" style={{ marginBottom: 'var(--ps-space-md)' }}>
+            Contains a controlled drug ({cdItems.map((it) => `${it.drug_name}: ${PEPS_CD_LABELS[pepsCdSchedule(it.cd_category)]}`).join('; ')}).
+            Check the prescription is still in date and record the batch in the supply note.
+          </div>
         )}
         <div style={{ display: 'flex', gap: 'var(--ps-space-sm)', justifyContent: 'flex-end' }}>
           <button className="ps-btn ps-btn-ghost" onClick={() => setShowDispense(false)}>Cancel</button>
-          <button className="ps-btn ps-btn-primary" disabled={busy}
+          <button className="ps-btn ps-btn-primary" disabled={busy || altered || prescriberBlocked}
             onClick={handleDispense}>
             Confirm dispense
           </button>

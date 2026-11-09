@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuthStore, usePepsStore } from '@pharmstation/core'
-import type { PepsPrescription, PepsSpineResult } from '@pharmstation/types'
+import { pepsDate, type PepsPrescription, type PepsSpineResult } from '@pharmstation/types'
+import { PageHeader } from '../../components/ui'
 
 function statusBadge(rx: PepsPrescription) {
   const expired = !!rx.expires_at && new Date(rx.expires_at).getTime() < Date.now()
@@ -126,20 +127,12 @@ export function PEPSQueuePage() {
 
   return (
     <div>
-      <div className="page-header">
-        <div className="breadcrumbs">
-          <a href="/" onClick={(e) => { e.preventDefault(); navigate('/') }}>Dashboard</a>
-          <span className="separator">/</span>
-          <span>PEPS Queue</span>
-        </div>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <h1>PEPS Queue</h1>
-          <button className="ps-btn ps-btn-primary" onClick={() => navigate('/peps/write')}>Write prescription</button>
-        </div>
-        <p style={{ color: 'var(--ps-slate)', marginTop: '4px' }}>
-          Prescriptions held by {organisation?.name ?? 'your pharmacy'}. Download ones sent to you, or claim a patient's spine prescription with their reference.
-        </p>
-      </div>
+      <PageHeader
+        breadcrumbs={[{ label: 'Dashboard', to: '/' }, { label: 'PEPS queue' }]}
+        title="PEPS queue"
+        subtitle={`Prescriptions held by ${organisation?.name ?? 'your pharmacy'}. Download ones sent to you, or claim a patient's spine prescription with their reference.`}
+        actions={<button className="ps-btn ps-btn-primary" onClick={() => navigate('/peps/write')}>Write prescription</button>}
+      />
 
       {!verified && (
         <div className="ps-alert ps-alert-warning" style={{ marginBottom: 'var(--ps-space-md)' }}>
@@ -251,7 +244,7 @@ export function PEPSQueuePage() {
                   <tr key={r.id}>
                     <td>{r.prescription_ref}</td>
                     <td>{r.patient_name ?? '—'}</td>
-                    <td>{r.prescription_date}</td>
+                    <td>{pepsDate(r.prescription_date)}</td>
                     <td>{r.status}</td>
                     <td>{r.is_open ? <span className="ps-badge ps-badge-success">{r.location}</span> : r.location}</td>
                   </tr>
@@ -294,7 +287,7 @@ export function PEPSQueuePage() {
                   <td>{r.patient_snapshot?.full_name ?? '—'}</td>
                   <td>{r.prescription_type === 'vet' ? 'Vet' : 'Private'}</td>
                   <td>{r.items?.length ?? 0}</td>
-                  <td>{r.prescription_date}</td>
+                  <td>{pepsDate(r.prescription_date)}</td>
                   <td>{r.repeats > 0 ? `${r.repeats_dispensed}/${r.repeats + 1}` : '—'}</td>
                   <td>{statusBadge(r)}</td>
                 </tr>

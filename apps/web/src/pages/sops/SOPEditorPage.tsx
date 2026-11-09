@@ -4,7 +4,9 @@ import { useAuthStore, useSOPStore, canManageSOPs } from '@pharmstation/core'
 import type { SOPNode } from '@pharmstation/types'
 import { RichTextEditor } from '../../components/sop/RichTextEditor'
 import { Modal } from '../../components/Modal'
-import { FilePen, FileText, Folder } from 'lucide-react'
+import { SOPReviewBar } from '../../components/sop/SOPReviewBar'
+import { FileText, Folder, Pencil, X } from 'lucide-react'
+import { alertDialog, confirmDialog } from '../../components/ui/dialog'
 
 // ── Tree node (recursive) ─────────────────────────────────────
 function TreeNodeItem({
@@ -63,7 +65,7 @@ function TreeNodeItem({
 
         {/* Content type icon */}
         <span style={{ fontSize: 13 }}>
-          {node.content_type === 'pdf' ? '📄' : node.content_type === 'none' ? '📁' : '📝'}
+          {node.content_type === 'pdf' ? <FileText size={14} strokeWidth={1.75} aria-hidden="true" /> : node.content_type === 'none' ? <Folder size={14} strokeWidth={1.75} aria-hidden="true" /> : <Pencil size={14} strokeWidth={1.75} aria-hidden="true" />}
         </span>
 
         {/* Title */}
@@ -103,12 +105,12 @@ function TreeNodeItem({
               title="Rename"
               onClick={() => onRename(node)}
               style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, padding: 2, color: 'var(--ps-text-muted)' }}
-            >✏</button>
+             aria-label="Rename"><Pencil size={12} strokeWidth={1.75} aria-hidden="true" /></button>
             <button
               title="Delete"
               onClick={() => onDelete(node)}
               style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, padding: 2, color: 'var(--ps-danger)' }}
-            >✕</button>
+             aria-label="Delete"><X size={12} strokeWidth={1.75} aria-hidden="true" /></button>
           </div>
         )}
       </div>
@@ -213,22 +215,73 @@ export function SOPEditorPage() {
     }
   }, [selectedNodeId, selectedNode?.id])
 
-  // Auto-save node content (debounced)
+  // Auto-save node content (debounced). Edits are held in pendingSave until
+  // they reach the database; switching section or publishing saves them first.
   const autoSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const pendingSave = useRef<{ nodeId: string; html: string } | null>(null)
+  const [saveState, setSaveState] = useState<'idle' | 'unsaved' | 'saving' | 'saved' | 'error'>('idle')
+
+  const flushSave = useCallback(async (): Promise<boolean> => {
+    if (autoSaveTimer.current) {
+      clearTimeout(autoSaveTimer.current)
+      autoSaveTimer.current = null
+    }
+    const pending = pendingSave.current
+    if (!pending) return true
+    setSaveState('saving')
+    const ok = await updateNode(pending.nodeId, { rich_content: pending.html })
+    if (pendingSave.current === pending) pendingSave.current = null
+    if (!ok) {
+      if (!pendingSave.current) pendingSave.current = pending // keep it to retry
+      setSaveState('error')
+      return false
+    }
+    setSaveState(pendingSave.current ? 'unsaved' : 'saved')
+    setNodeHasUnsaved(!!pendingSave.current)
+    return true
+  }, [updateNode])
+
   const handleContentChange = useCallback(
     (html: string) => {
+      if (!selectedNodeId) return
+      // Ignore "changes" that leave the section as it is stored.
+      const stored = activeNodes.find((n) => n.id === selectedNodeId)?.rich_content ?? ''
+      if (!pendingSave.current && (html === stored || (html === '<p></p>' && !stored))) return
       setNodeContent(html)
       setNodeHasUnsaved(true)
+      setSaveState('unsaved')
+      pendingSave.current = { nodeId: selectedNodeId, html }
       if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current)
-      autoSaveTimer.current = setTimeout(async () => {
-        if (selectedNodeId) {
-          await updateNode(selectedNodeId, { rich_content: html })
-          setNodeHasUnsaved(false)
-        }
-      }, 1500)
+      autoSaveTimer.current = setTimeout(() => { void flushSave() }, 1000)
     },
-    [selectedNodeId, updateNode]
+    [selectedNodeId, flushSave, activeNodes]
   )
+
+  const selectNode = useCallback(
+    async (id: string | null) => {
+      if (id === selectedNodeId) return
+      await flushSave()
+      setSaveState('idle')
+      setSelectedNode(id)
+    },
+    [selectedNodeId, flushSave, setSelectedNode]
+  )
+
+  // Warn before leaving with edits that haven't saved, and save on the way out.
+  useEffect(() => {
+    const warn = (e: BeforeUnloadEvent) => {
+      if (pendingSave.current) {
+        void flushSave()
+        e.preventDefault()
+        e.returnValue = ''
+      }
+    }
+    window.addEventListener('beforeunload', warn)
+    return () => {
+      window.removeEventListener('beforeunload', warn)
+      void flushSave()
+    }
+  }, [flushSave])
 
   const saveMeta = async () => {
     if (!docId) return
@@ -267,7 +320,7 @@ export function SOPEditorPage() {
     const msg = childCount > 0
       ? `Delete "${node.title}" and its ${childCount} child section(s)?`
       : `Delete "${node.title}"?`
-    if (!confirm(msg)) return
+    if (!await confirmDialog(msg)) return
     await deleteNode(node.id)
   }
 
@@ -299,7 +352,7 @@ export function SOPEditorPage() {
       const path = await uploadNodePDF(selectedNodeId, docId, file)
       setPdfUrl(await getNodePDFUrl(path))
     } catch (e: any) {
-      alert(`Upload failed: ${e.message}`)
+      alertDialog(`Upload failed: ${e.message}`)
     } finally {
       setPdfLoading(false)
     }
@@ -318,13 +371,17 @@ export function SOPEditorPage() {
     } else {
       msg = 'Publish a new version? Assigned staff will be asked to read and sign it again. Their sign-offs for the old version are kept.'
     }
-    if (!confirm(msg)) return
+    if (!await confirmDialog(msg)) return
+    if (!(await flushSave())) {
+      alertDialog('Your latest changes could not be saved, so the SOP was not published. Check your connection and try again.')
+      return
+    }
     await publishDocument(docId)
   }
 
   const handleArchive = async () => {
     if (!docId) return
-    if (!confirm('Archive this SOP? Staff will no longer see it. Its sign-off history is kept and you can restore it later.')) return
+    if (!await confirmDialog('Archive this SOP? Staff will no longer see it. Its sign-off history is kept and you can restore it later.')) return
     await archiveDocument(docId)
   }
 
@@ -414,7 +471,7 @@ export function SOPEditorPage() {
                       ? 'Restore'
                       : neverPublished
                         ? 'Publish'
-                        : 'Publish New Version'}
+                        : 'Publish new version'}
                   </button>
                 )}
               </>
@@ -433,6 +490,24 @@ export function SOPEditorPage() {
           />
         )}
       </div>
+
+      {doc && doc.status === 'published' && (
+        <div className="ps-alert ps-alert-info" role="note" style={{ margin: '0 0 12px', fontSize: 13 }}>
+          {hasChanges ? (
+            <>
+              <strong>You are editing a draft of version {doc.version + 1}.</strong> Staff still read version {doc.version}.
+              When you publish the new version, everyone assigned is asked to read and sign it again.
+            </>
+          ) : (
+            <>
+              <strong>Version {doc.version} is published.</strong> Any change you make here is saved as a draft of version {doc.version + 1}.
+              Staff keep reading version {doc.version} until you publish the new version, and then they sign again.
+            </>
+          )}
+        </div>
+      )}
+
+      {doc && doc.status !== 'draft' && doc.review_interval_months !== undefined && <SOPReviewBar doc={doc} />}
 
       {error && (
         <div className="ps-alert ps-alert-error" style={{ margin: '0 0 12px' }}>
@@ -497,7 +572,7 @@ export function SOPEditorPage() {
                   node={node}
                   depth={0}
                   selectedId={selectedNodeId}
-                  onSelect={setSelectedNode}
+                  onSelect={(id) => { void selectNode(id) }}
                   onAddChild={(parentId) => setAddingNode({ parentId })}
                   onRename={(n) => { setRenameNode(n); setRenameTitle(n.title) }}
                   onDelete={handleDeleteNode}
@@ -514,7 +589,7 @@ export function SOPEditorPage() {
           {!selectedNode ? (
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 1, color: 'var(--ps-text-muted)' }}>
               <div style={{ textAlign: 'center' }}>
-                <span className="ps-empty-icon" aria-hidden="true"><FilePen size={26} strokeWidth={1.75} /></span>
+                <div style={{ marginBottom: 12 }}><FileText size={26} strokeWidth={1.75} aria-hidden="true" /></div>
                 <p>Select a section from the tree to edit its content,<br />or click <strong>+ Add</strong> to create a new section.</p>
               </div>
             </div>
@@ -556,11 +631,25 @@ export function SOPEditorPage() {
                   ))}
                 </div>
 
-                {nodeHasUnsaved && (
-                  <span style={{ fontSize: 12, color: 'var(--ps-text-muted)' }}>Auto-saving…</span>
-                )}
-                {saving && !nodeHasUnsaved && (
-                  <span style={{ fontSize: 12, color: 'var(--ps-success)' }}>✓ Saved</span>
+                {selectedNode.content_type === 'rich_text' && (
+                  <span role="status" aria-live="polite" style={{ fontSize: 12, display: 'flex', alignItems: 'center', gap: 8 }}>
+                    {saveState === 'unsaved' && <span style={{ color: 'var(--ps-text-muted)' }}>Unsaved changes</span>}
+                    {saveState === 'saving' && <span style={{ color: 'var(--ps-text-muted)' }}>Saving…</span>}
+                    {saveState === 'saved' && <span style={{ color: 'var(--ps-success)' }}>✓ Saved</span>}
+                    {saveState === 'error' && (
+                      <>
+                        <span style={{ color: 'var(--ps-error)' }}>Not saved</span>
+                        <button className="ps-btn ps-btn-ghost" style={{ padding: '2px 8px', fontSize: 12 }} onClick={() => { void flushSave() }}>
+                          Retry
+                        </button>
+                      </>
+                    )}
+                    {(saveState === 'unsaved' || saveState === 'error') && (
+                      <button className="ps-btn ps-btn-secondary" style={{ padding: '2px 10px', fontSize: 12 }} onClick={() => { void flushSave() }}>
+                        Save now
+                      </button>
+                    )}
+                  </span>
                 )}
               </div>
 
@@ -568,6 +657,7 @@ export function SOPEditorPage() {
               <div style={{ flex: 1, overflowY: 'auto', padding: 20 }}>
                 {selectedNode.content_type === 'rich_text' && (
                   <RichTextEditor
+                    key={selectedNode.id}
                     content={nodeContent}
                     onChange={handleContentChange}
                     placeholder="Start writing this section…"
@@ -621,7 +711,7 @@ export function SOPEditorPage() {
                         }}
                         onClick={() => fileInputRef.current?.click()}
                       >
-                        <span className="ps-empty-icon" aria-hidden="true"><FileText size={26} strokeWidth={1.75} /></span>
+                        <div style={{ marginBottom: 8 }}><FileText size={26} strokeWidth={1.75} aria-hidden="true" /></div>
                         <p>Click to upload a PDF</p>
                         <p style={{ fontSize: 12 }}>The PDF will be stored securely and accessible to assigned staff</p>
                       </div>
@@ -639,7 +729,7 @@ export function SOPEditorPage() {
                       borderRadius: 8,
                     }}
                   >
-                    <span className="ps-empty-icon" aria-hidden="true"><Folder size={26} strokeWidth={1.75} /></span>
+                    <div style={{ marginBottom: 8 }}><Folder size={26} strokeWidth={1.75} aria-hidden="true" /></div>
                     <p>This section is a header/folder with no content.</p>
                     <p style={{ fontSize: 13 }}>Add child sections using the tree, or change the content type above.</p>
                   </div>

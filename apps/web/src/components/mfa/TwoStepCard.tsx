@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { useAuthStore } from '@pharmstation/core'
 import { getUserClient, listTotpFactors, logAuthEvent, removeTotpFactor, type TotpFactor } from '@pharmstation/supabase-client'
 import { TotpSetup } from './TotpSetup'
+import { confirmDialog } from '../ui/dialog'
 
 /** My profile: turn two-step sign-in on or off. */
 export function TwoStepCard() {
@@ -21,7 +22,7 @@ export function TwoStepCard() {
   }, [factors])
 
   const remove = async (id: string) => {
-    if (!window.confirm('Turn off two-step sign-in? Your account will only be protected by your password.')) return
+    if (!await confirmDialog('Turn off two-step sign-in? Your account will only be protected by your password.')) return
     setError(null)
     try {
       await removeTotpFactor(id)

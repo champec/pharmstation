@@ -9,6 +9,7 @@ import { UserLoginPage } from './pages/auth/UserLoginPage'
 import { ForgotPasswordPage } from './pages/auth/ForgotPasswordPage'
 import { ResetPasswordPage } from './pages/auth/ResetPasswordPage'
 import { PersonalLoginPage } from './pages/auth/PersonalLoginPage'
+import { PersonalSignupPage } from './pages/auth/PersonalSignupPage'
 import { PersonalProfilePage } from './pages/PersonalProfilePage'
 import { LocumApprovalsPage } from './pages/admin/LocumApprovalsPage'
 import { AnnouncementsPage } from './pages/admin/AnnouncementsPage'
@@ -113,6 +114,8 @@ import { PrivacyNoticePage } from './pages/public/PrivacyNoticePage'
 import { LandingPage } from './pages/public/LandingPage'
 import { ModernShopHomePage } from './pages/public/ModernShopHomePage'
 import { ShopPaymentResultPage } from './pages/public/ShopPaymentResultPage'
+import { ShopOrderTrackingPage } from './pages/public/ShopOrderTrackingPage'
+import { ShopTermsPage } from './pages/public/ShopTermsPage'
 import { PublicShopOrgPage } from './pages/public/PublicShopOrgPage'
 import { ShopProductsPage } from './pages/shop/ShopProductsPage'
 import { ShopOrdersPage } from './pages/shop/ShopOrdersPage'
@@ -163,6 +166,13 @@ import { CareHomeResidentPage } from './pages/care-homes/CareHomeResidentPage'
 import { CareHomeMarChartPage } from './pages/care-homes/CareHomeMarChartPage'
 import { CareHomeSupplyBatchPage } from './pages/care-homes/CareHomeSupplyBatchPage'
 import { CareHomePrescriptionRequestPage } from './pages/care-homes/CareHomePrescriptionRequestPage'
+import { CareHomeGuard } from './pages/care-homes/CareHomeGuard'
+
+/** Care home logins have no pharmacy dashboard; send them to their workspace. */
+function HomeRoute() {
+  const organisationType = useAuthStore((s) => s.organisation?.organisation_type)
+  return organisationType === 'carehome' ? <Navigate to="/care-homes" replace /> : <DashboardPage />
+}
 // Pharmacy outreach CRM
 import { PharmacyOutreachPage } from './pages/outreach/PharmacyOutreachPage'
 
@@ -208,6 +218,9 @@ export function App() {
       <Route path="/book/:orgSlug/payment-result" element={<PaymentResultPage />} />
       <Route path="/booking/manage/:token" element={<ManageBookingPage />} />
       <Route path="/shop" element={<ModernShopHomePage />} />
+      <Route path="/shop/order" element={<ShopOrderTrackingPage />} />
+      <Route path="/shop/order/:orderNumber" element={<ShopOrderTrackingPage />} />
+      <Route path="/shop/terms" element={<ShopTermsPage />} />
       <Route path="/shop/:orgSlug" element={<PublicShopOrgPage />} />
       <Route path="/shop/:orgSlug/payment-result" element={<ShopPaymentResultPage />} />
       <Route path="/about" element={<AboutPage />} />
@@ -292,7 +305,11 @@ export function App() {
         {/* Personal (individual-tier) login — bypasses org entirely */}
         <Route
           path="/me/login"
-          element={isUserLoggedIn ? <Navigate to="/me" replace /> : <PersonalLoginPage />}
+          element={isUserLoggedIn ? <Navigate to={locumProfile ? '/locum/dashboard' : '/me'} replace /> : <PersonalLoginPage />}
+        />
+        <Route
+          path="/me/signup"
+          element={isUserLoggedIn ? <Navigate to="/me" replace /> : <PersonalSignupPage />}
         />
       </Route>
 
@@ -348,7 +365,7 @@ export function App() {
           )
         }
       >
-        <Route path="/" element={<DashboardPage />} />
+        <Route path="/" element={<HomeRoute />} />
         <Route path="/registers" element={<RegistersPage />} />
         <Route path="/registers/cd" element={<CDRegisterPage />} />
         <Route path="/registers/cd/:drugId" element={<CDLedgerPage />} />
@@ -468,6 +485,7 @@ export function App() {
         <Route path="/shifts/:id" element={<ShiftDetailPage />} />
 
         {/* Care home management */}
+        <Route element={<CareHomeGuard />}>
         <Route path="/care-homes" element={<CareHomeDashboardPage />} />
         <Route path="/care-homes/manage" element={<CareHomeManagePage />} />
         <Route path="/care-homes/manage/:linkId" element={<CareHomeManagePage />} />
@@ -479,6 +497,7 @@ export function App() {
         <Route path="/care-homes/:linkId/supplies/:batchId" element={<CareHomeSupplyBatchPage />} />
         <Route path="/care-homes/supplies/:batchId" element={<CareHomeSupplyBatchPage />} />
         <Route path="/care-homes/:linkId/prescriptions/:requestId" element={<CareHomePrescriptionRequestPage />} />
+        </Route>
       </Route>
 
       {/* Catch all */}

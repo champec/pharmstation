@@ -96,7 +96,7 @@ export function NewShiftPage() {
           end_time: endTime + ':00',
           rate_per_hour: parseFloat(rate),
           booking_mode: bookingMode,
-          payment_mode: 'platform',
+          payment_mode: 'external',
           status: 'open',
           notes: notes.trim() || null,
         })
@@ -300,9 +300,9 @@ export function NewShiftPage() {
 
         {/* Payment notice */}
         <div className="ps-alert ps-alert-info" style={{ marginBottom: '1.5rem' }}>
-          <strong>Payments:</strong> All shifts use platform payments (Stripe). A 50p platform fee
-          applies per confirmed shift. Locums are paid automatically on the Wednesday after
-          their working week.
+          <strong>Payment:</strong> you pay the locum directly, at the rate above, after the shift.
+          PharmStation records their sign-in and sign-out times, and the weekly timesheet
+          (Shifts › Timesheets) shows what you owe each locum.
         </div>
 
         {/* Submit */}

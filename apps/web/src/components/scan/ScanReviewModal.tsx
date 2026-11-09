@@ -11,6 +11,7 @@ import type { ScanDrugItem, ScanQueueItem, CDDrug } from '@pharmstation/types'
 import { canApproveCdScan } from '@pharmstation/types'
 import { EditDrugModal } from './EditDrugModal'
 import { TriangleAlert } from 'lucide-react'
+import { confirmDialog } from '../ui/dialog'
 
 interface ScanReviewModalProps {
   isOpen: boolean
@@ -208,7 +209,7 @@ export function ScanReviewModal({ isOpen, scanId, onClose }: ScanReviewModalProp
 
   const handleRetry = async () => {
     if (!activeScan || !organisation?.id || !userSession?.access_token || retrying) return
-    if (!window.confirm('Re-run the AI on this scan? The current extracted drugs will be replaced with a fresh reading.')) return
+    if (!await confirmDialog('Re-run the AI on this scan? The current extracted drugs will be replaced with a fresh reading.')) return
     setRetrying(true)
     setRetryError(null)
     const result = await retryScan({
@@ -705,7 +706,7 @@ function ScanItemCard({ item, scan, userId, canApprove, canCreateRegister, onApp
   }
 
   const handleReject = async () => {
-    if (!confirm('Reject this drug item? It will not create a register entry.')) return
+    if (!await confirmDialog('Reject this drug item? It will not create a register entry.')) return
     setRejecting(true)
     try {
       await onReject(item.id)

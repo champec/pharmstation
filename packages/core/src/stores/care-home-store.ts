@@ -62,6 +62,14 @@ interface AddResidentInput {
   createdBy: string
 }
 
+interface NewResidentPatientInput {
+  organisationId: string
+  firstName: string
+  lastName: string
+  dob?: string
+  nhsNumber?: string
+}
+
 interface AddMedicationScheduleInput {
   residentId: string
   patientMedicationId: string
@@ -123,6 +131,8 @@ export interface CareHomeState {
   updateRequestStatus: (requestId: string, status: CareHomeMedicationRequestStatus, reviewedBy: string) => Promise<void>
   searchPatients: (organisationId: string, query: string) => Promise<void>
   addResident: (input: AddResidentInput) => Promise<void>
+  /** Creates the PMR patient first (pharmacy side), then links them as a resident. */
+  addNewResident: (patient: NewResidentPatientInput, input: Omit<AddResidentInput, 'patientId'>) => Promise<void>
   updateResidentStatus: (residentId: string, status: CareHomeResidentStatus) => Promise<void>
   updateResidentDetails: (residentId: string, updates: { unit_id?: string | null; room_number?: string | null; gp_name?: string | null; gp_practice?: string | null; allergies?: string | null; special_instructions?: string | null }) => Promise<void>
   fetchResidentMedicationWorkspace: (residentId: string) => Promise<void>
@@ -365,7 +375,7 @@ export const useCareHomeStore = create<CareHomeState>((set, get) => ({
           special_instructions: input.specialInstructions?.trim() || null,
           created_by: input.createdBy,
         })
-        .select('*, patient:ps_patients(*)')
+        .select('*, patient:ps_patients(*), unit:ps_care_home_units(*), group_memberships:ps_care_home_group_members(*)')
         .single()
       if (error) throw error
       set((state) => ({
@@ -373,6 +383,30 @@ export const useCareHomeStore = create<CareHomeState>((set, get) => ({
         patientSearchResults: [],
         saving: false,
       }))
+    } catch (error) {
+      set({ error: error instanceof Error ? error.message : 'Unable to add the resident.', saving: false })
+      throw error
+    }
+  },
+
+  addNewResident: async (patient, input) => {
+    set({ saving: true, error: null })
+    try {
+      const nhsNumber = patient.nhsNumber?.replace(/\s+/g, '') || null
+      const { data: created, error: patientError } = await getUserClient()
+        .from('ps_patients')
+        .insert({
+          organisation_id: patient.organisationId,
+          first_name: patient.firstName.trim(),
+          last_name: patient.lastName.trim(),
+          dob: patient.dob || null,
+          nhs_number: nhsNumber,
+        })
+        .select('id')
+        .single()
+      if (patientError) throw patientError
+      set({ saving: false })
+      await get().addResident({ ...input, patientId: (created as { id: string }).id })
     } catch (error) {
       set({ error: error instanceof Error ? error.message : 'Unable to add the resident.', saving: false })
       throw error
@@ -745,6 +779,8 @@ export const useCareHomeStore = create<CareHomeState>((set, get) => ({
       set({ error: error.message, saving: false })
       return
     }
+    // Older residents were placed in a group through unit_id; clear that too.
+    await getUserClient().from('ps_care_home_residents').update({ unit_id: null }).eq('id', residentId).eq('unit_id', groupId)
     await get().fetchGroup(groupId)
     set({ saving: false })
   },
