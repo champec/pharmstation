@@ -1,3 +1,4 @@
+import { BookingNavAccount } from '../../components/public/BookingNavAccount'
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { getUserClient } from '@pharmstation/supabase-client'
@@ -136,7 +137,7 @@ export function ManageBookingPage() {
 
   return (
     <div className="booking-public">
-      <header className="booking-nav"><button type="button" className="booking-wordmark" onClick={() => navigate('/book')}>Pharm<span>Station</span><small>Book</small></button><nav><a href="/patient/login">Sign in</a></nav></header>
+      <header className="booking-nav"><button type="button" className="booking-wordmark" onClick={() => navigate('/book')}>Pharm<span>Station</span><small>Book</small></button><nav><BookingNavAccount /></nav></header>
       <main className="booking-result booking-manage">
         {loading && <div className="booking-loading booking-page-state"><i /><span>Loading your booking…</span></div>}
         {!loading && !b && (

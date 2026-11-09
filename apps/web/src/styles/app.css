@@ -322,6 +322,8 @@
 .booking-time-heading { display: flex; justify-content: space-between; margin-bottom: 12px; }
 .booking-time-heading strong { font-size: 16px; }
 .booking-time-heading span { color: #61747a; font-size: 13px; }
+.booking-signed-in { margin-top: 8px; padding: 10px 12px; border-left: 4px solid var(--booking-blue); background: var(--booking-paper); font-size: 14px; }
+.booking-link-button { padding: 0; border: 0; background: none; color: var(--booking-blue); font: inherit; text-decoration: underline; cursor: pointer; }
 .booking-date-strip { display: block; }
 .booking-date-label { display: block; margin-bottom: 10px; font-size: 14px; font-weight: 800; }
 .booking-date-chips { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px; scroll-snap-type: x proximity; }
@@ -14968,3 +14970,20 @@ textarea.form-input {
     width: 100%;
   }
 }
+
+/* Patient portal (signed-in patient pages inside the public shell) */
+.patient-portal-account { display: flex; align-items: center; gap: 12px; }
+.patient-portal-name { font-size: 14px; font-weight: 600; color: var(--ps-midnight); }
+.patient-portal-tabs { display: flex; gap: 4px; margin-bottom: 24px; border-bottom: 2px solid var(--ps-off-white); }
+.patient-portal-tabs a { padding: 10px 14px; margin-bottom: -2px; border-bottom: 2px solid transparent; color: var(--ps-slate); font-weight: 600; text-decoration: none; }
+.patient-portal-tabs a.active { border-bottom-color: var(--ps-deep-blue); color: var(--ps-midnight); }
+.patient-portal-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; flex-wrap: wrap; margin-bottom: 20px; }
+.patient-portal-head h1 { margin: 0 0 4px; }
+.patient-portal-head p { margin: 0; color: var(--ps-slate); }
+.patient-portal-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+@media (max-width: 600px) { .patient-portal-name { display: none; } }
+
+.patient-pharmacy-results { display: grid; gap: 4px; margin-top: 6px; }
+.patient-pharmacy-results button { display: grid; gap: 2px; padding: 10px 12px; border: 1px solid var(--ps-off-white); border-radius: var(--ps-radius-md); background: var(--ps-white); text-align: left; cursor: pointer; }
+.patient-pharmacy-results button:hover, .patient-pharmacy-results button:focus-visible { border-color: var(--ps-deep-blue); }
+.patient-pharmacy-results button span, .patient-pharmacy-hint { color: var(--ps-slate); font-size: var(--ps-font-sm); }

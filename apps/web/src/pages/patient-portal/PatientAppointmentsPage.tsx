@@ -4,13 +4,14 @@ import { usePatientStore } from '@pharmstation/core'
 import { getPatientClient } from '@pharmstation/supabase-client'
 import type { Appointment, AppointmentStatus } from '@pharmstation/types'
 import { alertDialog, confirmDialog } from '../../components/ui/dialog'
+import { PatientPortalShell } from './PatientPortalShell'
 
 const STATUS_BADGE: Record<AppointmentStatus, { cls: string; label: string }> = {
   pending: { cls: 'ps-badge-amber', label: 'Pending' },
   confirmed: { cls: 'ps-badge-blue', label: 'Confirmed' },
   completed: { cls: 'ps-badge-green', label: 'Completed' },
   cancelled: { cls: 'ps-badge-red', label: 'Cancelled' },
-  no_show: { cls: 'ps-badge-amber', label: 'No Show' },
+  no_show: { cls: 'ps-badge-amber', label: 'Missed' },
 }
 
 export function PatientAppointmentsPage() {
@@ -85,19 +86,15 @@ export function PatientAppointmentsPage() {
   const displayed = tab === 'upcoming' ? upcoming : past
 
   if (authLoading) {
-    return <div style={{ textAlign: 'center', padding: 'var(--ps-space-2xl)', color: 'var(--ps-slate)' }}>Loading…</div>
+    return <PatientPortalShell title="My appointments"><p style={{ color: 'var(--ps-slate)' }}>Loading…</p></PatientPortalShell>
   }
 
   return (
-    <div style={{ maxWidth: '800px', margin: '40px auto', padding: '0 var(--ps-space-lg)' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--ps-space-lg)' }}>
-        <h1>📅 My Appointments</h1>
-        <div style={{ display: 'flex', gap: 'var(--ps-space-sm)' }}>
-          <button className="ps-btn ps-btn-secondary ps-btn-sm" onClick={() => navigate('/patient/profile')}>👤 Profile</button>
-          <button className="ps-btn ps-btn-primary ps-btn-sm" onClick={() => navigate('/book')}>Book New</button>
-        </div>
-      </div>
-
+    <PatientPortalShell
+      title="My appointments"
+      subtitle="Bookings you've made at any PharmStation pharmacy."
+      actions={<button className="ps-btn ps-btn-primary ps-btn-sm" onClick={() => navigate('/book')}>Book an appointment</button>}
+    >
       {/* Tabs */}
       <div style={{ display: 'flex', gap: 'var(--ps-space-md)', marginBottom: 'var(--ps-space-lg)', borderBottom: '2px solid var(--ps-off-white)' }}>
         {(['upcoming', 'past'] as const).map((t) => (
@@ -122,7 +119,7 @@ export function PatientAppointmentsPage() {
 
       {!loading && displayed.length === 0 && (
         <div className="ps-card" style={{ padding: 'var(--ps-space-xl)', textAlign: 'center', color: 'var(--ps-slate)' }}>
-          {tab === 'upcoming' ? 'No upcoming appointments.' : 'No past appointments.'}
+          {tab === 'upcoming' ? <>No upcoming appointments. <a href="/book">Book an appointment</a></> : 'No past appointments.'}
         </div>
       )}
 
@@ -135,7 +132,7 @@ export function PatientAppointmentsPage() {
             <div key={appt.id} className="ps-card" style={{ padding: 'var(--ps-space-lg)' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                 <div>
-                  <h3 style={{ margin: '0 0 4px' }}>{appt.service?.name || 'General Appointment'}</h3>
+                  <h3 style={{ margin: '0 0 4px' }}>{appt.service?.name || 'Appointment'}</h3>
                   <p style={{ color: 'var(--ps-slate)', margin: '0 0 4px', fontSize: 'var(--ps-font-sm)' }}>
                     {startTime
                       ? startTime.toLocaleString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
@@ -161,6 +158,6 @@ export function PatientAppointmentsPage() {
           )
         })}
       </div>
-    </div>
+    </PatientPortalShell>
   )
 }
