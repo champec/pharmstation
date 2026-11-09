@@ -120,7 +120,14 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
     // 1. User session
     try {
-      const userSession = await getUserSession()
+      let userSession = await getUserSession()
+      // A stored session can outlive the account (deleted, banned or signed
+      // out everywhere). Ask the server; if it refuses, start signed out.
+      if (userSession && (await accountGone())) {
+        await userClient.auth.signOut({ scope: 'local' }).catch(() => {})
+        await orgSignOut().catch(() => {})
+        userSession = null
+      }
       const mfa = userSession?.user ? await getMfaStatus().catch(() => null) : null
       if (userSession?.user && mfa?.needsCode) {
         set({ mfaPendingFactorId: mfa.factorId })
@@ -333,6 +340,20 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   clearError: () => set({ error: null }),
 }))
+
+/** True when the server says the stored user session is no longer valid.
+ *  Network failures (offline) don't count, so the app still opens offline. */
+async function accountGone(): Promise<boolean> {
+  try {
+    const { error } = await userClient.auth.getUser()
+    if (!error) return false
+    if (error.name === 'AuthRetryableFetchError') return false
+    const status = (error as { status?: number }).status ?? 0
+    return status >= 400
+  } catch {
+    return false
+  }
+}
 
 /** Reconnect the pharmacy saved on this phone, if any. */
 async function restoreOrgLayer() {

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { Modal } from './Modal'
 import { Link } from 'react-router-dom'
 import {
   adminListDeletionRequests,
@@ -28,20 +29,26 @@ export function PlatformAdminCard() {
 
   const [error, setError] = useState<string | null>(null)
 
-  const handle = async (r: DeletionRequest, status: 'done' | 'declined') => {
-    let note: string | null
-    if (status === 'declined') {
-      note = window.prompt('Why can’t this be done? The person will see this.')
-      if (!note) return
-    } else {
-      if (!window.confirm(`Delete ${r.email ?? 'this account'}? Their sign-in and personal details are removed for good. Records they made at a pharmacy stay, under "Deleted user".`)) return
-      note = window.prompt('Optional note for the record') ?? ''
-    }
+  // The request being deleted or declined, shown in a modal.
+  const [pending, setPending] = useState<{ r: DeletionRequest; status: 'done' | 'declined' } | null>(null)
+  const [note, setNote] = useState('')
+
+  const open = (r: DeletionRequest, status: 'done' | 'declined') => {
+    setNote('')
+    setError(null)
+    setPending({ r, status })
+  }
+
+  const confirm = async () => {
+    if (!pending) return
+    const { r, status } = pending
+    if (status === 'declined' && !note.trim()) return setError('Say why, so the person knows.')
     setBusyId(r.id)
     setError(null)
     try {
-      if (status === 'done') await adminCompleteAccountDeletion(r.id, note || undefined)
-      else await adminSetDeletionRequest(r.id, status, note ?? undefined)
+      if (status === 'done') await adminCompleteAccountDeletion(r.id, note.trim() || undefined)
+      else await adminSetDeletionRequest(r.id, status, note.trim())
+      setPending(null)
       loadRequests()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'That didn’t work.')
@@ -82,10 +89,10 @@ export function PlatformAdminCard() {
                   <strong>{r.email}</strong> · {new Date(r.created_at).toLocaleDateString('en-GB')}
                   {r.reason && <span className="text-muted"> · “{r.reason}”</span>}
                 </span>
-                <button type="button" className="ps-btn ps-btn-secondary ps-btn-sm" disabled={busyId === r.id} onClick={() => handle(r, 'done')}>
+                <button type="button" className="ps-btn ps-btn-secondary ps-btn-sm" disabled={busyId === r.id} onClick={() => open(r, 'done')}>
                   Delete account
                 </button>
-                <button type="button" className="ps-btn ps-btn-ghost ps-btn-sm" disabled={busyId === r.id} onClick={() => handle(r, 'declined')}>
+                <button type="button" className="ps-btn ps-btn-ghost ps-btn-sm" disabled={busyId === r.id} onClick={() => open(r, 'declined')}>
                   Decline
                 </button>
               </div>
@@ -93,6 +100,38 @@ export function PlatformAdminCard() {
           </>
         )}
       </div>
+      <Modal
+        isOpen={!!pending}
+        onClose={() => setPending(null)}
+        title={pending?.status === 'done' ? 'Delete this account?' : 'Decline this request?'}
+        width="480px"
+      >
+        {pending && (
+          <>
+            <p style={{ fontSize: '0.875rem', marginBottom: '0.75rem' }}>
+              {pending.status === 'done'
+                ? <>The sign-in and personal details of <strong>{pending.r.email ?? 'this person'}</strong> are removed for good. Registers and logs they made stay, under &ldquo;Deleted user&rdquo;.</>
+                : <>Tell <strong>{pending.r.email ?? 'the person'}</strong> why their account can&rsquo;t be deleted. They&rsquo;ll see this note.</>}
+            </p>
+            <label htmlFor="deletion-note" style={{ fontSize: '0.8125rem', fontWeight: 600 }}>
+              {pending.status === 'done' ? 'Note for the record (optional)' : 'Reason'}
+            </label>
+            <textarea id="deletion-note" className="ps-input" rows={3} value={note} onChange={(e) => setNote(e.target.value)} style={{ width: '100%', marginTop: '0.25rem' }} />
+            {error && <div className="ps-alert ps-alert-error" style={{ marginTop: '0.75rem' }}>{error}</div>}
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem', marginTop: '1rem' }}>
+              <button type="button" className="ps-btn ps-btn-ghost" onClick={() => setPending(null)}>Cancel</button>
+              <button
+                type="button"
+                className={pending.status === 'done' ? 'ps-btn ps-btn-danger' : 'ps-btn ps-btn-primary'}
+                disabled={busyId === pending.r.id}
+                onClick={confirm}
+              >
+                {busyId === pending.r.id ? 'Working…' : pending.status === 'done' ? 'Delete account' : 'Decline request'}
+              </button>
+            </div>
+          </>
+        )}
+      </Modal>
     </div>
   )
 }
