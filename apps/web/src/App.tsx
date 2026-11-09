@@ -12,6 +12,7 @@ import { PersonalLoginPage } from './pages/auth/PersonalLoginPage'
 import { PersonalProfilePage } from './pages/PersonalProfilePage'
 import { LocumApprovalsPage } from './pages/admin/LocumApprovalsPage'
 import { AnnouncementsPage } from './pages/admin/AnnouncementsPage'
+import { SupportInboxPage } from './pages/admin/SupportInboxPage'
 import { PrescriberApprovalsPage } from './pages/peps/PrescriberApprovalsPage'
 import { PharmacySignupPage } from './pages/onboarding/PharmacySignupPage'
 import { OwnerSetupPage } from './pages/onboarding/OwnerSetupPage'
@@ -134,6 +135,7 @@ import { LocumShiftsBrowsePage } from './pages/locum/LocumShiftsBrowsePage'
 import { LocumBookingsPage } from './pages/locum/LocumBookingsPage'
 import { LocumProfilePage } from './pages/locum/LocumProfilePage'
 import { LocumInvoicesPage } from './pages/locum/LocumInvoicesPage'
+import { LocumTimesheetsPage } from './pages/locum/LocumTimesheetsPage'
 import { LocumSOPsPage } from './pages/locum/LocumSOPsPage'
 // PEPS — Private Electronic Prescription Service
 import { PEPSQueuePage } from './pages/peps/PEPSQueuePage'
@@ -150,6 +152,7 @@ import { ShiftDetailPage } from './pages/shifts/ShiftDetailPage'
 import { ShiftLocumDirectoryPage } from './pages/shifts/ShiftLocumDirectoryPage'
 import { ShiftSOPsPage } from './pages/shifts/ShiftSOPsPage'
 import { ShiftPaymentsPage } from './pages/shifts/ShiftPaymentsPage'
+import { ShiftTimesheetsPage } from './pages/shifts/ShiftTimesheetsPage'
 // Care home management
 import { CareHomeDashboardPage } from './pages/care-homes/CareHomeDashboardPage'
 import { CareHomeManagePage } from './pages/care-homes/CareHomeManagePage'
@@ -247,6 +250,7 @@ export function App() {
         <Route path="/locum/bookings" element={<LocumBookingsPage />} />
         <Route path="/locum/profile" element={<LocumProfilePage />} />
         <Route path="/locum/invoices" element={<LocumInvoicesPage />} />
+        <Route path="/locum/timesheets" element={<LocumTimesheetsPage />} />
         <Route path="/locum/sops" element={<LocumSOPsPage />} />
       </Route>
 
@@ -304,6 +308,10 @@ export function App() {
       <Route
         path="/me/admin/locums"
         element={isUserLoggedIn ? <LocumApprovalsPage /> : <Navigate to="/me/login" replace />}
+      />
+      <Route
+        path="/me/admin/support"
+        element={isUserLoggedIn ? <SupportInboxPage /> : <Navigate to="/me/login" replace />}
       />
       <Route
         path="/me/admin/announcements"
@@ -456,6 +464,7 @@ export function App() {
         <Route path="/shifts/locums" element={<ShiftLocumDirectoryPage />} />
         <Route path="/shifts/sops" element={<ShiftSOPsPage />} />
         <Route path="/shifts/payments" element={<ShiftPaymentsPage />} />
+        <Route path="/shifts/timesheets" element={<ShiftTimesheetsPage />} />
         <Route path="/shifts/:id" element={<ShiftDetailPage />} />
 
         {/* Care home management */}

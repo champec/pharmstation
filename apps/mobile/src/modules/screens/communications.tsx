@@ -32,6 +32,7 @@ import {
 } from '@/stores/comms-store'
 import { useAuthStore } from '@/stores/auth-store'
 import { NetworkSetupModal, NetworkStatusBanner, networkBlocker } from '@/modules/screens/network-setup'
+import { userClient } from '@/lib/supabase'
 import { palette, radius } from '@/theme/palette'
 
 const COLOR = '#0EA5E9'
@@ -54,7 +55,9 @@ function fullWhen(iso: string) {
 }
 
 function prettyPhone(phone: string) {
-  return phone.startsWith('+44') ? `0${phone.slice(3)}` : phone
+  if (phone.startsWith('+44')) return `0${phone.slice(3)}`
+  if (/^447\d{9}$/.test(phone)) return `0${phone.slice(2)}`
+  return phone
 }
 
 /** Keeps comms data loaded and live while a Communications tab is open. */
@@ -84,6 +87,7 @@ function MessagesScreen() {
   const [openThread, setOpenThread] = useState<NetworkThread | null>(null)
   const [openSms, setOpenSms] = useState<SmsConversation | null>(null)
   const [composing, setComposing] = useState(false)
+  const [texting, setTexting] = useState(false)
 
   return (
     <View style={styles.screen}>
@@ -94,7 +98,7 @@ function MessagesScreen() {
 
       {view === 'pharmacies'
         ? <NetworkList onOpen={setOpenThread} onCompose={() => setComposing(true)} />
-        : <SmsList onOpen={setOpenSms} />}
+        : <SmsList onOpen={setOpenSms} onCompose={() => setTexting(true)} />}
 
       <NetworkThreadModal thread={openThread} onClose={() => setOpenThread(null)} />
       <SmsThreadModal conversation={openSms} onClose={() => setOpenSms(null)} />
@@ -102,6 +106,11 @@ function MessagesScreen() {
         visible={composing}
         onClose={() => setComposing(false)}
         onSent={() => setComposing(false)}
+      />
+      <NewTextModal
+        visible={texting}
+        onClose={() => setTexting(false)}
+        onPick={(c) => { setTexting(false); setOpenSms(c) }}
       />
     </View>
   )
@@ -188,7 +197,7 @@ function NetworkList({ onOpen, onCompose }: { onOpen: (t: NetworkThread) => void
   )
 }
 
-function SmsList({ onOpen }: { onOpen: (c: SmsConversation) => void }) {
+function SmsList({ onOpen, onCompose }: { onOpen: (c: SmsConversation) => void; onCompose: () => void }) {
   const sms = useCommsStore((s) => s.sms)
   const loading = useCommsStore((s) => s.smsLoading)
   const error = useCommsStore((s) => s.smsError)
@@ -196,6 +205,10 @@ function SmsList({ onOpen }: { onOpen: (c: SmsConversation) => void }) {
 
   return (
     <View style={styles.flex}>
+      <Pressable style={({ pressed }) => [styles.newButton, { backgroundColor: palette.success }, pressed && styles.pressed]} onPress={onCompose}>
+        <Ionicons name="create-outline" size={18} color="#FFFFFF" />
+        <Text style={styles.newButtonText}>Text a patient</Text>
+      </Pressable>
       <ErrorBanner message={error} />
       <FlatList
         data={sms}
@@ -203,7 +216,7 @@ function SmsList({ onOpen }: { onOpen: (c: SmsConversation) => void }) {
         contentContainerStyle={styles.listContent}
         refreshControl={<RefreshControl refreshing={loading} onRefresh={() => void load()} tintColor={COLOR} />}
         ListEmptyComponent={loading ? <Loading /> : (
-          <Empty icon="chatbubble-ellipses-outline" title="No patient texts" text="When patients reply to your texts, their messages appear here and you can answer from your phone." />
+          <Empty icon="chatbubble-ellipses-outline" title="No patient texts" text="Text a patient from here. When patients reply, their messages appear here and you can answer from your phone." />
         )}
         renderItem={({ item }) => (
           <Pressable style={({ pressed }) => [styles.row, pressed && styles.pressed]} onPress={() => onOpen(item)}>
@@ -563,6 +576,89 @@ function ComposeModal({ visible, onClose, onSent }: { visible: boolean; onClose:
 }
 
 // ---------------------------------------------------------------- Alerts tab
+
+// ---------------------------------------------------------------- new patient text
+
+type PatientHit = { id: string; first_name: string | null; last_name: string | null; phone: string | null; phone_normalized: string | null }
+
+function NewTextModal({ visible, onClose, onPick }: { visible: boolean; onClose: () => void; onPick: (c: SmsConversation) => void }) {
+  const orgId = useAuthStore((s) => s.organisation?.id ?? null)
+  const [query, setQuery] = useState('')
+  const [results, setResults] = useState<PatientHit[]>([])
+  const [searching, setSearching] = useState(false)
+
+  useEffect(() => { if (visible) { setQuery(''); setResults([]) } }, [visible])
+
+  useEffect(() => {
+    if (!visible || !orgId) return
+    const q = query.trim().replace(/[%(),]/g, '')
+    if (q.length < 2) { setResults([]); return }
+    const t = setTimeout(async () => {
+      setSearching(true)
+      const { data } = await userClient.from('ps_patients')
+        .select('id, first_name, last_name, phone, phone_normalized')
+        .eq('organisation_id', orgId)
+        .not('phone', 'is', null)
+        .or(`first_name.ilike.%${q}%,last_name.ilike.%${q}%,phone.ilike.%${q}%`)
+        .order('last_name')
+        .limit(20)
+      setResults((data ?? []) as PatientHit[])
+      setSearching(false)
+    }, 300)
+    return () => clearTimeout(t)
+  }, [query, visible, orgId])
+
+  // A UK mobile typed straight in, for someone who isn't a saved patient yet.
+  const typed = query.replace(/[^\d+]/g, '')
+  const typedNumber = /^(\+?44|0)7\d{9}$/.test(typed)
+    ? `44${typed.replace(/^\+?44|^0/, '')}`
+    : null
+
+  const pick = (phone: string, patient?: PatientHit) => onPick({
+    phone,
+    patientId: patient?.id ?? null,
+    patientName: patient ? [patient.first_name, patient.last_name].filter(Boolean).join(' ') || null : null,
+    lastBody: '',
+    lastAt: new Date().toISOString(),
+    unread: 0,
+  })
+
+  return (
+    <ModalShell visible={visible} title="Text a patient" subtitle="Sent from your pharmacy's number" onClose={onClose}>
+      <ScrollView contentContainerStyle={styles.composeContent} keyboardShouldPersistTaps="handled">
+        <View style={styles.searchBox}>
+          <Ionicons name="search" size={18} color={palette.textMuted} />
+          <TextInput value={query} onChangeText={setQuery} placeholder="Patient name or mobile number" placeholderTextColor={palette.textMuted} style={styles.searchInput} autoFocus />
+        </View>
+        {typedNumber ? (
+          <Pressable style={({ pressed }) => [styles.row, pressed && styles.pressed]} onPress={() => pick(typedNumber)}>
+            <View style={[styles.avatar, { backgroundColor: '#ECFDF5' }]}><Ionicons name="call" size={19} color={palette.success} /></View>
+            <View style={styles.rowBody}>
+              <Text style={styles.rowTitle}>Text {prettyPhone(typedNumber)}</Text>
+              <Text style={styles.rowMeta}>Not linked to a patient record</Text>
+            </View>
+          </Pressable>
+        ) : null}
+        {query.trim().length < 2 ? (
+          <Text style={styles.hint}>Search your patients, or type a UK mobile number.</Text>
+        ) : searching ? <Loading /> : results.length === 0 && !typedNumber ? (
+          <Empty icon="person-outline" title="No patients found" text="Only patients with a phone number on their record are shown." />
+        ) : results.map((p) => {
+          const phone = p.phone_normalized || p.phone || ''
+          return (
+            <Pressable key={p.id} style={({ pressed }) => [styles.row, pressed && styles.pressed]} onPress={() => pick(phone, p)}>
+              <View style={[styles.avatar, { backgroundColor: '#ECFDF5' }]}><Ionicons name="person" size={19} color={palette.success} /></View>
+              <View style={styles.rowBody}>
+                <Text style={styles.rowTitle} numberOfLines={1}>{[p.first_name, p.last_name].filter(Boolean).join(' ') || 'Unnamed patient'}</Text>
+                <Text style={styles.rowMeta}>{prettyPhone(phone)}</Text>
+              </View>
+            </Pressable>
+          )
+        })}
+      </ScrollView>
+    </ModalShell>
+  )
+}
 
 const ALERT_ICONS: Record<string, keyof typeof Ionicons.glyphMap> = {
   network_message: 'business-outline',
