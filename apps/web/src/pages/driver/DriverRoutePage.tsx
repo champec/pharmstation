@@ -231,15 +231,20 @@ export function DriverRoutePage() {
   const window = formatTimeWindow(round.scheduled_time_start, round.scheduled_time_end)
 
   return (
-    <div>
-      <div className="page-header">
+    <div className="care-home-page">
+      <div className="page-header care-home-page-header">
         <div className="breadcrumbs">
           <a href="/driver" onClick={(e) => { e.preventDefault(); navigate('/driver') }}>My Deliveries</a>
           <span className="separator">/</span>
           <span>{round.title || 'Delivery Route'}</span>
         </div>
-        <h1>🗺️ {round.title || 'Delivery Route'}</h1>
-        {window && <p style={{ color: 'var(--ps-slate)', marginTop: 4 }}>🕐 {window}</p>}
+        <div className="care-home-title-row">
+          <div>
+            <p className="care-home-eyebrow">Delivery route</p>
+            <h1>{round.title || 'Delivery route'}</h1>
+            {window && <p className="care-home-subtitle">{window}</p>}
+          </div>
+        </div>
       </div>
 
       {error && (
