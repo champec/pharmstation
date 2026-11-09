@@ -277,3 +277,14 @@ textarea.log-input { min-height: 80px; }
   .rp-status-actions .ps-btn { flex: 1; }
   .log-form-actions .ps-btn { flex: 1; }
 }
+
+/* ---- Shift handover panel (Logs home) ---- */
+.log-handover { padding: var(--ps-space-lg); margin-bottom: var(--ps-space-lg); border-radius: var(--ps-radius-xl); }
+.log-handover-head { display: flex; justify-content: space-between; gap: var(--ps-space-md); flex-wrap: wrap; align-items: flex-start; margin-bottom: var(--ps-space-md); }
+.log-handover-head h2 { font-size: var(--ps-font-lg); margin: 0 0 var(--ps-space-xs); }
+.log-handover-list { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--ps-space-sm); }
+.log-handover-list li { padding: var(--ps-space-sm) var(--ps-space-md); border: 1px solid var(--ps-border); border-radius: var(--ps-radius-lg); background: var(--ps-white); }
+.log-handover-list li.is-urgent { border-color: var(--log-err-border); background: var(--log-err-bg); }
+.log-handover-list p { margin: var(--ps-space-xs) 0 0; color: var(--ps-midnight); }
+.log-handover-meta { display: flex; gap: var(--ps-space-sm); align-items: center; flex-wrap: wrap; font-size: var(--ps-font-sm); color: var(--ps-slate); }
+.log-handover-todo { padding: var(--ps-space-xs) var(--ps-space-sm); border-radius: var(--ps-radius-md); background: var(--log-warn-bg); }

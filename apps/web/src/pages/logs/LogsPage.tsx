@@ -21,6 +21,7 @@ import {
   relativeDay,
   scheduleLabel,
   ukDate,
+  HANDOVER_TEMPLATE_ID,
 } from './logUtils'
 
 const WINDOW_DAYS = 35
@@ -39,7 +40,7 @@ export function LogsPage() {
   const { organisation, activeUser } = useAuthStore()
   const {
     subscriptions, orgEntries, activeFields, activeTemplate, loading, error,
-    fetchSubscriptions, fetchOrgEntries, fetchTemplateDetail, saveEntry, clearError,
+    fetchSubscriptions, fetchOrgEntries, fetchTemplateDetail, saveEntry, subscribeToLibrary, clearError,
   } = useLogStore()
   const { celebration, celebrate, dismiss } = useCelebration()
 
@@ -56,8 +57,34 @@ export function LogsPage() {
     fetchOrgEntries(organisation.id, { start: windowStart, end: today })
   }, [organisation?.id, fetchSubscriptions, fetchOrgEntries, windowStart, today])
 
+  const handoverSub = subscriptions.find((s) => s.template_id === HANDOVER_TEMPLATE_ID) ?? null
+  const handoverNotes = useMemo(
+    () =>
+      handoverSub
+        ? orgEntries
+            .filter((e) => e.subscription_id === handoverSub.id && !e.voided_at && e.entry_date >= addDays(today, -6))
+            .sort((a, b) => b.created_at.localeCompare(a.created_at))
+            .slice(0, 3)
+        : [],
+    [handoverSub, orgEntries, today],
+  )
+  const [openingHandover, setOpeningHandover] = useState(false)
+  const writeHandover = async () => {
+    if (!organisation?.id) return
+    if (handoverSub) return openQuick(handoverSub)
+    setOpeningHandover(true)
+    try {
+      const sub = await subscribeToLibrary(organisation.id, HANDOVER_TEMPLATE_ID)
+      openQuick(sub)
+    } catch {
+      // error shown by the store
+    } finally {
+      setOpeningHandover(false)
+    }
+  }
+
   const cards: CardState[] = useMemo(() => {
-    return subscriptions.map((sub) => {
+    return subscriptions.filter((sub) => sub.template_id !== HANDOVER_TEMPLATE_ID).map((sub) => {
       const mine = orgEntries.filter((e) => e.subscription_id === sub.id)
       const dates = new Set(mine.map((e) => e.entry_date))
       const todayEntry = mine.find((e) => e.entry_date === today) ?? null
@@ -158,6 +185,44 @@ export function LogsPage() {
               </>
             )}
           </div>
+        </section>
+      )}
+
+      {/* Shift handover */}
+      {subscriptions.length > 0 && (
+        <section className="ps-card log-handover" aria-label="Shift handover">
+          <div className="log-handover-head">
+            <div>
+              <h2>Shift handover</h2>
+              <p className="log-muted">Leave notes for whoever is on next. They also show in the PharmStation app.</p>
+            </div>
+            <div className="logs-header-actions">
+              {handoverSub && <button className="ps-btn ps-btn-ghost" onClick={() => navigate(`/logs/${handoverSub.id}`)}>All notes</button>}
+              <button className="ps-btn ps-btn-secondary" onClick={writeHandover} disabled={openingHandover}>
+                {openingHandover ? 'Opening…' : '+ Write a handover note'}
+              </button>
+            </div>
+          </div>
+          {handoverNotes.length === 0 ? (
+            <p className="log-muted">No handover notes in the last week.</p>
+          ) : (
+            <ul className="log-handover-list">
+              {handoverNotes.map((n) => {
+                const d = n.data as Record<string, unknown>
+                const str = (v: unknown) => (typeof v === 'string' && v.trim() ? v.trim() : null)
+                return (
+                  <li key={n.id} className={d.urgent === true ? 'is-urgent' : ''}>
+                    <div className="log-handover-meta">
+                      {d.urgent === true && <span className="ps-badge ps-badge-red">Urgent</span>}
+                      <span>{relativeDay(n.entry_date, today)} · {formatTime(n.created_at)} · {str(d.handed_over_by) ?? n.entered_by_profile?.full_name ?? 'Not recorded'}{str(d.handed_to) ? ` → ${str(d.handed_to)}` : ''}</span>
+                    </div>
+                    {str(d.summary) && <p>{str(d.summary)}</p>}
+                    {str(d.outstanding) && <p className="log-handover-todo"><strong>Still to do:</strong> {str(d.outstanding)}</p>}
+                  </li>
+                )
+              })}
+            </ul>
+          )}
         </section>
       )}
 

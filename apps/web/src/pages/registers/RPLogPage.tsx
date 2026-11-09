@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { Download, History } from 'lucide-react'
+import { PageHeader } from '../../components/ui/PageHeader'
 import { useAuthStore } from '@pharmstation/core'
 import type { RegisterEntry, RegisterLedger, RpAbsence } from '@pharmstation/types'
 import { Drawer } from '../../components/Drawer'
@@ -393,27 +395,19 @@ export function RPLogPage() {
 
   return (
     <div className="logs-page">
-      <div className="page-header">
-        <div className="breadcrumbs">
-          <a href="/" onClick={(e) => { e.preventDefault(); navigate('/') }}>Dashboard</a>
-          <span className="separator">/</span>
-          <a href="/registers" onClick={(e) => { e.preventDefault(); navigate('/registers') }}>Registers</a>
-          <span className="separator">/</span>
-          <span>RP Log</span>
-        </div>
-        <div className="logs-header">
-          <div>
-            <h1>RP log</h1>
-            <p className="log-muted">Who was the Responsible Pharmacist, when, and any time they were away.</p>
-          </div>
-          <div className="logs-header-actions no-print">
-            <button className="ps-btn ps-btn-ghost" onClick={() => setCertOpen(true)}>RP notice</button>
-            <button className="ps-btn ps-btn-secondary" onClick={handlePrint} disabled={loading}>Print / PDF</button>
-            <button className="ps-btn ps-btn-secondary" onClick={handleCsv} disabled={loading || entries.length === 0} title="Every record, sign-out, correction and absence">⬇ CSV</button>
-            {canSign && <button className="ps-btn ps-btn-secondary" onClick={openLate}>+ Record a missed session</button>}
-          </div>
-        </div>
-      </div>
+      <PageHeader
+        breadcrumbs={[{ label: 'Dashboard', to: '/' }, { label: 'Registers', to: '/registers' }, { label: 'RP log' }]}
+        title="RP log"
+        subtitle="Who was the Responsible Pharmacist, when, and any time they were away."
+        actions={<div className="logs-header-actions no-print">
+          <button className="ps-btn ps-btn-ghost" onClick={() => setCertOpen(true)}>RP notice</button>
+          <button className="ps-btn ps-btn-secondary" onClick={handlePrint} disabled={loading}>Print / PDF</button>
+          <button className="ps-btn ps-btn-secondary" onClick={handleCsv} disabled={loading || entries.length === 0} title="Every record, sign-out, correction and absence">
+            <Download size={16} strokeWidth={1.75} aria-hidden="true" /> CSV
+          </button>
+          {canSign && <button className="ps-btn ps-btn-secondary" onClick={openLate}>+ Record a missed session</button>}
+        </div>}
+      />
 
       <RpStatusCard onChange={() => load()} refreshKey={refreshKey} />
 
@@ -490,7 +484,7 @@ export function RPLogPage() {
                       <button className="ps-btn ps-btn-primary ps-btn-sm" onClick={() => setSignOutFor(s)}>Sign out</button>
                     )}
                     {canSign && <button className="ps-btn ps-btn-ghost ps-btn-sm" onClick={() => setForm({ mode: 'correct', session: s })}>Correct</button>}
-                    <button className="ps-btn ps-btn-ghost ps-btn-sm" onClick={() => setHistoryFor(s)} aria-label="History">🕘</button>
+                    <button className="ps-btn ps-btn-ghost ps-btn-sm" onClick={() => setHistoryFor(s)} aria-label="History" title="History"><History size={16} strokeWidth={1.75} aria-hidden="true" /></button>
                   </div>
                 </div>
               )

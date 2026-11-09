@@ -17,6 +17,9 @@ export function categoryOf(template?: Pick<LogTemplate, 'category'> | null) {
   return CATEGORY_CONFIG[cat] ?? CATEGORY_CONFIG.custom
 }
 
+/** Library "Shift Handover" log (notes for the next shift, also used by the mobile app) */
+export const HANDOVER_TEMPLATE_ID = '00000000-0000-0000-0001-000000000006'
+
 /* ---- UK dates (the pharmacy's day, not UTC) ---- */
 
 const UK_TZ = 'Europe/London'
