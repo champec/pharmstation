@@ -266,6 +266,38 @@ export const MODULES: MobileModule[] = [
     ],
   },
 
+  {
+    id: 'shop',
+    title: 'Shop',
+    description: 'Online orders, pharmacist checks and stock',
+    icon: 'bag-handle-outline',
+    color: '#DB2777',
+    tier: 'org',
+    platform: 'both',
+    visible: (ctx) => ctx.isOrgConnected,
+    tabs: [
+      {
+        id: 'orders',
+        title: 'Orders',
+        icon: 'receipt-outline',
+        blurb: 'New orders, pharmacist checks and order progress',
+      },
+      {
+        id: 'stock',
+        title: 'Stock',
+        icon: 'cube-outline',
+        blurb: 'Stock counts and which products are on sale',
+      },
+      {
+        id: 'setup',
+        title: 'Setup',
+        icon: 'options-outline',
+        platform: 'web',
+        blurb: 'Add products and photos, questionnaires, delivery and payment settings',
+      },
+    ],
+  },
+
   // ---------- WEB-ONLY (surfaced as informational cards) ----------
   {
     id: 'video',
