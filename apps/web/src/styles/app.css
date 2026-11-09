@@ -7769,7 +7769,7 @@
 }
 
 .genie-header-icon {
-  font-size: 20px;
+  display: inline-flex;
 }
 
 .genie-header-title {
@@ -7862,7 +7862,14 @@
 }
 
 .genie-welcome-icon {
-  font-size: 48px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 56px;
+  border-radius: var(--ps-radius-full);
+  background: rgba(37, 123, 180, 0.1);
+  color: var(--ps-deep-blue);
   margin-bottom: var(--ps-space-sm);
 }
 
@@ -7922,8 +7929,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 14px;
   flex-shrink: 0;
+  color: var(--ps-deep-blue);
   background: rgba(37, 123, 180, 0.1);
 }
 
@@ -8046,7 +8053,8 @@
 }
 
 .genie-tool-icon {
-  font-size: 12px;
+  display: inline-flex;
+  color: var(--ps-slate);
 }
 
 .genie-tool-name {
@@ -8101,10 +8109,10 @@
   gap: var(--ps-space-sm);
   margin-bottom: var(--ps-space-sm);
   padding: var(--ps-space-sm);
-  border: 1px solid rgba(220, 38, 38, 0.2);
+  border: 1px solid rgba(239, 68, 68, 0.2);
   border-radius: var(--ps-radius-md);
-  background: #fef2f2;
-  color: #b91c1c;
+  background: rgba(239, 68, 68, 0.08);
+  color: var(--ps-error);
   font-size: var(--ps-font-xs);
 }
 
@@ -8185,7 +8193,8 @@
 }
 
 .genie-stop-btn:hover {
-  background: #DC2626;
+  background: var(--ps-error);
+  filter: brightness(0.9);
 }
 
 /* History panel */
