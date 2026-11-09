@@ -347,9 +347,16 @@ async function accountGone(): Promise<boolean> {
   try {
     const { error } = await userClient.auth.getUser()
     if (!error) return false
-    if (error.name === 'AuthRetryableFetchError') return false
     const status = (error as { status?: number }).status ?? 0
-    return status >= 400
+    if (status === 0) return false // offline
+    if (error.name !== 'AuthRetryableFetchError') return status >= 400
+    // auth-js reports any 5xx as retryable, and London answers /user with a
+    // 500 for a deleted or banned account. A refresh tells them apart: it is
+    // refused (4xx) for a gone account, and works when the server was just busy.
+    const { error: refreshError } = await userClient.auth.refreshSession()
+    if (!refreshError) return false
+    const refreshStatus = (refreshError as { status?: number }).status ?? 0
+    return refreshError.name !== 'AuthRetryableFetchError' && refreshStatus >= 400 && refreshStatus < 500
   } catch {
     return false
   }
