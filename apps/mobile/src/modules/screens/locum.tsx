@@ -28,6 +28,7 @@ import {
 import { palette, radius } from '@/theme/palette'
 import { useAuthStore } from '@/stores/auth-store'
 import { LocumProfileScreen, saveShiftAlert } from '@/modules/screens/locum-profile'
+import { EmptyState as SharedEmptyState } from '@/components/ui/EmptyState'
 
 const ACCENT = '#6D28D9'
 const ACCENT_TINT = '#F1EAFE'
@@ -385,7 +386,7 @@ function LoadingState() {
 }
 
 function EmptyState({ icon, title, text }: { icon: keyof typeof Ionicons.glyphMap; title: string; text: string }) {
-  return <View style={styles.empty}><View style={styles.emptyIcon}><Ionicons name={icon} size={25} color={ACCENT} /></View><Text style={styles.emptyTitle}>{title}</Text><Text style={styles.emptyText}>{text}</Text></View>
+  return <SharedEmptyState icon={icon} title={title} text={text} color={ACCENT} />
 }
 
 const calendarTheme = {

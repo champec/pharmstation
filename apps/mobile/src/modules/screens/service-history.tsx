@@ -14,6 +14,7 @@ import { Ionicons } from '@expo/vector-icons'
 import { userClient } from '@/lib/supabase'
 import { useAuthStore } from '@/stores/auth-store'
 import { palette, radius } from '@/theme/palette'
+import { EmptyState as SharedEmptyState } from '@/components/ui/EmptyState'
 import {
   DELIVERY_LIST_SELECT, OUTCOME_LABELS, SERVICES_COLOR as COLOR, SIMPLE_FIELD_TYPES,
   amendDeliveryRecord, cleanSearch, errorMessage, fetchDeliveryRecord, fieldOptions, fmtDate,
@@ -128,13 +129,12 @@ export function ServiceHistoryScreen({ refreshKey }: { refreshKey?: number } = {
         ) : null}
         ListFooterComponent={loadingMore ? <ActivityIndicator color={COLOR} style={{ marginVertical: 16 }} /> : null}
         ListEmptyComponent={loading ? null : (
-          <View style={styles.empty}>
-            <Ionicons name="document-text-outline" size={36} color={COLOR} />
-            <Text style={styles.emptyTitle}>{search ? 'No matching records' : 'No services delivered yet'}</Text>
-            <Text style={styles.emptyText}>
-              {search ? 'Try another name or NHS number.' : 'Records appear here once a service is delivered.'}
-            </Text>
-          </View>
+          <SharedEmptyState
+            icon="document-text-outline"
+            color={COLOR}
+            title={search ? 'No matching records' : 'No services delivered yet'}
+            text={search ? 'Try another name or NHS number.' : 'Records appear here once a service is delivered.'}
+          />
         )}
         renderItem={({ item }) => (
           <Pressable style={styles.card} onPress={() => setOpenId(item.id)} accessibilityRole="button"

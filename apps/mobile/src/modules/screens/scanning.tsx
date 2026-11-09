@@ -22,6 +22,7 @@ import { approveScanLine, canApproveCdScan, rejectScanLine, type SupplyDetails }
 import { userClient } from '@/lib/supabase'
 import { useAuthStore } from '@/stores/auth-store'
 import { palette, radius } from '@/theme/palette'
+import { EmptyState as SharedEmptyState } from '@/components/ui/EmptyState'
 
 const COLOR = '#D97706'
 const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL!
@@ -187,7 +188,7 @@ function ScanQueueScreen() {
     <View style={styles.flex}>
       <ScrollView contentContainerStyle={styles.content} refreshControl={<RefreshControl refreshing={loading} onRefresh={load} tintColor={COLOR} />}>
         <View><Text style={styles.heading}>Review queue</Text><Text style={styles.subheading}>Open a scan to inspect the source details and extracted medicines.</Text></View>
-        {!loading && scans.length === 0 ? <View style={styles.empty}><Ionicons name="checkmark-circle-outline" size={38} color={palette.success} /><Text style={styles.panelTitle}>Queue is clear</Text></View> : scans.map((scan) => <QueueRow key={scan.id} scan={scan} onPress={() => setSelected(scan)} />)}
+        {!loading && scans.length === 0 ? <SharedEmptyState icon="checkmark-circle-outline" color={palette.success} title="Queue is clear" text="Scans waiting for review will appear here." /> : scans.map((scan) => <QueueRow key={scan.id} scan={scan} onPress={() => setSelected(scan)} />)}
       </ScrollView>
       <ScanDetail scan={selected} onClose={() => setSelected(null)} />
     </View>

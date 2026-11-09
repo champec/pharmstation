@@ -9,6 +9,7 @@ import { Ionicons } from '@expo/vector-icons'
 import { userClient } from '@/lib/supabase'
 import { useAuthStore } from '@/stores/auth-store'
 import { palette, radius } from '@/theme/palette'
+import { EmptyState as SharedEmptyState } from '@/components/ui/EmptyState'
 
 const COLOR = '#9333EA'
 
@@ -105,10 +106,12 @@ export function BookingsScreen() {
         keyExtractor={(b) => b.id}
         refreshControl={<RefreshControl refreshing={loading} onRefresh={load} />}
         ListEmptyComponent={loading ? null : (
-          <View style={styles.empty}>
-            <Ionicons name="calendar-outline" size={36} color={COLOR} />
-            <Text style={styles.emptyText}>{view === 'upcoming' ? 'No upcoming bookings' : 'No bookings in the last 30 days'}</Text>
-          </View>
+          <SharedEmptyState
+            icon="calendar-outline"
+            color={COLOR}
+            title={view === 'upcoming' ? 'No upcoming bookings' : 'No bookings in the last 30 days'}
+            text="Appointments booked online or by the team appear here."
+          />
         )}
         renderItem={({ item, index }) => {
           const start = item.slot?.start_time

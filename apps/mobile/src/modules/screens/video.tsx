@@ -27,6 +27,7 @@ import { Field } from '@/components/ui/Field'
 import { userClient } from '@/lib/supabase'
 import { useAuthStore } from '@/stores/auth-store'
 import { palette, radius } from '@/theme/palette'
+import { EmptyState as SharedEmptyState } from '@/components/ui/EmptyState'
 
 const COLOR = '#475569'
 const PUBLIC_URL = 'https://pharmstation.co.uk'
@@ -205,11 +206,12 @@ function VideoScreen() {
         contentContainerStyle={styles.listContent}
         refreshControl={<RefreshControl refreshing={loading && rows.length > 0} onRefresh={load} />}
         ListEmptyComponent={loading ? <ActivityIndicator color={COLOR} style={{ marginTop: 32 }} /> : (
-          <View style={styles.empty}>
-            <Ionicons name="videocam-outline" size={28} color={COLOR} />
-            <Text style={styles.emptyTitle}>{view === 'upcoming' ? 'No video calls booked' : 'No past video calls'}</Text>
-            <Text style={styles.muted}>Book one here and we'll text the patient a link. They join from their phone's browser, no app needed.</Text>
-          </View>
+          <SharedEmptyState
+            icon="videocam-outline"
+            color={COLOR}
+            title={view === 'upcoming' ? 'No video calls booked' : 'No past video calls'}
+            text="Book one here and we'll text the patient a link. They join from their phone's browser, no app needed."
+          />
         )}
         renderItem={({ item: c }) => {
           const live = view === 'upcoming' && (c.status === 'scheduled' || c.status === 'active')

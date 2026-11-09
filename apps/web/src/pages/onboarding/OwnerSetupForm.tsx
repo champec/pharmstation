@@ -7,6 +7,18 @@ import {
   passwordProblem,
 } from '@pharmstation/supabase-client'
 import { PasswordInput } from '../../components/PasswordInput'
+import { useAuthStore } from '@pharmstation/core'
+
+/** Remembers, per pharmacy, the owner email waiting for confirmation, so
+ *  coming back after confirming opens on "I already have an account". */
+const pendingKey = (orgId: string | undefined) => `ps-owner-setup-pending:${orgId ?? ''}`
+function readPending(orgId: string | undefined): string | null {
+  try {
+    return localStorage.getItem(pendingKey(orgId))
+  } catch {
+    return null
+  }
+}
 
 /**
  * Second half of pharmacy sign-up: link the owner's PERSONAL account to the
@@ -19,10 +31,12 @@ import { PasswordInput } from '../../components/PasswordInput'
  * Requires an active workstation (org) session.
  */
 export function OwnerSetupForm({ pharmacyName }: { pharmacyName?: string }) {
-  const [mode, setMode] = useState<'new' | 'existing'>('new')
+  const orgId = useAuthStore((st) => st.organisation?.id)
+  const pendingEmail = readPending(orgId)
+  const [mode, setMode] = useState<'new' | 'existing'>(pendingEmail ? 'existing' : 'new')
   const [fullName, setFullName] = useState('')
   const [gphcNumber, setGphcNumber] = useState('')
-  const [email, setEmail] = useState('')
+  const [email, setEmail] = useState(pendingEmail ?? '')
   const [password, setPassword] = useState('')
   const [confirm, setConfirm] = useState('')
   const [error, setError] = useState<string | null>(null)
@@ -32,6 +46,11 @@ export function OwnerSetupForm({ pharmacyName }: { pharmacyName?: string }) {
   const finish = async (ownerEmail: string) => {
     const token = await startOwnerClaim(ownerEmail)
     await acceptInvite(token)
+    try {
+      localStorage.removeItem(pendingKey(orgId))
+    } catch {
+      // ignore
+    }
     // Reload so the auth store restores both sessions plus the new membership.
     window.location.assign('/')
   }
@@ -78,6 +97,11 @@ export function OwnerSetupForm({ pharmacyName }: { pharmacyName?: string }) {
         throw new Error('That email already has a PharmStation account. Sign in with it below.')
       }
       if (!data.session) {
+        try {
+          localStorage.setItem(pendingKey(orgId), cleanEmail)
+        } catch {
+          // ignore
+        }
         setAwaitingConfirm(true)
         return
       }
