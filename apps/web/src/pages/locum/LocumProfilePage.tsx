@@ -635,7 +635,7 @@ export function LocumProfilePage() {
           {payMsg && <div className={`ps-alert ps-alert-${payMsg.type}`} style={{ marginBottom: '1rem' }}>{payMsg.text}</div>}
           <div className="ps-card">
             <div className="ps-card-header">
-              <h2 className="ps-card-title">💰 Get paid by pharmacies</h2>
+              <h2 className="ps-card-title">Get paid by pharmacies</h2>
             </div>
             <div className="ps-card-body">
               {loadingStripe ? (

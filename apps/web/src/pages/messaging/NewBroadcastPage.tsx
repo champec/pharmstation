@@ -135,7 +135,7 @@ export function NewBroadcastPage() {
           <span className="separator">/</span>
           <span>New</span>
         </div>
-        <h1>📢 New Broadcast</h1>
+        <h1>New Broadcast</h1>
       </div>
 
       {isNotConfigured && (

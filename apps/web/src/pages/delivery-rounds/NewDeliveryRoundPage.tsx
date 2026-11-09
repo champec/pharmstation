@@ -312,7 +312,7 @@ export function NewDeliveryRoundPage() {
           <span className="separator">/</span>
           <span>New Delivery</span>
         </div>
-        <h1>📦 New Delivery</h1>
+        <h1>New Delivery</h1>
       </div>
 
       {error && <div className="auth-error" style={{ marginBottom: 'var(--ps-space-md)' }}>{error}</div>}

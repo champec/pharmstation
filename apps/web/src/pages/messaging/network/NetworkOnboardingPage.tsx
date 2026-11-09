@@ -74,7 +74,7 @@ export function NetworkOnboardingPage() {
           <span className="separator">/</span>
           <span>Link Pharmacy</span>
         </div>
-        <h1>🔗 Link Your Pharmacy</h1>
+        <h1>Link Your Pharmacy</h1>
       </div>
 
       {(error || searchError) && (
@@ -99,7 +99,7 @@ export function NetworkOnboardingPage() {
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--ps-space-md)', flexWrap: 'wrap' }}>
             <div>
               <div style={{ fontWeight: 700, fontSize: '1.05rem', marginBottom: 4 }}>
-                ✅ Currently linked
+                Currently linked
               </div>
               <div style={{ fontWeight: 600 }}>
                 {myLink.pharmacy?.organisation_name ?? `Pharmacy #${myLink.pharmacy_id}`}

@@ -49,7 +49,7 @@ export function DeleteAccountCard() {
 
   return (
     <div className="ps-card" style={{ marginBottom: '1.25rem' }}>
-      <div className="ps-card-header"><h2 className="ps-card-title">🗑️ Delete my account</h2></div>
+      <div className="ps-card-header"><h2 className="ps-card-title">Delete my account</h2></div>
       <div className="ps-card-body">
         {pending ? (
           <>

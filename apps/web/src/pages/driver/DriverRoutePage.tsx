@@ -238,8 +238,8 @@ export function DriverRoutePage() {
           <span className="separator">/</span>
           <span>{round.title || 'Delivery Route'}</span>
         </div>
-        <h1>🗺️ {round.title || 'Delivery Route'}</h1>
-        {window && <p style={{ color: 'var(--ps-slate)', marginTop: 4 }}>🕐 {window}</p>}
+        <h1>{round.title || 'Delivery Route'}</h1>
+        {window && <p style={{ color: 'var(--ps-slate)', marginTop: 4 }}>{window}</p>}
       </div>
 
       {error && (
@@ -278,12 +278,12 @@ export function DriverRoutePage() {
         )}
         {round.status === 'in_progress' && isMyRound && (
           <p style={{ marginTop: 'var(--ps-space-sm)', color: 'var(--ps-slate)', fontSize: 'var(--ps-font-xs)' }}>
-            📍 Your location is shared with the pharmacy until the round is finished.
+            Your location is shared with the pharmacy until the round is finished.
           </p>
         )}
         {round.status === 'completed' && (
           <div style={{ textAlign: 'center', marginTop: 'var(--ps-space-sm)', color: 'var(--ps-green)', fontWeight: 600 }}>
-            ✅ Round complete
+            Round complete
           </div>
         )}
       </div>
@@ -314,14 +314,14 @@ export function DriverRoutePage() {
                     <span className={`ps-badge ${badge.cls}`}>{badge.label}</span>
                   </div>
                   <div style={{ fontSize: 'var(--ps-font-sm)', color: 'var(--ps-slate)', overflowWrap: 'anywhere' }}>
-                    📍 {address || 'No address recorded'}
+                    {address || 'No address recorded'}
                   </div>
                   <div style={{ display: 'flex', gap: 'var(--ps-space-md)', flexWrap: 'wrap', marginTop: 2, fontSize: 'var(--ps-font-sm)' }}>
                     {address && (
-                      <a href={mapsLink(address)} target="_blank" rel="noreferrer" style={{ color: 'var(--ps-primary)' }}>🧭 Directions</a>
+                      <a href={mapsLink(address)} target="_blank" rel="noreferrer" style={{ color: 'var(--ps-primary)' }}>Directions</a>
                     )}
                     {pat?.phone && (
-                      <a href={`tel:${pat.phone}`} style={{ color: 'var(--ps-primary)' }}>📞 {pat.phone}</a>
+                      <a href={`tel:${pat.phone}`} style={{ color: 'var(--ps-primary)' }}>{pat.phone}</a>
                     )}
                   </div>
                   {p.notes && (
@@ -350,13 +350,13 @@ export function DriverRoutePage() {
               {round.status === 'in_progress' && isMyRound && !resolved && (
                 <div style={{ display: 'flex', gap: 'var(--ps-space-sm)', marginTop: 'var(--ps-space-sm)', flexWrap: 'wrap' }}>
                   <button className="ps-btn ps-btn-primary ps-btn-sm" onClick={() => openModal('deliver', p)} disabled={saving}>
-                    ✅ Delivered
+                    Delivered
                   </button>
                   <button className="ps-btn ps-btn-secondary ps-btn-sm" onClick={() => openModal('fail', p)} disabled={saving} style={{ color: 'var(--ps-red)' }}>
-                    ❌ Couldn't deliver
+                    Couldn't deliver
                   </button>
                   <button className="ps-btn ps-btn-ghost ps-btn-sm" onClick={() => openModal('skip', p)} disabled={saving}>
-                    ⏭️ Skip
+                    Skip
                   </button>
                 </div>
               )}

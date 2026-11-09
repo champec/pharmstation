@@ -75,7 +75,7 @@ export function RoundTemplatesPage() {
           <span>Templates</span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <h1>📋 Round Templates</h1>
+          <h1>Round Templates</h1>
           <button className="ps-btn ps-btn-primary" onClick={() => { setNewName(''); setNewNotes(''); setShowCreateModal(true) }}>
             + New Template
           </button>

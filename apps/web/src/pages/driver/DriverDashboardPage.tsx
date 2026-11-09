@@ -58,7 +58,7 @@ export function DriverDashboardPage() {
   return (
     <div>
       <div className="page-header">
-        <h1>🚗 My Deliveries</h1>
+        <h1>My Deliveries</h1>
         <p style={{ color: 'var(--ps-slate)', marginTop: 'var(--ps-space-xs)' }}>
           Your assigned delivery rounds
         </p>
@@ -78,7 +78,7 @@ export function DriverDashboardPage() {
       {/* In-Progress Rounds — show first */}
       {inProgressRounds.length > 0 && (
         <div style={{ marginBottom: 'var(--ps-space-lg)' }}>
-          <h2 style={{ marginBottom: 'var(--ps-space-sm)', fontSize: '1.1rem' }}>🔴 In Progress</h2>
+          <h2 style={{ marginBottom: 'var(--ps-space-sm)', fontSize: '1.1rem' }}>In Progress</h2>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--ps-space-sm)' }}>
             {inProgressRounds.map((round) => {
               const counts = countByStatus(round)
@@ -94,13 +94,13 @@ export function DriverDashboardPage() {
                     <span className={`ps-badge ${STATUS_BADGE[round.status].cls}`}>{STATUS_BADGE[round.status].label}</span>
                   </div>
                   <div style={{ display: 'flex', gap: 'var(--ps-space-lg)', fontSize: 'var(--ps-font-sm)', color: 'var(--ps-slate)' }}>
-                    <span>📅 {formatDate(round.scheduled_date)}</span>
-                    <span>📦 {counts.delivered}/{counts.total} delivered</span>
-                    <span>⏳ {counts.pending} remaining</span>
+                    <span>{formatDate(round.scheduled_date)}</span>
+                    <span>{counts.delivered}/{counts.total} delivered</span>
+                    <span>{counts.pending} remaining</span>
                   </div>
                   {formatTimeWindow(round.scheduled_time_start, round.scheduled_time_end) && (
                     <div style={{ fontSize: 'var(--ps-font-xs)', color: 'var(--ps-slate)', marginTop: 4 }}>
-                      🕐 {formatTimeWindow(round.scheduled_time_start, round.scheduled_time_end)}
+                      {formatTimeWindow(round.scheduled_time_start, round.scheduled_time_end)}
                     </div>
                   )}
                   <div style={{ marginTop: 'var(--ps-space-sm)' }}>
@@ -116,7 +116,7 @@ export function DriverDashboardPage() {
       {/* Scheduled / Upcoming Rounds */}
       {scheduledRounds.length > 0 && (
         <div style={{ marginBottom: 'var(--ps-space-lg)' }}>
-          <h2 style={{ marginBottom: 'var(--ps-space-sm)', fontSize: '1.1rem' }}>📋 Upcoming</h2>
+          <h2 style={{ marginBottom: 'var(--ps-space-sm)', fontSize: '1.1rem' }}>Upcoming</h2>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--ps-space-sm)' }}>
             {scheduledRounds.map((round) => {
               const counts = countByStatus(round)
@@ -132,12 +132,12 @@ export function DriverDashboardPage() {
                     <span className={`ps-badge ${STATUS_BADGE[round.status].cls}`}>{STATUS_BADGE[round.status].label}</span>
                   </div>
                   <div style={{ display: 'flex', gap: 'var(--ps-space-lg)', fontSize: 'var(--ps-font-sm)', color: 'var(--ps-slate)' }}>
-                    <span>📅 {formatDate(round.scheduled_date)}</span>
-                    <span>📦 {counts.total} patients</span>
+                    <span>{formatDate(round.scheduled_date)}</span>
+                    <span>{counts.total} patients</span>
                   </div>
                   {formatTimeWindow(round.scheduled_time_start, round.scheduled_time_end) && (
                     <div style={{ fontSize: 'var(--ps-font-xs)', color: 'var(--ps-slate)', marginTop: 4 }}>
-                      🕐 {formatTimeWindow(round.scheduled_time_start, round.scheduled_time_end)}
+                      {formatTimeWindow(round.scheduled_time_start, round.scheduled_time_end)}
                     </div>
                   )}
                   {round.notes && (
@@ -158,7 +158,7 @@ export function DriverDashboardPage() {
       {/* Draft / Pending Schedule Rounds */}
       {draftRounds.length > 0 && (
         <div style={{ marginBottom: 'var(--ps-space-lg)' }}>
-          <h2 style={{ marginBottom: 'var(--ps-space-sm)', fontSize: '1.1rem' }}>📝 Draft (Awaiting Schedule)</h2>
+          <h2 style={{ marginBottom: 'var(--ps-space-sm)', fontSize: '1.1rem' }}>Draft (Awaiting Schedule)</h2>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--ps-space-sm)' }}>
             {draftRounds.map((round) => {
               const counts = countByStatus(round)
@@ -174,8 +174,8 @@ export function DriverDashboardPage() {
                     <span className={`ps-badge ${STATUS_BADGE[round.status].cls}`}>{STATUS_BADGE[round.status].label}</span>
                   </div>
                   <div style={{ display: 'flex', gap: 'var(--ps-space-lg)', fontSize: 'var(--ps-font-sm)', color: 'var(--ps-slate)' }}>
-                    <span>📦 {counts.total} patients</span>
-                    {round.scheduled_date && <span>📅 {formatDate(round.scheduled_date)}</span>}
+                    <span>{counts.total} patients</span>
+                    {round.scheduled_date && <span>{formatDate(round.scheduled_date)}</span>}
                   </div>
                   {round.notes && (
                     <div style={{ fontSize: 'var(--ps-font-xs)', color: 'var(--ps-slate)', marginTop: 4, fontStyle: 'italic' }}>
@@ -195,7 +195,7 @@ export function DriverDashboardPage() {
       {/* Open rounds any driver can take */}
       {openRounds.length > 0 && (
         <div style={{ marginBottom: 'var(--ps-space-lg)' }}>
-          <h2 style={{ marginBottom: 'var(--ps-space-sm)', fontSize: '1.1rem' }}>🙋 Open rounds</h2>
+          <h2 style={{ marginBottom: 'var(--ps-space-sm)', fontSize: '1.1rem' }}>Open rounds</h2>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--ps-space-sm)' }}>
             {openRounds.map((round) => (
               <div key={round.id} className="ps-card" style={{ padding: 'var(--ps-space-md)' }}>
@@ -204,10 +204,10 @@ export function DriverDashboardPage() {
                   <span className="ps-badge ps-badge-blue">No driver</span>
                 </div>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--ps-space-lg)', fontSize: 'var(--ps-font-sm)', color: 'var(--ps-slate)' }}>
-                  <span>📅 {formatDate(round.scheduled_date)}</span>
-                  <span>📦 {(round.patients || []).length} stops</span>
+                  <span>{formatDate(round.scheduled_date)}</span>
+                  <span>{(round.patients || []).length} stops</span>
                   {formatTimeWindow(round.scheduled_time_start, round.scheduled_time_end) && (
-                    <span>🕐 {formatTimeWindow(round.scheduled_time_start, round.scheduled_time_end)}</span>
+                    <span>{formatTimeWindow(round.scheduled_time_start, round.scheduled_time_end)}</span>
                   )}
                 </div>
                 <div style={{ marginTop: 'var(--ps-space-sm)' }}>

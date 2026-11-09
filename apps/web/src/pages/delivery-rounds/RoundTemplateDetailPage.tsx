@@ -112,7 +112,7 @@ export function RoundTemplateDetailPage() {
           <span className="separator">/</span>
           <span>{template.name}</span>
         </div>
-        <h1>📋 {template.name}</h1>
+        <h1>{template.name}</h1>
       </div>
 
       {error && <div className="auth-error" style={{ marginBottom: 'var(--ps-space-md)' }}>{error}</div>}

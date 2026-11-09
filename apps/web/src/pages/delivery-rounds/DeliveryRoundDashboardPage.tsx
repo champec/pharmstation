@@ -88,7 +88,7 @@ export function DeliveryRoundDashboardPage() {
           {round.scheduled_time_start && ` · ${formatTime(round.scheduled_time_start)}`}
           {round.scheduled_time_end && `–${formatTime(round.scheduled_time_end)}`}
         </small>
-        {driverName && <small className="care-home-group-card-time">🚗 {driverName}</small>}
+        {driverName && <small className="care-home-group-card-time">{driverName}</small>}
       </button>
     )
   }

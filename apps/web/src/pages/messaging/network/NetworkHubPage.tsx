@@ -102,7 +102,7 @@ export function NetworkHubPage() {
         </div>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--ps-space-md)' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--ps-space-sm)' }}>
-            <h1>🏥 Pharmacy Network</h1>
+            <h1>Pharmacy Network</h1>
             {unreadCount > 0 && (
               <span className="ps-badge ps-badge-red" style={{ fontSize: '0.8rem' }}>
                 {unreadCount} new
@@ -111,14 +111,14 @@ export function NetworkHubPage() {
           </div>
           <div style={{ display: 'flex', gap: 'var(--ps-space-sm)' }}>
             <button className="ps-btn ps-btn-ghost" onClick={() => navigate('/messaging/network/settings')}>
-              ⚙️ Settings
+              Settings
             </button>
             <button
               className="ps-btn ps-btn-ghost"
               onClick={() => setShowMap(true)}
               title="Open pharmacy map"
             >
-              🗺 Map
+              Map
             </button>
             <button
               className="ps-btn ps-btn-primary"
@@ -146,7 +146,7 @@ export function NetworkHubPage() {
           background: 'var(--ps-off-white)',
           border: '2px solid var(--ps-electric-cyan)',
         }}>
-          <h3 style={{ margin: '0 0 var(--ps-space-sm)' }}>🔗 Link Your Pharmacy</h3>
+          <h3 style={{ margin: '0 0 var(--ps-space-sm)' }}>Link Your Pharmacy</h3>
           <p style={{ color: 'var(--ps-slate)', margin: '0 0 var(--ps-space-md)' }}>
             Before you can send or receive network messages, link your PharmStation account to your NHS ODS pharmacy entry. This lets other pharmacies find and message you.
           </p>
@@ -185,7 +185,7 @@ export function NetworkHubPage() {
           flexWrap: 'wrap',
         }}>
           <div>
-            <span style={{ fontWeight: 600 }}>🏥 Linked as:</span>{' '}
+            <span style={{ fontWeight: 600 }}>Linked as:</span>{' '}
             {myLink.pharmacy?.organisation_name ?? 'Unknown'}{' '}
             <span style={{ color: 'var(--ps-slate)', fontSize: '0.85rem' }}>
               · {myLink.pharmacy?.ods_code}

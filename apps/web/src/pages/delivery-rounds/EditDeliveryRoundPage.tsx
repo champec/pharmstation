@@ -135,7 +135,7 @@ export function EditDeliveryRoundPage() {
           <span className="separator">/</span>
           <span>Edit</span>
         </div>
-        <h1>✏️ Edit Delivery Round</h1>
+        <h1>Edit Delivery Round</h1>
       </div>
 
       {error && <div className="auth-error" style={{ marginBottom: 'var(--ps-space-md)' }}>{error}</div>}

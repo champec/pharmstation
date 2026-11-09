@@ -41,8 +41,8 @@ export function PEPSMyPrescriptionsPage() {
           <span>My Prescriptions</span>
         </div>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <h1>📄 My Prescriptions</h1>
-          <button className="ps-btn ps-btn-primary" onClick={() => navigate('/peps/write')}>✍️ Write prescription</button>
+          <h1>My Prescriptions</h1>
+          <button className="ps-btn ps-btn-primary" onClick={() => navigate('/peps/write')}>Write prescription</button>
         </div>
         <p style={{ color: 'var(--ps-slate)', marginTop: '4px' }}>Prescriptions you have written, and where they are now.</p>
       </div>

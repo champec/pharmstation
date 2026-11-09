@@ -115,7 +115,7 @@ export function NetworkComposePage() {
     return (
       <div>
         <div className="page-header">
-          <h1>✅ Message Sent</h1>
+          <h1>Message Sent</h1>
         </div>
         <div className="ps-card" style={{ padding: 'var(--ps-space-2xl)', textAlign: 'center' }}>
           <div style={{ fontSize: '3rem', marginBottom: 'var(--ps-space-md)' }}>✅</div>
@@ -158,7 +158,7 @@ export function NetworkComposePage() {
           <span className="separator">/</span>
           <span>New Message</span>
         </div>
-        <h1>📝 New Network Message</h1>
+        <h1>New Network Message</h1>
       </div>
 
       {/* Step indicator */}
@@ -419,7 +419,7 @@ export function NetworkComposePage() {
                 />
                 <div>
                   <label htmlFor="smsPing" style={{ fontWeight: 600, cursor: 'pointer' }}>
-                    📱 Send a text alert
+                    Send a text alert
                   </label>
                   <p style={{ margin: '4px 0 0', fontSize: '0.85rem', color: 'var(--ps-slate)' }}>
                     For urgent messages only. Pharmacies that have turned on text alerts get a text on their registered phones saying you have written, with a link to reply. The text never includes your message, so it is safe to mention patient details here. One alert per pharmacy every 15 minutes, charged to your SMS usage.
@@ -467,7 +467,7 @@ export function NetworkComposePage() {
               </>}
               {requestSmsPing && <>
                 <span style={{ color: 'var(--ps-slate)', fontWeight: 600 }}>SMS Ping:</span>
-                <span>📱 Requested for eligible recipients</span>
+                <span>Requested for eligible recipients</span>
               </>}
             </div>
 
@@ -485,7 +485,7 @@ export function NetworkComposePage() {
 
           {recipients.length > 1 && (
             <div className="ps-card" style={{ padding: 'var(--ps-space-md)', marginBottom: 'var(--ps-space-md)', background: '#fff8e6' }}>
-              <strong>📢 Broadcast:</strong> This message will be sent individually to {recipients.length} pharmacies.
+              <strong>Broadcast:</strong> This message will be sent individually to {recipients.length} pharmacies.
               Replies will come to you as separate conversations — there are no group chats.
             </div>
           )}

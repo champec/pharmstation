@@ -114,7 +114,7 @@ export function PatientsPage() {
           <span>Patients</span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <h1>👥 Patients</h1>
+          <h1>Patients</h1>
           <button className="ps-btn ps-btn-primary" onClick={() => { resetForm(); setShowCreateModal(true) }}>
             + Add Patient
           </button>

@@ -396,12 +396,12 @@ export function RPLogPage() {
         </div>
         <div className="logs-header">
           <div>
-            <h1>👤 RP log</h1>
+            <h1>RP log</h1>
             <p className="log-muted">Who was the Responsible Pharmacist, when, and any time they were away.</p>
           </div>
           <div className="logs-header-actions no-print">
-            <button className="ps-btn ps-btn-ghost" onClick={() => setCertOpen(true)}>🪪 RP notice</button>
-            <button className="ps-btn ps-btn-secondary" onClick={handlePrint} disabled={loading}>🖨️ Print / PDF</button>
+            <button className="ps-btn ps-btn-ghost" onClick={() => setCertOpen(true)}>RP notice</button>
+            <button className="ps-btn ps-btn-secondary" onClick={handlePrint} disabled={loading}>Print / PDF</button>
             <button className="ps-btn ps-btn-secondary" onClick={handleCsv} disabled={loading || entries.length === 0} title="Every record, sign-out, correction and absence">⬇ CSV</button>
             {canSign && <button className="ps-btn ps-btn-secondary" onClick={openLate}>+ Record a missed session</button>}
           </div>

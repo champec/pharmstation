@@ -43,7 +43,7 @@ export function PlatformAdminCard() {
 
   return (
     <div className="ps-card" style={{ marginBottom: '1.25rem' }}>
-      <div className="ps-card-header"><h2 className="ps-card-title">🛡️ PharmStation admin</h2></div>
+      <div className="ps-card-header"><h2 className="ps-card-title">PharmStation admin</h2></div>
       <div className="ps-card-body">
         <Link to="/me/admin/pharmacies" className="ps-btn ps-btn-primary ps-btn-sm">
           Verify new pharmacies

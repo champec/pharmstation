@@ -41,15 +41,15 @@ export function NoteFullModal({ note, currentUserId, onClose, onSave }: Props) {
                 {p.label}
               </span>
               {note.assignee && (
-                <span className="note-full-badge">👤 {note.assignee.full_name}</span>
+                <span className="note-full-badge">{note.assignee.full_name}</span>
               )}
               {note.target_date && (
                 <span className="note-full-badge">
-                  📅 {new Date(note.target_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+                  {new Date(note.target_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
                 </span>
               )}
               {note.is_completed && (
-                <span className="note-full-badge note-full-badge--done">✅ Completed</span>
+                <span className="note-full-badge note-full-badge--done">Completed</span>
               )}
             </div>
             <button className="ps-btn ps-btn-ghost modal-close" onClick={onClose}>✕</button>
@@ -77,7 +77,7 @@ export function NoteFullModal({ note, currentUserId, onClose, onSave }: Props) {
             </span>
             <div className="note-full-actions">
               {!editing && isAuthor && (
-                <button className="ps-btn ps-btn-ghost" onClick={() => setEditing(true)}>✏️ Edit</button>
+                <button className="ps-btn ps-btn-ghost" onClick={() => setEditing(true)}>Edit</button>
               )}
               {editing && (
                 <>
