@@ -4,6 +4,8 @@ import { useAuthStore } from '@pharmstation/core'
 import { Modal } from '../../components/Modal'
 import { PharmacyMapModal, type BoundsPharmacy } from '../../components/maps/PharmacyMapModal'
 import { confirmDialog } from '../../components/ui/dialog'
+import { BellRing, CalendarClock, CircleCheck, Footprints, Mail, MailOpen, Phone, RefreshCw, StickyNote, type LucideIcon } from 'lucide-react'
+import { PageHeader } from '../../components/ui'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -100,16 +102,16 @@ const ONBOARDING: Array<{ value: OnboardingStatus; label: string }> = [
   { value: 'declined', label: 'Declined' },
 ]
 
-const ACTIVITIES: Array<{ value: ActivityType; label: string; emoji: string }> = [
-  { value: 'planned_visit', label: 'Planned visit', emoji: '📅' },
-  { value: 'visit', label: 'Visited pharmacy', emoji: '🚶' },
-  { value: 'phone_call', label: 'Phone call', emoji: '📞' },
-  { value: 'email_sent', label: 'Email sent', emoji: '✉️' },
-  { value: 'email_received', label: 'Email reply received', emoji: '📬' },
-  { value: 'follow_up', label: 'Follow-up', emoji: '🔔' },
-  { value: 'note', label: 'Note', emoji: '📝' },
-  { value: 'status_change', label: 'Status update', emoji: '🔄' },
-  { value: 'onboarding', label: 'Onboarding update', emoji: '✅' },
+const ACTIVITIES: Array<{ value: ActivityType; label: string; icon: LucideIcon }> = [
+  { value: 'planned_visit', label: 'Planned visit', icon: CalendarClock },
+  { value: 'visit', label: 'Visited pharmacy', icon: Footprints },
+  { value: 'phone_call', label: 'Phone call', icon: Phone },
+  { value: 'email_sent', label: 'Email sent', icon: Mail },
+  { value: 'email_received', label: 'Email reply received', icon: MailOpen },
+  { value: 'follow_up', label: 'Follow-up', icon: BellRing },
+  { value: 'note', label: 'Note', icon: StickyNote },
+  { value: 'status_change', label: 'Status update', icon: RefreshCw },
+  { value: 'onboarding', label: 'Onboarding update', icon: CircleCheck },
 ]
 
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
@@ -356,10 +358,10 @@ function ActivityEntry({
   if (editing) {
     return (
       <article className="outreach-timeline-editing">
-        <span className="outreach-timeline-mark">{meta?.emoji ?? '·'}</span>
+        <span className="outreach-timeline-mark">{meta ? <meta.icon size={15} strokeWidth={1.75} aria-hidden="true" /> : '·'}</span>
         <div className="outreach-timeline-edit-form">
           <select className="ps-input" value={type} onChange={(e) => setType(e.target.value as ActivityType)}>
-            {ACTIVITIES.map((o) => <option key={o.value} value={o.value}>{o.emoji} {o.label}</option>)}
+            {ACTIVITIES.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
           </select>
           <input className="ps-input" value={summary} onChange={(e) => setSummary(e.target.value)} required />
           <textarea className="ps-input" value={details} onChange={(e) => setDetails(e.target.value)} rows={3} />
@@ -374,7 +376,7 @@ function ActivityEntry({
 
   return (
     <article>
-      <span className="outreach-timeline-mark">{meta?.emoji ?? '·'}</span>
+      <span className="outreach-timeline-mark">{meta ? <meta.icon size={15} strokeWidth={1.75} aria-hidden="true" /> : '·'}</span>
       <div>
         <div className="outreach-timeline-header">
           <small>{meta?.label} · {formatDate(activity.occurred_at)}</small>
@@ -564,19 +566,16 @@ export function PharmacyOutreachPage() {
 
   return (
     <div className="page-container outreach-page">
-      <header className="page-header outreach-header">
-        <div>
-          <p className="outreach-eyebrow">Pharmacy growth</p>
-          <h1 className="page-title">Outreach</h1>
-          <p className="page-subtitle">Plan visits, capture conversations, and keep follow-ups moving.</p>
-        </div>
-        <div className="page-header-actions">
+      <PageHeader
+        breadcrumbs={[{ label: 'Dashboard', to: '/' }, { label: 'Outreach' }]}
+        eyebrow="Pharmacy growth"
+        title="Outreach"
+        subtitle="Plan visits, capture conversations and keep follow-ups moving."
+        actions={<>
+          {isAdmin && <button className="ps-btn ps-btn-secondary" onClick={openPitchesLibrary}>Pitches</button>}
           <button className="ps-btn ps-btn-primary" onClick={() => setMapOpen(true)}>Open pharmacy map</button>
-          {isAdmin && (
-            <button className="ps-btn ps-btn-secondary" onClick={openPitchesLibrary}>Pitches</button>
-          )}
-        </div>
-      </header>
+        </>}
+      />
 
       {error && <div className="ps-alert ps-alert-error" style={{ marginBottom: 'var(--ps-space-md)' }}>{error}</div>}
 
@@ -739,7 +738,7 @@ export function PharmacyOutreachPage() {
                 <form className="outreach-activity-form" onSubmit={addActivity}>
                   <div className="outreach-activity-row">
                     <select className="ps-input" value={activityType} onChange={(e) => setActivityType(e.target.value as ActivityType)}>
-                      {ACTIVITIES.map((o) => <option key={o.value} value={o.value}>{o.emoji} {o.label}</option>)}
+                      {ACTIVITIES.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
                     </select>
                     <input className="ps-input" value={activitySummary} onChange={(e) => setActivitySummary(e.target.value)}
                       placeholder="One-line outcome, e.g. 'Asked to email the manager, name is Sarah'" required />

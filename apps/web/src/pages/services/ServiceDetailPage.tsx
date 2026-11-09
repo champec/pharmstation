@@ -243,7 +243,7 @@ export function ServiceDetailPage() {
               </span>
               {activeService.is_public && <span className="ps-badge ps-badge-amber">Public</span>}
               {activeService.is_chargeable && activeService.price_pence != null && (
-                <span className="ps-badge ps-badge-green">💳 £{(activeService.price_pence / 100).toFixed(2)}</span>
+                <span className="ps-badge ps-badge-green">£{(activeService.price_pence / 100).toFixed(2)}</span>
               )}
             </div>
           </div>

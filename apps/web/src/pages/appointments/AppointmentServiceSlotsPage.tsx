@@ -5,6 +5,7 @@ import type { AppointmentSlot } from '@pharmstation/types'
 import { Modal } from '../../components/Modal'
 import { expandRecurrenceDates, toLocalDateString, RECURRENCE_HORIZON_DAYS } from '../../lib/recurrence'
 import { alertDialog, confirmDialog } from '../../components/ui/dialog'
+import { Clock } from 'lucide-react'
 
 function toDateInputValue(date: Date) {
   const year = date.getFullYear()
@@ -498,7 +499,7 @@ export function AppointmentServiceSlotsPage() {
 
       {!loading && slotRows.length === 0 && (
         <div className="ps-card" style={{ padding: 'var(--ps-space-2xl)', textAlign: 'center' }}>
-          <div style={{ fontSize: '48px', marginBottom: 'var(--ps-space-md)' }}>⏰</div>
+          <span className="ps-empty-icon" aria-hidden="true"><Clock size={26} strokeWidth={1.75} /></span>
           <h2 style={{ color: 'var(--ps-midnight)', marginBottom: 'var(--ps-space-sm)' }}>No slots in this view</h2>
           <p style={{ color: 'var(--ps-slate)', margin: '0 auto var(--ps-space-lg)', maxWidth: 460 }}>
             Try widening the date range or turn on recurring occurrences if you want to inspect those specific generated slots.

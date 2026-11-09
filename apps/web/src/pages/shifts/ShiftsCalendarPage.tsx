@@ -9,6 +9,7 @@ import interactionPlugin from '@fullcalendar/interaction'
 import listPlugin from '@fullcalendar/list'
 import { useIsMobile } from '../../hooks/useIsMobile'
 import type { EventClickArg } from '@fullcalendar/core'
+import { PageHeader } from '../../components/ui'
 
 interface ShiftEvent {
   id: string
@@ -95,20 +96,15 @@ export function ShiftsCalendarPage() {
 
   return (
     <div className="page-container">
-      <div className="page-header">
-        <div>
-          <h1 className="page-title">Shift Calendar</h1>
-          <p className="page-subtitle">All shifts for {organisation?.name ?? 'your pharmacy'}</p>
-        </div>
-        <div className="page-header-actions">
-          <button className="ps-btn ps-btn-ghost ps-btn-sm" onClick={load} disabled={loading}>
-            Refresh
-          </button>
-          <button className="ps-btn ps-btn-primary ps-btn-sm" onClick={() => navigate('/shifts/new')}>
-            + Post Shift
-          </button>
-        </div>
-      </div>
+      <PageHeader
+        breadcrumbs={[{ label: 'Dashboard', to: '/' }, { label: 'Shifts', to: '/shifts' }, { label: 'Calendar' }]}
+        title="Shift calendar"
+        subtitle={`All shifts for ${organisation?.name ?? 'your pharmacy'}.`}
+        actions={<>
+          <button className="ps-btn ps-btn-secondary" onClick={load} disabled={loading}>Refresh</button>
+          <button className="ps-btn ps-btn-primary" onClick={() => navigate('/shifts/new')}>+ Post shift</button>
+        </>}
+      />
 
       {error && (
         <div className="ps-alert ps-alert-error" style={{ marginBottom: '1rem' }}>{error}</div>

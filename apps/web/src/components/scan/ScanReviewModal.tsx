@@ -236,8 +236,7 @@ export function ScanReviewModal({ isOpen, scanId, onClose }: ScanReviewModalProp
                 </span>
                 {activeScan.overall_confidence !== null && (
                   <span className={`scan-confidence-badge ${CONFIDENCE_LABELS[activeScan.overall_confidence]?.className ?? ''}`}>
-                    {CONFIDENCE_LABELS[activeScan.overall_confidence]?.icon}{' '}
-                    Overall: {CONFIDENCE_LABELS[activeScan.overall_confidence]?.label}
+                                        Overall: {CONFIDENCE_LABELS[activeScan.overall_confidence]?.label}
                   </span>
                 )}
                 {allItemsDone && (
@@ -857,7 +856,7 @@ function ScanItemCard({ item, scan, userId, canApprove, canCreateRegister, onApp
           {item.drug_name_raw && item.drug_class_raw &&
            item.drug_name_raw.toLowerCase().trim() === item.drug_class_raw.toLowerCase().trim() ? (
             <>
-              <p>📋 <strong>Generic prescription</strong> — no brand specified</p>
+              <p><strong>Generic prescription</strong> — no brand specified</p>
               <p className="scan-no-match-hint">
                 Click <strong>Edit</strong> to select the brand you actually dispensed
               </p>

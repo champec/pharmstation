@@ -9,6 +9,7 @@ import TableCell from '@tiptap/extension-table-cell'
 import TableHeader from '@tiptap/extension-table-header'
 import { useEffect, useCallback, useRef } from 'react'
 import { promptDialog } from '../ui/dialog'
+import { Link2 } from 'lucide-react'
 
 interface RichTextEditorProps {
   content: string
@@ -234,7 +235,7 @@ export function RichTextEditor({ content, onChange, editable = true, placeholder
               active={editor.isActive('link')}
               onClick={addLink}
               title="Add link"
-            >🔗</ToolbarButton>
+            ><Link2 size={15} aria-hidden="true" /></ToolbarButton>
             <ToolbarButton
               active={false}
               onClick={insertTable}

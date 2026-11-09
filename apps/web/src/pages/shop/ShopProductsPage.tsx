@@ -372,7 +372,7 @@ export function ShopProductsPage() {
               {fImageUrl ? (
                 <img src={fImageUrl} alt="Product" style={{ width: 56, height: 56, borderRadius: 'var(--ps-radius-md)', objectFit: 'cover' }} />
               ) : (
-                <div style={{ width: 56, height: 56, borderRadius: 'var(--ps-radius-md)', background: 'var(--ps-off-white)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.4rem' }}>📦</div>
+                <div style={{ width: 56, height: 56, borderRadius: 'var(--ps-radius-md)', background: 'var(--ps-off-white)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--ps-slate)' }}><Package size={24} strokeWidth={1.75} aria-hidden="true" /></div>
               )}
               <input
                 ref={fileInputRef}

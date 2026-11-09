@@ -9,9 +9,9 @@ import { Modal } from '../../components/Modal'
 type Channel = 'sms' | 'email' | 'letter'
 
 const CHANNELS: { value: Channel; label: string; icon: string }[] = [
-  { value: 'sms', label: 'SMS', icon: '📱' },
-  { value: 'email', label: 'Email', icon: '📧' },
-  { value: 'letter', label: 'Letter', icon: '✉️' },
+  { value: 'sms', label: 'SMS', icon: '' },
+  { value: 'email', label: 'Email', icon: '' },
+  { value: 'letter', label: 'Letter', icon: '' },
 ]
 
 function smsFragments(text: string): number {
@@ -245,7 +245,7 @@ export function ComposeMessagePage() {
                 <span style={{ fontWeight: 500 }}>{selectedPatient.first_name} {selectedPatient.last_name}</span>
                 <span style={{ color: 'var(--ps-slate)', fontSize: '0.85rem' }}>
                   {selectedPatient.phone && `${selectedPatient.phone}`}
-                  {selectedPatient.email && ` · 📧 ${selectedPatient.email}`}
+                  {selectedPatient.email && ` · ${selectedPatient.email}`}
                 </span>
                 <button className="ps-btn ps-btn-ghost" onClick={clearPatient} style={{ marginLeft: 'auto' }}>✕</button>
               </div>

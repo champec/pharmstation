@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuthStore, useAppointmentStore, useServiceStore } from '@pharmstation/core'
 import type { Service } from '@pharmstation/types'
+import { Clock } from 'lucide-react'
 
 function formatDateTime(iso: string) {
   const date = new Date(iso)
@@ -86,7 +87,7 @@ export function AppointmentSlotsPage() {
 
       {!busy && !servicesError && visibleServices.length === 0 && (
         <div className="ps-card" style={{ padding: 'var(--ps-space-2xl)', textAlign: 'center' }}>
-          <div style={{ fontSize: '48px', marginBottom: 'var(--ps-space-md)' }}>⏰</div>
+          <span className="ps-empty-icon" aria-hidden="true"><Clock size={26} strokeWidth={1.75} /></span>
           <h2 style={{ color: 'var(--ps-midnight)', marginBottom: 'var(--ps-space-sm)' }}>No services ready for slots</h2>
           <p style={{ color: 'var(--ps-slate)', margin: '0 auto var(--ps-space-lg)', maxWidth: 440 }}>
             Create or activate a service first, then open it here to manage bookable slots without one long recurring list.

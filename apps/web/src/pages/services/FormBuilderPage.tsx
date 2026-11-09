@@ -2,23 +2,23 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useServiceStore, useAuthStore } from '@pharmstation/core'
 import type { ServiceFormField, FieldType } from '@pharmstation/types'
-import { ClipboardList, Trash2 } from 'lucide-react'
+import { AlignLeft, Heading, Info, Pill, Table, Calendar, ChevronDownSquare, ClipboardList, Hash, ListChecks, PenLine, ToggleLeft, Trash2, Type, type LucideIcon } from 'lucide-react'
 
 /* ---- Constants ---- */
 
-const FIELD_TYPES: { type: FieldType; label: string; icon: string }[] = [
-  { type: 'text', label: 'Text', icon: '📝' },
-  { type: 'number', label: 'Number', icon: '🔢' },
-  { type: 'boolean', label: 'Yes / No', icon: '✅' },
-  { type: 'select', label: 'Dropdown', icon: '📋' },
-  { type: 'multiselect', label: 'Multi-select', icon: '☑️' },
-  { type: 'date', label: 'Date', icon: '📅' },
-  { type: 'textarea', label: 'Text Area', icon: '📄' },
-  { type: 'signature', label: 'Signature', icon: '✍️' },
-  { type: 'heading', label: 'Section Heading', icon: '▤' },
-  { type: 'info', label: 'Guidance Text', icon: 'ℹ️' },
-  { type: 'table', label: 'Repeatable Table', icon: '▦' },
-  { type: 'prescribing', label: 'Prescribing', icon: '℞' },
+const FIELD_TYPES: { type: FieldType; label: string; icon: LucideIcon }[] = [
+  { type: 'text', label: 'Text', icon: Type },
+  { type: 'number', label: 'Number', icon: Hash },
+  { type: 'boolean', label: 'Yes / No', icon: ToggleLeft },
+  { type: 'select', label: 'Dropdown', icon: ChevronDownSquare },
+  { type: 'multiselect', label: 'Multi-select', icon: ListChecks },
+  { type: 'date', label: 'Date', icon: Calendar },
+  { type: 'textarea', label: 'Text Area', icon: AlignLeft },
+  { type: 'signature', label: 'Signature', icon: PenLine },
+  { type: 'heading', label: 'Section Heading', icon: Heading },
+  { type: 'info', label: 'Guidance Text', icon: Info },
+  { type: 'table', label: 'Repeatable Table', icon: Table },
+  { type: 'prescribing', label: 'Prescribing', icon: Pill },
 ]
 
 function toFieldKey(label: string): string {
@@ -278,7 +278,7 @@ export function FormBuilderPage() {
                   onClick={() => addField(ft.type)}
                   style={{ justifyContent: 'flex-start' }}
                 >
-                  {ft.icon} {ft.label}
+                  <ft.icon size={16} strokeWidth={1.75} aria-hidden="true" /> {ft.label}
                 </button>
               ))}
             </div>
@@ -388,8 +388,7 @@ function FieldCard({
       <div style={{ flex: 1 }}>
         <div style={{ display: 'flex', gap: 'var(--ps-space-sm)', alignItems: 'center', marginBottom: 'var(--ps-space-sm)' }}>
           <span className="ps-badge ps-badge-blue" style={{ textTransform: 'capitalize' }}>
-            {FIELD_TYPES.find((f) => f.type === field.field_type)?.icon}{' '}
-            {field.field_type}
+                        {field.field_type}
           </span>
           <label style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 'var(--ps-font-xs)', cursor: 'pointer' }}>
             <input

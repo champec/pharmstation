@@ -30,7 +30,6 @@ const STATUS_LABELS: Record<string, string> = {
   'technical-failure': 'Tech. failure',
 }
 
-const CHANNEL_ICON: Record<string, string> = { sms: '📱', email: '📧', letter: '✉️' }
 const PAGE_SIZE = 50
 
 function formatDate(d: string | null | undefined) {
@@ -238,7 +237,7 @@ export function MessageHistoryPage() {
                     title="Click for details"
                   >
                     <td>{formatDate(m.created_at)}</td>
-                    <td>{CHANNEL_ICON[m.channel] || ''} {m.channel.toUpperCase()}</td>
+                    <td>{m.channel.toUpperCase()}</td>
                     <td style={{ maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       {m.patient ? `${m.patient.first_name} ${m.patient.last_name} · ` : ''}
                       {m.recipient_email || m.recipient_phone || '—'}
@@ -285,7 +284,7 @@ export function MessageHistoryPage() {
       <Modal
         isOpen={!!selected}
         onClose={() => setSelected(null)}
-        title={selected ? `${CHANNEL_ICON[selected.channel] || ''} ${selected.channel.toUpperCase()} Message` : ''}
+        title={selected ? `${selected.channel.toUpperCase()} message` : ''}
         width="680px"
       >
         {selected && (

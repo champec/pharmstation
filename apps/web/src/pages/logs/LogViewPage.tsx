@@ -14,7 +14,7 @@ import {
   type ExportCell,
 } from '../../utils/registerExport'
 import { LogEntryForm } from './LogEntryForm'
-import { Download, Inbox, PencilLine, Settings, Trash2 } from 'lucide-react'
+import { Download, History, Inbox, PencilLine, Settings, Trash2 } from 'lucide-react'
 import { PageHeader } from '../../components/ui/PageHeader'
 import { EmptyState } from '../../components/ui/EmptyState'
 import { Celebration, CategoryIcon, EntryHistoryModal, StreakBadge, VoidEntryModal, useCelebration } from './LogBits'
@@ -370,7 +370,7 @@ export function LogViewPage() {
                       {entry ? (
                         <>
                           <button className="ps-btn ps-btn-ghost ps-btn-sm" onClick={() => openEdit(entry)}>Edit</button>
-                          <button className="ps-btn ps-btn-ghost ps-btn-sm" onClick={() => setHistoryEntry(entry)} aria-label="History">🕘</button>
+                          <button className="ps-btn ps-btn-ghost ps-btn-sm" onClick={() => setHistoryEntry(entry)} aria-label="History"><History size={16} aria-hidden="true" /></button>
                         </>
                       ) : required ? (
                         <button className={`ps-btn ps-btn-sm ${isToday ? 'ps-btn-primary' : 'ps-btn-secondary'}`} onClick={() => openNew(date)}>
@@ -407,8 +407,8 @@ export function LogViewPage() {
                   {!entry.voided_at && (
                     <div className="log-row-actions">
                       <button className="ps-btn ps-btn-ghost ps-btn-sm" onClick={() => openEdit(entry)}>Edit</button>
-                      <button className="ps-btn ps-btn-ghost ps-btn-sm" onClick={() => setHistoryEntry(entry)} aria-label="History">🕘</button>
-                      <button className="ps-btn ps-btn-ghost ps-btn-sm" onClick={() => setVoidTarget(entry)} aria-label="Remove">🗑</button>
+                      <button className="ps-btn ps-btn-ghost ps-btn-sm" onClick={() => setHistoryEntry(entry)} aria-label="History"><History size={16} aria-hidden="true" /></button>
+                      <button className="ps-btn ps-btn-ghost ps-btn-sm" onClick={() => setVoidTarget(entry)} aria-label="Remove"><Trash2 size={16} aria-hidden="true" /></button>
                     </div>
                   )}
                 </header>

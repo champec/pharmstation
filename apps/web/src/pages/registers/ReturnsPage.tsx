@@ -1127,7 +1127,7 @@ export function ReturnsPage() {
                     className={`ps-btn ${ne.pharmacistSig ? 'ps-btn-secondary' : 'ps-btn-ghost'}`}
                     style={{ fontSize: '12px', padding: '4px 8px', width: '100%' }}
                     onClick={() => setSigModal('new-pharma')} title="Pharmacist signature">
-                    {ne.pharmacistSig ? '✓' : '🖊'}
+                    {ne.pharmacistSig ? '✓ Signed' : 'Sign'}
                   </button>
                 </td>
                 <td style={tdForm}>
@@ -1149,7 +1149,7 @@ export function ReturnsPage() {
                     className={`ps-btn ${ne.witnessSig ? 'ps-btn-secondary' : 'ps-btn-ghost'}`}
                     style={{ fontSize: '12px', padding: '4px 8px', width: '100%' }}
                     onClick={() => setSigModal('new-witness')} title="Witness signature">
-                    {ne.witnessSig ? '✓' : '🖊'}
+                    {ne.witnessSig ? '✓ Signed' : 'Sign'}
                   </button>
                 </td>
                 <td style={tdForm} />

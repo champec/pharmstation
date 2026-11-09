@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import type { StickyNote } from '@pharmstation/types'
 import { useStickyNoteStore } from '@pharmstation/core'
-import { Pencil, Settings, Trash2 } from 'lucide-react'
+import { Pencil, Settings, Square, SquareCheck, Trash2 } from 'lucide-react'
 
 const PRIORITY_COLORS: Record<number, string> = {
   1: 'var(--sticky-p1)',
@@ -146,7 +146,7 @@ export function StickyNoteCard({ note, currentUserId, isDragging, onDragStart, o
           title={note.is_completed ? 'Mark incomplete' : 'Mark complete'}
           onClick={(e) => { e.stopPropagation(); toggleCompleted(note.id, note.is_completed) }}
         >
-          {note.is_completed ? '✅' : '⬜'}
+          {note.is_completed ? <SquareCheck size={16} aria-hidden="true" /> : <Square size={16} aria-hidden="true" />}
         </button>
 
         {/* Edit (author only) */}

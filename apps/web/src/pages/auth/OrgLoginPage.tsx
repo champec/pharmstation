@@ -45,7 +45,7 @@ export function OrgLoginPage() {
           Pharmacy
         </span>
         <Link to="/patient/login" className="login-portal-tab">
-          <span className="login-portal-tab-icon">🧑‍⚕️</span>
+          <span className="login-portal-tab-icon"><User size={18} aria-hidden="true" /></span>
           Patient
         </Link>
         <Link to="/me/login" className="login-portal-tab">
