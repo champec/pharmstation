@@ -2616,6 +2616,7 @@ export type AlertEventType =
   | 'peps'
   | 'network_message'
   | 'shop_order'
+  | 'locum'
   | 'system'
   | 'patient_message'
   | (string & {})
