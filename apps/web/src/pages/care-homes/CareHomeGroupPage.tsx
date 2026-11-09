@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useAuthStore, useCareHomeStore } from '@pharmstation/core'
 import type { CareHomeGroupState } from '@pharmstation/types'
+import { chLabel } from './careHomeLabels'
 
 const stateBadge: Record<CareHomeGroupState, string> = {
   idle: 'ps-badge-muted',
@@ -182,7 +183,7 @@ export function CareHomeGroupPage() {
         </button>
         <div className="care-home-title-row">
           <div>
-            <p className="care-home-eyebrow">Delivery group · {group?.group_type}</p>
+            <p className="care-home-eyebrow">Delivery group · {chLabel('groupType', group?.group_type)}</p>
             <h1>{group?.name}</h1>
             <p className="care-home-subtitle">
               {group?.group_type === 'acute'
@@ -211,7 +212,7 @@ export function CareHomeGroupPage() {
           <div className="care-home-metrics">
             <article><span>Patients</span><strong>{members.length}</strong><small>in this group</small></article>
             <article><span>Open requests</span><strong>{openRequestCount}</strong><small>across group patients</small></article>
-            <article><span>Active batch</span><strong>{activeBatch ? `#${activeBatch.batch_number}` : '—'}</strong><small>{activeBatch ? activeBatch.status.replaceAll('_', ' ') : 'no batch in progress'}</small></article>
+            <article><span>Active batch</span><strong>{activeBatch ? `#${activeBatch.batch_number}` : '—'}</strong><small>{activeBatch ? chLabel('batchStatus', activeBatch.status) : 'no batch in progress'}</small></article>
             <article><span>Delivery run</span><strong>{group.delivery_round_id ? 'Linked' : '—'}</strong><small>{group.delivery_round_id ? 'tracked in Deliveries' : 'created when marked ready'}</small></article>
           </div>
 
@@ -292,7 +293,7 @@ export function CareHomeGroupPage() {
                             <td>{bag.resident?.room_number ?? '—'}</td>
                             <td>{lines.length}</td>
                             <td>{packed}/{lines.length}</td>
-                            <td><span className={`ps-badge ${bag.package_status === 'received' ? 'ps-badge-success' : bag.package_status === 'discrepancy' ? 'ps-badge-danger' : bag.package_status === 'open' ? 'ps-badge-warning' : 'ps-badge-blue'}`}>{bag.package_status.replaceAll('_', ' ')}</span></td>
+                            <td><span className={`ps-badge ${bag.package_status === 'received' ? 'ps-badge-success' : bag.package_status === 'discrepancy' ? 'ps-badge-danger' : bag.package_status === 'open' ? 'ps-badge-warning' : 'ps-badge-blue'}`}>{chLabel('packageStatus', bag.package_status)}</span></td>
                           </tr>
                         )
                       })}
@@ -318,7 +319,7 @@ export function CareHomeGroupPage() {
                         onKeyDown={(e) => { if (e.key === 'Enter') navigate(`/care-homes/${linkId}/supplies/${pastBatch.id}`) }}>
                         <td><strong>{formatDate(pastBatch.period_start)} to {formatDate(pastBatch.period_end)}</strong></td>
                         <td>{formatDate(pastBatch.delivery_date)}</td>
-                        <td><span className={`ps-badge ${pastBatch.status === 'reconciled' ? 'ps-badge-success' : pastBatch.status === 'cancelled' ? 'ps-badge-muted' : 'ps-badge-blue'}`}>{pastBatch.status.replaceAll('_', ' ')}</span></td>
+                        <td><span className={`ps-badge ${pastBatch.status === 'reconciled' ? 'ps-badge-success' : pastBatch.status === 'cancelled' ? 'ps-badge-muted' : 'ps-badge-blue'}`}>{chLabel('batchStatus', pastBatch.status)}</span></td>
                       </tr>
                     ))}
                   </tbody>
@@ -356,7 +357,7 @@ export function CareHomeGroupPage() {
                               <strong>{residentName(resident.patient?.first_name, resident.patient?.last_name)}</strong>
                               <small>{resident.room_number ? `Room ${resident.room_number}` : 'No room'} · {resident.patient?.nhs_number ?? 'No NHS number'}</small>
                             </button>
-                            <span className={`ps-badge ${resident.status === 'active' ? 'ps-badge-success' : 'ps-badge-warning'}`}>{resident.status}</span>
+                            <span className={`ps-badge ${resident.status === 'active' ? 'ps-badge-success' : 'ps-badge-warning'}`}>{chLabel('residentStatus', resident.status)}</span>
                             {canManage && (
                               <button className="ps-btn ps-btn-ghost ps-btn-sm" type="button" disabled={saving} onClick={() => void removeResidentFromGroup(group.id, resident.id)}>Remove</button>
                             )}

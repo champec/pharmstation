@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useAuthStore, useCareHomeStore } from '@pharmstation/core'
 import type { CareHomeMedicationRequest, CareHomeMedicationRequestStatus, CareHomeMedicationRequestType } from '@pharmstation/types'
+import { chLabel } from './careHomeLabels'
 
 const OPEN_STATUSES: CareHomeMedicationRequestStatus[] = ['draft', 'submitted', 'acknowledged', 'approved', 'sent_to_gp', 'outstanding', 'received', 'part_received', 'refused', 'ordered', 'ready']
 
@@ -30,7 +31,7 @@ function residentName(request: CareHomeMedicationRequest) {
 }
 
 function formatDate(value: string | null | undefined) {
-  if (!value) return '—'
+  if (!value) return 'Not set'
   return new Date(value).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
 }
 
@@ -73,6 +74,8 @@ export function CareHomeRequestsManagerPage() {
 
   const isCareHome = organisation?.organisation_type === 'carehome'
   const canManage = !isCareHome && permissions?.care_home_manage === true
+  const canRequest = permissions?.care_home_requests === true
+  const canReview = !isCareHome && canRequest
   const gpPractices = useMemo(() => Array.from(new Set(residents.map((resident) => resident.gp_practice).filter((practice): practice is string => Boolean(practice)))).sort(), [residents])
 
   useEffect(() => {
@@ -176,7 +179,7 @@ export function CareHomeRequestsManagerPage() {
             <p className="care-home-subtitle">Every patient medication request across all groups, filtered in one table.</p>
           </div>
           <div className="care-home-heading-actions care-home-no-print">
-            <button className="ps-btn ps-btn-secondary" type="button" disabled={residents.length === 0} onClick={() => { setShowRequestForm((v) => !v); setShowGpRequestForm(false) }}>{showRequestForm ? 'Close' : 'New request'}</button>
+            {canRequest && <button className={`ps-btn ${canManage ? 'ps-btn-secondary' : 'ps-btn-primary'}`} type="button" disabled={residents.length === 0} title={residents.length === 0 ? 'Add a resident first' : undefined} onClick={() => { setShowRequestForm((v) => !v); setShowGpRequestForm(false) }}>{showRequestForm ? 'Close' : '+ New request'}</button>}
             {canManage && <button className="ps-btn ps-btn-primary" type="button" onClick={() => { setShowGpRequestForm((v) => !v); setShowRequestForm(false) }}>{showGpRequestForm ? 'Close' : 'Prepare GP request'}</button>}
           </div>
         </div>
@@ -189,7 +192,7 @@ export function CareHomeRequestsManagerPage() {
         </div>
       )}
 
-      {showRequestForm && (
+      {showRequestForm && canRequest && (
         <form className="care-home-request-form care-home-no-print" onSubmit={(event) => void handleCreateRequest(event)}>
           <label>Patient<select className="ps-input" required value={requestForm.residentId} onChange={(e) => setRequestForm({ ...requestForm, residentId: e.target.value })}><option value="">Select patient</option>{residents.filter((r) => r.status === 'active').map((r) => <option key={r.id} value={r.id}>{[r.patient?.first_name, r.patient?.last_name].filter(Boolean).join(' ') || 'Unnamed resident'}</option>)}</select></label>
           <label>Type<select className="ps-input" value={requestForm.requestType} onChange={(e) => setRequestForm({ ...requestForm, requestType: e.target.value as CareHomeMedicationRequestType })}><option value="repeat">Repeat</option><option value="regular">Regular</option><option value="acute">Acute</option><option value="change">Medication change</option><option value="query">Query</option></select></label>
@@ -217,7 +220,7 @@ export function CareHomeRequestsManagerPage() {
         <select className="ps-input" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}>
           <option value="open">Open statuses</option>
           <option value="all">All statuses</option>
-          {OPEN_STATUSES.map((status) => <option key={status} value={status}>{status.replaceAll('_', ' ')}</option>)}
+          {OPEN_STATUSES.map((status) => <option key={status} value={status}>{chLabel('requestStatus', status)}</option>)}
         </select>
         <select className="ps-input" value={groupFilter} onChange={(e) => setGroupFilter(e.target.value)}>
           <option value="all">All groups</option>
@@ -259,22 +262,32 @@ export function CareHomeRequestsManagerPage() {
                     <button className="care-home-link-btn" type="button" onClick={() => navigate(`/care-homes/${linkId}/residents/${request.care_home_resident_id}`)}>
                       <strong>{residentName(request)}</strong>
                     </button>
-                    <small>{formatDate(request.requested_at)}</small>
+                    <small>Requested {formatDate(request.requested_at)}</small>
                   </td>
-                  <td>{(residentGroup.get(request.care_home_resident_id) ?? []).join(', ') || '—'}</td>
+                  <td>{(residentGroup.get(request.care_home_resident_id) ?? []).join(', ') || 'No group'}</td>
                   <td><strong>{request.medicine_name}</strong>{request.quantity ? <small> · qty {request.quantity}</small> : null}</td>
-                  <td><span className="ps-badge ps-badge-muted">{request.request_type}</span></td>
+                  <td><span className="ps-badge ps-badge-muted">{chLabel('requestType', request.request_type)}</span></td>
                   <td>{formatDate(request.needed_by)}</td>
-                  <td><span className={`ps-badge ${statusClass[request.status]}`}>{request.status.replaceAll('_', ' ')}</span></td>
-                  <td>{request.gp_request_id ? <span className={`ps-badge ${request.prescription_outcome === 'pending' ? 'ps-badge-warning' : 'ps-badge-success'}`}>{request.prescription_outcome.replaceAll('_', ' ')}</span> : '—'}</td>
+                  <td><span className={`ps-badge ${statusClass[request.status]}`}>{chLabel('requestStatus', request.status)}</span></td>
+                  <td>{request.gp_request_id ? <span className={`ps-badge ${request.prescription_outcome === 'pending' ? 'ps-badge-warning' : 'ps-badge-success'}`}>{chLabel('prescriptionOutcome', request.prescription_outcome)}</span> : '—'}</td>
                   <td className="care-home-row-actions care-home-no-print">
-                    {nextActionLabel[request.status] && (
+                    {canReview && nextActionLabel[request.status] && (
                       <button className="ps-btn ps-btn-primary ps-btn-sm" type="button" disabled={saving} onClick={() => advance(request)}>
                         {nextActionLabel[request.status]}
                       </button>
                     )}
+                    {canReview && ['submitted', 'acknowledged'].includes(request.status) && activeUser?.id && (
+                      <button className="ps-btn ps-btn-ghost ps-btn-sm" type="button" disabled={saving} onClick={() => { if (window.confirm('Decline this request? The care home will see it as declined.')) void updateRequestStatus(request.id, 'declined', activeUser.id) }}>
+                        Decline
+                      </button>
+                    )}
+                    {isCareHome && canRequest && request.status === 'submitted' && request.requested_by === activeUser?.id && (
+                      <button className="ps-btn ps-btn-ghost ps-btn-sm" type="button" disabled={saving} onClick={() => { if (window.confirm('Cancel this request?')) void updateRequestStatus(request.id, 'cancelled', activeUser.id) }}>
+                        Cancel request
+                      </button>
+                    )}
                     <button className="ps-btn ps-btn-ghost ps-btn-sm" type="button" onClick={() => navigate(`/care-homes/${linkId}/residents/${request.care_home_resident_id}`)}>
-                      Open patient
+                      Open resident
                     </button>
                   </td>
                 </tr>

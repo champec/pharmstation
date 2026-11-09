@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useAuthStore, useCareHomeStore, usePatientMedicationStore } from '@pharmstation/core'
 import type { BnfDrugSearchResult, CareHomeMedicationSchedule, CareHomeSupplyLine, PatientMedication } from '@pharmstation/types'
+import { chLabel } from './careHomeLabels'
 
 function residentName(first?: string, last?: string) {
   return [first, last].filter(Boolean).join(' ') || 'Unnamed resident'
@@ -258,7 +259,7 @@ export function CareHomeBagPage() {
             <strong>{item.med.drug_name}</strong>
             <small>
               {[item.med.drug_strength, item.med.drug_form].filter(Boolean).join(' · ') || '—'}
-              {item.schedule ? ` · ${item.schedule.schedule_type}` : ' · no round set up'}
+              {item.schedule ? ` · ${chLabel('scheduleType', item.schedule.schedule_type)}` : ' · no round set up'}
             </small>
             <small>{item.schedule?.dose ?? item.med.dose ?? 'No dose recorded'} · qty {item.med.quantity ?? '—'}</small>
           </span>
@@ -290,12 +291,12 @@ export function CareHomeBagPage() {
       <li key={line.id} className="care-home-split-item">
         <span className="care-home-split-item-main">
           <strong>{line.medicine_name}</strong>
-          <small>{[line.strength, line.form].filter(Boolean).join(' · ') || line.supply_type}</small>
+          <small>{[line.strength, line.form].filter(Boolean).join(' · ') || chLabel('scheduleType', line.supply_type)}</small>
           <small>{line.dose ?? 'No dose'} · expected {line.quantity_expected} · packed {line.quantity_packed}</small>
           {line.omission_reason && <small>Omitted: {line.omission_reason}</small>}
         </span>
         <span className="care-home-split-item-actions">
-          <span className={`ps-badge ${lineBadge(line.line_status)}`}>{line.line_status}</span>
+          <span className={`ps-badge ${lineBadge(line.line_status)}`}>{chLabel('lineStatus', line.line_status)}</span>
           {canManage && line.line_status === 'expected' && omitting !== line.id && !editing && (
             <>
               <input
@@ -369,7 +370,7 @@ export function CareHomeBagPage() {
           </div>
           {bag && (
             <div className="care-home-group-state-block">
-              <span className={`ps-badge ${bag.package_status === 'received' ? 'ps-badge-success' : bag.package_status === 'discrepancy' ? 'ps-badge-danger' : bag.package_status === 'open' ? 'ps-badge-warning' : 'ps-badge-blue'} care-home-group-state-badge`}>{bag.package_status.replaceAll('_', ' ')}</span>
+              <span className={`ps-badge ${bag.package_status === 'received' ? 'ps-badge-success' : bag.package_status === 'discrepancy' ? 'ps-badge-danger' : bag.package_status === 'open' ? 'ps-badge-warning' : 'ps-badge-blue'} care-home-group-state-badge`}>{chLabel('packageStatus', bag.package_status)}</span>
             </div>
           )}
         </div>

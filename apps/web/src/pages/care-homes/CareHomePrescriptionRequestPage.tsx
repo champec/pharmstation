@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useAuthStore, useCareHomeStore } from '@pharmstation/core'
 import type { CareHomeMedicationRequest } from '@pharmstation/types'
+import { chLabel } from './careHomeLabels'
 
 function residentName(line: CareHomeMedicationRequest) {
   return [line.resident?.patient?.first_name, line.resident?.patient?.last_name].filter(Boolean).join(' ') || 'Resident'
@@ -18,8 +19,8 @@ function PrescriptionLine({ line, saving, editable, sent, onSave }: {
   const [reason, setReason] = useState(line.outcome_reason ?? '')
   return (
     <article className="care-home-prescription-line">
-      <div><strong>{line.medicine_name}</strong><span>{residentName(line)} · {line.request_type} · Requested {line.quantity ?? 'quantity not set'}</span>{line.request_notes && <small>{line.request_notes}</small>}</div>
-      <span className={`ps-badge ${line.prescription_outcome === 'received' ? 'ps-badge-success' : line.prescription_outcome === 'pending' ? 'ps-badge-warning' : 'ps-badge-danger'}`}>{line.prescription_outcome.replaceAll('_', ' ')}</span>
+      <div><strong>{line.medicine_name}</strong><span>{residentName(line)} · {chLabel('requestType', line.request_type)} · Requested {line.quantity ?? 'quantity not set'}</span>{line.request_notes && <small>{line.request_notes}</small>}</div>
+      <span className={`ps-badge ${line.prescription_outcome === 'received' ? 'ps-badge-success' : line.prescription_outcome === 'pending' ? 'ps-badge-warning' : 'ps-badge-danger'}`}>{chLabel('prescriptionOutcome', line.prescription_outcome)}</span>
       {editable ? <div className="care-home-prescription-actions care-home-no-print"><label>Received<input className="ps-input" type="number" min="0" value={quantity} onChange={(event) => setQuantity(event.target.value)} /></label><label>Reason / GP response<input className="ps-input" value={reason} onChange={(event) => setReason(event.target.value)} /></label><button className="ps-btn ps-btn-primary ps-btn-sm" type="button" disabled={saving || !quantity} onClick={() => onSave('received', Number(quantity), reason)}>Received</button><button className="ps-btn ps-btn-secondary ps-btn-sm" type="button" disabled={saving || !reason.trim()} onClick={() => onSave('part_received', Number(quantity || 0), reason)}>Part received</button><button className="ps-btn ps-btn-secondary ps-btn-sm" type="button" disabled={saving || !reason.trim()} onClick={() => onSave('refused', 0, reason)}>GP refused</button></div> : <div className="care-home-supply-result care-home-no-print"><small>{line.outcome_reason || (sent ? 'Waiting for pharmacy reconciliation' : 'Request not yet sent')}</small></div>}
     </article>
   )
@@ -67,7 +68,7 @@ export function CareHomePrescriptionRequestPage() {
         <header><div><strong>PharmStation</strong><span>Care-home repeat prescription request</span></div><div><strong>Request #{request.request_number}</strong><span>Prepared {new Date(request.prepared_at).toLocaleDateString('en-GB')}</span></div></header>
         <div className="care-home-prescription-addresses"><div><small>To</small><strong>{request.surgery_name || 'Resident GP surgery'}</strong><span>{request.surgery_address || 'Please route each resident request to their recorded GP practice.'}</span></div><div><small>Request period</small><strong>{request.cycle_start || '-'} to {request.cycle_end || '-'}</strong><span>{request.surgery_contact || ''}</span></div></div>
         <p>Please issue the following medicines for the named care-home residents. Contact the pharmacy if any item has been stopped, changed, refused, or is not due.</p>
-        <table><thead><tr><th>Resident</th><th>NHS number</th><th>GP practice</th><th>Medicine</th><th>Type</th><th>Quantity</th></tr></thead><tbody>{lines.map((line) => <tr key={line.id}><td>{residentName(line)}</td><td>{line.resident?.patient?.nhs_number || '-'}</td><td>{line.resident?.gp_practice || '-'}</td><td>{line.medicine_name}</td><td>{line.request_type}</td><td>{line.quantity ?? '-'}</td></tr>)}</tbody></table>
+        <table><thead><tr><th>Resident</th><th>NHS number</th><th>GP practice</th><th>Medicine</th><th>Type</th><th>Quantity</th></tr></thead><tbody>{lines.map((line) => <tr key={line.id}><td>{residentName(line)}</td><td>{line.resident?.patient?.nhs_number || '-'}</td><td>{line.resident?.gp_practice || '-'}</td><td>{line.medicine_name}</td><td>{chLabel('requestType', line.request_type)}</td><td>{line.quantity ?? '-'}</td></tr>)}</tbody></table>
         <footer><span>Pharmacy signature: ____________________</span><span>Date sent: ____________________</span><span>Surgery notes: __________________________________________</span></footer>
       </section>
 

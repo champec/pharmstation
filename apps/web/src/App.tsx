@@ -166,6 +166,13 @@ import { CareHomeResidentPage } from './pages/care-homes/CareHomeResidentPage'
 import { CareHomeMarChartPage } from './pages/care-homes/CareHomeMarChartPage'
 import { CareHomeSupplyBatchPage } from './pages/care-homes/CareHomeSupplyBatchPage'
 import { CareHomePrescriptionRequestPage } from './pages/care-homes/CareHomePrescriptionRequestPage'
+import { CareHomeGuard } from './pages/care-homes/CareHomeGuard'
+
+/** Care home logins have no pharmacy dashboard; send them to their workspace. */
+function HomeRoute() {
+  const organisationType = useAuthStore((s) => s.organisation?.organisation_type)
+  return organisationType === 'carehome' ? <Navigate to="/care-homes" replace /> : <DashboardPage />
+}
 // Pharmacy outreach CRM
 import { PharmacyOutreachPage } from './pages/outreach/PharmacyOutreachPage'
 
@@ -358,7 +365,7 @@ export function App() {
           )
         }
       >
-        <Route path="/" element={<DashboardPage />} />
+        <Route path="/" element={<HomeRoute />} />
         <Route path="/registers" element={<RegistersPage />} />
         <Route path="/registers/cd" element={<CDRegisterPage />} />
         <Route path="/registers/cd/:drugId" element={<CDLedgerPage />} />
@@ -478,6 +485,7 @@ export function App() {
         <Route path="/shifts/:id" element={<ShiftDetailPage />} />
 
         {/* Care home management */}
+        <Route element={<CareHomeGuard />}>
         <Route path="/care-homes" element={<CareHomeDashboardPage />} />
         <Route path="/care-homes/manage" element={<CareHomeManagePage />} />
         <Route path="/care-homes/manage/:linkId" element={<CareHomeManagePage />} />
@@ -489,6 +497,7 @@ export function App() {
         <Route path="/care-homes/:linkId/supplies/:batchId" element={<CareHomeSupplyBatchPage />} />
         <Route path="/care-homes/supplies/:batchId" element={<CareHomeSupplyBatchPage />} />
         <Route path="/care-homes/:linkId/prescriptions/:requestId" element={<CareHomePrescriptionRequestPage />} />
+        </Route>
       </Route>
 
       {/* Catch all */}

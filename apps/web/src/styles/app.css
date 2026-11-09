@@ -14832,3 +14832,55 @@ textarea.form-input {
   outline-offset: 2px;
 }
 .shop-max-note { display: block; margin-top: 6px; color: #92400e; font-size: 12px; font-weight: 600; }
+
+/* Care homes: add-resident form source switch and helper text */
+.care-home-segmented {
+  display: inline-flex;
+  justify-self: start;
+  gap: 2px;
+  padding: 3px;
+  border: 1px solid var(--ps-mist);
+  border-radius: 999px;
+  background: var(--ps-off-white);
+}
+.care-home-segmented button {
+  min-height: 34px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--ps-slate);
+  font: inherit;
+  font-size: var(--ps-font-sm);
+  font-weight: 600;
+  cursor: pointer;
+}
+.care-home-segmented button.active {
+  background: var(--ps-deep-blue);
+  color: #fff;
+}
+.care-home-help {
+  color: var(--ps-slate);
+  font-size: var(--ps-font-xs, 12px);
+  font-weight: 400;
+}
+.care-home-patient-results button:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+.care-home-workspace-tabs {
+  margin-top: var(--ps-space-lg);
+}
+@media (max-width: 800px) {
+  .care-home-request-form {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .care-home-form-span-2 {
+    grid-column: auto;
+  }
+}
+.care-home-page .stat-card-sub {
+  margin-top: var(--ps-space-xs);
+  font-size: var(--ps-font-xs);
+  color: var(--ps-slate);
+}

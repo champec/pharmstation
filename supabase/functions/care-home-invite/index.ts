@@ -53,24 +53,36 @@ Deno.serve(async (request) => {
       .eq('user_id', caller.id)
       .eq('status', 'active')
       .maybeSingle()
-    const allowedByRole = ['owner', 'manager', 'pharmacist'].includes(callerMembership?.role ?? '')
-    const allowedByPermission = callerMembership?.permissions?.care_home_manage === true
-    if (!callerMembership || (!allowedByRole && !allowedByPermission)) {
+    // An explicit care_home_manage setting wins; otherwise fall back to the role default.
+    const explicit = callerMembership?.permissions?.care_home_manage
+    const allowed = typeof explicit === 'boolean'
+      ? explicit
+      : ['owner', 'manager', 'pharmacist'].includes(callerMembership?.role ?? '')
+    if (!callerMembership || !allowed) {
       return json({ error: 'Care-home management permission is required' }, 403)
     }
 
     const { data: invited, error: inviteError } = await admin.auth.admin.inviteUserByEmail(email, {
       data: { full_name: fullName, account_type: 'user', default_role: 'carehome_user' },
     })
-    if (inviteError || !invited.user) {
-      return json({ error: inviteError?.message ?? 'Unable to invite this user' }, 400)
+    let invitedUserId = invited?.user?.id ?? null
+    if (inviteError || !invitedUserId) {
+      // Someone who already has a PharmStation account is added to the care home directly.
+      const alreadyExists = /already|registered|exists/i.test(inviteError?.message ?? '')
+      const { data: existingProfile } = alreadyExists
+        ? await admin.from('ps_user_profiles').select('id').ilike('email', email.replace(/[%_\\]/g, (c) => `\\${c}`)).maybeSingle()
+        : { data: null }
+      if (!existingProfile?.id) {
+        return json({ error: inviteError?.message ?? 'Unable to invite this user' }, 400)
+      }
+      invitedUserId = existingProfile.id
     }
-
-    const invitedUserId = invited.user.id
-    const { error: profileError } = await admin
-      .from('ps_user_profiles')
-      .upsert({ id: invitedUserId, full_name: fullName, email, default_role: 'carehome_user' }, { onConflict: 'id' })
-    if (profileError) throw profileError
+    if (invited?.user?.id) {
+      const { error: profileError } = await admin
+        .from('ps_user_profiles')
+        .upsert({ id: invitedUserId, full_name: fullName, email, default_role: 'carehome_user' }, { onConflict: 'id' })
+      if (profileError) throw profileError
+    }
 
     const { error: membershipError } = await admin
       .from('ps_organisation_members')
