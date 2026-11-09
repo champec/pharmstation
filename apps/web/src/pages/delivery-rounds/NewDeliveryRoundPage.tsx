@@ -597,7 +597,7 @@ export function NewDeliveryRoundPage() {
       </Modal>
 
       {/* ========== Configure Medications Modal ========== */}
-      <Modal isOpen={showConfigMedsModal} onClose={closeConfigMeds} title={`⚙️ Configure Medications — ${configMedsPatientName}`} width="640px">
+      <Modal isOpen={showConfigMedsModal} onClose={closeConfigMeds} title={`Configure Medications — ${configMedsPatientName}`} width="640px">
         <div>
           {configMedsLoading ? (
             <div style={{ textAlign: 'center', padding: 'var(--ps-space-lg)', color: 'var(--ps-slate)' }}>Loading medications…</div>

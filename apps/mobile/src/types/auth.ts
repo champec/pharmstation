@@ -86,6 +86,10 @@ export interface Permissions {
   billing?: boolean
   delivery_manage?: boolean
   delivery_drive?: boolean
+  /** Set up services and forms (owner, manager, pharmacist) */
+  services_manage?: boolean
+  /** Correct a completed service record, with a reason (adds locum) */
+  services_amend?: boolean
   [key: string]: boolean | undefined
 }
 
@@ -123,6 +127,8 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, Permissions> = {
     billing: true,
     delivery_manage: true,
     delivery_drive: true,
+    services_manage: true,
+    services_amend: true,
   },
   manager: {
     cd_register_read: true,
@@ -141,6 +147,8 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, Permissions> = {
     billing: false,
     delivery_manage: true,
     delivery_drive: true,
+    services_manage: true,
+    services_amend: true,
   },
   pharmacist: {
     cd_register_read: true,
@@ -159,6 +167,8 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, Permissions> = {
     billing: false,
     delivery_manage: true,
     delivery_drive: false,
+    services_manage: true,
+    services_amend: true,
   },
   technician: {
     cd_register_read: true,
@@ -177,6 +187,8 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, Permissions> = {
     billing: false,
     delivery_manage: true,
     delivery_drive: true,
+    services_manage: false,
+    services_amend: false,
   },
   dispenser: {
     cd_register_read: false,
@@ -195,6 +207,8 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, Permissions> = {
     billing: false,
     delivery_manage: true,
     delivery_drive: true,
+    services_manage: false,
+    services_amend: false,
   },
   locum: {
     cd_register_read: true,
@@ -213,6 +227,8 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, Permissions> = {
     billing: false,
     delivery_manage: false,
     delivery_drive: false,
+    services_manage: false,
+    services_amend: true,
   },
 }
 

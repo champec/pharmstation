@@ -201,7 +201,7 @@ export function MessagingSettingsTab() {
 
       {/* ── Status ── */}
       <div className="ps-card" style={cardStyle}>
-        <h3 style={{ margin: '0 0 var(--ps-space-sm)' }}>📱 SMS (via SMS Works)</h3>
+        <h3 style={{ margin: '0 0 var(--ps-space-sm)' }}>SMS (via SMS Works)</h3>
         <p style={hintStyle}>
           Text messages are sent through PharmStation's SMS gateway — no account or API key needed.
           Usage is metered per pharmacy and billed monthly.
@@ -217,7 +217,7 @@ export function MessagingSettingsTab() {
             Enable SMS
           </label>
           <button className="ps-btn ps-btn-secondary" disabled={testing} onClick={handleTest}>
-            {testing ? 'Testing…' : '🔌 Test Connection'}
+            {testing ? 'Testing…' : 'Test Connection'}
           </button>
         </div>
         {testResult && (
@@ -313,7 +313,7 @@ export function MessagingSettingsTab() {
           </div>
         ) : (
           <button className="ps-btn ps-btn-secondary" disabled={replyBusy} onClick={handleRequestReplyNumber}>
-            {replyBusy ? 'Requesting…' : '📞 Request a reply number'}
+            {replyBusy ? 'Requesting…' : 'Request a reply number'}
           </button>
         )}
         {replyNotice && <div style={{ marginTop: 'var(--ps-space-sm)', fontSize: '0.9rem', color: 'var(--ps-slate)' }}>{replyNotice}</div>}
@@ -503,7 +503,7 @@ export function MessagingSettingsTab() {
         <NhsNotifySection />
       ) : (
         <div className="ps-card" style={{ ...cardStyle, borderLeft: '4px solid var(--ps-mist)' }}>
-          <h3 style={{ margin: '0 0 var(--ps-space-sm)', color: 'var(--ps-slate)' }}>🏥 NHS Notify (email & letters)</h3>
+          <h3 style={{ margin: '0 0 var(--ps-space-sm)', color: 'var(--ps-slate)' }}>NHS Notify (email & letters)</h3>
           <p style={{ color: 'var(--ps-slate)', margin: 0, fontSize: '0.9rem', lineHeight: 1.7 }}>
             GOV.UK / NHS Notify no longer supports community pharmacies, so email and letter channels are
             unavailable. Pharmacies directly affiliated with the NHS (NHS-funded, hospital, GP surgeries within an
@@ -603,7 +603,7 @@ function NhsNotifySection() {
 
   return (
     <div style={{ borderTop: '2px solid var(--ps-mist)', paddingTop: 'var(--ps-space-lg)' }}>
-      <h2 style={{ margin: '0 0 var(--ps-space-xs)' }}>🏥 NHS Notify (email & letters)</h2>
+      <h2 style={{ margin: '0 0 var(--ps-space-xs)' }}>NHS Notify (email & letters)</h2>
       <p style={hintStyle}>
         Your organisation is NHS-affiliated, so email and letter channels via NHS Notify remain available.
         SMS is still delivered via the platform gateway above unless support has switched your provider.
@@ -660,7 +660,7 @@ function NhsNotifySection() {
             disabled={testing || (!apiKey.trim() && !settings?.has_api_key)}
             onClick={handleTestConnection}
           >
-            {testing ? 'Testing...' : '🔌 Test Connection'}
+            {testing ? 'Testing...' : 'Test Connection'}
           </button>
         </div>
         {testResult && (
@@ -687,15 +687,15 @@ function NhsNotifySection() {
         </ul>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--ps-space-md)' }}>
           <div>
-            <label style={labelStyle}>📱 SMS Template ID</label>
+            <label style={labelStyle}>SMS Template ID</label>
             <input className="ps-input" placeholder="e.g. a1b2c3d4-e5f6-7890-abcd-ef1234567890" value={smsTemplateId} onChange={(e) => setSmsTemplateId(e.target.value)} />
           </div>
           <div>
-            <label style={labelStyle}>📧 Email Template ID</label>
+            <label style={labelStyle}>Email Template ID</label>
             <input className="ps-input" placeholder="e.g. a1b2c3d4-e5f6-7890-abcd-ef1234567890" value={emailTemplateId} onChange={(e) => setEmailTemplateId(e.target.value)} />
           </div>
           <div>
-            <label style={labelStyle}>✉️ Letter Template ID</label>
+            <label style={labelStyle}>Letter Template ID</label>
             <input className="ps-input" placeholder="e.g. a1b2c3d4-e5f6-7890-abcd-ef1234567890" value={letterTemplateId} onChange={(e) => setLetterTemplateId(e.target.value)} />
           </div>
         </div>

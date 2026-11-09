@@ -94,7 +94,7 @@ export function PEPSPrescriberSetupPage() {
           <span className="separator">/</span>
           <span>Prescriber Setup</span>
         </div>
-        <h1>🪪 Prescriber Setup</h1>
+        <h1>Prescriber Setup</h1>
         <p style={{ color: 'var(--ps-slate)', marginTop: '4px' }}>
           Your prescriber identity is global across PharmStation — any pharmacy can verify your registration.
         </p>

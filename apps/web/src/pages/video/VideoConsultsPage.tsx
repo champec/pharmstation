@@ -242,7 +242,7 @@ export function VideoConsultsPage() {
           <span>Video Consultations</span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--ps-space-md)' }}>
-          <h1>📹 Video Consultations</h1>
+          <h1>Video Consultations</h1>
           <button className="ps-btn ps-btn-primary" onClick={openNewConsultation}>
             + New Consultation
           </button>
@@ -265,7 +265,7 @@ export function VideoConsultsPage() {
             className={`ps-btn ${tab === t ? 'ps-btn-primary' : 'ps-btn-secondary'}`}
             onClick={() => setTab(t)}
           >
-            {t === 'upcoming' ? '📅 Upcoming' : t === 'active' ? '🟢 Active' : '📋 Past'}
+            {t === 'upcoming' ? 'Upcoming' : t === 'active' ? 'Active' : 'Past'}
           </button>
         ))}
       </div>
@@ -352,7 +352,7 @@ export function VideoConsultsPage() {
                               onClick={() => copyToClipboard(getPatientLink(c))}
                               title="Copy patient link"
                             >
-                              🔗 Link
+                              Link
                             </button>
                             {c.status === 'scheduled' && (
                               <>
@@ -367,7 +367,7 @@ export function VideoConsultsPage() {
                                       : resendStates[c.id]?.error || 'Text the patient their consultation link and access code again'
                                   }
                                 >
-                                  {resendStates[c.id]?.status === 'sending' ? 'Sending…' : '📲 Resend Link'}
+                                  {resendStates[c.id]?.status === 'sending' ? 'Sending…' : 'Resend Link'}
                                 </button>
                                 {resendStates[c.id]?.status === 'sent' && (
                                   <span style={{ alignSelf: 'center', color: 'var(--ps-success)', fontSize: 'var(--ps-font-xs)', whiteSpace: 'nowrap' }}>✓ Sent</span>
@@ -546,14 +546,14 @@ export function VideoConsultsPage() {
                 style={{ flex: 1 }}
                 onClick={() => copyToClipboard(createdConsultation.patient_access_code)}
               >
-                📋 Copy Code
+                Copy Code
               </button>
               <button
                 className="ps-btn ps-btn-primary"
                 style={{ flex: 1 }}
                 onClick={() => copyToClipboard(getPublicPatientLink(createdPatientLink))}
               >
-                🔗 Copy Patient Link
+                Copy Patient Link
               </button>
             </div>
 
@@ -564,7 +564,7 @@ export function VideoConsultsPage() {
               disabled={textState === 'sending'}
               title="Text the patient their consultation link and access code again"
             >
-              {textState === 'sending' ? 'Sending link…' : '📲 Resend Link'}
+              {textState === 'sending' ? 'Sending link…' : 'Resend Link'}
             </button>
             {textState === 'sent' && (
               <p style={{ color: 'var(--ps-success)', fontSize: 'var(--ps-font-sm)', margin: 0 }}>✓ Patient link sent by text.</p>

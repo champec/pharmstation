@@ -363,10 +363,10 @@ export function LocumProfilePage() {
           style={{ marginBottom: '1rem' }}
         >
           {locumProfile.compliance_status === 'approved'
-            ? '✅ Your compliance checks are approved. You can book shifts.'
+            ? 'Your compliance checks are approved. You can book shifts.'
             : locumProfile.compliance_status === 'rejected'
               ? 'Your compliance checks were not approved. Update your details or documents below and we will review them again.'
-              : '⏳ We are checking your GPhC registration and documents. You can book shifts once you are approved. Upload your documents in the Documents tab to speed this up.'}
+              : 'We are checking your GPhC registration and documents. You can book shifts once you are approved. Upload your documents in the Documents tab to speed this up.'}
           {locumProfile.compliance_review_notes && (
             <div style={{ marginTop: 4 }}><strong>Note from PharmStation:</strong> {locumProfile.compliance_review_notes}</div>
           )}
@@ -376,7 +376,7 @@ export function LocumProfilePage() {
       <div className="ps-tabs" style={{ marginBottom: '1.5rem' }}>
         {(['profile', 'services', 'documents', 'payments'] as Tab[]).map((t) => (
           <button key={t} className={`ps-tab${tab === t ? ' active' : ''}`} onClick={() => { setTab(t); setProfileMsg(null); setServicesMsg(null); setPayMsg(null) }}>
-            {t === 'profile' ? 'Compliance Details' : t === 'services' ? 'My Services' : t === 'documents' ? 'Documents' : '💰 Get Paid'}
+            {t === 'profile' ? 'Compliance Details' : t === 'services' ? 'My Services' : t === 'documents' ? 'Documents' : 'Get Paid'}
           </button>
         ))}
       </div>
@@ -635,7 +635,7 @@ export function LocumProfilePage() {
           {payMsg && <div className={`ps-alert ps-alert-${payMsg.type}`} style={{ marginBottom: '1rem' }}>{payMsg.text}</div>}
           <div className="ps-card">
             <div className="ps-card-header">
-              <h2 className="ps-card-title">💰 Get paid by pharmacies</h2>
+              <h2 className="ps-card-title">Get paid by pharmacies</h2>
             </div>
             <div className="ps-card-body">
               {loadingStripe ? (

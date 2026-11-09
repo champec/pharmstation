@@ -53,7 +53,7 @@ export function BroadcastsPage() {
           <span>Broadcasts</span>
         </div>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <h1>📢 Broadcasts</h1>
+          <h1>Broadcasts</h1>
           <button className="ps-btn ps-btn-primary" onClick={() => navigate('/messaging/broadcasts/new')}>
             + New Broadcast
           </button>

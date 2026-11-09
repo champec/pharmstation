@@ -7,6 +7,7 @@ import { Modal } from '../../components/Modal'
 import { BalanceCheckModal } from '../../components/balance-check/BalanceCheckModal'
 import { BarcodeScanModal } from '../../components/scan/BarcodeScanModal'
 import { CDRegisterExportModal } from '../../components/registers/CDRegisterExportModal'
+import { BookMarked, TriangleAlert } from 'lucide-react'
 
 export function CDRegisterPage() {
   const navigate = useNavigate()
@@ -144,7 +145,7 @@ export function CDRegisterPage() {
           <span>CD Register</span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <h1>💊 CD Register</h1>
+          <h1>CD Register</h1>
           <div style={{ display: 'flex', gap: 'var(--ps-space-sm)', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
             <button
               className="ps-btn ps-btn-ghost"
@@ -152,14 +153,14 @@ export function CDRegisterPage() {
               disabled={!canWrite}
               title="Perform a CD balance check across all registers"
             >
-              📋 Balance Check
+              Balance Check
             </button>
             <button
               className="ps-btn ps-btn-ghost"
               onClick={() => navigate('/registers/scan')}
               title="Scan a prescription or invoice with AI"
             >
-              📸 AI Scan
+              AI Scan
             </button>
             <button
               className="ps-btn ps-btn-ghost"
@@ -220,7 +221,7 @@ export function CDRegisterPage() {
       ) : subscribedRegisters.length === 0 && !globalSearch.trim() ? (
         /* Empty state — no registers subscribed yet */
         <div className="cd-empty-state">
-          <div className="cd-empty-icon">📋</div>
+          <span className="ps-empty-icon" aria-hidden="true"><BookMarked size={26} strokeWidth={1.75} /></span>
           <h3>No registers yet</h3>
           <p>
             Your pharmacy hasn't added any CD registers yet. Just like picking a blank register insert in real life,
@@ -708,7 +709,7 @@ function AddRegisterModal({ isOpen, onClose, initialSearch, onAdded }: AddRegist
             {selectedDrug && showConfirmation && (
               <div className="add-register-step-content">
                 <div className="add-register-confirm">
-                  <div className="add-register-confirm-icon">⚠️</div>
+                  <div className="add-register-confirm-icon"><TriangleAlert size={18} aria-hidden="true" /></div>
                   <h3>Confirm New Register</h3>
                   <div className="add-register-confirm-details">
                     <p><strong>Drug:</strong> {selectedDrug.drug_brand}</p>

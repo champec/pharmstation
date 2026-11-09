@@ -254,13 +254,13 @@ export function LogBuilderPage() {
           <span>{editTemplateId ? 'Edit Log' : 'New Log'}</span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <h1>🛠️ {editTemplateId ? 'Edit Custom Log' : 'Create Custom Log'}</h1>
+          <h1>{editTemplateId ? 'Edit Custom Log' : 'Create Custom Log'}</h1>
           <div style={{ display: 'flex', gap: 'var(--ps-space-sm)' }}>
             <button
               className={`ps-btn ps-btn-sm ${previewMode ? 'ps-btn-primary' : 'ps-btn-secondary'}`}
               onClick={() => setPreviewMode(!previewMode)}
             >
-              {previewMode ? '✏️ Edit' : '👁 Preview'}
+              {previewMode ? 'Edit' : 'Preview'}
             </button>
             <button className="ps-btn ps-btn-secondary" onClick={() => navigate('/logs')}>
               ← Cancel

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Alert, Linking, Pressable, StyleSheet, Switch, Text, View } from 'react-native'
+import { Alert, Pressable, StyleSheet, Switch, Text, View } from 'react-native'
 import { useRouter } from 'expo-router'
 
 import { Button } from '@/components/ui/Button'
@@ -16,7 +16,8 @@ import {
   rememberEmail,
   rememberedEmail,
 } from '@/lib/biometric-login'
-import { FORGOT_PASSWORD_URL, sendMfaRecoveryEmail } from '@/lib/supabase'
+import { sendMfaRecoveryEmail } from '@/lib/supabase'
+import { requestPasswordResetEmail } from '@/lib/account'
 import { totp } from '@/lib/totp'
 import * as LocalAuthentication from 'expo-local-authentication'
 import { useAuthStore } from '@/stores/auth-store'
@@ -78,6 +79,22 @@ export default function UserLoginScreen() {
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [remember, setRemember] = useState(true)
+  const [resetOpen, setResetOpen] = useState(false)
+  const [resetSent, setResetSent] = useState(false)
+  const [resetBusy, setResetBusy] = useState(false)
+
+  const sendReset = async () => {
+    setError(null)
+    setResetBusy(true)
+    try {
+      await requestPasswordResetEmail(email)
+      setResetSent(true)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Couldn’t send the email. Try again.')
+    } finally {
+      setResetBusy(false)
+    }
+  }
   const [bioLabel, setBioLabel] = useState<string | null>(null)
   const [bioEmail, setBioEmail] = useState<string | null>(null)
   // The login being signed in with, so we can offer quick sign-in once it
@@ -288,9 +305,25 @@ export default function UserLoginScreen() {
           <Switch value={remember} onValueChange={setRemember} />
         </View>
 
-        <Pressable onPress={() => Linking.openURL(FORGOT_PASSWORD_URL)} accessibilityRole="link">
-          <Text style={styles.link}>Forgot password?</Text>
-        </Pressable>
+        {resetOpen ? (
+          <View style={styles.resetBox}>
+            <Text style={styles.resetText}>
+              {resetSent
+                ? `If ${email.trim()} has a PharmStation account, we’ve emailed it a link to set a new password. Open it on any device, then sign in here.`
+                : 'Enter your email above and we’ll send you a link to set a new password.'}
+            </Text>
+            {!resetSent ? (
+              <Button label="Email me a reset link" variant="secondary" onPress={sendReset} loading={resetBusy} disabled={!email.trim()} />
+            ) : null}
+            <Pressable onPress={() => { setResetOpen(false); setResetSent(false) }} accessibilityRole="button">
+              <Text style={styles.link}>{resetSent ? 'Done' : 'Cancel'}</Text>
+            </Pressable>
+          </View>
+        ) : (
+          <Pressable onPress={() => { setError(null); setResetOpen(true) }} accessibilityRole="button">
+            <Text style={styles.link}>Forgot password?</Text>
+          </Pressable>
+        )}
 
         {error ? <Text style={styles.error}>{error}</Text> : null}
 
@@ -302,9 +335,9 @@ export default function UserLoginScreen() {
         />
       </View>
 
+      <Button label="Create an account" variant="ghost" onPress={() => router.push('/(auth)/sign-up')} />
       <Text style={styles.footnote}>
-        Don&apos;t have an account? Ask your pharmacy admin to invite you, or
-        register on the web app.
+        Invited by your pharmacy? Open the link in the invite email instead.
       </Text>
     </Screen>
   )
@@ -312,6 +345,8 @@ export default function UserLoginScreen() {
 
 const styles = StyleSheet.create({
   content: { gap: 28, paddingTop: 32 },
+  resetBox: { gap: 10, padding: 14, borderRadius: 12, backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.border },
+  resetText: { fontSize: 14, lineHeight: 20, color: palette.textMuted },
   header: { gap: 8 },
   title: { fontSize: 28, fontWeight: '800', color: palette.text },
   bio: { gap: 10 },

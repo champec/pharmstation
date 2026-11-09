@@ -86,6 +86,12 @@ export const MODULES: MobileModule[] = [
         icon: 'wallet-outline',
         blurb: 'Completed hours and estimated earnings',
       },
+      {
+        id: 'profile',
+        title: 'Profile',
+        icon: 'person-outline',
+        blurb: 'Compliance, documents, shift alerts and SOPs',
+      },
     ],
   },
 
@@ -182,6 +188,21 @@ export const MODULES: MobileModule[] = [
     ],
   },
   {
+    id: 'locum-cover',
+    title: 'Locum Cover',
+    description: 'Confirm applicants and record worked shifts',
+    icon: 'people-circle-outline',
+    color: '#7C3AED',
+    tier: 'org',
+    platform: 'both',
+    visible: (ctx) => has(ctx.permissions, 'approve_locums'),
+    tabs: [
+      { id: 'shifts', title: 'Shifts', icon: 'calendar-outline', blurb: 'Upcoming shifts and applications' },
+      { id: 'record', title: 'To record', icon: 'checkmark-done-outline', blurb: 'Mark finished shifts as worked or no-show' },
+      { id: 'post', title: 'Post shift', icon: 'add-circle-outline', platform: 'web', blurb: 'Post new shifts on the website' },
+    ],
+  },
+  {
     id: 'pharmacy',
     title: 'Pharmacy Management',
     description: 'Registers, handover and team tasks',
@@ -216,11 +237,10 @@ export const MODULES: MobileModule[] = [
         id: 'team',
         title: 'Team',
         icon: 'people-outline',
-        platform: 'web',
         visible: (ctx) =>
           has(ctx.permissions, 'manage_users') ||
           has(ctx.permissions, 'org_settings'),
-        blurb: 'Manage staff, roles and permissions',
+        blurb: 'Invite staff, change roles, reset two-step sign-in',
       },
     ],
   },
@@ -358,10 +378,16 @@ export const MODULES: MobileModule[] = [
     icon: 'videocam-outline',
     color: '#475569',
     tier: 'org',
-    platform: 'web',
+    platform: 'both',
     visible: (ctx) => ctx.isOrgConnected,
-    webHint: 'Video consultations run in the web app on a desktop browser.',
-    tabs: [],
+    tabs: [
+      {
+        id: 'consultations',
+        title: 'Calls',
+        icon: 'videocam-outline',
+        blurb: 'Book, text the link and join patient video calls',
+      },
+    ],
   },
 ]
 

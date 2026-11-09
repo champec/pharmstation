@@ -108,7 +108,7 @@ export function PharmacyApprovalsPage() {
           <span className="separator">/</span>
           <span>Verify pharmacies</span>
         </div>
-        <h1>🏥 Verify pharmacies</h1>
+        <h1>Verify pharmacies</h1>
         <p style={{ color: 'var(--ps-slate)', marginTop: '4px' }}>
           Find each premises number on the{' '}
           <a href="https://www.pharmacyregulation.org/registers" target="_blank" rel="noopener noreferrer">GPhC register</a>{' '}

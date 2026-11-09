@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useAuthStore, useSOPStore, canManageSOPs } from '@pharmstation/core'
 import type { SOPDocument } from '@pharmstation/types'
 import { Modal } from '../../components/Modal'
+import { BookOpenCheck } from 'lucide-react'
 
 type Tab = 'my-sops' | 'manage'
 
@@ -96,7 +97,7 @@ export function SOPsPage() {
           <span>SOPs</span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--ps-space-md)' }}>
-          <h1>📋 SOP Library</h1>
+          <h1>SOP Library</h1>
           {isManager && tab === 'manage' && (
             <button className="ps-btn ps-btn-primary" onClick={() => setShowCreate(true)}>
               + New SOP
@@ -111,14 +112,14 @@ export function SOPsPage() {
           className={`ps-tab ${tab === 'my-sops' ? 'active' : ''}`}
           onClick={() => setTab('my-sops')}
         >
-          📖 My SOPs
+          My SOPs
         </button>
         {isManager && (
           <button
             className={`ps-tab ${tab === 'manage' ? 'active' : ''}`}
             onClick={() => setTab('manage')}
           >
-            ⚙️ Manage SOPs
+            Manage SOPs
           </button>
         )}
       </div>
@@ -136,7 +137,7 @@ export function SOPsPage() {
         </div>
       ) : documents.length === 0 ? (
         <div className="ps-empty-state">
-          <div style={{ fontSize: 48 }}>📋</div>
+          <span className="ps-empty-icon" aria-hidden="true"><BookOpenCheck size={26} strokeWidth={1.75} /></span>
           <h3>
             {tab === 'manage'
               ? 'No SOPs yet — create your first one'
@@ -195,7 +196,7 @@ export function SOPsPage() {
                     )}
                     {completion && (
                       <span style={{ color: completion.color, fontWeight: 600 }}>
-                        {completion.icon} {completion.label}
+                        {completion.label}
                       </span>
                     )}
                   </div>
@@ -208,21 +209,21 @@ export function SOPsPage() {
                       style={{ fontSize: 12, padding: '4px 12px' }}
                       onClick={() => navigate(`/sops/${doc.id}/edit`)}
                     >
-                      ✏️ Edit
+                      Edit
                     </button>
                     <button
                       className="ps-btn ps-btn-secondary"
                       style={{ fontSize: 12, padding: '4px 12px' }}
                       onClick={() => navigate(`/sops/${doc.id}/assign`)}
                     >
-                      👥 Assign
+                      Assign
                     </button>
                     <button
                       className="ps-btn ps-btn-secondary"
                       style={{ fontSize: 12, padding: '4px 12px' }}
                       onClick={() => navigate(`/sops/${doc.id}/progress`)}
                     >
-                      📊 Progress
+                      Progress
                     </button>
                     <button
                       className="ps-btn"

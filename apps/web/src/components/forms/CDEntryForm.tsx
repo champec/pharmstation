@@ -330,7 +330,7 @@ export function CDEntryForm({ direction, packLabel, onSuccess, onCancel }: CDEnt
       </div>
 
       <div className={`entry-direction-badge ${direction === 'in' ? 'entry-in' : 'entry-out'}`}>
-        {direction === 'in' ? '📥 Received IN' : '📤 Supplied OUT'}
+        {direction === 'in' ? 'Received IN' : 'Supplied OUT'}
       </div>
 
       {submitError && <div className="auth-error">{submitError}</div>}
@@ -499,7 +499,7 @@ export function CDEntryForm({ direction, packLabel, onSuccess, onCancel }: CDEnt
           <div className="form-group">
             <label className="checkbox-label" title="Tick when only part of the prescribed quantity is being supplied — balance owed to patient. Recorded as an appended note under the entry.">
               <input type="checkbox" {...register('is_partial_supply')} />
-              <span>⏳ Part supply (balance owed to patient)</span>
+              <span>Part supply (balance owed to patient)</span>
             </label>
           </div>
         </>
@@ -533,7 +533,7 @@ export function CDEntryForm({ direction, packLabel, onSuccess, onCancel }: CDEnt
           className={`ps-btn ${direction === 'in' ? 'ps-btn-success' : 'ps-btn-primary'}`}
           disabled={submitting}
         >
-          {submitting ? 'Saving...' : direction === 'in' ? '📥 Record Receipt' : '📤 Record Supply'}
+          {submitting ? 'Saving...' : direction === 'in' ? 'Record Receipt' : 'Record Supply'}
         </button>
       </div>
 

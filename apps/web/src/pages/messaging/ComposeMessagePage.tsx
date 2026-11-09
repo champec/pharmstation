@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
+import { Lock } from 'lucide-react'
 import { useNavigate, useSearchParams, useLocation } from 'react-router-dom'
 import { useAuthStore, useMessagingStore } from '@pharmstation/core'
 import { getUserClient } from '@pharmstation/supabase-client'
@@ -185,7 +186,7 @@ export function ComposeMessagePage() {
           <span className="separator">/</span>
           <span>Compose</span>
         </div>
-        <h1>✏️ Compose Message</h1>
+        <h1>Compose Message</h1>
       </div>
 
       {isNotConfigured && (
@@ -211,7 +212,7 @@ export function ComposeMessagePage() {
                     style={unavailable ? { opacity: 0.5 } : undefined}
                     title={unavailable ? 'NHS-affiliated organisations only' : undefined}
                   >
-                    {ch.icon} {ch.label}{unavailable ? ' 🔒' : ''}
+                    {ch.label}{unavailable && <Lock size={12} aria-label="Not available" style={{ marginLeft: 4 }} />}
                   </button>
                 )
               })}
@@ -229,7 +230,7 @@ export function ComposeMessagePage() {
               }}>
                 <span style={{ fontWeight: 500 }}>{selectedPatient.first_name} {selectedPatient.last_name}</span>
                 <span style={{ color: 'var(--ps-slate)', fontSize: '0.85rem' }}>
-                  {selectedPatient.phone && `📱 ${selectedPatient.phone}`}
+                  {selectedPatient.phone && `${selectedPatient.phone}`}
                   {selectedPatient.email && ` · 📧 ${selectedPatient.email}`}
                 </span>
                 <button className="ps-btn ps-btn-ghost" onClick={clearPatient} style={{ marginLeft: 'auto' }}>✕</button>
@@ -374,7 +375,7 @@ export function ComposeMessagePage() {
               padding: 'var(--ps-space-md)', minHeight: '120px',
             }}>
               <div style={{ fontSize: '0.8rem', color: 'var(--ps-slate)', marginBottom: 'var(--ps-space-xs)' }}>
-                📱 To: {phoneNumber || '—'}
+                To: {phoneNumber || '—'}
               </div>
               <div style={{
                 background: 'var(--ps-deep-blue)', color: 'white',
@@ -393,7 +394,7 @@ export function ComposeMessagePage() {
               padding: 'var(--ps-space-md)', minHeight: '120px',
             }}>
               <div style={{ fontSize: '0.8rem', color: 'var(--ps-slate)', marginBottom: 'var(--ps-space-xs)' }}>
-                📧 To: {emailAddress || '—'}
+                To: {emailAddress || '—'}
               </div>
               <div style={{ fontWeight: 600, marginBottom: 'var(--ps-space-sm)' }}>
                 {subject || 'Message from your pharmacy'}

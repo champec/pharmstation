@@ -4,6 +4,9 @@ import { getUserClient } from '@pharmstation/supabase-client'
 import type { Organisation } from '@pharmstation/types'
 import { PublicFooter } from '../../components/public/PublicFooter'
 
+// Anonymous visitors may only read these columns (column grants on ps_organisations).
+const PUBLIC_ORG_COLUMNS = 'id, name, slug, address, public_description, public_logo_url, is_public, is_active, organisation_type'
+
 export function PublicBookingHomePage() {
   const navigate = useNavigate()
   const [search, setSearch] = useState('')
@@ -14,7 +17,7 @@ export function PublicBookingHomePage() {
     // Fetch all public orgs (anon read)
     getUserClient()
       .from('ps_organisations')
-      .select('*')
+      .select(PUBLIC_ORG_COLUMNS)
       .eq('is_public', true)
       .order('name')
       .then(({ data }) => {

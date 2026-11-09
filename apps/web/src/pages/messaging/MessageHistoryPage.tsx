@@ -21,8 +21,8 @@ const FAILED_STATUSES = ['failed', 'permanent-failure', 'temporary-failure', 'te
  *  until the webhook reports, so we present it as pending. */
 const STATUS_LABELS: Record<string, string> = {
   created: 'Created',
-  sending: '⏳ Pending',
-  sent: '⏳ Pending',
+  sending: 'Pending',
+  sent: 'Pending',
   delivered: '✓ Delivered',
   failed: 'Failed',
   'permanent-failure': 'Perm. failure',
@@ -162,7 +162,7 @@ export function MessageHistoryPage() {
           <span>History</span>
         </div>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <h1>📋 Message History</h1>
+          <h1>Message History</h1>
           <button className="ps-btn ps-btn-secondary" onClick={handleExportCsv} disabled={messages.length === 0}>
             ⬇ Download CSV
           </button>
@@ -181,9 +181,9 @@ export function MessageHistoryPage() {
           <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: 'var(--ps-space-xs)' }}>Channel</label>
           <select className="ps-input" value={channelFilter} onChange={(e) => { setChannelFilter(e.target.value); setPage(0) }}>
             <option value="all">All Channels</option>
-            <option value="sms">📱 SMS</option>
-            <option value="email">📧 Email</option>
-            <option value="letter">✉️ Letter</option>
+            <option value="sms">SMS</option>
+            <option value="email">Email</option>
+            <option value="letter">Letter</option>
           </select>
         </div>
         <div>
@@ -385,7 +385,7 @@ export function MessageHistoryPage() {
             <div style={{ display: 'flex', gap: 'var(--ps-space-sm)', flexWrap: 'wrap' }}>
               {selected.notify_message_id && (
                 <button className="ps-btn ps-btn-secondary" disabled={checking} onClick={() => handleCheckStatus(selected)}>
-                  {checking ? 'Checking…' : '🔄 Check status'}
+                  {checking ? 'Checking…' : 'Check status'}
                 </button>
               )}
               {FAILED_STATUSES.includes(selected.status) && selected.body && (
@@ -395,7 +395,7 @@ export function MessageHistoryPage() {
               )}
               {selected.body && (
                 <button className="ps-btn ps-btn-secondary" onClick={() => handleReuse(selected)}>
-                  📝 Reuse message
+                  Reuse message
                 </button>
               )}
               <button className="ps-btn ps-btn-ghost" style={{ marginLeft: 'auto' }} onClick={() => setSelected(null)}>

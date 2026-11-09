@@ -11,6 +11,7 @@ import type { ScanQueueItem } from '@pharmstation/types'
 import { ScanUploadModal } from '../../components/scan/ScanUploadModal'
 import { ScanReviewModal } from '../../components/scan/ScanReviewModal'
 import { BarcodeScanModal } from '../../components/scan/BarcodeScanModal'
+import { ScanLine } from 'lucide-react'
 
 const CONFIDENCE_CONFIG: Record<number, { label: string; dot: string; border: string }> = {
   0: { label: 'Rejected', dot: '#6b7280', border: '#d1d5db' },
@@ -91,12 +92,12 @@ export function ScanQueuePage() {
         </div>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--ps-space-md)' }}>
           <div>
-            <h1 style={{ margin: 0 }}>📸 Scan Queue</h1>
+            <h1 style={{ margin: 0 }}>Scan Queue</h1>
             {(processingCount > 0 || readyCount > 0) && (
               <p style={{ margin: '4px 0 0', fontSize: 'var(--ps-font-sm)', color: 'var(--ps-slate)' }}>
-                {processingCount > 0 && <span>⏳ {processingCount} processing</span>}
+                {processingCount > 0 && <span>{processingCount} processing</span>}
                 {processingCount > 0 && readyCount > 0 && ' · '}
-                {readyCount > 0 && <span>📋 {readyCount} ready for review</span>}
+                {readyCount > 0 && <span>{readyCount} ready for review</span>}
               </p>
             )}
           </div>
@@ -105,7 +106,7 @@ export function ScanQueuePage() {
               ▦ Barcode Scan
             </button>
             <button className="ps-btn ps-btn-primary" onClick={() => setUploadModalOpen(true)}>
-              📷 Scan Document
+              Scan Document
             </button>
           </div>
         </div>
@@ -131,7 +132,7 @@ export function ScanQueuePage() {
         <p style={{ color: 'var(--ps-slate)', padding: 'var(--ps-space-lg)' }}>Loading...</p>
       ) : activeQueue.length === 0 ? (
         <div className="cd-empty-state">
-          <div className="cd-empty-icon">📸</div>
+          <span className="ps-empty-icon" aria-hidden="true"><ScanLine size={26} strokeWidth={1.75} /></span>
           <h3>Queue is empty</h3>
           <p>All scans have been processed. Take a photo of a prescription or invoice to start.</p>
           <div className="sq-empty-actions">
@@ -139,7 +140,7 @@ export function ScanQueuePage() {
               ▦ Barcode Scan
             </button>
             <button className="ps-btn ps-btn-primary" onClick={() => setUploadModalOpen(true)}>
-              📷 Scan Document
+              Scan Document
             </button>
           </div>
         </div>
@@ -229,9 +230,9 @@ function ScanQueueRow({
       {/* Content */}
       <div className="sq-content">
         <div className="sq-top-row">
-          {isProcessing && <span className="sq-status-pill sq-pill-processing">⏳ Processing...</span>}
+          {isProcessing && <span className="sq-status-pill sq-pill-processing">Processing...</span>}
           {isError && <span className="sq-status-pill sq-pill-error">⚠️ Error</span>}
-          {isRejected && <span className="sq-status-pill sq-pill-rejected">🚫 Rejected</span>}
+          {isRejected && <span className="sq-status-pill sq-pill-rejected">Rejected</span>}
           {isReady && conf && (
             <span className="sq-confidence-dot" style={{ background: conf.dot }} title={`Confidence: ${conf.label}`} />
           )}

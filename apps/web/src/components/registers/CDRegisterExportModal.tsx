@@ -190,7 +190,7 @@ export function CDRegisterExportModal({ isOpen, onClose }: Props) {
             {busy === 'csv' ? 'Preparing…' : '⬇ CSV'}
           </button>
           <button type="button" className="ps-btn ps-btn-primary" onClick={() => run('print')} disabled={busy !== null}>
-            {busy === 'print' ? 'Preparing…' : '🖨️ Print / PDF'}
+            {busy === 'print' ? 'Preparing…' : 'Print / PDF'}
           </button>
         </div>
       </div>
