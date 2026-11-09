@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { getUserClient } from '@pharmstation/supabase-client'
+import { Bell } from 'lucide-react'
+import { PageHeader } from '../../components/ui'
 import { useAuthStore } from '@pharmstation/core'
 
 interface ShiftWithCriteria {
@@ -225,20 +227,16 @@ export function LocumShiftsBrowsePage() {
 
   return (
     <div className="page-container">
-      <div className="page-header">
-        <div>
-          <h1 className="page-title">Browse Shifts</h1>
-          <p className="page-subtitle">Available locum shifts across the network</p>
-        </div>
-        <div style={{ display: 'flex', gap: '0.5rem' }}>
+      <PageHeader
+        title="Browse shifts"
+        subtitle="Available locum shifts across the network"
+        actions={<>
+          <button className="ps-btn ps-btn-ghost ps-btn-sm" onClick={load} disabled={loading}>Refresh</button>
           <button className="ps-btn ps-btn-secondary ps-btn-sm" onClick={createAlert} title="Get a phone notification when a new shift matches these filters">
-            🔔 Alert me
+            <Bell size={16} strokeWidth={1.75} aria-hidden="true" /> Alert me
           </button>
-          <button className="ps-btn ps-btn-ghost ps-btn-sm" onClick={load} disabled={loading}>
-            Refresh
-          </button>
-        </div>
-      </div>
+        </>}
+      />
 
       {error && <div className="ps-alert ps-alert-error" style={{ marginBottom: '1rem' }}>{error}</div>}
       {applyError && <div className="ps-alert ps-alert-error" style={{ marginBottom: '1rem' }}>{applyError}</div>}
