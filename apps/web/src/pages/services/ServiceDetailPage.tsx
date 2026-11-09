@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { useServiceStore } from '@pharmstation/core'
+import { useAuthStore, useServiceStore } from '@pharmstation/core'
 import { getUserClient } from '@pharmstation/supabase-client'
 import { Modal } from '../../components/Modal'
 
@@ -14,11 +14,25 @@ export function ServiceDetailPage() {
     error,
     fetchServiceDetail,
     updateService,
-    deleteService,
+    archiveService,
     createForm,
-    deleteForm,
+    archiveForm,
     clearError,
   } = useServiceStore()
+  const { permissions } = useAuthStore()
+  // Owners, managers and pharmacists by default (ps_member_has_services_permission)
+  const canManage = !!permissions?.services_manage
+  const [actionError, setActionError] = useState<string | null>(null)
+
+  /** Run a change and show its error on the page instead of losing it */
+  const run = async (fn: () => Promise<void>) => {
+    setActionError(null)
+    try {
+      await fn()
+    } catch (e) {
+      setActionError(e instanceof Error ? e.message : 'The change could not be saved.')
+    }
+  }
 
   const [editModalOpen, setEditModalOpen] = useState(false)
   const [editName, setEditName] = useState('')
@@ -74,35 +88,35 @@ export function ServiceDetailPage() {
   const handleSaveEdit = async () => {
     if (!serviceId) return
     setSaving(true)
-    try {
+    await run(async () => {
       await updateService(serviceId, {
         name: editName.trim(),
         description: editDescription.trim(),
         duration_minutes: editDuration,
       })
       setEditModalOpen(false)
-    } catch { /* error handled by store */ }
+    })
     setSaving(false)
   }
 
   const handleToggleActive = async () => {
     if (!serviceId || !activeService) return
-    await updateService(serviceId, { is_active: !activeService.is_active })
+    await run(() => updateService(serviceId, { is_active: !activeService.is_active }))
   }
 
   const handleTogglePublic = async () => {
     if (!serviceId || !activeService) return
-    await updateService(serviceId, { is_public: !activeService.is_public })
+    await run(() => updateService(serviceId, { is_public: !activeService.is_public }))
   }
 
   const handleToggleVideo = async () => {
     if (!serviceId || !activeService) return
-    await updateService(serviceId, { is_video: !activeService.is_video })
+    await run(() => updateService(serviceId, { is_video: !activeService.is_video }))
   }
 
   const handleToggleChargeable = async () => {
     if (!serviceId || !activeService) return
-    await updateService(serviceId, { is_chargeable: !activeService.is_chargeable })
+    await run(() => updateService(serviceId, { is_chargeable: !activeService.is_chargeable }))
   }
 
   const handleSavePrice = async () => {
@@ -110,18 +124,17 @@ export function ServiceDetailPage() {
     const pounds = parseFloat(priceInput)
     if (isNaN(pounds) || pounds < 0) return
     setSavingPrice(true)
-    try {
-      await updateService(serviceId, { price_pence: Math.round(pounds * 100) })
-    } catch { /* error handled by store */ }
+    await run(() => updateService(serviceId, { price_pence: Math.round(pounds * 100) }))
     setSavingPrice(false)
   }
 
-  const handleDelete = async () => {
+  const handleArchive = async () => {
     if (!serviceId) return
-    try {
-      await deleteService(serviceId)
+    await run(async () => {
+      await archiveService(serviceId)
       navigate('/services')
-    } catch { /* error handled by store */ }
+    })
+    setDeleteConfirmOpen(false)
   }
 
   const handleCreateForm = async () => {
@@ -139,12 +152,10 @@ export function ServiceDetailPage() {
     setSaving(false)
   }
 
-  const handleDeleteForm = async () => {
+  const handleArchiveForm = async () => {
     if (!deleteFormId) return
-    try {
-      await deleteForm(deleteFormId)
-      setDeleteFormId(null)
-    } catch { /* error handled by store */ }
+    await run(() => archiveForm(deleteFormId))
+    setDeleteFormId(null)
   }
 
   if (loading && !activeService) {
@@ -203,10 +214,15 @@ export function ServiceDetailPage() {
         </div>
       </div>
 
-      {error && (
+      {!canManage && (
+        <div className="ps-card" style={{ padding: 'var(--ps-space-sm) var(--ps-space-md)', marginBottom: 'var(--ps-space-md)', fontSize: 'var(--ps-font-sm)', color: 'var(--ps-slate)' }}>
+          You can deliver this service. Only owners, managers and pharmacists can change its settings or forms.
+        </div>
+      )}
+      {(error || actionError) && (
         <div className="auth-error" style={{ marginBottom: 'var(--ps-space-md)' }}>
-          {error}
-          <button className="ps-btn ps-btn-ghost ps-btn-sm" onClick={clearError} style={{ marginLeft: 'var(--ps-space-sm)' }}>
+          {error || actionError}
+          <button className="ps-btn ps-btn-ghost ps-btn-sm" onClick={() => { clearError(); setActionError(null) }} style={{ marginLeft: 'var(--ps-space-sm)' }}>
             Dismiss
           </button>
         </div>
@@ -230,9 +246,11 @@ export function ServiceDetailPage() {
               )}
             </div>
           </div>
-          <button className="ps-btn ps-btn-secondary ps-btn-sm" onClick={openEditModal}>
-            ✏️ Edit
-          </button>
+          {canManage && (
+            <button className="ps-btn ps-btn-secondary ps-btn-sm" onClick={openEditModal}>
+              ✏️ Edit
+            </button>
+          )}
         </div>
 
         <div style={{ display: 'flex', gap: 'var(--ps-space-lg)', borderTop: '1px solid var(--ps-off-white)', paddingTop: 'var(--ps-space-md)' }}>
@@ -241,6 +259,7 @@ export function ServiceDetailPage() {
               type="checkbox"
               checked={activeService.is_active}
               onChange={handleToggleActive}
+              disabled={!canManage}
             />
             Active
           </label>
@@ -249,6 +268,7 @@ export function ServiceDetailPage() {
               type="checkbox"
               checked={activeService.is_public}
               onChange={handleTogglePublic}
+              disabled={!canManage}
             />
             Publicly Bookable
           </label>
@@ -257,6 +277,7 @@ export function ServiceDetailPage() {
               type="checkbox"
               checked={!!activeService.is_video}
               onChange={handleToggleVideo}
+              disabled={!canManage}
             />
             Video appointment
           </label>
@@ -272,6 +293,7 @@ export function ServiceDetailPage() {
               type="checkbox"
               checked={!!activeService.is_chargeable}
               onChange={handleToggleChargeable}
+              disabled={!canManage}
             />
             Charge patients for this service
           </label>
@@ -287,12 +309,13 @@ export function ServiceDetailPage() {
               placeholder="0.00"
               value={priceInput}
               onChange={(e) => setPriceInput(e.target.value)}
+              disabled={!canManage}
               style={{ width: '140px' }}
             />
             <button
               className="ps-btn ps-btn-primary ps-btn-sm"
               onClick={handleSavePrice}
-              disabled={savingPrice || !priceInput}
+              disabled={!canManage || savingPrice || !priceInput}
             >
               {savingPrice ? 'Saving…' : 'Save Price'}
             </button>
@@ -320,7 +343,7 @@ export function ServiceDetailPage() {
         <h2 style={{ fontSize: 'var(--ps-font-lg)', fontWeight: 600, color: 'var(--ps-midnight)', margin: 0 }}>
           📝 Service Forms
         </h2>
-        {!activeService.is_nhs_service && (
+        {canManage && !activeService.is_nhs_service && (
           <button
             className="ps-btn ps-btn-primary ps-btn-sm"
             onClick={() => { setNewFormName(''); setNewFormError(null); setNewFormModalOpen(true) }}
@@ -335,7 +358,7 @@ export function ServiceDetailPage() {
           <p style={{ color: 'var(--ps-slate)', marginBottom: 'var(--ps-space-md)' }}>
             No forms yet. Add a form to collect patient information during this service.
           </p>
-          {!activeService.is_nhs_service && (
+          {canManage && !activeService.is_nhs_service && (
             <button
               className="ps-btn ps-btn-primary"
               onClick={() => { setNewFormName(''); setNewFormError(null); setNewFormModalOpen(true) }}
@@ -374,9 +397,9 @@ export function ServiceDetailPage() {
               </div>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 'var(--ps-space-sm)' }}>
                 <span style={{ fontSize: 'var(--ps-font-sm)', color: 'var(--ps-slate)' }}>
-                  Click to edit fields
+                  {canManage && !activeService.is_nhs_service ? 'Click to edit fields' : 'Click to view fields'}
                 </span>
-                {activeForms.length > 1 && (
+                {canManage && activeForms.length > 1 && (
                   <button
                     className="ps-btn ps-btn-ghost ps-btn-sm"
                     style={{ color: 'var(--ps-error)' }}
@@ -394,15 +417,17 @@ export function ServiceDetailPage() {
         </div>
       )}
 
-      {/* Delete service */}
-      <div style={{ marginTop: 'var(--ps-space-2xl)', borderTop: '1px solid var(--ps-off-white)', paddingTop: 'var(--ps-space-lg)' }}>
-        <button
-          className="ps-btn ps-btn-danger"
-          onClick={() => setDeleteConfirmOpen(true)}
-        >
-          🗑 Delete Service
-        </button>
-      </div>
+      {/* Archive service */}
+      {canManage && (
+        <div style={{ marginTop: 'var(--ps-space-2xl)', borderTop: '1px solid var(--ps-off-white)', paddingTop: 'var(--ps-space-lg)' }}>
+          <button
+            className="ps-btn ps-btn-danger"
+            onClick={() => setDeleteConfirmOpen(true)}
+          >
+            🗄 Remove Service
+          </button>
+        </div>
+      )}
 
       {/* Edit modal */}
       <Modal isOpen={editModalOpen} onClose={() => setEditModalOpen(false)} title="Edit Service">
@@ -452,27 +477,28 @@ export function ServiceDetailPage() {
       </Modal>
 
       {/* Delete service confirm */}
-      <Modal isOpen={deleteConfirmOpen} onClose={() => setDeleteConfirmOpen(false)} title="Delete Service?">
+      <Modal isOpen={deleteConfirmOpen} onClose={() => setDeleteConfirmOpen(false)} title="Remove Service?">
         <div>
           <p style={{ color: 'var(--ps-slate)', marginBottom: 'var(--ps-space-lg)' }}>
-            Permanently delete <strong>{activeService.name}</strong> and all its forms? This cannot be undone.
+            Remove <strong>{activeService.name}</strong> from your services? It will no longer be bookable or deliverable.
+            Every record already made for it is kept and stays in Service History.
           </p>
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 'var(--ps-space-sm)' }}>
             <button className="ps-btn ps-btn-secondary" onClick={() => setDeleteConfirmOpen(false)}>Cancel</button>
-            <button className="ps-btn ps-btn-danger" onClick={handleDelete}>Delete Service</button>
+            <button className="ps-btn ps-btn-danger" onClick={handleArchive}>Remove Service</button>
           </div>
         </div>
       </Modal>
 
       {/* Delete form confirm */}
-      <Modal isOpen={!!deleteFormId} onClose={() => setDeleteFormId(null)} title="Delete Form?">
+      <Modal isOpen={!!deleteFormId} onClose={() => setDeleteFormId(null)} title="Remove Form?">
         <div>
           <p style={{ color: 'var(--ps-slate)', marginBottom: 'var(--ps-space-lg)' }}>
-            Permanently delete this form variant and all its fields?
+            Remove this form variant? It won't be offered for new deliveries. Past records keep a copy of the form they used.
           </p>
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 'var(--ps-space-sm)' }}>
             <button className="ps-btn ps-btn-secondary" onClick={() => setDeleteFormId(null)}>Cancel</button>
-            <button className="ps-btn ps-btn-danger" onClick={handleDeleteForm}>Delete Form</button>
+            <button className="ps-btn ps-btn-danger" onClick={handleArchiveForm}>Remove Form</button>
           </div>
         </div>
       </Modal>

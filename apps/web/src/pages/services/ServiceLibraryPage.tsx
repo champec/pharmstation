@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuthStore, useServiceStore } from '@pharmstation/core'
 import type { ServiceLibraryItem } from '@pharmstation/types'
+import { NHS_SERVICES_ENABLED } from '../../lib/features'
 
 const CATEGORY_LABELS: Record<string, string> = {
   nhs_advanced_service: '🏥 NHS Advanced Services',
@@ -16,7 +17,8 @@ const CATEGORY_ORDER = ['nhs_advanced_service', 'vaccination', 'screening', 'con
 
 export function ServiceLibraryPage() {
   const navigate = useNavigate()
-  const { organisation } = useAuthStore()
+  const { organisation, permissions } = useAuthStore()
+  const canManage = !!permissions?.services_manage
   const {
     libraryItems,
     services,
@@ -25,7 +27,7 @@ export function ServiceLibraryPage() {
     fetchLibrary,
     fetchServices,
     subscribeToLibraryService,
-    deleteService,
+    archiveService,
     clearError,
   } = useServiceStore()
 
@@ -83,10 +85,10 @@ export function ServiceLibraryPage() {
     if (!organisation?.id) return
     const svc = services.find((s) => s.library_service_id === libraryItemId)
     if (!svc) return
-    if (!window.confirm(`Remove "${svc.name}" from your services? This won't delete past deliveries.`)) return
+    if (!window.confirm(`Remove "${svc.name}" from your services? Records already made for it are kept in Service History.`)) return
     setSubscribeError(null)
     try {
-      await deleteService(svc.id)
+      await archiveService(svc.id)
       // Refresh services list so the button updates
       await fetchServices(organisation.id)
     } catch (e: any) {
@@ -189,16 +191,18 @@ export function ServiceLibraryPage() {
                     {alreadyAdded ? (
                       <div style={{ display: 'flex', gap: 'var(--ps-space-xs)', alignItems: 'center' }}>
                         <span className="ps-badge ps-badge-green">✓ Added</span>
-                        <button
+                        {canManage && <button
                           className="ps-btn ps-btn-ghost ps-btn-sm"
                           style={{ color: 'var(--ps-error)', fontSize: '0.75rem' }}
                           onClick={() => handleUnsubscribe(item.id)}
                           title="Remove from my services"
                         >
                           ✕ Remove
-                        </button>
+                        </button>}
                       </div>
-                    ) : (
+                    ) : item.is_nhs_service && !NHS_SERVICES_ENABLED ? (
+                      <span className="ps-badge" title="NHS services can be added once PharmStation has NHS approval">Coming soon</span>
+                    ) : canManage ? (
                       <button
                         className="ps-btn ps-btn-primary ps-btn-sm"
                         onClick={() => handleSubscribe(item.id)}
@@ -206,7 +210,7 @@ export function ServiceLibraryPage() {
                       >
                         {isSubscribing ? 'Adding…' : '+ Add to My Services'}
                       </button>
-                    )}
+                    ) : null}
                   </div>
                 </div>
               )

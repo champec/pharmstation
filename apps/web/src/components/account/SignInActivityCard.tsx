@@ -11,6 +11,7 @@ const EVENT_LABELS: Record<string, string> = {
   two_step_on: 'Turned on two-step sign-in',
   two_step_off: 'Turned off two-step sign-in',
   two_step_reset: 'Two-step sign-in reset by a manager',
+  two_step_reset_by_email: 'Reset two-step sign-in by email',
   member_added: 'Added to the pharmacy',
   member_changed: 'Role or access changed',
 }
@@ -47,7 +48,7 @@ export function SignInActivityCard() {
 
   if (!permissions?.view_audit) return null
 
-  const shown = (rows ?? []).filter((r) => !onlyProblems || ['failed_sign_in', 'two_step_off', 'two_step_reset', 'member_changed'].includes(r.event))
+  const shown = (rows ?? []).filter((r) => !onlyProblems || ['failed_sign_in', 'two_step_off', 'two_step_reset', 'two_step_reset_by_email', 'member_changed'].includes(r.event))
 
   return (
     <div className="ps-card team-card">

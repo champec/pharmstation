@@ -22,6 +22,7 @@ import {
   claimLocumShiftAccess,
   logAuthEvent,
   verifyTotpCode,
+  recoverMfaByEmail,
 } from '@pharmstation/supabase-client'
 
 export interface AuthState {
@@ -64,6 +65,8 @@ export interface AuthState {
   userLogout: () => Promise<void>
   /** Finish a sign-in that is waiting for an authenticator code. */
   verifyUserMfa: (code: string) => Promise<void>
+  /** Lost authenticator: finish sign-in with a code emailed to the account. */
+  recoverUserMfaByEmail: (code: string) => Promise<void>
   /** Give up on a sign-in that is waiting for an authenticator code. */
   cancelUserMfa: () => Promise<void>
   /** Re-check whether this account still has to add an authenticator app. */
@@ -315,6 +318,22 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       const { data } = await getUserClient().auth.getUser()
       const email = pendingLogin?.email ?? data.user?.email ?? ''
       await finishUserLogin(email, pendingLogin?.opts, true)
+      pendingLogin = null
+    } catch (err) {
+      set({ userLoading: false })
+      throw err
+    }
+  },
+
+  recoverUserMfaByEmail: async (code: string) => {
+    if (!get().mfaPendingFactorId) throw new Error('Sign in again, then enter your code.')
+    await recoverMfaByEmail(code)
+    set({ userLoading: true, mfaPendingFactorId: null })
+    try {
+      const { data } = await getUserClient().auth.getUser()
+      const email = pendingLogin?.email ?? data.user?.email ?? ''
+      // hasFactor false: owners and managers are asked to set it up again.
+      await finishUserLogin(email, pendingLogin?.opts, false)
       pendingLogin = null
     } catch (err) {
       set({ userLoading: false })

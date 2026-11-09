@@ -14185,3 +14185,59 @@ textarea.form-input {
 @media (max-width: 860px) {
   .contact-layout, .contact-form-row { grid-template-columns: 1fr; }
 }
+
+/* Services: printable consultation record (ServiceRecordView) */
+@media print {
+  body[data-print-mode="service-record"] .top-nav,
+  body[data-print-mode="service-record"] .side-nav,
+  body[data-print-mode="service-record"] .genie-panel,
+  body[data-print-mode="service-record"] .page-header,
+  body[data-print-mode="service-record"] .no-print {
+    display: none !important;
+  }
+
+  body[data-print-mode="service-record"] .dashboard-main,
+  body[data-print-mode="service-record"] .dashboard-content {
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  /* An older global print rule hides body *; show just the record. */
+  body[data-print-mode="service-record"] .service-record-document,
+  body[data-print-mode="service-record"] .service-record-document * {
+    visibility: visible !important;
+  }
+
+  body[data-print-mode="service-record"] .dashboard-layout,
+  body[data-print-mode="service-record"] .dashboard-main,
+  body[data-print-mode="service-record"] .dashboard-content,
+  body[data-print-mode="service-record"] .service-record {
+    position: static !important;
+    transform: none !important;
+  }
+
+  body[data-print-mode="service-record"] .service-record-document {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    border: none !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+  }
+
+  body[data-print-mode="service-record"] .service-record-document tr {
+    page-break-inside: avoid;
+  }
+}
+
+/* Password field with show/hide toggle (components/PasswordInput.tsx) */
+.password-input { position: relative; }
+.password-input > input { width: 100%; padding-right: 4.25rem; }
+.password-input-toggle {
+  position: absolute; top: 50%; right: 0.5rem; transform: translateY(-50%);
+  background: none; border: 0; padding: 0.25rem 0.5rem; cursor: pointer;
+  font-size: var(--ps-font-sm, 0.8125rem); font-weight: 600; color: var(--ps-primary, #1565c0);
+  border-radius: 6px;
+}
+.password-input-toggle:focus-visible { outline: 2px solid var(--ps-primary, #1565c0); outline-offset: 1px; }

@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuthStore } from '@pharmstation/core'
 import { getAuthRedirectType } from '@pharmstation/supabase-client'
+import { PasswordInput } from '../../components/PasswordInput'
 
 export function OrgLoginPage() {
   const { orgLogin } = useAuthStore()
@@ -79,9 +80,8 @@ export function OrgLoginPage() {
 
         <div className="form-group">
           <label htmlFor="org-password">Password</label>
-          <input
+          <PasswordInput
             id="org-password"
-            type="password"
             className="ps-input"
             placeholder="Enter password"
             value={password}

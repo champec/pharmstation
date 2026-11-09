@@ -20,6 +20,19 @@
 //       body: { action, payment_id, amount_pence?, cancel_appointment? }
 //       Omit amount_pence for a full refund. The ledger is updated by the
 //       charge.refunded webhook; this returns the Stripe refund status.
+//   create_shop_checkout — pay for a shop order placed with payment_method
+//       'card' (unauthenticated, like bookings: the order id is an
+//       unguessable UUID only the customer's browser has)
+//       body: { action, order_id, success_url, cancel_url, payer_email? }
+//       Line items and total are read from the order in the database. Needs
+//       the pharmacy's Connect account: shop money always goes to the
+//       pharmacy. The ps_payments trigger marks the order paid, or cancels
+//       it and returns the stock when the session expires or is cancelled.
+//   cancel_shop_order — staff cancel, or a pharmacist rejects, a shop order
+//       and any card payment is refunded in full (auth required)
+//       body: { action, order_id, reject_notes? }
+//       With reject_notes it calls ps_shop_review_order as the caller, so
+//       only a pharmacist can reject. Without, it cancels as the caller.
 //
 // Unpaid bookings: Checkout sessions expire after CHECKOUT_EXPIRY_MINUTES
 // (default 30, Stripe's minimum). The checkout.session.expired webhook then
@@ -406,6 +419,189 @@ async function refundPayment(req: Request, body: Record<string, unknown>): Promi
 }
 
 // ============================================
+// Shop orders
+// ============================================
+async function createShopCheckout(body: Record<string, unknown>): Promise<Response> {
+  const order_id = body.order_id as string | undefined
+  const success_url = body.success_url as string | undefined
+  const cancel_url = body.cancel_url as string | undefined
+  const rawEmail = ((body.payer_email as string | undefined) ?? '').trim()
+  const payer_email = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(rawEmail) ? rawEmail : null
+
+  if (!order_id || !success_url || !cancel_url) {
+    return json({ error: 'order_id, success_url and cancel_url are required' }, 400)
+  }
+  if (!isAllowedRedirect(success_url) || !isAllowedRedirect(cancel_url)) {
+    return json({ error: 'success_url and cancel_url must be on the PharmStation app' }, 400)
+  }
+
+  const db = getAdminClient()
+  const { data: order } = await db.from('ps_shop_orders')
+    .select('id, org_id, order_number, status, payment_method, payment_status, delivery_fee_pence, total_pence, items:ps_shop_order_items(product_name, unit_price_pence, quantity)')
+    .eq('id', order_id).maybeSingle()
+  if (!order) return json({ error: 'Order not found' }, 404)
+  if (order.payment_method !== 'card' || order.payment_status !== 'awaiting_payment' || order.status === 'cancelled') {
+    return json({ error: 'This order is not waiting for a card payment' }, 409)
+  }
+
+  const { data: org } = await db.from('ps_organisations').select('id, name').eq('id', order.org_id).single()
+  const { data: billing } = await db.from('ps_org_billing')
+    .select('stripe_account_id, charges_enabled').eq('org_id', order.org_id).maybeSingle()
+  if (!billing?.charges_enabled || !billing.stripe_account_id) {
+    return json({ error: 'This pharmacy can\'t take card payments yet' }, 409)
+  }
+  const destination = billing.stripe_account_id as string
+
+  const stripe = getStripe()
+
+  // Reuse a session that is still open (customer pressed back, then pay again).
+  const { data: open } = await db.from('ps_payments')
+    .select('id, stripe_checkout_session_id')
+    .eq('shop_order_id', order.id).in('status', ['pending', 'processing'])
+    .order('created_at', { ascending: false }).limit(1).maybeSingle()
+  if (open?.stripe_checkout_session_id) {
+    try {
+      const existing = await stripe.checkout.sessions.retrieve(open.stripe_checkout_session_id)
+      if (existing.status === 'open' && existing.url) return json({ url: existing.url, payment_id: open.id })
+    } catch { /* fall through and create a new one */ }
+  }
+
+  const items = (order.items ?? []) as { product_name: string; unit_price_pence: number; quantity: number }[]
+  const lineItems = items.map((it) => ({
+    quantity: it.quantity,
+    price_data: { currency: 'gbp', unit_amount: it.unit_price_pence, product_data: { name: it.product_name } },
+  }))
+  if (order.delivery_fee_pence > 0) {
+    lineItems.push({
+      quantity: 1,
+      price_data: { currency: 'gbp', unit_amount: order.delivery_fee_pence, product_data: { name: 'Delivery' } },
+    })
+  }
+  const lineTotal = lineItems.reduce((n, li) => n + li.quantity * li.price_data.unit_amount, 0)
+  if (lineTotal !== order.total_pence || order.total_pence <= 0) {
+    return json({ error: 'Order total could not be confirmed. Please contact the pharmacy.' }, 409)
+  }
+
+  const feePercent = Number(Deno.env.get('PLATFORM_FEE_PERCENT') ?? '0')
+  const feePence = feePercent > 0 ? Math.round(order.total_pence * feePercent / 100) : 0
+
+  const { data: payment, error: payErr } = await db.from('ps_payments').insert({
+    org_id: order.org_id,
+    shop_order_id: order.id,
+    kind: 'shop',
+    description: `Shop order ${order.order_number} — ${org?.name ?? 'pharmacy'}`,
+    amount_pence: order.total_pence,
+    currency: 'gbp',
+    status: 'pending',
+    payer_email,
+    metadata: { destination, platform_fee_pence: feePence, shop_order_id: order.id },
+  }).select('id').single()
+  if (payErr || !payment) {
+    console.error('shop payment insert failed', payErr)
+    return json({ error: 'Could not create payment record' }, 500)
+  }
+
+  try {
+    const session = await stripe.checkout.sessions.create({
+      mode: 'payment',
+      line_items: lineItems,
+      customer_email: payer_email ?? undefined,
+      expires_at: checkoutExpiresAt(),
+      success_url: `${success_url}${success_url.includes('?') ? '&' : '?'}payment_id=${payment.id}`,
+      cancel_url: `${cancel_url}${cancel_url.includes('?') ? '&' : '?'}payment_id=${payment.id}`,
+      metadata: { payment_id: payment.id, org_id: order.org_id, shop_order_id: order.id, kind: 'shop' },
+      payment_intent_data: {
+        description: `Shop order ${order.order_number}`,
+        metadata: { payment_id: payment.id, org_id: order.org_id, shop_order_id: order.id },
+        transfer_data: { destination },
+        ...(feePence > 0 ? { application_fee_amount: feePence } : {}),
+      },
+    }, { idempotencyKey: `shop-checkout-${payment.id}` })
+
+    await db.from('ps_payments')
+      .update({ stripe_checkout_session_id: session.id, status: 'processing' })
+      .eq('id', payment.id)
+    await db.from('ps_shop_orders').update({ payment_id: payment.id }).eq('id', order.id)
+
+    return json({ url: session.url, payment_id: payment.id })
+  } catch (e) {
+    console.error('stripe shop checkout create failed', e)
+    // Mark this attempt failed but keep the order: the customer can try again
+    // until it times out (pg_cron cancels unpaid card orders after 45 minutes).
+    await db.from('ps_payments').update({ status: 'failed' }).eq('id', payment.id)
+    const msg = (e as { message?: string })?.message ?? 'Stripe checkout could not be created'
+    return json({ error: `Stripe: ${msg}` }, 502)
+  }
+}
+
+async function cancelShopOrder(req: Request, body: Record<string, unknown>): Promise<Response> {
+  const authHeader = req.headers.get('Authorization')
+  const callerId = await getCaller(req)
+  if (!callerId || !authHeader) return json({ error: 'Not authenticated' }, 401)
+
+  const order_id = body.order_id as string | undefined
+  if (!order_id) return json({ error: 'order_id is required' }, 400)
+  const rejectNotes = typeof body.reject_notes === 'string' ? body.reject_notes.trim() : null
+
+  const db = getAdminClient()
+  const { data: order } = await db.from('ps_shop_orders')
+    .select('id, org_id, status, payment_status, payment_id').eq('id', order_id).maybeSingle()
+  if (!order) return json({ error: 'Order not found' }, 404)
+  if (!(await isOrgMember(callerId, order.org_id))) {
+    return json({ error: 'Not authorised for this organisation' }, 403)
+  }
+
+  // Do the cancel / reject as the caller, so the database's own rules apply
+  // (only a pharmacist can reject; staff column grants and RLS).
+  const asCaller = createClient(
+    Deno.env.get('SUPABASE_URL')!,
+    Deno.env.get('SUPABASE_ANON_KEY')!,
+    { global: { headers: { Authorization: authHeader } } },
+  )
+  if (rejectNotes !== null) {
+    const { error } = await asCaller.rpc('ps_shop_review_order', {
+      p_order_id: order.id, p_approve: false, p_notes: rejectNotes,
+    })
+    if (error) return json({ error: error.message }, 400)
+  } else if (order.status !== 'cancelled') {
+    const { error } = await asCaller.from('ps_shop_orders').update({ status: 'cancelled' }).eq('id', order.id)
+    if (error) return json({ error: error.message }, 400)
+  }
+
+  if (order.payment_status !== 'paid' || !order.payment_id) {
+    return json({ cancelled: true, refund: null })
+  }
+
+  const { data: payment } = await db.from('ps_payments')
+    .select('id, status, amount_pence, refunded_pence, stripe_payment_intent_id')
+    .eq('id', order.payment_id).maybeSingle()
+  const remaining = payment ? payment.amount_pence - (payment.refunded_pence ?? 0) : 0
+  if (!payment?.stripe_payment_intent_id || remaining <= 0
+      || !['succeeded', 'partially_refunded'].includes(payment.status)) {
+    return json({ cancelled: true, refund: null })
+  }
+
+  try {
+    const refund = await getStripe().refunds.create({
+      payment_intent: payment.stripe_payment_intent_id,
+      amount: remaining,
+      reason: 'requested_by_customer',
+      metadata: { payment_id: payment.id, shop_order_id: order.id, refunded_by: callerId },
+      reverse_transfer: true,
+      refund_application_fee: true,
+    }, { idempotencyKey: `shop-refund-${payment.id}-${payment.refunded_pence ?? 0}` })
+    return json({ cancelled: true, refund: { id: refund.id, status: refund.status, amount_pence: refund.amount } })
+  } catch (e) {
+    const msg = (e as { message?: string })?.message ?? 'Refund failed'
+    console.error('shop refund failed', e)
+    return json({
+      cancelled: true,
+      refund_error: `The order is cancelled but the refund failed (${msg}). Refund it from Payments.`,
+    })
+  }
+}
+
+// ============================================
 // Router
 // ============================================
 Deno.serve(async (req: Request) => {
@@ -429,6 +625,10 @@ Deno.serve(async (req: Request) => {
         return await cancelCheckout(body)
       case 'refund_payment':
         return await refundPayment(req, body)
+      case 'create_shop_checkout':
+        return await createShopCheckout(body)
+      case 'cancel_shop_order':
+        return await cancelShopOrder(req, body)
       default:
         return json({ error: `Unknown action: ${body.action}` }, 400)
     }

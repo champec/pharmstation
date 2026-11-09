@@ -26,6 +26,7 @@ import {
   claimLocumShiftAccess,
   getMfaStatus,
   verifyTotpCode,
+  recoverMfaByEmail,
   getOrgSession,
   getUserSession,
   orgClient,
@@ -72,6 +73,8 @@ export interface AuthState {
   userLogout: () => Promise<void>
   /** Finish a sign-in that's waiting for an authenticator code. */
   verifyMfa: (code: string) => Promise<void>
+  /** Lost authenticator: finish sign-in with a code emailed to the account. */
+  recoverMfaByEmail: (code: string) => Promise<void>
   connectOrg: (email: string, password: string) => Promise<void>
   disconnectOrg: () => Promise<void>
   clearError: () => void
@@ -131,32 +134,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       // No / invalid user session.
     }
 
-    // 2. Org session (only meaningful with a user session)
-    try {
-      const orgSession = await getOrgSession()
-      const { userSession } = get()
-      if (orgSession?.user && userSession?.user) {
-        const organisation = await fetchOrganisation(orgSession.user.id)
-        const membership = await fetchOrgMembership(
-          organisation.id,
-          userSession.user.id,
-        )
-        set({
-          orgSession,
-          organisation,
-          membership,
-          permissions: membership
-            ? resolvePermissions(membership.role, membership.permissions)
-            : null,
-          isOrgConnected: true,
-        })
-      } else if (orgSession) {
-        // Org token without a user token is not useful — drop it.
-        await orgSignOut()
-      }
-    } catch {
-      // No / invalid org session.
-    }
+    // 2. Org session (only meaningful with a user session). While the
+    // two-step code is still to be entered, keep the pharmacy connection
+    // and restore it once the code is accepted (verifyMfa).
+    if (!get().mfaPendingFactorId) await restoreOrgLayer()
 
     // React to external sign-outs (e.g. token revoked).
     userClient.auth.onAuthStateChange((event) => {
@@ -223,6 +204,20 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       await verifyTotpCode(factorId, code)
       set({ mfaPendingFactorId: null })
       await loadUserLayer()
+      await restoreOrgLayer()
+    } catch (err) {
+      set({ busy: false, error: messageFrom(err) })
+      throw err
+    }
+  },
+
+  recoverMfaByEmail: async (code) => {
+    set({ busy: true, error: null })
+    try {
+      await recoverMfaByEmail(code)
+      set({ mfaPendingFactorId: null })
+      await loadUserLayer()
+      await restoreOrgLayer()
     } catch (err) {
       set({ busy: false, error: messageFrom(err) })
       throw err
@@ -337,6 +332,31 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 }))
 
 /** Load the profile once the password (and code, if any) are done. */
+/** Reconnect the pharmacy saved on this phone, if any. */
+async function restoreOrgLayer() {
+  const set = useAuthStore.setState
+  try {
+    const orgSession = await getOrgSession()
+    const { userSession } = useAuthStore.getState()
+    if (orgSession?.user && userSession?.user) {
+      const organisation = await fetchOrganisation(orgSession.user.id)
+      const membership = await fetchOrgMembership(organisation.id, userSession.user.id)
+      set({
+        orgSession,
+        organisation,
+        membership,
+        permissions: membership ? resolvePermissions(membership.role, membership.permissions) : null,
+        isOrgConnected: true,
+      })
+    } else if (orgSession) {
+      // Org token without a user token is not useful — drop it.
+      await orgSignOut()
+    }
+  } catch {
+    // No / invalid org session.
+  }
+}
+
 async function loadUserLayer() {
   const set = useAuthStore.setState
   const session = await getUserSession()

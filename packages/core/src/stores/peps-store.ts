@@ -7,13 +7,15 @@ import type {
   PepsEvent,
   PepsSpineResult,
   PepsDmdResult,
+  PepsLoggableEventType,
   Patient,
 } from '@pharmstation/types'
 import { getUserClient } from '@pharmstation/supabase-client'
 
 // Shape passed in when writing a new prescription
 export interface NewPrescriptionInput {
-  prescriber: PepsPrescriber
+  // Kept for callers; the server uses the signed-in user's active prescriber record.
+  prescriber?: PepsPrescriber
   origin_org_id: string | null
   patient_id: string | null
   patient_snapshot: PepsPrescription['patient_snapshot']
@@ -24,16 +26,12 @@ export interface NewPrescriptionInput {
   animal_owner: string | null
   cascade_wording: string | null
   repeats: number
-  signature_data: string | null
+  signature_data?: string | null
   items: Array<Partial<PepsPrescriptionItem>>
   // Routing: null assigned_org_id => open spine; otherwise direct to a pharmacy
   assigned_org_id: string | null
-}
-
-function generateRef(): string {
-  const rand = Math.random().toString(36).slice(2, 7).toUpperCase()
-  const ts = Date.now().toString(36).slice(-4).toUpperCase()
-  return `PX-${ts}-${rand}`
+  // Stored on the 'created' audit event (e.g. controlled-drug declaration)
+  created_metadata?: Record<string, unknown>
 }
 
 export interface PepsState {
@@ -72,11 +70,14 @@ export interface PepsState {
   fetchMyPrescriptions: () => Promise<void>
   fetchAvailableForOrg: (orgId: string) => Promise<PepsPrescription[]>
   downloadFromSpine: (orgId: string, ids?: string[]) => Promise<PepsPrescription[]>
+  claimByReference: (orgId: string, ref: string, check: string) => Promise<PepsPrescription | null>
   spineSearch: (query: string) => Promise<PepsSpineResult[]>
+  logEvent: (prescriptionId: string, eventType: PepsLoggableEventType, metadata?: Record<string, unknown>) => Promise<void>
 
   // Detail + actions
   fetchPrescription: (id: string) => Promise<void>
-  dispense: (id: string) => Promise<PepsPrescription>
+  dispense: (id: string, supplied?: Array<Record<string, unknown>>) => Promise<PepsPrescription>
+  cancel: (id: string, reason: string) => Promise<PepsPrescription>
   release: (id: string) => Promise<PepsPrescription>
   transfer: (id: string, toOrgId: string) => Promise<PepsPrescription>
 
@@ -225,26 +226,11 @@ export const usePepsStore = create<PepsState>((set, get) => ({
 
   createPrescription: async (input) => {
     set({ error: null })
-    const { data: auth } = await getUserClient().auth.getUser()
-    const uid = auth.user?.id
-    if (!uid) throw new Error('Not signed in')
-
-    const ref = generateRef()
-    const prescriberSnapshot = {
-      full_name: input.prescriber.full_name,
-      prescriber_type: input.prescriber.prescriber_type,
-      registration_number: input.prescriber.registration_number,
-      registration_body: input.prescriber.registration_body,
-      address: input.prescriber.address,
-    }
-
-    const { data: rxData, error: rxError } = await getUserClient()
-      .from('ps_peps_prescriptions')
-      .insert({
-        prescription_ref: ref,
-        prescriber_id: input.prescriber.id,
-        prescriber_snapshot: prescriberSnapshot,
-        written_by: uid,
+    // One server call: prescription, items and audit events in one transaction.
+    // The server makes the reference, takes the prescriber and signature from the
+    // signed-in user's active prescriber record, and sets the expiry date.
+    const { data, error } = await getUserClient().rpc('ps_peps_create_prescription', {
+      p: {
         origin_org_id: input.origin_org_id,
         patient_id: input.patient_id,
         patient_snapshot: input.patient_snapshot,
@@ -255,43 +241,22 @@ export const usePepsStore = create<PepsState>((set, get) => ({
         animal_owner: input.animal_owner,
         cascade_wording: input.cascade_wording,
         repeats: input.repeats,
-        signature_data: input.signature_data,
-        status: 'available',
         assigned_org_id: input.assigned_org_id,
-      })
-      .select()
-      .single()
-    if (rxError) throw rxError
-    const rx = rxData as PepsPrescription
-
-    if (input.items.length > 0) {
-      const itemsPayload = input.items.map((it, i) => ({
-        prescription_id: rx.id,
-        line_order: i,
-        dmd_code: it.dmd_code ?? null,
-        dmd_type: it.dmd_type ?? 'free_text',
-        drug_name: it.drug_name ?? '',
-        strength: it.strength ?? null,
-        form: it.form ?? null,
-        quantity: it.quantity ?? '',
-        dosage: it.dosage ?? null,
-        notes: it.notes ?? null,
-      }))
-      const { error: itemsError } = await getUserClient()
-        .from('ps_peps_prescription_items')
-        .insert(itemsPayload)
-      if (itemsError) throw itemsError
-    }
-
-    // Audit event: created + routed
-    await getUserClient().from('ps_peps_events').insert({
-      prescription_id: rx.id,
-      event_type: input.assigned_org_id ? 'directed' : 'sent_to_spine',
-      to_org_id: input.assigned_org_id,
-      actor_user_id: uid,
+        created_metadata: input.created_metadata ?? {},
+        items: input.items.map((it) => ({
+          dmd_code: it.dmd_code ?? null,
+          dmd_type: it.dmd_type ?? 'free_text',
+          drug_name: it.drug_name ?? '',
+          strength: it.strength ?? null,
+          form: it.form ?? null,
+          quantity: it.quantity ?? '',
+          dosage: it.dosage ?? null,
+          notes: it.notes ?? null,
+        })),
+      },
     })
-
-    return rx
+    if (error) throw error
+    return (Array.isArray(data) ? data[0] : data) as PepsPrescription
   },
 
   // --- Queue / spine ---
@@ -333,12 +298,13 @@ export const usePepsStore = create<PepsState>((set, get) => ({
   },
 
   fetchAvailableForOrg: async (orgId) => {
-    // Prescriptions this pharmacy can fetch: open spine OR directed to them, not yet downloaded.
+    // Prescriptions sent directly to this pharmacy and not yet downloaded.
+    // Open-spine prescriptions are not listable: claim them with claimByReference.
     const { data, error } = await getUserClient()
       .from('ps_peps_prescriptions')
       .select('*, items:ps_peps_prescription_items(*)')
       .eq('status', 'available')
-      .or(`assigned_org_id.is.null,assigned_org_id.eq.${orgId}`)
+      .eq('assigned_org_id', orgId)
       .order('prescription_date', { ascending: false })
     if (error) throw error
     return (data ?? []) as PepsPrescription[]
@@ -354,6 +320,30 @@ export const usePepsStore = create<PepsState>((set, get) => ({
     const downloaded = (data ?? []) as PepsPrescription[]
     await get().fetchQueue(orgId)
     return downloaded
+  },
+
+  claimByReference: async (orgId, ref, check) => {
+    set({ error: null })
+    const { data, error } = await getUserClient().rpc('ps_peps_claim', {
+      p_org_id: orgId,
+      p_ref: ref.trim(),
+      p_check: check.trim(),
+    })
+    if (error) throw error
+    const rx = (Array.isArray(data) ? data[0] : data) as PepsPrescription | null
+    // The RPC returns an all-null row when nothing matched.
+    if (!rx?.id) return null
+    await get().fetchQueue(orgId)
+    return rx
+  },
+
+  logEvent: async (prescriptionId, eventType, metadata = {}) => {
+    const { error } = await getUserClient().rpc('ps_peps_log_event', {
+      p_id: prescriptionId,
+      p_event_type: eventType,
+      p_metadata: metadata,
+    })
+    if (error) throw error
   },
 
   spineSearch: async (query) => {
@@ -392,8 +382,19 @@ export const usePepsStore = create<PepsState>((set, get) => ({
     }
   },
 
-  dispense: async (id) => {
-    const { data, error } = await getUserClient().rpc('ps_peps_dispense', { p_id: id })
+  dispense: async (id, supplied) => {
+    const { data, error } = await getUserClient().rpc('ps_peps_dispense', {
+      p_id: id,
+      p_supplied: supplied && supplied.length > 0 ? supplied : null,
+    })
+    if (error) throw error
+    const rx = (Array.isArray(data) ? data[0] : data) as PepsPrescription
+    set((s) => ({ activePrescription: s.activePrescription?.id === id ? rx : s.activePrescription }))
+    return rx
+  },
+
+  cancel: async (id, reason) => {
+    const { data, error } = await getUserClient().rpc('ps_peps_cancel', { p_id: id, p_reason: reason })
     if (error) throw error
     const rx = (Array.isArray(data) ? data[0] : data) as PepsPrescription
     set((s) => ({ activePrescription: s.activePrescription?.id === id ? rx : s.activePrescription }))

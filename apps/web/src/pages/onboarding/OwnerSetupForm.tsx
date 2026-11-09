@@ -6,6 +6,7 @@ import {
   friendlyAuthError,
   passwordProblem,
 } from '@pharmstation/supabase-client'
+import { PasswordInput } from '../../components/PasswordInput'
 
 /**
  * Second half of pharmacy sign-up: link the owner's PERSONAL account to the
@@ -150,14 +151,14 @@ export function OwnerSetupForm({ pharmacyName }: { pharmacyName?: string }) {
       </div>
       <div className="form-group">
         <label htmlFor="owner-password">Password</label>
-        <input id="owner-password" type="password" className="ps-input"
+        <PasswordInput id="owner-password" className="ps-input"
           autoComplete={mode === 'new' ? 'new-password' : 'current-password'} value={password}
           onChange={(e) => setPassword(e.target.value)} required />
       </div>
       {mode === 'new' && (
         <div className="form-group">
           <label htmlFor="owner-confirm">Confirm password</label>
-          <input id="owner-confirm" type="password" className="ps-input" autoComplete="new-password" value={confirm}
+          <PasswordInput id="owner-confirm" className="ps-input" autoComplete="new-password" value={confirm}
             onChange={(e) => setConfirm(e.target.value)} required />
         </div>
       )}

@@ -3,7 +3,6 @@ import { Link, Navigate, useParams } from 'react-router-dom'
 import JsBarcode from 'jsbarcode'
 import { useAuthStore, usePepsStore } from '@pharmstation/core'
 import type { PepsEvent } from '@pharmstation/types'
-import { getUserClient } from '@pharmstation/supabase-client'
 
 function formatDateTime(value: string): string {
   return new Date(value).toLocaleString()
@@ -11,8 +10,8 @@ function formatDateTime(value: string): string {
 
 export function PEPSPrintablePrescriptionPage() {
   const { id } = useParams<{ id: string }>()
-  const { organisation, activeUser, isOrgLoggedIn, isUserLoggedIn } = useAuthStore()
-  const { activePrescription: rx, activeItems, activeEvents, fetchPrescription, loading, error } = usePepsStore()
+  const { organisation, isOrgLoggedIn, isUserLoggedIn } = useAuthStore()
+  const { activePrescription: rx, activeItems, activeEvents, fetchPrescription, logEvent, loading, error } = usePepsStore()
 
   const barcodeRef = useRef<SVGSVGElement | null>(null)
   const [recorded, setRecorded] = useState(false)
@@ -24,12 +23,14 @@ export function PEPSPrintablePrescriptionPage() {
 
   const printEvents = useMemo(() => {
     return activeEvents
-      .filter((ev) => ev.event_type === 'downloaded' && Boolean((ev.metadata as Record<string, unknown> | null)?.document_print))
+      .filter((ev) => ev.event_type === 'printed' || (ev.event_type === 'downloaded' && Boolean((ev.metadata as Record<string, unknown> | null)?.document_print)))
       .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
   }, [activeEvents])
 
   const firstPrint = printEvents[0] ?? null
-  const mode: 'ORIGINAL' | 'COPY' = firstPrint || rx?.status === 'dispensed' ? 'COPY' : 'ORIGINAL'
+  // Every print is a COPY: the electronic prescription in PEPS is the original,
+  // so a paper print can never be dispensed as a second original.
+  const mode = 'COPY' as const
 
   const originalInfo = useMemo(() => {
     if (!firstPrint) return null
@@ -61,9 +62,6 @@ export function PEPSPrintablePrescriptionPage() {
     let cancelled = false
     const run = async () => {
       try {
-        const { data: auth } = await getUserClient().auth.getUser()
-        const actorUserId = auth.user?.id ?? activeUser?.id ?? null
-
         const metadata = {
           document_print: true,
           print_mode: mode,
@@ -73,14 +71,7 @@ export function PEPSPrintablePrescriptionPage() {
           original_printed_at: originalInfo?.printedAt ?? null,
         }
 
-        await getUserClient().from('ps_peps_events').insert({
-          prescription_id: rx.id,
-          event_type: 'downloaded',
-          from_org_id: organisation.id,
-          to_org_id: organisation.id,
-          actor_user_id: actorUserId,
-          metadata,
-        })
+        await logEvent(rx.id, 'printed', metadata)
 
         if (cancelled) return
         setRecorded(true)
@@ -97,7 +88,7 @@ export function PEPSPrintablePrescriptionPage() {
     return () => {
       cancelled = true
     }
-  }, [activeUser?.id, mode, organisation?.id, organisation?.name, originalInfo?.pharmacyName, originalInfo?.printedAt, recorded, rx])
+  }, [logEvent, mode, organisation?.id, organisation?.name, originalInfo?.pharmacyName, originalInfo?.printedAt, recorded, rx])
 
   if (!isOrgLoggedIn) return <Navigate to="/login/org" replace />
   if (!isUserLoggedIn) return <Navigate to="/login/user" replace />
@@ -194,7 +185,6 @@ export function PEPSPrintablePrescriptionPage() {
           font-size: 12px;
           color: #334155;
         }
-        .peps-print-mode-original { color: #0f766e; font-weight: 700; }
         .peps-print-mode-copy { color: #b91c1c; font-weight: 700; }
         .peps-print-copy-note {
           margin-top: 8px;
@@ -253,7 +243,7 @@ export function PEPSPrintablePrescriptionPage() {
       </div>
 
       <article className="peps-print-sheet">
-        {mode === 'COPY' && <div className="peps-print-watermark">COPY</div>}
+        <div className="peps-print-watermark">COPY</div>
         <header className="peps-print-head">
           <div>
             <h1 className="peps-print-title">Private Prescription</h1>
@@ -261,13 +251,11 @@ export function PEPSPrintablePrescriptionPage() {
             <p className="peps-print-meta">Date: {rx.prescription_date}</p>
             <p className="peps-print-meta">Patient: {rx.patient_snapshot?.full_name ?? 'Unknown patient'}</p>
             <p className="peps-print-meta">
-              {mode === 'ORIGINAL'
-                ? <span className="peps-print-mode-original">ORIGINAL</span>
-                : <span className="peps-print-mode-copy">COPY</span>}
+              <span className="peps-print-mode-copy">COPY — NOT VALID FOR DISPENSING</span>
             </p>
-            {mode === 'COPY' && originalInfo && (
+            {originalInfo && (
               <p className="peps-print-copy-note">
-                ORIGINAL printed by {originalInfo.pharmacyName} at {formatDateTime(originalInfo.printedAt)}
+                First printed by {originalInfo.pharmacyName} at {formatDateTime(originalInfo.printedAt)}
               </p>
             )}
           </div>
@@ -297,7 +285,7 @@ export function PEPSPrintablePrescriptionPage() {
         </section>
 
         <section className="peps-print-legal">
-          This printout is linked to the unique prescription code and PEPS audit trail. Only one legal original should be retained by the dispensing pharmacy. Any reprint is marked as COPY and cannot replace the original legal paper copy.
+          This printout is a copy for records only. The original is the electronic prescription in PEPS, linked to this unique code and audit trail. Do not dispense from this paper.
         </section>
 
         <footer className="peps-print-foot">

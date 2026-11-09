@@ -14,6 +14,9 @@ import { PublicFooter } from '../../components/public/PublicFooter'
 import { usePageTitle } from '../../seo/RouteMeta'
 
 const formatPrice = (pence: number) => `£${(pence / 100).toFixed(2)}`
+/** Most of one product a customer can put in the basket: stock, capped by the pharmacy's per-order limit. */
+const maxQty = (p: { stock_quantity: number; max_per_order?: number | null }) =>
+  p.max_per_order ? Math.min(p.stock_quantity, p.max_per_order) : p.stock_quantity
 
 export function PublicShopOrgPage() {
   const navigate = useNavigate()
@@ -23,7 +26,7 @@ export function PublicShopOrgPage() {
     shopOrgs, publicProducts, categories, publicLoading,
     cart, cartOrgId,
     fetchShopOrgs, fetchPublicProducts, fetchCategories,
-    addToCart, updateCartQuantity, removeFromCart, clearCart, placeOrder,
+    addToCart, updateCartQuantity, removeFromCart, clearCart, placeOrder, startShopCheckout,
   } = useShopStore()
 
   const [search, setSearch] = useState('')
@@ -40,6 +43,7 @@ export function PublicShopOrgPage() {
   const [addrPostcode, setAddrPostcode] = useState('')
   const [notes, setNotes] = useState('')
   const [placing, setPlacing] = useState(false)
+  const [payBy, setPayBy] = useState<'card' | 'in_store'>('card')
   const [checkoutError, setCheckoutError] = useState<string | null>(null)
   const [confirmation, setConfirmation] = useState<ShopPlaceOrderResult | null>(null)
   // questionnaire answers: productId -> questionId -> answer
@@ -110,6 +114,9 @@ export function PublicShopOrgPage() {
   const phoneDigits = guestPhone.replace(/[\s\-().]/g, '').replace(/^(\+44|0044)/, '0').replace(/^00?0/, '0')
   const phoneInvalid = guestPhone.trim() !== '' && !/^0[1-9]\d{8,9}$/.test(phoneDigits)
 
+  const payOptions = org?.payment_options ?? 'in_store'
+  const effectivePayBy: 'card' | 'in_store' = payOptions === 'both' ? payBy : payOptions === 'card' ? 'card' : 'in_store'
+
   const handlePlaceOrder = async () => {
     if (!org) return
     setPlacing(true); setCheckoutError(null)
@@ -133,7 +140,19 @@ export function PublicShopOrgPage() {
         guestPhone: guestPhone.trim() || undefined,
         customerNotes: notes.trim() || undefined,
         responses,
+        paymentMethod: effectivePayBy,
       })
+      if (effectivePayBy === 'card') {
+        // Hand over to Stripe Checkout; the result page confirms the payment.
+        const base = `${window.location.origin}/shop/${orgSlug}/payment-result`
+        const url = await startShopCheckout({
+          orderId: result.order_id,
+          successUrl: `${base}?order=${encodeURIComponent(result.order_number)}`,
+          cancelUrl: `${base}?canceled=1&order=${encodeURIComponent(result.order_number)}`,
+        })
+        window.location.assign(url)
+        return
+      }
       setConfirmation(result)
       setCheckoutOpen(false)
       setCartOpen(false)
@@ -160,7 +179,7 @@ export function PublicShopOrgPage() {
 
   return (
     <div className="modern-shop modern-store">
-      <div className="modern-shop-offer">Order from your local pharmacy <span>•</span> Pay in store or on delivery</div>
+      <div className="modern-shop-offer">Order from your local pharmacy <span>•</span> Collect in store or get it delivered</div>
       <header className="modern-store-header">
         <button className="modern-shop-logo" type="button" onClick={() => navigate('/shop')}>
           <span className="modern-shop-wordmark">Pharm<span>Station</span></span><small>Shop</small>
@@ -218,7 +237,7 @@ export function PublicShopOrgPage() {
             const out = p.stock_quantity === 0
             return (
               <article key={p.id} className="patient-shop-store-product">
-                <div className="patient-shop-store-product-media">{p.image_url ? <img src={p.image_url} alt={p.name} /> : <span className="modern-shop-product-placeholder">Product image</span>}{p.questionnaire && <b>Consultation</b>}</div>
+                <div className="patient-shop-store-product-media">{p.image_url ? <img src={p.image_url} alt={p.name} /> : <span className="modern-shop-product-placeholder">Product image</span>}{p.medicine_class === 'p' ? <b>Pharmacy medicine</b> : p.questionnaire && <b>Consultation</b>}</div>
                 <div className="patient-shop-store-product-copy">
                   <small>{p.category?.name || 'Pharmacy product'}</small>
                   <h3>{p.name}</h3>
@@ -230,7 +249,7 @@ export function PublicShopOrgPage() {
                       <span className="patient-shop-out">Out of stock</span>
                     ) : inCart ? (
                       <div className="patient-shop-quantity">
-                        <button type="button" onClick={() => updateCartQuantity(p.id, inCart.quantity - 1)}>−</button><span>{inCart.quantity}</span><button type="button" onClick={() => addProductToCart(p)} disabled={inCart.quantity >= p.stock_quantity}>+</button>
+                        <button type="button" onClick={() => updateCartQuantity(p.id, inCart.quantity - 1)}>−</button><span>{inCart.quantity}</span><button type="button" onClick={() => addProductToCart(p)} disabled={inCart.quantity >= maxQty(p)}>+</button>
                       </div>
                     ) : (
                       <button type="button" onClick={() => addProductToCart(p)}>Add to basket</button>
@@ -273,7 +292,7 @@ export function PublicShopOrgPage() {
                       <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                         <button onClick={() => updateCartQuantity(c.product.id, c.quantity - 1)} style={{ width: 26, height: 26, borderRadius: 8, border: '1px solid #e2e8f0', background: 'white', cursor: 'pointer' }}>−</button>
                         <span style={{ fontWeight: 700, minWidth: 18, textAlign: 'center' }}>{c.quantity}</span>
-                        <button onClick={() => addToCart(c.product)} disabled={c.quantity >= c.product.stock_quantity} style={{ width: 26, height: 26, borderRadius: 8, border: '1px solid #e2e8f0', background: 'white', cursor: 'pointer', opacity: c.quantity >= c.product.stock_quantity ? 0.4 : 1 }}>+</button>
+                        <button onClick={() => addToCart(c.product)} disabled={c.quantity >= maxQty(c.product)} style={{ width: 26, height: 26, borderRadius: 8, border: '1px solid #e2e8f0', background: 'white', cursor: 'pointer', opacity: c.quantity >= maxQty(c.product) ? 0.4 : 1 }}>+</button>
                       </div>
                       <strong style={{ minWidth: 60, textAlign: 'right', fontSize: 14 }}>{formatPrice(c.product.price_pence * c.quantity)}</strong>
                       <button onClick={() => removeFromCart(c.product.id)} style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#94a3b8' }}>🗑️</button>
@@ -306,8 +325,27 @@ export function PublicShopOrgPage() {
           <div className="patient-shop-checkout-panel" style={{ background: 'white', borderRadius: 16, padding: 28, width: 'min(480px, 100%)', maxHeight: '90vh', overflowY: 'auto', boxSizing: 'border-box' }} onClick={(e) => e.stopPropagation()}>
             <h2 style={{ margin: '0 0 4px', fontSize: 20, color: '#0f172a' }}>Checkout</h2>
             <p style={{ margin: '0 0 18px', color: '#64748b', fontSize: 13 }}>
-              {org.name} · Pay in store{org.delivery_enabled ? ' or on delivery' : ''}. Online payment is coming soon.
+              {org.name} · {payOptions === 'card'
+                ? 'Pay securely by card at the next step.'
+                : payOptions === 'both'
+                  ? 'Pay by card now, or when you collect or receive your order.'
+                  : `Pay in store${org.delivery_enabled ? ' or on delivery' : ''}.`}
             </p>
+            {payOptions === 'both' && (
+              <div style={{ display: 'flex', gap: 10, marginBottom: 16 }}>
+                {(['card', 'in_store'] as const).map((m) => (
+                  <button
+                    key={m}
+                    type="button"
+                    className={payBy === m ? 'selected' : ''}
+                    onClick={() => setPayBy(m)}
+                    style={{ flex: 1, border: payBy === m ? '2px solid #0077B6' : '1px solid #e2e8f0', background: payBy === m ? '#e0f2fe' : 'white', borderRadius: 10, padding: '12px 8px', fontWeight: 700, cursor: 'pointer', color: '#0f172a' }}
+                  >
+                    {m === 'card' ? '💳 Pay now by card' : `🏪 Pay ${fulfilment === 'delivery' ? 'on delivery' : 'in store'}`}
+                  </button>
+                ))}
+              </div>
+            )}
 
             {checkoutError && (
               <div style={{ background: '#fee2e2', color: '#991b1b', borderRadius: 10, padding: '10px 14px', fontSize: 13, marginBottom: 14 }}>{checkoutError}</div>
@@ -447,7 +485,7 @@ export function PublicShopOrgPage() {
                 </div>
               )}
               <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 800, fontSize: 16, marginTop: 6 }}>
-                <span>Total to pay {fulfilment === 'delivery' ? 'on delivery' : 'in store'}</span>
+                <span>Total to pay {effectivePayBy === 'card' ? 'now by card' : fulfilment === 'delivery' ? 'on delivery' : 'in store'}</span>
                 <span>{formatPrice(cartSubtotal + deliveryFee)}</span>
               </div>
             </div>
@@ -457,7 +495,10 @@ export function PublicShopOrgPage() {
               disabled={placing || !guestName.trim() || !guestPhone.trim() || phoneInvalid || (fulfilment === 'delivery' && (!addr1.trim() || !addrPostcode.trim())) || missingRequiredAnswers}
               style={{ width: '100%', marginTop: 16, background: '#0077B6', color: 'white', border: 'none', borderRadius: 10, padding: '14px 0', fontSize: 15, fontWeight: 700, cursor: 'pointer', opacity: placing ? 0.6 : 1 }}
             >
-              {placing ? 'Placing order…' : missingRequiredAnswers ? 'Answer the questions above to continue' : 'Place order'}
+              {placing
+                ? (effectivePayBy === 'card' ? 'Opening secure payment…' : 'Placing order…')
+                : missingRequiredAnswers ? 'Answer the questions above to continue'
+                : effectivePayBy === 'card' ? `Pay ${formatPrice(cartSubtotal + deliveryFee)} by card` : 'Place order'}
             </button>
           </div>
         </div>
