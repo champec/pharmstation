@@ -398,12 +398,12 @@ const styles = StyleSheet.create({
 
   toggleRow: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.border, borderRadius: radius.md, padding: 12 },
 
-  primary: { minHeight: 48, borderRadius: radius.md, backgroundColor: COLOR, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
+  primary: { minHeight: 48, borderRadius: radius.md, backgroundColor: palette.brand, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
   primaryText: { color: '#FFFFFF', fontWeight: '800', fontSize: 15 },
   secondary: { minHeight: 44, borderRadius: radius.md, borderWidth: 1, borderColor: COLOR, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 },
   secondaryText: { color: COLOR, fontWeight: '800' },
   smallButton: { minHeight: 36, borderRadius: radius.sm, borderWidth: 1, borderColor: palette.border, paddingHorizontal: 12, justifyContent: 'center', backgroundColor: palette.surface },
-  smallPrimary: { backgroundColor: COLOR, borderColor: COLOR },
+  smallPrimary: { backgroundColor: palette.brand, borderColor: palette.brand },
   smallText: { color: palette.text, fontWeight: '700', fontSize: 13 },
 
   searchBox: { minHeight: 48, flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.border, borderRadius: radius.md, paddingHorizontal: 12 },

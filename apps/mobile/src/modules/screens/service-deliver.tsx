@@ -639,7 +639,7 @@ function MedsEditor({ meds, onChange }: { meds: Med[]; onChange: (m: Med[]) => v
 }
 
 const styles = StyleSheet.create({
-  fab: { position: 'absolute', right: 16, bottom: 20, flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: COLOR, paddingHorizontal: 18, paddingVertical: 13, borderRadius: radius.pill, elevation: 4, shadowColor: '#000', shadowOpacity: 0.18, shadowRadius: 8, shadowOffset: { width: 0, height: 3 } },
+  fab: { position: 'absolute', right: 16, bottom: 20, flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: palette.brand, paddingHorizontal: 18, paddingVertical: 13, borderRadius: radius.pill, elevation: 4, shadowColor: '#000', shadowOpacity: 0.18, shadowRadius: 8, shadowOffset: { width: 0, height: 3 } },
   fabText: { color: palette.textInverse, fontWeight: '700', fontSize: 15 },
   sheet: { flex: 1, backgroundColor: palette.bg },
   header: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 16, borderBottomWidth: 1, borderColor: palette.border, backgroundColor: palette.surface },

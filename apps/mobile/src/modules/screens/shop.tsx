@@ -670,7 +670,7 @@ const styles = StyleSheet.create({
   error: { color: palette.danger, paddingHorizontal: 16, paddingTop: 8 },
   pills: { flexDirection: 'row', gap: 8, paddingHorizontal: 16, paddingTop: 12 },
   pill: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: radius.pill, borderWidth: 1, borderColor: palette.border, backgroundColor: palette.surface },
-  pillOn: { backgroundColor: SHOP_COLOR, borderColor: SHOP_COLOR },
+  pillOn: { backgroundColor: palette.brand, borderColor: palette.brand },
   pillText: { fontSize: 14, fontWeight: '600', color: palette.text },
   pillTextOn: { color: palette.textInverse },
   empty: { alignItems: 'center', gap: 8, paddingTop: 80, paddingHorizontal: 24 },
