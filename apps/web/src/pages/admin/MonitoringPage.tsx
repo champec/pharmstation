@@ -3,7 +3,7 @@ import { Activity, Bug } from 'lucide-react'
 import { getUserClient } from '@pharmstation/supabase-client'
 import { EmptyState, PageHeader } from '../../components/ui'
 import { promptDialog } from '../../components/ui/dialog'
-import { ActivityLog } from './ActivityLog'
+import { Link } from 'react-router-dom'
 
 // Platform oversight for PharmStation admins: who uses the app and how, and
 // what broke. Data comes from ps_monitor_* on the London project; RLS and
@@ -48,9 +48,9 @@ type Occurrence = {
   context: Record<string, unknown> | null
 }
 
-const TABS = ['overview', 'activity', 'issues', 'pharmacies', 'people'] as const
+const TABS = ['overview', 'issues', 'pharmacies', 'people'] as const
 type Tab = typeof TABS[number]
-const TAB_LABELS: Record<Tab, string> = { overview: 'Overview', activity: 'Activity log', issues: 'Errors', pharmacies: 'Pharmacies', people: 'People' }
+const TAB_LABELS: Record<Tab, string> = { overview: 'Overview', issues: 'Errors', pharmacies: 'Pharmacies', people: 'People' }
 const SOURCE_LABELS = { web: 'Web app', mobile: 'Mobile app', edge: 'Server function' } as const
 
 const fmt = (d: string) => new Date(d).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' })
@@ -168,6 +168,7 @@ export function MonitoringPage() {
               <option value={30}>Last 30 days</option>
               <option value={90}>Last 90 days</option>
             </select>
+            <Link to="/me/admin/activity" className="ps-btn ps-btn-secondary">Activity log</Link>
             <button className="ps-btn ps-btn-secondary" onClick={() => void reload()} disabled={loading}>Refresh</button>
           </>
         ) : undefined}
@@ -237,8 +238,6 @@ export function MonitoringPage() {
               </div>
             </>
           )}
-
-          {tab === 'activity' && <ActivityLog />}
 
           {tab === 'issues' && (
             <>
