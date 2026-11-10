@@ -17,6 +17,7 @@ import '../_shared/monitoring.ts' // platform error tracking (see _shared/monito
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.0'
 import { GENIE_MONTHLY_MESSAGES, plansEnforced, type PlanId } from '../_shared/billing-plans.ts'
+import { actionToolDefinitions, executeActionTool, performAction, type ActionContext } from './actions.ts'
 
 // deno-lint-ignore no-explicit-any
 type Db = any
@@ -627,7 +628,13 @@ function historyToMessages(rows: HistoryRow[], replayToolResults: boolean): Open
 // System prompt
 // ============================================
 
-function systemPrompt(opts: { orgName: string; userName: string; role: string; patientData: boolean }) {
+type PageContext = { path: string; title: string; details: string }
+type RecentAction = { summary: string; status: string; result: { message?: string } | null }
+
+function systemPrompt(opts: {
+  orgName: string; userName: string; role: string; patientData: boolean
+  page: PageContext | null; recentActions: RecentAction[]
+}) {
   const today = new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/London', weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).format(new Date())
   return `You are Genie, the AI assistant inside PharmStation, a pharmacy management system for UK community pharmacies.
 
@@ -640,13 +647,22 @@ What you can look up with your tools:
 - The Responsible Pharmacist (RP) log
 - The PharmStation controlled drug catalogue
 - The pharmacy's staff list and roles
+- Locum shifts, applications and bookings
+- Services, appointment times (slots) and appointments
+
+What you can do (always with the user's confirmation):
+- Create, change and cancel locum shifts; approve or reject locum applications
+- Add appointment times; confirm, complete, mark no-show, cancel or move appointments${opts.patientData ? '; book patients in' : ''}
 
 You can also answer general questions about UK pharmacy practice and regulation (GPhC, MHRA, Misuse of Drugs Regulations), clearly as general guidance.
 
 Rules:
 - Always use the tools for this pharmacy's data. Never guess or invent register entries, balances or names.
 - If a tool says the user lacks permission, tell them plainly. Do not try to work around it.
-- You can only read data. You cannot create, change or delete anything. If asked to, explain where in PharmStation the user can do it.
+- You cannot change CD register or RP log entries, staff, settings or anything not listed above. If asked, explain where in PharmStation the user can do it.
+- To change something, call the matching tool. It does NOT make the change: it shows the user a card with Confirm and Cancel. Then say in one short sentence what will happen and ask them to tap Confirm. Never claim a change is done until a later message shows it was confirmed.
+- Before changing a shift or appointment, look it up first so you use the right id. If the request is ambiguous (which shift? what rate?), ask a short question instead of guessing.
+- Propose one change per tool call. For several changes, make several calls.
 - Be concise. Use short Markdown tables or lists for register data.
 - Write dates the UK way ("9 Nov 2026") and times in 24-hour UK local time ("14:06"). Tool results are already in UK local time; never convert them or call them UTC.
 - CD entries include entered_by, the staff member who made the entry. You may name staff.
@@ -654,7 +670,24 @@ Rules:
 - If you are unsure, say so. For clinical decisions, tell the user to check an authoritative source (BNF, SPC) and use professional judgement.
 ${opts.patientData
     ? '- Patient details are available. Only show patient information that the question needs.'
-    : '- Patient details are switched off for Genie in this pharmacy. You cannot see patient or prescriber names. Do not ask the user to type patient details; if they need them, tell them to open the register in PharmStation.'}`
+    : '- Patient details are switched off for Genie in this pharmacy. You cannot see patient or prescriber names. Do not ask the user to type patient details; if they need them, tell them to open the register in PharmStation.'}${opts.page ? `
+
+The user is looking at this PharmStation page right now: "${opts.page.title}" (${opts.page.path}).${opts.page.details ? ` On screen: ${opts.page.details}` : ''}
+Use it as context: "this shift", "this page" or "here" means what they are looking at. Ids in the path (after /shifts/ or /appointments/) can be used with your tools.` : ''}${opts.recentActions.length ? `
+
+Changes you proposed earlier in this chat, and what happened:
+${opts.recentActions.map((a) => `- ${a.summary}: ${a.status === 'done' ? `done (${a.result?.message ?? 'confirmed'})` : a.status === 'pending' ? 'waiting for the user to confirm' : a.status}`).join('\n')}` : ''}`
+}
+
+/** Page the user is on, sent by the app. Short, plain text only. */
+function readPageContext(value: unknown): PageContext | null {
+  if (!value || typeof value !== 'object') return null
+  const v = value as Record<string, unknown>
+  const clean = (x: unknown, max: number) =>
+    typeof x === 'string' ? x.replace(/[\u0000-\u001f`]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, max) : ''
+  const path = clean(v.path, 200)
+  if (!path.startsWith('/')) return null
+  return { path, title: clean(v.title, 120) || path, details: clean(v.details, 400) }
 }
 
 // ============================================
@@ -695,11 +728,69 @@ Deno.serve(async (req) => {
     } catch {
       return json(400, { error: 'Invalid request' })
     }
+    // Confirm or cancel a change Genie proposed. No AI call, so it does not use the allowance.
+    if (typeof body.action_id === 'string') {
+      const decision = body.decision === 'confirm' ? 'confirm' : body.decision === 'cancel' ? 'cancel' : null
+      if (!decision) return json(400, { error: 'Invalid request' })
+      const { data: action } = await supabaseAdmin
+        .from('ps_genie_actions')
+        .select('id, organisation_id, tool, args, summary, status, expires_at')
+        .eq('id', body.action_id)
+        .eq('user_id', user.id)
+        .maybeSingle()
+      if (!action) return json(404, { error: 'That change was not found.' })
+      if (action.status !== 'pending') {
+        return json(409, { error: `This change was already ${action.status === 'done' ? 'made' : action.status}.`, status: action.status })
+      }
+      const { data: stillMember } = await supabaseAdmin
+        .from('ps_organisation_members')
+        .select('user_id')
+        .eq('organisation_id', action.organisation_id)
+        .eq('user_id', user.id)
+        .eq('status', 'active')
+        .maybeSingle()
+      if (!stillMember) return json(403, { error: 'Not a member of this organisation' })
+
+      const finish = async (status: string, result: Record<string, unknown> | null) => {
+        // Only a still-pending row is updated, so a double tap cannot run the change twice.
+        const { data: updated } = await supabaseAdmin
+          .from('ps_genie_actions')
+          .update({ status, result, decided_at: new Date().toISOString() })
+          .eq('id', action.id)
+          .eq('status', status === 'done' || status === 'failed' ? 'running' : 'pending')
+          .select('id')
+        return (updated ?? []).length > 0
+      }
+      if (decision === 'cancel') {
+        await finish('cancelled', null)
+        return json(200, { status: 'cancelled', message: 'Cancelled. Nothing was changed.' })
+      }
+      if (new Date(action.expires_at).getTime() < Date.now()) {
+        await finish('expired', null)
+        return json(409, { error: 'This change has expired. Ask Genie again.', status: 'expired' })
+      }
+      // Claim it (pending -> running) before doing anything.
+      const { data: claimed } = await supabaseAdmin
+        .from('ps_genie_actions')
+        .update({ status: 'running' })
+        .eq('id', action.id)
+        .eq('status', 'pending')
+        .select('id')
+      if (!claimed?.length) return json(409, { error: 'This change is already being made.' })
+      const outcome = await performAction(
+        { tool: action.tool, args: action.args ?? {} },
+        { orgId: action.organisation_id, userId: user.id, userClient },
+      )
+      await finish(outcome.ok ? 'done' : 'failed', outcome)
+      return json(outcome.ok ? 200 : 422, { status: outcome.ok ? 'done' : 'failed', message: outcome.message, link: outcome.link ?? null })
+    }
+
     const conversationIdInput = typeof body.conversation_id === 'string' ? body.conversation_id : null
     const organisationId = typeof body.organisation_id === 'string' ? body.organisation_id : ''
     const message = typeof body.message === 'string' ? body.message : ''
     const attachments = Array.isArray(body.attachments) ? body.attachments.slice(0, 10) : []
     const requestedModelId = typeof body.model_id === 'string' ? body.model_id : null
+    const pageContext = readPageContext(body.page_context)
 
     if (!organisationId || !message.trim()) return json(400, { error: 'Missing organisation_id or message' })
     if (message.length > 20000) return json(400, { error: 'Message is too long' })
@@ -850,9 +941,15 @@ Deno.serve(async (req) => {
       .limit(HISTORY_MESSAGES)
     const history = ((historyDesc ?? []) as HistoryRow[]).reverse()
 
-    const [{ data: org }, { data: userProfile }] = await Promise.all([
+    const [{ data: org }, { data: userProfile }, { data: recentActions }] = await Promise.all([
       supabaseAdmin.from('ps_organisations').select('name').eq('id', organisationId).maybeSingle(),
       supabaseAdmin.from('ps_user_profiles').select('full_name').eq('id', user.id).maybeSingle(),
+      supabaseAdmin
+        .from('ps_genie_actions')
+        .select('summary, status, result')
+        .eq('conversation_id', convId)
+        .order('created_at', { ascending: false })
+        .limit(10),
     ])
 
     const messages: OpenRouterMessage[] = [
@@ -863,6 +960,8 @@ Deno.serve(async (req) => {
           userName: userProfile?.full_name ?? 'a staff member',
           role: membership.role,
           patientData,
+          page: pageContext,
+          recentActions: ((recentActions ?? []) as RecentAction[]).reverse(),
         }),
       },
       // Tool results from earlier turns are only replayed while patient data is on,
@@ -870,8 +969,9 @@ Deno.serve(async (req) => {
       ...historyToMessages(history, patientData),
     ]
 
-    const tools = genieTools(patientData)
+    const tools = [...genieTools(patientData), ...actionToolDefinitions(patientData)]
     const toolCtx: ToolContext = { orgId: organisationId, userClient, supabaseAdmin, patientData }
+    const proposedActionIds: string[] = []
 
     const { readable, writable } = new TransformStream()
     const writer = writable.getWriter()
@@ -891,6 +991,35 @@ Deno.serve(async (req) => {
 
         let fullContent = ''
         const savedToolCalls: SavedToolCall[] = []
+        const actionCtx: ActionContext = {
+          orgId: organisationId,
+          userId: user.id,
+          userClient,
+          supabaseAdmin,
+          patientData,
+          propose: async (proposal) => {
+            const { data: row, error } = await supabaseAdmin
+              .from('ps_genie_actions')
+              .insert({
+                organisation_id: organisationId,
+                user_id: user.id,
+                conversation_id: convId,
+                tool: proposal.tool,
+                args: proposal.args,
+                summary: proposal.summary,
+                details: proposal.details,
+              })
+              .select('id')
+              .single()
+            if (error || !row) throw new Error('Genie could not prepare that change. Please try again.')
+            proposedActionIds.push(row.id)
+            await sendEvent(writer, {
+              type: 'action_proposed',
+              action: { id: row.id, tool: proposal.tool, summary: proposal.summary, details: proposal.details, status: 'pending' },
+            })
+            return { id: row.id }
+          },
+        }
 
         for (let roundNumber = 0; roundNumber < MAX_TOOL_ROUNDS; roundNumber += 1) {
           const round = await streamOpenRouterRound(apiKey, modelRecord.model_id, messages, tools, writer, upstream.signal)
@@ -914,7 +1043,10 @@ Deno.serve(async (req) => {
               parsedArgs = {}
             }
 
-            const result = await executeTool(call.function.name, parsedArgs, toolCtx)
+            const actionResult = await executeActionTool(call.function.name, parsedArgs, actionCtx)
+            const result = actionResult !== null
+              ? JSON.stringify(localiseDates(JSON.parse(actionResult)))
+              : await executeTool(call.function.name, parsedArgs, toolCtx)
             savedToolCalls.push({
               id: call.id,
               name: call.function.name,
@@ -944,6 +1076,9 @@ Deno.serve(async (req) => {
 
         if (assistantMessageError || !assistantMessage) throw new Error('Failed to save Genie response')
         answered = true
+        if (proposedActionIds.length) {
+          await supabaseAdmin.from('ps_genie_actions').update({ message_id: assistantMessage.id }).in('id', proposedActionIds)
+        }
         await refund(inputTokens, outputTokens, false)
 
         await sendEvent(writer, { type: 'message_saved', message_id: assistantMessage.id })
