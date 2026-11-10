@@ -152,7 +152,7 @@ export function PEPSPrescriberSetupPage() {
       />
 
       {myPrescriber && (
-        <div className="ps-card" style={{ marginBottom: 'var(--ps-space-md)', display: 'flex', alignItems: 'center', gap: 'var(--ps-space-sm)' }}>
+        <div className="ps-card ps-card-body" style={{ marginBottom: 'var(--ps-space-md)', display: 'flex', alignItems: 'center', gap: 'var(--ps-space-sm)' }}>
           <span className={`ps-badge ${myPrescriber.status === 'active' ? 'ps-badge-success' : ''}`}>
             {myPrescriber.status.toUpperCase()}
           </span>
@@ -166,7 +166,7 @@ export function PEPSPrescriberSetupPage() {
         </div>
       )}
 
-      <div className="ps-card" style={{ maxWidth: 640 }}>
+      <div className="ps-card ps-card-body" style={{ maxWidth: 640 }}>
         {error && (
           <div className="ps-alert ps-alert-error" style={{ marginBottom: 'var(--ps-space-md)' }}>{error}</div>
         )}
@@ -194,7 +194,7 @@ export function PEPSPrescriberSetupPage() {
           </select>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--ps-space-md)' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 'var(--ps-space-md)' }}>
           <div className="form-group">
             <label>Registration number *</label>
             <input className="ps-input" value={registration} onChange={(e) => setRegistration(e.target.value)} placeholder="e.g. GMC 1234567" />
@@ -205,7 +205,7 @@ export function PEPSPrescriberSetupPage() {
           </div>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--ps-space-md)' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 'var(--ps-space-md)' }}>
           <div className="form-group">
             <label>Email</label>
             <input className="ps-input" type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
@@ -229,7 +229,7 @@ export function PEPSPrescriberSetupPage() {
           <CanvasField value={signature || undefined} onChange={setSignature} width={400} height={150} />
         </div>
 
-        <div style={{ display: 'flex', gap: 'var(--ps-space-sm)', marginTop: 'var(--ps-space-md)' }}>
+        <div style={{ display: 'flex', gap: 'var(--ps-space-sm)', marginTop: 'var(--ps-space-md)', flexWrap: 'wrap' }}>
           <button className="ps-btn ps-btn-primary" onClick={handleSave} disabled={saving}>
             {saving ? 'Saving…' : myPrescriber ? 'Update prescriber details' : 'Register as prescriber'}
           </button>
@@ -245,7 +245,7 @@ export function PEPSPrescriberSetupPage() {
       </div>
 
       {myPrescriber && (
-        <div className="ps-card" style={{ maxWidth: 640, marginTop: 'var(--ps-space-md)' }}>
+        <div className="ps-card ps-card-body" style={{ maxWidth: 640, marginTop: 'var(--ps-space-md)' }}>
           <h3 style={{ marginTop: 0 }}>Signing PIN</h3>
           <p style={{ fontSize: 'var(--ps-font-sm)', color: 'var(--ps-slate)', marginTop: 0 }}>
             You enter this 6-digit PIN each time you send a prescription. It is your electronic signature:
@@ -260,7 +260,7 @@ export function PEPSPrescriberSetupPage() {
               You have not set a signing PIN yet. You need one to send prescriptions.
             </div>
           )}
-          <div style={{ display: 'grid', gridTemplateColumns: pinSet ? '1fr 1fr 1fr' : '1fr 1fr', gap: 'var(--ps-space-md)' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 'var(--ps-space-md)', alignItems: 'end', marginTop: 'var(--ps-space-md)' }}>
             {pinSet && (
               <div className="form-group">
                 <label>Current PIN</label>
@@ -274,7 +274,7 @@ export function PEPSPrescriberSetupPage() {
                 value={newPin} onChange={(e) => setNewPin(e.target.value.replace(/\D/g, ''))} />
             </div>
             <div className="form-group">
-              <label>Repeat new PIN</label>
+              <label>Repeat PIN</label>
               <input className="ps-input" type="password" inputMode="numeric" autoComplete="new-password" maxLength={6}
                 value={confirmPin} onChange={(e) => setConfirmPin(e.target.value.replace(/\D/g, ''))} />
             </div>

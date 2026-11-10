@@ -1,7 +1,8 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { usePepsStore } from '@pharmstation/core'
-import { PageHeader } from '../../components/ui'
+import { PageHeader, EmptyState } from '../../components/ui'
+import { FileText } from 'lucide-react'
 import { pepsDate } from '@pharmstation/types'
 
 export function PEPSMyPrescriptionsPage() {
@@ -45,7 +46,7 @@ export function PEPSMyPrescriptionsPage() {
 
       {error && <div className="ps-alert ps-alert-error" style={{ marginBottom: 'var(--ps-space-md)' }}>{error}</div>}
 
-      <div className="ps-card">
+      <div className="ps-card ps-card-body">
         <div style={{ display: 'flex', gap: 'var(--ps-space-sm)', marginBottom: 'var(--ps-space-md)', flexWrap: 'wrap' }}>
           <input className="ps-input" style={{ maxWidth: 280 }} placeholder="Search ref or patient…" value={search} onChange={(e) => setSearch(e.target.value)} />
           <select className="ps-input" style={{ maxWidth: 180 }} value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
@@ -60,8 +61,14 @@ export function PEPSMyPrescriptionsPage() {
         {loading ? (
           <p style={{ color: 'var(--ps-slate)' }}>Loading…</p>
         ) : filtered.length === 0 ? (
-          <p style={{ color: 'var(--ps-slate)' }}>You haven't written any prescriptions yet.</p>
+          <EmptyState bare icon={FileText} title={search || statusFilter ? 'No prescriptions match these filters' : 'No prescriptions yet'}
+            actions={search || statusFilter
+              ? <button className="ps-btn ps-btn-secondary" onClick={() => { setSearch(''); setStatusFilter('') }}>Clear filters</button>
+              : <button className="ps-btn ps-btn-primary" onClick={() => navigate('/peps/write')}>Write prescription</button>}>
+            {search || statusFilter ? 'Try a different reference, name or status.' : 'Prescriptions you write appear here, with where they are now.'}
+          </EmptyState>
         ) : (
+          <div style={{ overflowX: 'auto' }}>
           <table className="ps-table">
             <thead>
               <tr><th>Reference</th><th>Patient</th><th>Type</th><th>Date</th><th>Repeats</th><th>Location</th></tr>
@@ -79,6 +86,7 @@ export function PEPSMyPrescriptionsPage() {
               ))}
             </tbody>
           </table>
+          </div>
         )}
       </div>
     </div>

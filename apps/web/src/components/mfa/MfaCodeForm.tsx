@@ -47,7 +47,7 @@ export function MfaCodeForm() {
       <p className="subtitle">
         {emailedTo
           ? `We’ve emailed a 6-digit code to ${emailedTo}. It lasts 10 minutes. Entering it turns off two-step sign-in so you can set it up again.`
-          : 'Open the PharmStation app (My Account > Security) or your authenticator app and type the 6-digit code.'}
+          : 'Open the PharmStation app (My Account > Security) or Google Authenticator and type the 6-digit code. On a pharmacy computer you only need it once per shift.'}
       </p>
       {error && <div className="auth-error">{error}</div>}
       <form onSubmit={handleSubmit}>

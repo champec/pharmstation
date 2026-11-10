@@ -83,7 +83,7 @@ export function PrescriberApprovalsPage() {
         subtitle="Check each registration number and name on the regulator's register before activating."
       />
 
-      <div className="ps-card" style={{ marginBottom: 'var(--ps-space-md)' }}>
+      <div className="ps-card ps-card-body" style={{ marginBottom: 'var(--ps-space-md)' }}>
         <strong>Registers:</strong>{' '}
         {REGISTERS.map((r, i) => (
           <span key={r.url}>
@@ -110,7 +110,7 @@ export function PrescriberApprovalsPage() {
       {!loading && !error && rows.length === 0 && <p className="text-muted">No {filter} prescribers.</p>}
 
       {rows.map((row) => (
-        <div key={row.id} className="ps-card" style={{ marginBottom: 'var(--ps-space-sm)' }}>
+        <div key={row.id} className="ps-card ps-card-body" style={{ marginBottom: 'var(--ps-space-sm)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', gap: 'var(--ps-space-md)', flexWrap: 'wrap' }}>
             <div>
               <strong>{row.full_name}</strong>{' '}

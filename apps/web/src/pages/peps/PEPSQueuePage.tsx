@@ -2,7 +2,8 @@ import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuthStore, usePepsStore } from '@pharmstation/core'
 import { pepsDate, type PepsPrescription, type PepsSpineResult } from '@pharmstation/types'
-import { PageHeader } from '../../components/ui'
+import { PageHeader, EmptyState } from '../../components/ui'
+import { Inbox } from 'lucide-react'
 
 function statusBadge(rx: PepsPrescription) {
   const expired = !!rx.expires_at && new Date(rx.expires_at).getTime() < Date.now()
@@ -143,7 +144,7 @@ export function PEPSQueuePage() {
       {error && <div className="ps-alert ps-alert-error" style={{ marginBottom: 'var(--ps-space-md)' }}>{error}</div>}
 
       {/* Stats */}
-      <div className="stats-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 'var(--ps-space-md)', marginBottom: 'var(--ps-space-md)' }}>
+      <div className="stats-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: 'var(--ps-space-md)', marginBottom: 'var(--ps-space-md)' }}>
         <div className="stat-card stat-card-accent">
           <div className="stat-card-label">Sent to you</div>
           <div className="stat-card-value">{stats.waiting}</div>
@@ -162,7 +163,7 @@ export function PEPSQueuePage() {
       </div>
 
       {/* Directed to this pharmacy */}
-      <div className="ps-card" style={{ marginBottom: 'var(--ps-space-md)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 'var(--ps-space-md)', flexWrap: 'wrap', borderLeft: '4px solid var(--ps-electric-cyan)' }}>
+      <div className="ps-card ps-card-body" style={{ marginBottom: 'var(--ps-space-md)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 'var(--ps-space-md)', flexWrap: 'wrap', borderLeft: '4px solid var(--ps-electric-cyan)' }}>
         <div>
           <strong>{available.length}</strong> prescription{available.length === 1 ? '' : 's'} sent directly to you
           <p style={{ fontSize: 'var(--ps-font-sm)', color: 'var(--ps-slate)', margin: '4px 0 0' }}>
@@ -175,7 +176,7 @@ export function PEPSQueuePage() {
       </div>
 
       {/* Claim from spine */}
-      <div className="ps-card" style={{ marginBottom: 'var(--ps-space-md)' }}>
+      <div className="ps-card ps-card-body" style={{ marginBottom: 'var(--ps-space-md)' }}>
         <label style={{ fontWeight: 600 }}>Collect a patient's spine prescription</label>
         <p style={{ fontSize: 'var(--ps-font-sm)', color: 'var(--ps-slate)', margin: '4px 0 8px' }}>
           Ask the patient for their prescription reference (for example PX-ABCD-12345) and check it against their surname or date of birth.
@@ -212,7 +213,7 @@ export function PEPSQueuePage() {
       </div>
 
       {/* Where is it? */}
-      <div className="ps-card" style={{ marginBottom: 'var(--ps-space-md)' }}>
+      <div className="ps-card ps-card-body" style={{ marginBottom: 'var(--ps-space-md)' }}>
         <label style={{ fontWeight: 600 }}>Where is this prescription?</label>
         <p style={{ fontSize: 'var(--ps-font-sm)', color: 'var(--ps-slate)', margin: '4px 0 8px' }}>
           Enter a full prescription reference to see whether it is still on the spine or which pharmacy has it.
@@ -256,7 +257,7 @@ export function PEPSQueuePage() {
       </div>
 
       {/* Queue table */}
-      <div className="ps-card">
+      <div className="ps-card ps-card-body">
         <div style={{ display: 'flex', gap: 'var(--ps-space-sm)', marginBottom: 'var(--ps-space-md)', flexWrap: 'wrap' }}>
           <input className="ps-input" style={{ maxWidth: 280 }} placeholder="Search ref or patient…" value={search} onChange={(e) => setSearch(e.target.value)} />
           <select className="ps-input" style={{ maxWidth: 180 }} value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
@@ -274,8 +275,14 @@ export function PEPSQueuePage() {
         {loading ? (
           <p style={{ color: 'var(--ps-slate)' }}>Loading…</p>
         ) : filtered.length === 0 ? (
-          <p style={{ color: 'var(--ps-slate)' }}>No prescriptions in your queue yet.</p>
+          <EmptyState bare icon={Inbox} title={search || statusFilter || typeFilter ? 'No prescriptions match these filters' : 'No prescriptions in your queue yet'}
+            actions={search || statusFilter || typeFilter
+              ? <button className="ps-btn ps-btn-secondary" onClick={() => { setSearch(''); setStatusFilter(''); setTypeFilter('') }}>Clear filters</button>
+              : undefined}>
+            {search || statusFilter || typeFilter ? 'Try a different reference, name, status or type.' : 'Prescriptions sent to your pharmacy, or collected from the spine, appear here once downloaded.'}
+          </EmptyState>
         ) : (
+          <div style={{ overflowX: 'auto' }}>
           <table className="ps-table">
             <thead>
               <tr><th>Reference</th><th>Patient</th><th>Type</th><th>Items</th><th>Date</th><th>Repeats</th><th>Status</th></tr>
@@ -294,6 +301,7 @@ export function PEPSQueuePage() {
               ))}
             </tbody>
           </table>
+          </div>
         )}
       </div>
     </div>

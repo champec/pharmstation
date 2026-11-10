@@ -23,6 +23,10 @@ import {
   logAuthEvent,
   verifyTotpCode,
   recoverMfaByEmail,
+  parkUserSession,
+  resumeShiftPass,
+  dropShiftPass,
+  endAllShiftPasses,
 } from '@pharmstation/supabase-client'
 
 export interface AuthState {
@@ -266,6 +270,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   // Org Logout — clears everything
   // ============================================
   orgLogout: async () => {
+    await endAllShiftPasses(get().organisation?.id)
     await _orgSignOut()
     set({
       orgSession: null,
@@ -293,6 +298,14 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   userLogin: async (email: string, password: string, opts?: { requireOrgMembership?: boolean }) => {
     set({ userLoading: true })
     try {
+      // Back at the pharmacy computer this shift: the password resumes the
+      // session they verified with their code earlier (see shift-pass.ts).
+      const orgId = get().isOrgLoggedIn ? get().organisation?.id : null
+      if (orgId && (await resumeShiftPass(orgId, email, password))) {
+        await finishUserLogin(email.trim().toLowerCase(), opts, true)
+        return
+      }
+
       const { data, error } = await _userSignIn(email, password)
       if (error) {
         throw error
@@ -368,6 +381,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   // ============================================
   userLogout: async () => {
     if (get().membership) await logAuthEvent(get().organisation?.id, 'sign_out')
+    dropShiftPass(get().organisation?.id, get().activeUser?.email ?? get().userSession?.user?.email)
     await _userSignOut()
     set({
       userSession: null,
@@ -387,7 +401,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   // ============================================
   switchUser: async (reason?: 'idle') => {
     if (get().membership) await logAuthEvent(get().organisation?.id, reason === 'idle' ? 'idle_sign_out' : 'sign_out')
-    await _userSignOut()
+    // On a pharmacy computer, keep a two-step-verified session for the shift
+    // so switching back needs only the password.
+    if (get().isOrgLoggedIn) await parkUserSession(get().organisation?.id)
+    else await _userSignOut()
     set({
       userSession: null,
       activeUser: null,

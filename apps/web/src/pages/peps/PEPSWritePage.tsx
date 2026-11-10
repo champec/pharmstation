@@ -389,7 +389,7 @@ export function PEPSWritePage() {
               </p>
             )}
             {patient && (
-              <div style={{ display: 'grid', gridTemplateColumns: 'minmax(140px, 1fr) minmax(0, 2fr)', gap: 'var(--ps-space-md)', marginTop: 'var(--ps-space-sm)' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 'var(--ps-space-md)', marginTop: 'var(--ps-space-sm)' }}>
                 <div className="form-group" style={{ marginBottom: 0 }}>
                   <label>Date of birth *</label>
                   <input className="ps-input" type="date" value={ptDob} max={today} onChange={(e) => setPtDob(e.target.value)} />
@@ -451,7 +451,7 @@ export function PEPSWritePage() {
 
         {type === 'vet' && (
           <div style={{ padding: 'var(--ps-space-md)', background: 'var(--ps-off-white)', borderRadius: 'var(--ps-radius-md)', marginBottom: 'var(--ps-space-md)' }}>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--ps-space-md)' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 'var(--ps-space-md)' }}>
               <div className="form-group" style={{ marginBottom: 0 }}>
                 <label>Animal name *</label>
                 <input className="ps-input" value={animalName} onChange={(e) => setAnimalName(e.target.value)} />
@@ -486,7 +486,8 @@ export function PEPSWritePage() {
             const freeTextOnHuman = type === 'private' && it.drug_name.trim() && !it.dmd_code
             return (
               <div key={it.key} style={{ marginBottom: 'var(--ps-space-sm)' }}>
-                <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,2fr) minmax(90px,1fr) minmax(0,1.5fr) auto', gap: 'var(--ps-space-sm)', alignItems: 'start' }}>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--ps-space-sm)', alignItems: 'flex-start' }}>
+                  <div style={{ flex: '2 1 240px', minWidth: 0 }}>
                   <Autocomplete<PepsDmdResult>
                     value={it.drug_name}
                     onChange={(t) => updateItem(it.key, { drug_name: t, dmd_code: null, dmd_type: 'free_text', cd_category: null })}
@@ -500,9 +501,10 @@ export function PEPSWritePage() {
                     }}
                     placeholder="Drug name & strength…"
                   />
-                  <input className="ps-input" placeholder="Qty" value={it.quantity} onChange={(e) => updateItem(it.key, { quantity: e.target.value })} />
-                  <input className="ps-input" placeholder="Dosage / directions" value={it.dosage} onChange={(e) => updateItem(it.key, { dosage: e.target.value })} />
-                  <button className="ps-btn ps-btn-ghost" onClick={() => removeItem(it.key)} disabled={items.length === 1} title="Remove">✕</button>
+                  </div>
+                  <input className="ps-input" style={{ flex: '0 1 100px', minWidth: 80 }} placeholder="Qty" value={it.quantity} onChange={(e) => updateItem(it.key, { quantity: e.target.value })} />
+                  <input className="ps-input" style={{ flex: '1 1 120px', minWidth: 0 }} placeholder="Dosage / directions" value={it.dosage} onChange={(e) => updateItem(it.key, { dosage: e.target.value })} />
+                  <button className="ps-btn ps-btn-ghost" onClick={() => removeItem(it.key)} disabled={items.length === 1} title="Remove medicine" aria-label="Remove medicine">✕</button>
                 </div>
                 {blocked && (
                   <div className="ps-alert ps-alert-error" style={{ marginTop: 4 }}>
@@ -551,14 +553,14 @@ export function PEPSWritePage() {
       {/* New patient modal */}
       <Modal isOpen={showNewPatient} onClose={() => setShowNewPatient(false)} title="Add new patient">
         {npError && <div className="ps-alert ps-alert-error" style={{ marginBottom: 'var(--ps-space-md)' }}>{npError}</div>}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--ps-space-md)' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 'var(--ps-space-md)' }}>
           <div className="form-group"><label>First name *</label><input className="ps-input" value={npFirst} onChange={(e) => setNpFirst(e.target.value)} /></div>
           <div className="form-group"><label>Last name *</label><input className="ps-input" value={npLast} onChange={(e) => setNpLast(e.target.value)} /></div>
           <div className="form-group"><label>Date of birth *</label><input className="ps-input" type="date" value={npDob} max={today} onChange={(e) => setNpDob(e.target.value)} /></div>
           <div className="form-group"><label>NHS number</label><input className="ps-input" value={npNhs} onChange={(e) => setNpNhs(e.target.value)} /></div>
         </div>
         <div className="form-group"><label>Address *</label><input className="ps-input" value={npAddr} onChange={(e) => setNpAddr(e.target.value)} /></div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--ps-space-md)' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 'var(--ps-space-md)' }}>
           <div className="form-group"><label>Town</label><input className="ps-input" value={npCity} onChange={(e) => setNpCity(e.target.value)} /></div>
           <div className="form-group"><label>Postcode *</label><input className="ps-input" value={npPostcode} onChange={(e) => setNpPostcode(e.target.value)} /></div>
         </div>
@@ -578,7 +580,7 @@ export function PEPSWritePage() {
             With an ODS code the organisation is shared globally; without one it stays private to your pharmacy.
           </p>
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', gap: 'var(--ps-space-md)' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 'var(--ps-space-md)' }}>
           <div className="form-group"><label>Address</label><input className="ps-input" value={noAddr1} onChange={(e) => setNoAddr1(e.target.value)} /></div>
           <div className="form-group"><label>City</label><input className="ps-input" value={noCity} onChange={(e) => setNoCity(e.target.value)} /></div>
           <div className="form-group"><label>Postcode</label><input className="ps-input" value={noPostcode} onChange={(e) => setNoPostcode(e.target.value)} /></div>
