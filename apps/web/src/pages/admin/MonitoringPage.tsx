@@ -3,6 +3,7 @@ import { Activity, Bug } from 'lucide-react'
 import { getUserClient } from '@pharmstation/supabase-client'
 import { EmptyState, PageHeader } from '../../components/ui'
 import { promptDialog } from '../../components/ui/dialog'
+import { ActivityLog } from './ActivityLog'
 
 // Platform oversight for PharmStation admins: who uses the app and how, and
 // what broke. Data comes from ps_monitor_* on the London project; RLS and
@@ -47,9 +48,9 @@ type Occurrence = {
   context: Record<string, unknown> | null
 }
 
-const TABS = ['overview', 'issues', 'pharmacies', 'people'] as const
+const TABS = ['overview', 'activity', 'issues', 'pharmacies', 'people'] as const
 type Tab = typeof TABS[number]
-const TAB_LABELS: Record<Tab, string> = { overview: 'Overview', issues: 'Errors', pharmacies: 'Pharmacies', people: 'People' }
+const TAB_LABELS: Record<Tab, string> = { overview: 'Overview', activity: 'Activity log', issues: 'Errors', pharmacies: 'Pharmacies', people: 'People' }
 const SOURCE_LABELS = { web: 'Web app', mobile: 'Mobile app', edge: 'Server function' } as const
 
 const fmt = (d: string) => new Date(d).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' })
@@ -236,6 +237,8 @@ export function MonitoringPage() {
               </div>
             </>
           )}
+
+          {tab === 'activity' && <ActivityLog />}
 
           {tab === 'issues' && (
             <>
