@@ -40,6 +40,24 @@ export interface GenieMessage {
   created_at: string
 }
 
+/** A change Genie proposed; nothing happens until the user confirms it. */
+export interface GenieAction {
+  id: string
+  tool: string
+  summary: string
+  details: string[]
+  status: 'pending' | 'running' | 'done' | 'cancelled' | 'failed' | 'expired'
+  result?: { message?: string; link?: string | null } | null
+  message_id?: string | null
+}
+
+/** Where the user is in the app when they ask (sent to Genie as context). */
+export interface GeniePageContext {
+  path: string
+  title: string
+  details?: string
+}
+
 export interface GenieUsage {
   used: number
   limit: number
@@ -54,6 +72,7 @@ interface StreamEvent {
   message_id?: string
   usage?: GenieUsage
   error?: string
+  action?: GenieAction
 }
 
 interface GenieState {
@@ -73,6 +92,8 @@ interface GenieState {
   usage: GenieUsage | null
   patientDataOn: boolean
   lastError: string | null
+  /** Proposed changes (confirm cards) in the open chat. */
+  actions: GenieAction[]
 
   /** Clears everything if the pharmacy changed. */
   selectOrg: (orgId: string) => void
@@ -81,7 +102,8 @@ interface GenieState {
   openConversation: (id: string) => Promise<void>
   newConversation: () => void
   deleteConversation: (id: string) => Promise<void>
-  send: (orgId: string, text: string) => Promise<void>
+  send: (orgId: string, text: string, context?: GeniePageContext | null) => Promise<void>
+  decideAction: (actionId: string, decision: 'confirm' | 'cancel') => Promise<void>
   stop: () => void
   reset: () => void
 }
@@ -129,6 +151,7 @@ const initial = {
   usage: null as GenieUsage | null,
   patientDataOn: false,
   lastError: null as string | null,
+  actions: [] as GenieAction[],
 }
 
 export const useGenieStore = create<GenieState>((set, get) => ({
@@ -184,15 +207,23 @@ export const useGenieStore = create<GenieState>((set, get) => ({
 
   openConversation: async (id) => {
     get().abort?.abort()
-    set({ activeConversationId: id, messages: [], messagesLoading: true, lastError: null })
-    const { data, error } = await userClient
-      .from('ps_chat_messages')
-      .select('id, role, content, status, error_message, tool_calls, created_at')
-      .eq('conversation_id', id)
-      .in('role', ['user', 'assistant'])
-      .order('created_at', { ascending: true })
+    set({ activeConversationId: id, messages: [], actions: [], messagesLoading: true, lastError: null })
+    const [{ data, error }, { data: actions }] = await Promise.all([
+      userClient
+        .from('ps_chat_messages')
+        .select('id, role, content, status, error_message, tool_calls, created_at')
+        .eq('conversation_id', id)
+        .in('role', ['user', 'assistant'])
+        .order('created_at', { ascending: true }),
+      userClient
+        .from('ps_genie_actions')
+        .select('id, tool, summary, details, status, result, message_id')
+        .eq('conversation_id', id)
+        .order('created_at', { ascending: true }),
+    ])
     if (get().activeConversationId !== id) return
     set({
+      actions: (actions as GenieAction[] | null) ?? [],
       messages: error ? [] : (data ?? []).map(rowToMessage),
       messagesLoading: false,
       lastError: error ? 'Could not load this chat.' : null,
@@ -204,6 +235,7 @@ export const useGenieStore = create<GenieState>((set, get) => ({
     set({
       activeConversationId: null,
       messages: [],
+      actions: [],
       isStreaming: false,
       streamingContent: '',
       streamingTools: [],
@@ -218,7 +250,7 @@ export const useGenieStore = create<GenieState>((set, get) => ({
     if (get().activeConversationId === id) get().newConversation()
   },
 
-  send: async (orgId, text) => {
+  send: async (orgId, text, context) => {
     const message = text.trim()
     if (!message || get().isStreaming) return
     const token = useAuthStore.getState().userSession?.access_token
@@ -270,6 +302,7 @@ export const useGenieStore = create<GenieState>((set, get) => ({
           organisation_id: orgId,
           message,
           ...(startedIn ? { conversation_id: startedIn } : {}),
+          ...(context ? { page_context: context } : {}),
         }),
         signal: abort.signal,
       })
@@ -301,16 +334,21 @@ export const useGenieStore = create<GenieState>((set, get) => ({
             content += event.content ?? ''
             set({ streamingContent: content })
             break
+          case 'action_proposed':
+            if (event.action) set({ actions: [...get().actions, { ...event.action, message_id: null }] })
+            break
           case 'tool_call_start':
             set({ streamingTools: [...get().streamingTools, { id: event.tool_call_id ?? '', name: event.tool_name ?? '' }] })
             break
-          case 'done':
+          case 'done': {
             finished = true
+            const answerId = event.message_id ?? `answer-${Date.now()}`
             set({
+              actions: get().actions.map((a) => (a.message_id ? a : { ...a, message_id: answerId })),
               messages: [
                 ...get().messages,
                 {
-                  id: event.message_id ?? `answer-${Date.now()}`,
+                  id: answerId,
                   role: 'assistant',
                   content,
                   status: 'completed',
@@ -321,6 +359,7 @@ export const useGenieStore = create<GenieState>((set, get) => ({
               ...(event.usage ? { usage: event.usage } : {}),
             })
             break
+          }
           case 'error':
             finished = true
             fail(event.error ?? 'Genie could not complete this request.')
@@ -362,6 +401,39 @@ export const useGenieStore = create<GenieState>((set, get) => ({
     } finally {
       set({ isStreaming: false, streamingContent: '', streamingTools: [], abort: null })
       void get().loadConversations(orgId)
+    }
+  },
+
+  decideAction: async (actionId, decision) => {
+    const patch = (changes: Partial<GenieAction>) =>
+      set({ actions: get().actions.map((a) => (a.id === actionId ? { ...a, ...changes } : a)) })
+    const token = useAuthStore.getState().userSession?.access_token
+    if (!token) {
+      patch({ result: { message: 'Your session has ended. Please sign in again.' } })
+      return
+    }
+    patch({ status: 'running' })
+    try {
+      const response = await streamingFetch(`${SUPABASE_URL}/functions/v1/ai-chat`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ action_id: actionId, decision }),
+      })
+      let body: Record<string, unknown> = {}
+      try {
+        body = JSON.parse(await response.text())
+      } catch {
+        // keep defaults
+      }
+      patch({
+        status: (body.status as GenieAction['status']) ?? (response.ok ? 'done' : 'failed'),
+        result: {
+          message: (body.message as string) ?? (body.error as string) ?? (response.ok ? undefined : 'That change could not be made.'),
+          link: (body.link as string) ?? null,
+        },
+      })
+    } catch {
+      patch({ status: 'pending', result: { message: 'Genie could not be reached. Check your connection and try again.' } })
     }
   },
 

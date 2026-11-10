@@ -25,6 +25,7 @@ import {
   ModuleTabBar,
   type ModuleTabBarItem,
 } from '@/components/module/ModuleTabBar'
+import { GenieHeaderButton } from '@/components/genie/GenieSheet'
 import { palette, radius } from '@/theme/palette'
 
 interface Props {
@@ -122,6 +123,18 @@ export function ModuleHost({ moduleId, initialTab }: Props) {
         <Text style={styles.headerTitle} numberOfLines={1}>
           {module.title}
         </Text>
+        {/* Genie over any module, told which screen the user is on */}
+        {ctx.isOrgConnected && module.id !== 'genie' ? (
+          <View style={styles.headerEnd}>
+            <GenieHeaderButton
+              context={{
+                path: `/app/${module.id}/${activeTab?.id ?? ''}`,
+                title: activeTab ? `${module.title}: ${activeTab.title}` : module.title,
+                details: activeTab?.blurb ?? module.description,
+              }}
+            />
+          </View>
+        ) : null}
       </View>
 
       {/* Active tab content */}
@@ -201,6 +214,7 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
   },
   back: { padding: 4, marginLeft: -4 },
+  headerEnd: { marginLeft: 'auto' },
   headerIcon: {
     width: 32,
     height: 32,

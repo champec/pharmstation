@@ -19,18 +19,46 @@ import { Ionicons } from '@expo/vector-icons'
 import { SafeAreaView } from 'react-native-safe-area-context'
 
 import { useAuthStore } from '@/stores/auth-store'
-import { useGenieStore, type GenieMessage, type GenieToolCall } from '@/stores/genie-store'
+import {
+  useGenieStore,
+  type GenieAction,
+  type GenieMessage,
+  type GeniePageContext,
+  type GenieToolCall,
+} from '@/stores/genie-store'
 import { palette, radius } from '@/theme/palette'
 
 const COLOR = palette.brand
 const COLOR_TINT = palette.brandTint
 
-const SUGGESTIONS = [
+type Suggestion = { label: string; text: string }
+
+const GENERAL_SUGGESTIONS: Suggestion[] = [
   { label: 'Today’s CD entries', text: 'Show me today’s CD register entries' },
   { label: 'Yesterday’s RP', text: 'Who was the RP yesterday?' },
-  { label: 'A CD balance', text: 'What is the current balance for morphine?' },
-  { label: 'Our team', text: 'Who is on our team and what are their roles?' },
+  { label: 'Upcoming shifts', text: 'Show our upcoming locum shifts and who is booked.' },
+  { label: 'Today’s appointments', text: 'What appointments do we have today?' },
 ]
+
+/** Suggestions that fit the screen Genie was opened from. */
+function suggestionsFor(context?: GeniePageContext | null): Suggestion[] {
+  const path = context?.path ?? ''
+  if (path.includes('/services') || path.includes('bookings')) {
+    return [
+      { label: 'Today’s appointments', text: 'What appointments do we have today?' },
+      { label: 'Free slots this week', text: 'Which appointment slots are still free this week?' },
+      { label: 'Our services', text: 'What services do we offer and what do they cost?' },
+    ]
+  }
+  if (path.includes('/pharmacy')) {
+    return [
+      { label: 'Today’s CD entries', text: 'Show me today’s CD register entries' },
+      { label: 'A CD balance', text: 'What is the current balance for morphine?' },
+      { label: 'Yesterday’s RP', text: 'Who was the RP yesterday?' },
+    ]
+  }
+  return GENERAL_SUGGESTIONS
+}
 
 const TOOL_LABELS: Record<string, string> = {
   search_cd_register: 'Searching the CD register',
@@ -38,6 +66,19 @@ const TOOL_LABELS: Record<string, string> = {
   get_drug_info: 'Looking up the drug',
   list_organisation_members: 'Checking your team',
   get_register_balance: 'Checking the balance',
+  list_locum_shifts: 'Checking locum shifts',
+  create_locum_shift: 'Preparing the shift',
+  update_locum_shift: 'Preparing the change',
+  cancel_locum_shift: 'Preparing the cancellation',
+  review_locum_application: 'Checking the application',
+  list_services: 'Checking your services',
+  list_appointment_slots: 'Checking appointment times',
+  create_appointment_slots: 'Preparing appointment times',
+  list_appointments: 'Checking appointments',
+  set_appointment_status: 'Preparing the change',
+  reschedule_appointment: 'Preparing the move',
+  find_patients: 'Finding the patient',
+  book_appointment: 'Preparing the booking',
 }
 
 function toolLabel(name: string) {
@@ -137,7 +178,63 @@ function ToolChips({ tools, running }: { tools: GenieToolCall[]; running?: boole
   )
 }
 
-function Bubble({ m, onRetry }: { m: GenieMessage; onRetry: () => void }) {
+const ACTION_STATUS: Record<string, string> = {
+  done: 'Done',
+  cancelled: 'Cancelled',
+  failed: 'Not done',
+  expired: 'Expired',
+}
+
+/** A change Genie proposed. Nothing happens until Confirm is tapped. */
+function ActionCard({ action, waiting = false }: { action: GenieAction; waiting?: boolean }) {
+  const decideAction = useGenieStore((s) => s.decideAction)
+  const busy = action.status === 'running'
+  const open = action.status === 'pending' || busy
+  const accent =
+    action.status === 'done' ? palette.success
+      : action.status === 'failed' || action.status === 'expired' ? palette.danger
+        : action.status === 'cancelled' ? palette.border
+          : COLOR
+  return (
+    <View style={[styles.action, { borderLeftColor: accent }]}>
+      <Text style={styles.actionSummary}>{action.summary}</Text>
+      {action.details.map((d, i) => (
+        <Text key={i} style={styles.actionDetail}>• {d}</Text>
+      ))}
+      {open ? (
+        <>
+          {action.result?.message ? <Text style={styles.actionResult}>{action.result.message}</Text> : null}
+          <View style={styles.actionButtons}>
+            <Pressable
+              style={({ pressed }) => [styles.actionButton, styles.actionCancel, pressed && styles.pressed]}
+              onPress={() => void decideAction(action.id, 'cancel')}
+              disabled={busy || waiting}
+              accessibilityRole="button"
+            >
+              <Text style={styles.actionCancelText}>Cancel</Text>
+            </Pressable>
+            <Pressable
+              style={({ pressed }) => [styles.actionButton, styles.actionConfirm, (busy || waiting) && styles.sendDisabled, pressed && styles.pressed]}
+              onPress={() => void decideAction(action.id, 'confirm')}
+              disabled={busy || waiting}
+              accessibilityRole="button"
+            >
+              {busy ? <ActivityIndicator size="small" color={palette.textInverse} /> : <Text style={styles.actionConfirmText}>Confirm</Text>}
+            </Pressable>
+          </View>
+          {waiting ? <Text style={styles.actionResult}>You can confirm once Genie has finished.</Text> : null}
+        </>
+      ) : (
+        <Text style={styles.actionResult}>
+          <Text style={styles.bold}>{ACTION_STATUS[action.status] ?? action.status}</Text>
+          {action.result?.message ? ` · ${action.result.message}` : ''}
+        </Text>
+      )}
+    </View>
+  )
+}
+
+function Bubble({ m, onRetry, actions }: { m: GenieMessage; onRetry: () => void; actions: GenieAction[] }) {
   if (m.role === 'user') {
     return (
       <View style={[styles.row, styles.rowUser]}>
@@ -167,6 +264,9 @@ function Bubble({ m, onRetry }: { m: GenieMessage; onRetry: () => void }) {
       <View style={[styles.bubble, styles.bubbleGenie]}>
         <ToolChips tools={m.toolCalls} />
         <RichText text={m.content} />
+        {actions.map((a) => (
+          <ActionCard key={a.id} action={a} />
+        ))}
         <Text style={styles.time}>{when(m.created_at)}</Text>
       </View>
     </View>
@@ -229,7 +329,19 @@ function ChatsModal({ visible, onClose }: { visible: boolean; onClose: () => voi
 
 // ---------------------------------------------------------------- screen
 
-function AskScreen() {
+/**
+ * The Genie chat. Used as the Genie module's screen, and inside the floating
+ * Genie sheet that opens over any module (then `context` says where the user is).
+ */
+export function GenieChat({
+  context = null,
+  onClose,
+  keyboardOffset = 100,
+}: {
+  context?: GeniePageContext | null
+  onClose?: () => void
+  keyboardOffset?: number
+}) {
   const orgId = useAuthStore((s) => s.organisation?.id)
   const {
     messages,
@@ -245,6 +357,7 @@ function AskScreen() {
     newConversation,
     send,
     stop,
+    actions,
   } = useGenieStore()
   const [input, setInput] = useState('')
   const [showChats, setShowChats] = useState(false)
@@ -269,7 +382,7 @@ function AskScreen() {
   const submit = (text: string) => {
     if (!orgId || !text.trim() || isStreaming || usedUp) return
     setInput('')
-    void send(orgId, text)
+    void send(orgId, text, context)
   }
 
   const retry = () => {
@@ -283,7 +396,7 @@ function AskScreen() {
     <KeyboardAvoidingView
       style={styles.flex}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? 100 : 0}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? keyboardOffset : 0}
     >
       <View style={styles.toolbar}>
         <Pressable
@@ -305,6 +418,11 @@ function AskScreen() {
           <Ionicons name="create-outline" size={16} color={COLOR} />
           <Text style={styles.toolButtonText}>New</Text>
         </Pressable>
+        {onClose ? (
+          <Pressable onPress={onClose} hitSlop={10} accessibilityLabel="Close Genie" style={styles.closeButton}>
+            <Ionicons name="close" size={22} color={palette.text} />
+          </Pressable>
+        ) : null}
       </View>
 
       <ScrollView
@@ -335,7 +453,7 @@ function AskScreen() {
               </View>
             ) : null}
             <View style={styles.suggestions}>
-              {SUGGESTIONS.map((s) => (
+              {suggestionsFor(context).map((s) => (
                 <Pressable
                   key={s.label}
                   style={({ pressed }) => [styles.suggestion, pressed && styles.pressed]}
@@ -349,7 +467,7 @@ function AskScreen() {
         ) : null}
 
         {messages.map((m) => (
-          <Bubble key={m.id} m={m} onRetry={retry} />
+          <Bubble key={m.id} m={m} onRetry={retry} actions={actions.filter((a) => a.message_id === m.id)} />
         ))}
 
         {isStreaming ? (
@@ -364,12 +482,21 @@ function AskScreen() {
               ) : (
                 <ActivityIndicator size="small" color={COLOR} style={styles.thinking} />
               )}
+              {actions.filter((a) => !a.message_id).map((a) => (
+                <ActionCard key={a.id} action={a} waiting />
+              ))}
             </View>
           </View>
         ) : null}
       </ScrollView>
 
       <View style={styles.composer}>
+        {context ? (
+          <View style={styles.contextChip}>
+            <Ionicons name="eye-outline" size={13} color={palette.textMuted} />
+            <Text style={styles.contextText} numberOfLines={1}>Using this screen: {context.title}</Text>
+          </View>
+        ) : null}
         {usedUp ? (
           <View style={styles.usedUp}>
             <Ionicons name="hourglass-outline" size={16} color={palette.warning} />
@@ -402,12 +529,16 @@ function AskScreen() {
             </Pressable>
           )}
         </View>
-        <Text style={styles.footnote}>Genie can make mistakes. Check the register before acting.</Text>
+        <Text style={styles.footnote}>Genie can make mistakes. Check answers and changes before you rely on them.</Text>
       </View>
 
       <ChatsModal visible={showChats} onClose={() => setShowChats(false)} />
     </KeyboardAvoidingView>
   )
+}
+
+function AskScreen() {
+  return <GenieChat />
 }
 
 export const genieScreens: Record<string, ComponentType> = {
@@ -565,6 +696,45 @@ const styles = StyleSheet.create({
   stop: { backgroundColor: palette.text },
   usedUp: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, paddingVertical: 6 },
   usedUpText: { flex: 1, fontSize: 13, lineHeight: 18, color: palette.text },
+  closeButton: { padding: 2, marginLeft: 2 },
+  contextChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    alignSelf: 'flex-start',
+    maxWidth: '100%',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: radius.pill,
+    backgroundColor: palette.bg,
+  },
+  contextText: { fontSize: 12, color: palette.textMuted, flexShrink: 1 },
+  action: {
+    marginTop: 4,
+    padding: 10,
+    gap: 3,
+    borderWidth: 1,
+    borderColor: palette.border,
+    borderLeftWidth: 3,
+    borderRadius: radius.md,
+    backgroundColor: palette.surface,
+  },
+  actionSummary: { fontSize: 14, fontWeight: '700', color: palette.text, lineHeight: 19 },
+  actionDetail: { fontSize: 13, color: palette.textMuted, lineHeight: 18 },
+  actionResult: { fontSize: 12, color: palette.textMuted, marginTop: 4, lineHeight: 17 },
+  actionButtons: { flexDirection: 'row', justifyContent: 'flex-end', gap: 8, marginTop: 8 },
+  actionButton: {
+    minWidth: 92,
+    height: 38,
+    paddingHorizontal: 14,
+    borderRadius: radius.pill,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  actionCancel: { borderWidth: 1, borderColor: palette.border, backgroundColor: palette.surface },
+  actionCancelText: { color: palette.text, fontWeight: '600', fontSize: 14 },
+  actionConfirm: { backgroundColor: palette.brand },
+  actionConfirmText: { color: palette.textInverse, fontWeight: '700', fontSize: 14 },
   footnote: { fontSize: 11, color: palette.textMuted, textAlign: 'center' },
 
   modal: { flex: 1, backgroundColor: palette.bg },
