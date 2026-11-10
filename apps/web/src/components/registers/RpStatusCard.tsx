@@ -11,6 +11,8 @@ import {
   MAX_ABSENCE_MINUTES,
   buildSessions,
   formatDuration,
+  formatSince,
+  isStaleSession,
   loadRpData,
   minutesBetween,
   openAbsence,
@@ -31,7 +33,19 @@ interface Props {
   compact?: boolean
 }
 
-type Confirm = { kind: 'sign-in' | 'take-over' } | { kind: 'sign-out' } | { kind: 'step-out' } | null
+type Confirm =
+  | { kind: 'sign-in' | 'take-over' }
+  | { kind: 'sign-out' }
+  | { kind: 'step-out' }
+  /** Record when an RP who was left signed in really finished (then optionally take over). */
+  | { kind: 'finish'; then: 'take-over' | null }
+  | null
+
+/** yyyy-mm-ddThh:mm in the browser's own time, for datetime-local inputs. */
+function toLocalInput(d: Date): string {
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
+}
 
 export function RpStatusCard({ onChange, refreshKey, compact }: Props) {
   const { organisation, activeUser, permissions } = useAuthStore()
@@ -42,6 +56,9 @@ export function RpStatusCard({ onChange, refreshKey, compact }: Props) {
   const [error, setError] = useState<string | null>(null)
   const [confirm, setConfirm] = useState<Confirm>(null)
   const [absenceReason, setAbsenceReason] = useState('')
+  const [finishMode, setFinishMode] = useState<'at' | 'now'>('at')
+  const [finishAt, setFinishAt] = useState('')
+  const [finishNote, setFinishNote] = useState('')
   const [, setTick] = useState(0)
 
   const load = useCallback(async () => {
@@ -87,6 +104,38 @@ export function RpStatusCard({ onChange, refreshKey, compact }: Props) {
   const awayMins = away ? minutesBetween(away.absent_from, null) : 0
   const onDutyMins = session?.current.rp_signed_in_at ? minutesBetween(session.current.rp_signed_in_at, null) : 0
   const state = loading && !session ? 'loading' : !session ? 'none' : away ? 'away' : 'on'
+  const stale = !!session && isStaleSession(session.current.rp_signed_in_at)
+  const rpFirst = session?.current.pharmacist_name?.split(' ')[0] ?? 'The RP'
+
+  const openFinish = (then: 'take-over' | null) => {
+    setFinishMode('at')
+    setFinishAt('')
+    setFinishNote('')
+    setError(null)
+    setConfirm({ kind: 'finish', then })
+  }
+
+  const finishAtIso = finishAt ? new Date(finishAt).toISOString() : null
+  const finishInvalid =
+    finishMode === 'at' &&
+    (!finishAtIso ||
+      !session?.current.rp_signed_in_at ||
+      new Date(finishAtIso).getTime() < new Date(session.current.rp_signed_in_at).getTime() ||
+      new Date(finishAtIso).getTime() > Date.now())
+
+  const submitFinish = (then: 'take-over' | null) => {
+    if (!session) return
+    const by = activeUser?.full_name ?? 'a pharmacist'
+    const note = finishNote.trim()
+    const reason =
+      finishMode === 'at'
+        ? `${isMe ? 'forgot to sign out' : `forgot to sign out; finish time recorded by ${by}`}${note ? `; ${note}` : ''}`
+        : `on duty until ${then === 'take-over' ? 'handover' : 'now'}, confirmed by ${by}${note ? `; ${note}` : ''}`
+    return run(async () => {
+      await rpSignOut(session.root.id, finishMode === 'at' ? finishAtIso : null, reason)
+      if (then === 'take-over') await rpSignIn(organisation.id, false)
+    })
+  }
 
   return (
     <section className={`rp-status is-${state}${compact ? ' is-compact' : ''}`} aria-live="polite">
@@ -112,7 +161,7 @@ export function RpStatusCard({ onChange, refreshKey, compact }: Props) {
               <div className="rp-status-sub">
                 {away
                   ? <>Away since {formatTime(away.absent_from)} ({formatDuration(awayMins)}){away.reason ? ` · ${away.reason}` : ''}{awayMins > MAX_ABSENCE_MINUTES ? ' · over the 2 hour limit' : ''}</>
-                  : <>On duty since {formatTime(session.current.rp_signed_in_at)} · {formatDuration(onDutyMins)}</>}
+                  : <>On duty since {session.current.rp_signed_in_at ? formatSince(session.current.rp_signed_in_at) : '—'} · {formatDuration(onDutyMins)}</>}
               </div>
             </>
           )}
@@ -126,7 +175,7 @@ export function RpStatusCard({ onChange, refreshKey, compact }: Props) {
         {session && canSign && isMe && !away && (
           <>
             <button className="ps-btn ps-btn-secondary" disabled={busy} onClick={() => setConfirm({ kind: 'step-out' })}>Step out</button>
-            <button className="ps-btn ps-btn-primary" disabled={busy} onClick={() => setConfirm({ kind: 'sign-out' })}>Sign out</button>
+            <button className="ps-btn ps-btn-primary" disabled={busy} onClick={() => (stale ? openFinish(null) : setConfirm({ kind: 'sign-out' }))}>Sign out</button>
           </>
         )}
         {session && canSign && away && (
@@ -135,14 +184,28 @@ export function RpStatusCard({ onChange, refreshKey, compact }: Props) {
           </button>
         )}
         {session && canSign && !isMe && (
-          <button className="ps-btn ps-btn-secondary" disabled={busy} onClick={() => setConfirm({ kind: 'take-over' })}>Take over as RP</button>
+          <button className="ps-btn ps-btn-secondary" disabled={busy} onClick={() => (stale ? openFinish('take-over') : setConfirm({ kind: 'take-over' }))}>Take over as RP</button>
         )}
         {session && canSign && isMe && away && (
-          <button className="ps-btn ps-btn-ghost" disabled={busy} onClick={() => setConfirm({ kind: 'sign-out' })}>Sign out</button>
+          <button className="ps-btn ps-btn-ghost" disabled={busy} onClick={() => (stale ? openFinish(null) : setConfirm({ kind: 'sign-out' }))}>Sign out</button>
         )}
       </div>
 
-      {error && <div className="auth-error rp-status-error">{error}</div>}
+      {stale && session && (
+        <div className="log-alert log-alert-warn rp-status-stale">
+          <span>
+            {isMe ? 'You have' : `${rpFirst} has`} been signed in since {formatSince(session.current.rp_signed_in_at!)} ({formatDuration(onDutyMins)}).
+            {' '}{isMe ? 'If you forgot to sign out, record when you finished.' : 'If they forgot to sign out, record when they finished.'}
+          </span>
+          {canSign && (
+            <button className="ps-btn ps-btn-secondary ps-btn-sm" disabled={busy} onClick={() => openFinish(null)}>
+              Record when {isMe ? 'you' : 'they'} finished
+            </button>
+          )}
+        </div>
+      )}
+
+      {error && !confirm && <div className="auth-error rp-status-error">{error}</div>}
 
       <Modal
         isOpen={confirm?.kind === 'sign-in' || confirm?.kind === 'take-over'}
@@ -190,6 +253,65 @@ export function RpStatusCard({ onChange, refreshKey, compact }: Props) {
             </button>
           </div>
         </div>
+      </Modal>
+
+      <Modal
+        isOpen={confirm?.kind === 'finish'}
+        onClose={() => setConfirm(null)}
+        title={isMe ? 'When did you finish as RP?' : `When did ${rpFirst} finish as RP?`}
+        width="540px"
+      >
+        {confirm?.kind === 'finish' && session && (
+          <div className="log-form">
+            <div className="log-alert log-alert-warn">
+              {session.current.pharmacist_name} has been signed in since {formatSince(session.current.rp_signed_in_at!)} ({formatDuration(onDutyMins)}).
+              The RP log is a legal record, so record the real time {isMe ? 'you' : 'they'} stopped being RP.
+            </div>
+            <div className="log-form-field">
+              <label className="log-choice">
+                <input type="radio" name="rp-finish" checked={finishMode === 'at'} onChange={() => setFinishMode('at')} />
+                {isMe ? 'I finished at' : `${rpFirst} finished at`}
+              </label>
+              {finishMode === 'at' && (
+                <input
+                  type="datetime-local"
+                  className="ps-input log-input"
+                  aria-label="Finish time"
+                  value={finishAt}
+                  min={session.current.rp_signed_in_at ? toLocalInput(new Date(session.current.rp_signed_in_at)) : undefined}
+                  max={toLocalInput(new Date())}
+                  onChange={(e) => setFinishAt(e.target.value)}
+                />
+              )}
+              <label className="log-choice">
+                <input type="radio" name="rp-finish" checked={finishMode === 'now'} onChange={() => setFinishMode('now')} />
+                {isMe ? 'I have been RP all this time' : `${rpFirst} really was RP until now`}
+              </label>
+            </div>
+            <div className="log-form-field">
+              <label htmlFor="rp-finish-note">Note (optional)</label>
+              <input id="rp-finish-note" className="ps-input log-input" placeholder="e.g. Left at closing, confirmed by phone" value={finishNote} onChange={(e) => setFinishNote(e.target.value)} maxLength={200} />
+            </div>
+            <p className="log-muted">This is saved as a correction. The original sign-in is kept in the history.</p>
+            {confirm.then === 'take-over' && (
+              <p>
+                You will then be signed in as <strong>{activeUser?.full_name}</strong> (GPhC {activeUser?.gphc_number || 'not set'}),
+                taking responsibility for the safe and effective running of this pharmacy.
+              </p>
+            )}
+            {error && <div className="auth-error">{error}</div>}
+            <div className="log-form-actions">
+              <button className="ps-btn ps-btn-secondary" onClick={() => setConfirm(null)} disabled={busy}>Cancel</button>
+              <button
+                className="ps-btn ps-btn-primary"
+                disabled={busy || finishInvalid || (confirm.then === 'take-over' && !activeUser?.gphc_number)}
+                onClick={() => submitFinish(confirm.then)}
+              >
+                {busy ? 'Saving…' : confirm.then === 'take-over' ? 'Save and take over' : 'Save sign-out time'}
+              </button>
+            </div>
+          </div>
+        )}
       </Modal>
 
       <Modal isOpen={confirm?.kind === 'step-out'} onClose={() => setConfirm(null)} title="Step out of the pharmacy" width="460px">

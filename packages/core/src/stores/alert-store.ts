@@ -33,6 +33,7 @@ export const ALERT_EVENT_TYPES: { key: AlertEventType; label: string; descriptio
   { key: 'shop_order', label: 'Shop orders', description: 'A customer places an order in your marketplace shop.' },
   { key: 'locum', label: 'Locum shifts', description: 'A locum applies, books or withdraws, or a finished shift needs recording. Goes to people who can approve locums.' },
   { key: 'sop_assignment', label: 'SOPs to read', description: 'An SOP is assigned to you or updated, plus a Monday reminder of SOPs you still need to sign. Goes only to the staff concerned.' },
+  { key: 'rp_reminder', label: 'RP still signed in', description: 'The Responsible Pharmacist has been signed in for 10 hours (sent to them) or 14 hours (sent to everyone), in case they forgot to sign out.' },
   { key: 'sop_review_due', label: 'SOP reviews due', description: 'An SOP is due for its scheduled review within 14 days, or is overdue. Goes to people who manage SOPs.' },
   { key: 'patient_message', label: 'Patient message', description: 'A patient texts the store. (coming soon)' },
   { key: 'system', label: 'System notifications', description: 'Warnings and alerts from PharmStation itself. (coming soon)' },

@@ -241,6 +241,8 @@ textarea.log-input { min-height: 80px; }
 .rp-status-sub { font-size: var(--ps-font-sm); color: var(--ps-slate); }
 .rp-status-actions { display: flex; gap: var(--ps-space-sm); flex-wrap: wrap; }
 .rp-status-error { flex-basis: 100%; }
+.rp-status-stale { flex-basis: 100%; display: flex; align-items: center; justify-content: space-between; gap: var(--ps-space-sm); flex-wrap: wrap; }
+.log-choice { display: flex; align-items: center; gap: var(--ps-space-sm); font-weight: 500; cursor: pointer; min-height: 36px; }
 
 /* ---- RP log sessions ---- */
 .rp-day { margin-bottom: var(--ps-space-md); }

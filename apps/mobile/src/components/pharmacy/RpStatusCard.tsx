@@ -4,17 +4,19 @@
 // ============================================
 
 import { useCallback, useEffect, useState } from 'react'
-import { ActivityIndicator, Alert, Modal, StyleSheet, Text, TextInput, View } from 'react-native'
+import { ActivityIndicator, Alert, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
 
 import { Button } from '@/components/ui/Button'
 import { useAuthStore } from '@/stores/auth-store'
 import { palette, radius } from '@/theme/palette'
-import { addDays, formatTime, ukDate } from '@/lib/logs'
+import { addDays, formatTime, relativeDay, ukDate } from '@/lib/logs'
 import {
   MAX_ABSENCE_MINUTES,
   buildSessions,
   formatDuration,
+  formatSince,
+  isStaleSession,
   loadRpData,
   minutesBetween,
   openAbsence,
@@ -41,6 +43,12 @@ export function RpStatusCard({ refreshKey, onChange }: Props) {
   const [error, setError] = useState<string | null>(null)
   const [stepOutOpen, setStepOutOpen] = useState(false)
   const [reason, setReason] = useState('')
+  /** Recording when an RP left signed in really finished (then maybe taking over). */
+  const [finish, setFinish] = useState<{ then: 'take-over' | null } | null>(null)
+  const [finishMode, setFinishMode] = useState<'at' | 'now'>('at')
+  const [finishDay, setFinishDay] = useState('')
+  const [finishTime, setFinishTime] = useState('')
+  const [finishNote, setFinishNote] = useState('')
   const [, setTick] = useState(0)
 
   const load = useCallback(async () => {
@@ -70,6 +78,7 @@ export function RpStatusCard({ refreshKey, onChange }: Props) {
       await fn()
       setStepOutOpen(false)
       setReason('')
+      setFinish(null)
       await load()
       onChange?.()
     } catch (e) {
@@ -87,6 +96,64 @@ export function RpStatusCard({ refreshKey, onChange }: Props) {
   const awayMins = away ? minutesBetween(away.absent_from, null) : 0
   const onMins = session?.current.rp_signed_in_at ? minutesBetween(session.current.rp_signed_in_at, null) : 0
   const state = loading && !session ? 'loading' : !session ? 'none' : away ? 'away' : 'on'
+  const stale = !!session && isStaleSession(session.current.rp_signed_in_at)
+  const rpFirst = session?.current.pharmacist_name?.split(' ')[0] ?? 'The RP'
+
+  // Days the finish could fall on: from the sign-in day up to today (UK).
+  const finishDays: string[] = []
+  if (session?.current.rp_signed_in_at) {
+    const today = ukDate()
+    for (let d = ukDate(new Date(session.current.rp_signed_in_at)); d <= today && finishDays.length < 4; d = addDays(d, 1)) finishDays.push(d)
+  }
+
+  const openFinish = (then: 'take-over' | null) => {
+    if (then === 'take-over' && !gphc) {
+      Alert.alert('GPhC number needed', 'Add your GPhC number to your profile on the website before signing in as RP.')
+      return
+    }
+    setFinishMode('at')
+    setFinishDay(finishDays[0] ?? ukDate())
+    setFinishTime('')
+    setFinishNote('')
+    setError(null)
+    setFinish({ then })
+  }
+
+  // The finish time, from the chosen day and an HH:MM typed on the phone (its own clock).
+  const finishIso = (() => {
+    const m = /^(\d{1,2})[:.]?(\d{2})$/.exec(finishTime.trim())
+    if (!m || !finishDay) return null
+    const [y, mo, d] = finishDay.split('-').map(Number)
+    const h = Number(m[1])
+    const mi = Number(m[2])
+    if (h > 23 || mi > 59) return null
+    return new Date(y, mo - 1, d, h, mi).toISOString()
+  })()
+  const finishProblem =
+    finishMode !== 'at'
+      ? null
+      : !finishIso
+        ? 'Enter the time as HH:MM, for example 18:30.'
+        : session?.current.rp_signed_in_at && new Date(finishIso).getTime() < new Date(session.current.rp_signed_in_at).getTime()
+          ? 'That is before they signed in.'
+          : new Date(finishIso).getTime() > Date.now()
+            ? 'That time is in the future.'
+            : null
+
+  const submitFinish = () => {
+    if (!session || !finish || !orgId) return
+    const by = profile?.full_name ?? 'a pharmacist'
+    const note = finishNote.trim()
+    const why =
+      finishMode === 'at'
+        ? `${isMe ? 'forgot to sign out' : `forgot to sign out; finish time recorded by ${by}`}${note ? `; ${note}` : ''}`
+        : `on duty until ${finish.then === 'take-over' ? 'handover' : 'now'}, confirmed by ${by}${note ? `; ${note}` : ''}`
+    run(async () => {
+      await rpSignOut(session.root.id, finishMode === 'at' ? finishIso : null, why)
+      if (finish.then === 'take-over') await rpSignIn(orgId, false)
+    })
+  }
+
   const tone = state === 'on' ? palette.success : state === 'away' ? palette.warning : state === 'none' ? palette.danger : palette.textMuted
 
   const confirmSignIn = (takeOver: boolean) => {
@@ -145,10 +212,27 @@ export function RpStatusCard({ refreshKey, onChange }: Props) {
           <Text style={[styles.sub, away && awayMins > MAX_ABSENCE_MINUTES ? { color: palette.danger } : null]}>
             {away
               ? `Away since ${formatTime(away.absent_from)} (${formatDuration(awayMins)})${away.reason ? ` · ${away.reason}` : ''}${awayMins > MAX_ABSENCE_MINUTES ? ' · over the 2 hour limit' : ''}`
-              : `On duty since ${formatTime(session.current.rp_signed_in_at)} · ${formatDuration(onMins)}`}
+              : `On duty since ${session.current.rp_signed_in_at ? formatSince(session.current.rp_signed_in_at) : '—'} · ${formatDuration(onMins)}`}
           </Text>
         </>
       )}
+
+      {stale && session ? (
+        <View style={styles.stale}>
+          <Ionicons name="time-outline" size={18} color={palette.warning} />
+          <View style={styles.flex1}>
+            <Text style={styles.staleText}>
+              {isMe ? 'You have' : `${rpFirst} has`} been signed in for {formatDuration(onMins)}.{' '}
+              {isMe ? 'If you forgot to sign out, record when you finished.' : 'If they forgot to sign out, record when they finished.'}
+            </Text>
+            {canSign ? (
+              <Pressable onPress={() => openFinish(null)} hitSlop={8} accessibilityRole="button">
+                <Text style={styles.staleLink}>Record when {isMe ? 'you' : 'they'} finished</Text>
+              </Pressable>
+            ) : null}
+          </View>
+        </View>
+      ) : null}
 
       {canSign && state !== 'loading' && (
         <View style={styles.actions}>
@@ -156,7 +240,7 @@ export function RpStatusCard({ refreshKey, onChange }: Props) {
           {session && isMe && !away && (
             <>
               <Button label="Step out" variant="secondary" disabled={busy} onPress={() => setStepOutOpen(true)} style={styles.grow} />
-              <Button label="Sign out" loading={busy} onPress={confirmSignOut} style={styles.grow} />
+              <Button label="Sign out" loading={busy} onPress={() => (stale ? openFinish(null) : confirmSignOut())} style={styles.grow} />
             </>
           )}
           {session && away && (
@@ -167,8 +251,8 @@ export function RpStatusCard({ refreshKey, onChange }: Props) {
               style={styles.grow}
             />
           )}
-          {session && isMe && away && <Button label="Sign out" variant="ghost" disabled={busy} onPress={confirmSignOut} style={styles.grow} />}
-          {session && !isMe && <Button label="Take over as RP" variant="secondary" disabled={busy} onPress={() => confirmSignIn(true)} style={styles.grow} />}
+          {session && isMe && away && <Button label="Sign out" variant="ghost" disabled={busy} onPress={() => (stale ? openFinish(null) : confirmSignOut())} style={styles.grow} />}
+          {session && !isMe && <Button label="Take over as RP" variant="secondary" disabled={busy} onPress={() => (stale ? openFinish('take-over') : confirmSignIn(true))} style={styles.grow} />}
         </View>
       )}
 
@@ -178,6 +262,73 @@ export function RpStatusCard({ refreshKey, onChange }: Props) {
           <Text style={styles.errorText}>{error}</Text>
         </View>
       ) : null}
+
+      <Modal visible={!!finish} transparent animationType="fade" onRequestClose={() => setFinish(null)}>
+        <View style={styles.overlay}>
+          <ScrollView contentContainerStyle={styles.overlayScroll} keyboardShouldPersistTaps="handled">
+            <View style={styles.sheet}>
+              <Text style={styles.sheetTitle}>{isMe ? 'When did you finish as RP?' : `When did ${rpFirst} finish as RP?`}</Text>
+              {session ? (
+                <Text style={styles.sub}>
+                  {session.current.pharmacist_name} has been signed in since {session.current.rp_signed_in_at ? formatSince(session.current.rp_signed_in_at) : '—'} ({formatDuration(onMins)}). The RP log is a legal record, so record the real time {isMe ? 'you' : 'they'} stopped.
+                </Text>
+              ) : null}
+
+              <View style={styles.chips}>
+                <Chip label={isMe ? 'I finished at…' : 'They finished at…'} on={finishMode === 'at'} onPress={() => setFinishMode('at')} />
+                <Chip label={isMe ? 'I was RP until now' : 'They were RP until now'} on={finishMode === 'now'} onPress={() => setFinishMode('now')} />
+              </View>
+
+              {finishMode === 'at' ? (
+                <>
+                  <View style={styles.chips}>
+                    {finishDays.map((d) => (
+                      <Chip key={d} label={relativeDay(d)} on={finishDay === d} onPress={() => setFinishDay(d)} />
+                    ))}
+                  </View>
+                  <TextInput
+                    style={styles.input}
+                    placeholder="Time, e.g. 18:30"
+                    placeholderTextColor={palette.textMuted}
+                    keyboardType="numbers-and-punctuation"
+                    value={finishTime}
+                    onChangeText={setFinishTime}
+                    maxLength={5}
+                    accessibilityLabel="Finish time"
+                  />
+                  {finishTime && finishProblem ? <Text style={styles.errorText}>{finishProblem}</Text> : null}
+                </>
+              ) : null}
+
+              <TextInput
+                style={styles.input}
+                placeholder="Note (optional)"
+                placeholderTextColor={palette.textMuted}
+                value={finishNote}
+                onChangeText={setFinishNote}
+                maxLength={200}
+              />
+              <Text style={styles.small}>Saved as a correction. The original sign-in stays in the history.</Text>
+              {finish?.then === 'take-over' ? (
+                <Text style={styles.sub}>
+                  You will then be signed in as {profile?.full_name} (GPhC {gphc}), taking responsibility for the safe and effective running of this pharmacy.
+                </Text>
+              ) : null}
+              {error ? <Text style={styles.errorText}>{error}</Text> : null}
+              <View style={styles.actions}>
+                <Button label="Cancel" variant="ghost" disabled={busy} onPress={() => setFinish(null)} style={styles.grow} />
+                <Button
+                  label={finish?.then === 'take-over' ? 'Save and take over' : 'Save'}
+                  loading={busy}
+                  disabled={!!finishProblem}
+                  onPress={submitFinish}
+                  style={styles.grow}
+                />
+              </View>
+            </View>
+          </ScrollView>
+        </View>
+      </Modal>
 
       <Modal visible={stepOutOpen} transparent animationType="fade" onRequestClose={() => setStepOutOpen(false)}>
         <View style={styles.overlay}>
@@ -211,7 +362,47 @@ export function RpStatusCard({ refreshKey, onChange }: Props) {
   )
 }
 
+function Chip({ label, on, onPress }: { label: string; on: boolean; onPress: () => void }) {
+  return (
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityState={{ selected: on }}
+      style={[styles.chip, on && styles.chipOn]}
+    >
+      <Text style={[styles.chipText, on && styles.chipTextOn]}>{label}</Text>
+    </Pressable>
+  )
+}
+
 const styles = StyleSheet.create({
+  flex1: { flex: 1 },
+  stale: {
+    flexDirection: 'row',
+    gap: 8,
+    alignItems: 'flex-start',
+    marginTop: 10,
+    padding: 12,
+    borderRadius: radius.md,
+    backgroundColor: palette.warningTint,
+  },
+  staleText: { fontSize: 14, lineHeight: 20, color: palette.text },
+  staleLink: { fontSize: 14, fontWeight: '700', color: palette.brandDark, marginTop: 6 },
+  overlayScroll: { flexGrow: 1, justifyContent: 'center' },
+  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  chip: {
+    paddingHorizontal: 14,
+    minHeight: 40,
+    justifyContent: 'center',
+    borderRadius: radius.pill,
+    borderWidth: 1,
+    borderColor: palette.border,
+    backgroundColor: palette.surface,
+  },
+  chipOn: { backgroundColor: palette.brandTint, borderColor: palette.brand },
+  chipText: { fontSize: 14, fontWeight: '600', color: palette.text },
+  chipTextOn: { color: palette.brandDark },
+  small: { fontSize: 12, color: palette.textMuted },
   card: {
     backgroundColor: palette.surface,
     borderRadius: radius.lg,

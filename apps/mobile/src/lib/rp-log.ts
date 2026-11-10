@@ -10,6 +10,7 @@
 // ============================================
 
 import { userClient } from '@/lib/supabase'
+import { ukDate } from '@/lib/logs'
 
 export interface RpEntry {
   id: string
@@ -106,6 +107,25 @@ export function minutesBetween(from: string, to: string | null | undefined, now 
   return Math.max(0, Math.round((end - new Date(from).getTime()) / 60000))
 }
 
+/** A session left open too long: over 12 hours, or over 8 hours across midnight (UK).
+ *  Mirrors ps_rp_is_stale on the server, which refuses a take over from one. */
+export function isStaleSession(signedInAt: string | null | undefined, now = Date.now()): boolean {
+  if (!signedInAt) return false
+  const mins = minutesBetween(signedInAt, null, now)
+  if (mins > 12 * 60) return true
+  return mins > 8 * 60 && ukDate(new Date(signedInAt)) < ukDate(new Date(now))
+}
+
+/** "Mon 9 Nov, 17:56" style label for when a session started. */
+export function formatSince(ts: string): string {
+  const d = new Date(ts)
+  const sameDay = ukDate(d) === ukDate()
+  const time = d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/London' })
+  if (sameDay) return time
+  const day = d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'Europe/London' })
+  return `${day}, ${time}`
+}
+
 export function formatDuration(minutes: number): string {
   const h = Math.floor(minutes / 60)
   const m = minutes % 60
@@ -120,6 +140,7 @@ export function rpErrorMessage(err: unknown): string {
       : typeof err === 'object' && err && 'message' in err
         ? String((err as { message: unknown }).message)
         : String(err)
+  if (msg.startsWith('RP_STALE:')) return msg.replace('RP_STALE:', '').trim()
   if (msg.startsWith('RP_ON_DUTY:')) return msg.replace('RP_ON_DUTY:', '').trim() + '.'
   if (msg.includes('CONFLICT')) return 'Someone else updated the RP log at the same moment. Please try again.'
   if (/Could not find the function/i.test(msg)) return 'The RP log needs a database update before it works here.'
@@ -183,8 +204,12 @@ async function rpc<T>(fn: string, args: Record<string, unknown>): Promise<T> {
 export const rpSignIn = (organisationId: string, takeOver = false) =>
   rpc<RpEntry>('ps_rp_sign_in', { p_organisation_id: organisationId, p_take_over: takeOver, p_notes: null })
 
-export const rpSignOut = (entryId: string) =>
-  rpc<RpEntry>('ps_rp_sign_out', { p_entry_id: entryId, p_at: null, p_reason: null })
+export const rpSignOut = (entryId: string, at: string | null = null, reason: string | null = null) =>
+  rpc<RpEntry>('ps_rp_sign_out', {
+    p_entry_id: entryId,
+    p_at: at,
+    p_reason: reason ? `${SIGN_OUT_PREFIX} (${reason})` : null,
+  })
 
 export const rpStartAbsence = (entryId: string, reason: string | null) =>
   rpc<RpAbsence>('ps_rp_start_absence', { p_entry_id: entryId, p_reason: reason, p_at: null })
