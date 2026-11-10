@@ -167,7 +167,7 @@ function ShiftsScreen() {
 function RecordScreen() {
   const { shifts, loading, error, busy, load, run } = useCover()
   const today = ukToday()
-  const items = useMemo(() => shifts.flatMap((s) => s.date <= today ? s.bookings.filter((b) => b.status === 'approved' && !b.signed_out_at).map((b) => ({ s, b })) : [])
+  const items = useMemo(() => shifts.flatMap((s) => s.date <= today ? s.bookings.filter((b) => b.status === 'approved').map((b) => ({ s, b })) : [])
     .filter(({ s }) => s.date < today || s.end_time <= new Date().toLocaleTimeString('en-GB', { timeZone: 'Europe/London', hour12: false })), [shifts, today])
   const recent = useMemo(() => shifts.flatMap((s) => s.bookings.filter((b) => b.status === 'completed' || b.status === 'no_show').map((b) => ({ s, b }))).reverse().slice(0, 15), [shifts])
 
@@ -180,13 +180,13 @@ function RecordScreen() {
   return (
     <ScrollView contentContainerStyle={styles.content} refreshControl={<RefreshControl refreshing={loading} onRefresh={() => void load()} tintColor={ACCENT} />}>
       <Text style={styles.section}>Needs recording</Text>
-      <Text style={styles.meta}>Finished shifts where the locum didn't sign out. Unrecorded shifts are closed automatically an hour or two after they end.</Text>
+      <Text style={styles.meta}>Finished shifts waiting for you to confirm. Shifts where the locum signed in and out for the booked hours are confirmed automatically after the shift.</Text>
       {error ? <ErrorBox text={error} /> : null}
       {!loading && items.length === 0 ? <Empty text="Nothing to record." /> : null}
       {items.map(({ s, b }) => (
         <View key={b.id} style={styles.card}>
           <Text style={styles.cardTitle}>{b.name}</Text>
-          <Text style={styles.meta}>{day(s.date)} · {t(s.start_time)}–{t(s.end_time)}{b.signed_in_at ? ` · signed in ${clock(b.signed_in_at)}` : ' · never signed in'}</Text>
+          <Text style={styles.meta}>{day(s.date)} · {t(s.start_time)}–{t(s.end_time)}{b.signed_in_at ? ` · in ${clock(b.signed_in_at)}${b.signed_out_at ? `, out ${clock(b.signed_out_at)}` : ', no sign-out'}` : ' · never signed in'}</Text>
           <View style={styles.actions}>
             {busy === b.id ? <ActivityIndicator color={ACCENT} /> : (
               <>

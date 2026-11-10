@@ -312,6 +312,16 @@ function BookingCard({ booking }: { booking: LocumBooking }) {
   if (!booking.shift) return null
   const isToday = booking.shift.date === TODAY
   const canWithdraw = ['pending', 'approved'].includes(booking.status) && booking.shift.date >= TODAY && !booking.sign_in
+  const confirmClockOut = () => {
+    const shift = booking.shift!
+    const now = new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/London', hour12: false })
+    const end = timeLabel(shift.end_time)
+    const early = shift.end_time > shift.start_time && shift.date === TODAY && now < end
+    Alert.alert('Clock out of this shift?', `It started at ${timeLabel(shift.start_time)} and ends at ${end}.${early ? `\n\nIt's ${now}, before the end of the shift. The pharmacy will be asked to confirm your hours.` : ''}`, [
+      { text: 'Stay clocked in', style: 'cancel' },
+      { text: 'Clock out', style: early ? 'destructive' : 'default', onPress: () => void clockOut(booking) },
+    ])
+  }
   const confirmWithdraw = () => Alert.alert(booking.status === 'pending' ? 'Withdraw request?' : 'Cancel booking?', 'This action will be visible to the pharmacy.', [{ text: 'Keep it', style: 'cancel' }, { text: 'Withdraw', style: 'destructive', onPress: () => void withdraw(booking.id) }])
 
   return (
@@ -320,11 +330,11 @@ function BookingCard({ booking }: { booking: LocumBooking }) {
       <Text style={styles.bookingOrg}>{booking.shift.org_name}</Text>
       <View style={styles.bookingFacts}><Fact icon="time-outline" text={`${timeLabel(booking.shift.start_time)} - ${timeLabel(booking.shift.end_time)}`} /><Fact icon="cash-outline" text={`${money(shiftTotal(booking.shift))} estimated`} /></View>
       {booking.shift.org_address ? <Fact icon="location-outline" text={booking.shift.org_address} /> : null}
-      {booking.sign_in ? <View style={styles.clockStatus}><Ionicons name="radio-button-on" size={14} color={booking.sign_in.signed_out_at ? palette.textMuted : palette.success} /><Text style={styles.clockText}>{booking.sign_in.signed_out_at ? `Shift recorded · ${((booking.sign_in.duration_minutes ?? 0) / 60).toFixed(1)}h` : `Clocked in at ${new Date(booking.sign_in.signed_in_at).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}`}</Text></View> : null}
+      {booking.sign_in ? <View style={styles.clockStatus}><Ionicons name="radio-button-on" size={14} color={booking.sign_in.signed_out_at ? palette.textMuted : palette.success} /><Text style={styles.clockText}>{booking.sign_in.signed_out_at ? `Clocked out · ${((booking.sign_in.duration_minutes ?? 0) / 60).toFixed(1)}h${booking.status === 'approved' ? ' · awaiting confirmation' : ''}` : `Clocked in at ${new Date(booking.sign_in.signed_in_at).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}`}</Text></View> : null}
       <View style={styles.bookingActions}>
         {canWithdraw ? <Pressable onPress={confirmWithdraw} style={styles.secondaryAction}><Text style={styles.secondaryActionText}>{booking.status === 'pending' ? 'Withdraw request' : 'Cancel booking'}</Text></Pressable> : null}
         {booking.status === 'approved' && isToday && !booking.sign_in ? <Pressable onPress={() => void clockIn(booking)} disabled={actionId === booking.id} style={styles.clockButton}><Ionicons name="log-in-outline" size={18} color={palette.textInverse} /><Text style={styles.clockButtonText}>Clock in</Text></Pressable> : null}
-        {booking.status === 'approved' && isToday && booking.sign_in && !booking.sign_in.signed_out_at ? <Pressable onPress={() => void clockOut(booking)} disabled={actionId === booking.id} style={styles.clockButton}><Ionicons name="log-out-outline" size={18} color={palette.textInverse} /><Text style={styles.clockButtonText}>Clock out</Text></Pressable> : null}
+        {booking.status === 'approved' && booking.sign_in && !booking.sign_in.signed_out_at ? <Pressable onPress={confirmClockOut} disabled={actionId === booking.id} style={styles.clockButton}><Ionicons name="log-out-outline" size={18} color={palette.textInverse} /><Text style={styles.clockButtonText}>Clock out</Text></Pressable> : null}
       </View>
     </View>
   )

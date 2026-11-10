@@ -34,6 +34,12 @@ interface BookingRow {
 type Tab = 'upcoming' | 'pending' | 'past'
 
 function fmt(t: string) { return t.slice(0, 5) }
+function minutesBetween(a: string, b: string) {
+  const [ah, am] = a.split(':').map(Number)
+  const [bh, bm] = b.split(':').map(Number)
+  return bh * 60 + bm - (ah * 60 + am)
+}
+
 function fmtDate(d: string) {
   return new Date(d).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
 }
@@ -126,7 +132,15 @@ export function LocumBookingsPage() {
   }
 
   async function handleSignOut(booking: BookingRow) {
-    if (!booking.sign_in) return
+    if (!booking.sign_in || !booking.shift) return
+    const sh = booking.shift
+    const now = new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/London' })
+    const end = fmt(sh.end_time)
+    const overnight = sh.end_time <= sh.start_time
+    const early = !overnight && booking.shift.date === today && now < end && minutesBetween(now, end) > 30
+    const msg = `Sign out of this shift?\n\nIt started at ${fmt(sh.start_time)} and ends at ${end}.`
+      + (early ? `\n\nIt's ${now}, which is ${minutesBetween(now, end)} minutes before the end. The pharmacy will be asked to confirm your hours.` : '')
+    if (!window.confirm(msg)) return
     setActionId(booking.id)
     try {
       const { error } = await getUserClient().rpc('ps_locum_sign_out', { p_booking_id: booking.id })
@@ -260,8 +274,8 @@ export function LocumBookingsPage() {
                         {b.sign_in.signed_out_at && (
                           <> · Signed out: {fmtTs(b.sign_in.signed_out_at)}</>
                         )}
-                        {b.sign_in.duration_minutes && (
-                          <> · {b.sign_in.duration_minutes} min</>
+                        {b.sign_in.duration_minutes != null && (
+                          <> · {b.sign_in.duration_minutes < 1 ? 'under 1 min' : `${b.sign_in.duration_minutes} min`}</>
                         )}
                       </div>
                     )}
@@ -270,7 +284,7 @@ export function LocumBookingsPage() {
                   {/* Actions */}
                   <div style={{ display: 'flex', gap: '0.5rem', flexShrink: 0, flexWrap: 'wrap' }}>
                     {/* Sign-in / sign-out on day of confirmed shift */}
-                    {b.status === 'approved' && isToday && (
+                    {b.status === 'approved' && (isToday || (hasSignIn && !hasSignOut)) && (
                       !hasSignIn ? (
                         <button
                           className="ps-btn ps-btn-primary ps-btn-sm"
@@ -288,7 +302,7 @@ export function LocumBookingsPage() {
                           {actionId === b.id ? '…' : 'Sign Out'}
                         </button>
                       ) : (
-                        <span className="ps-badge ps-badge-success">Signed out</span>
+                        <span className="ps-badge ps-badge-success" title="The pharmacy confirms the shift, or it is confirmed automatically after the shift if your hours match the booking">Signed out · awaiting confirmation</span>
                       )
                     )}
                     {/* Withdraw pending application */}

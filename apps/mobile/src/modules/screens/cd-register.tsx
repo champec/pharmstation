@@ -100,6 +100,23 @@ export function ukToday(): string {
   }
 }
 
+/** "25/12/2026" or "25/12/26" or "25-12-2026" → "2026-12-25"; null if not a real date. */
+function parseUkDate(text: string): string | null {
+  const m = text.trim().match(/^(\d{1,2})[/.\- ](\d{1,2})[/.\- ](\d{2}|\d{4})$/)
+  if (!m) return null
+  const d = Number(m[1]), mo = Number(m[2])
+  const y = m[3].length === 2 ? 2000 + Number(m[3]) : Number(m[3])
+  const dt = new Date(Date.UTC(y, mo - 1, d))
+  if (dt.getUTCFullYear() !== y || dt.getUTCMonth() !== mo - 1 || dt.getUTCDate() !== d) return null
+  return `${y}-${String(mo).padStart(2, '0')}-${String(d).padStart(2, '0')}`
+}
+
+function isoDaysAgo(days: number): string {
+  const [y, m, d] = ukToday().split('-').map(Number)
+  const dt = new Date(Date.UTC(y, m - 1, d - days))
+  return dt.toISOString().slice(0, 10)
+}
+
 function fmtDate(iso: string) {
   const [y, m, d] = iso.split('-')
   return y && m && d ? `${d}/${m}/${y}` : iso
@@ -523,7 +540,7 @@ function EntryFormModal({
   onConflict: () => Promise<void>
 }) {
   const profile = useAuthStore((s) => s.userProfile)
-  const [date, setDate] = useState(ukToday())
+  const [date, setDate] = useState(fmtDate(ukToday()))
   const [quantity, setQuantity] = useState('')
   const [supplier, setSupplier] = useState('')
   const [supplierAddress, setSupplierAddress] = useState('')
@@ -542,7 +559,7 @@ function EntryFormModal({
 
   useEffect(() => {
     if (!visible) return
-    setDate(ukToday()); setQuantity(''); setSupplier(''); setSupplierAddress(''); setInvoice('')
+    setDate(fmtDate(ukToday())); setQuantity(''); setSupplier(''); setSupplierAddress(''); setInvoice('')
     setPatient(''); setPatientAddress(''); setPrescriber(''); setPrescriberAddress('')
     setCollectorType(''); setCollectorName(''); setIdRequested(false); setIdProvided(false); setNotes(''); setError(null)
   }, [visible, direction])
@@ -551,8 +568,9 @@ function EntryFormModal({
 
   const save = async () => {
     const qty = Number(quantity.replace(',', '.'))
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return setError('Enter the date as YYYY-MM-DD.')
-    if (date > ukToday()) return setError("The date can't be in the future.")
+    const isoDate = parseUkDate(date)
+    if (!isoDate) return setError('Enter the date as DD/MM/YYYY, for example 09/11/2026.')
+    if (isoDate > ukToday()) return setError("The date can't be in the future.")
     if (!Number.isFinite(qty) || qty <= 0) return setError('Enter a quantity greater than 0.')
     if (isIn && !supplier.trim()) return setError('Enter the supplier.')
     if (!isIn && !patient.trim()) return setError("Enter the patient's name.")
@@ -566,7 +584,7 @@ function EntryFormModal({
       p_ledger_id: ledger.id,
       p_register_type: 'CD',
       p_entry_type: 'normal',
-      p_date_of_transaction: date,
+      p_date_of_transaction: isoDate,
       p_notes: notes.trim() || null,
       p_source: 'manual',
       p_expected_lock_version: ledger.lock_version,
@@ -606,7 +624,17 @@ function EntryFormModal({
             <IconButton icon="close" label="Cancel" onPress={onClose} />
           </View>
           <ScrollView contentContainerStyle={styles.modalContent} keyboardShouldPersistTaps="handled">
-            <Field label="Date (YYYY-MM-DD)" value={date} onChangeText={setDate} autoCapitalize="none" keyboardType="numbers-and-punctuation" />
+            <Field label="Date (DD/MM/YYYY)" value={date} onChangeText={setDate} autoCapitalize="none" keyboardType="numbers-and-punctuation" placeholder="DD/MM/YYYY" maxLength={10} />
+            <View style={styles.chips}>
+              {[['Today', 0], ['Yesterday', 1]].map(([label, days]) => {
+                const value = fmtDate(isoDaysAgo(days as number))
+                return (
+                  <Pressable key={label as string} onPress={() => setDate(value)} style={[styles.chip, date === value && styles.chipOn]} accessibilityRole="button">
+                    <Text style={[styles.chipText, date === value && styles.chipTextOn]}>{label as string}</Text>
+                  </Pressable>
+                )
+              })}
+            </View>
             <Field label={`${isIn ? 'Quantity received' : 'Quantity supplied'} (${cdUnit(register.drug_form)})`} value={quantity} onChangeText={setQuantity} keyboardType="decimal-pad" placeholder="0" />
             {isIn ? (
               <>

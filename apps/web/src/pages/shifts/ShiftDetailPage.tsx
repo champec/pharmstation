@@ -310,8 +310,8 @@ export function ShiftDetailPage() {
                   <h3 style={{ fontSize: '0.875rem', fontWeight: 600, marginBottom: '0.5rem' }}>Sign-In Record</h3>
                   <div className="review-row"><span>Signed In</span><strong>{fmtTs(signIn.signed_in_at)}</strong></div>
                   <div className="review-row"><span>Signed Out</span><strong>{signIn.signed_out_at ? fmtTs(signIn.signed_out_at) : 'Still on site'}</strong></div>
-                  {signIn.duration_minutes && (
-                    <div className="review-row"><span>Duration</span><strong>{signIn.duration_minutes} min</strong></div>
+                  {signIn.duration_minutes != null && (
+                    <div className="review-row"><span>Duration</span><strong>{signIn.duration_minutes < 1 ? 'Under 1 min' : `${Math.floor(signIn.duration_minutes / 60)}h ${signIn.duration_minutes % 60}m`}</strong></div>
                   )}
                 </div>
               ) : shift.status === 'filled' ? (
