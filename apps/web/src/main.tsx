@@ -4,6 +4,7 @@ import { BrowserRouter } from 'react-router-dom'
 import { App } from './App'
 import { RouteMeta } from './seo/RouteMeta'
 import { DialogHost } from './components/ui/dialog'
+import { AdConsentBanner } from './components/public/AdConsentBanner'
 import { initSupabase } from '@pharmstation/supabase-client'
 import '@pharmstation/ui/src/styles/globals.css'
 import './styles/app.css'
@@ -21,6 +22,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
       <RouteMeta />
       <App />
       <DialogHost />
+      <AdConsentBanner />
     </BrowserRouter>
   </React.StrictMode>,
 )

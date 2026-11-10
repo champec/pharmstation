@@ -125,6 +125,30 @@ type PitchItem = {
 
 const PITCHES: PitchItem[] = [
   {
+    id: 'counter',
+    title: 'Counter visit (60 seconds)',
+    summary: 'What to say at the counter when you walk in. Ask for the owner or manager, keep it short, and aim for a 15-minute demo slot.',
+    body: [
+      'Hi, I am [name]. I am a pharmacist and I built PharmStation, software for independent pharmacies. Is the owner or manager about? I only need a minute, and I can come back at a better time.',
+      'Quick question first: are your CD register and RP log still on paper? And do you offer any private services, like travel jabs, weight loss or ear wax?',
+      'PharmStation puts your CD register, RP log, returns, fridge and cleaning logs and SOPs on one screen. Entries cannot be altered, every correction is tracked, and you can print or export any register for an inspector. It also gives you an online booking page where patients pay by card when they book, and the money goes straight to your bank.',
+      'Essential is £15 a month for the paperless side. Complete is £29 a month and adds booking, payments, video consultations, patient texting and deliveries. Joining the pharmacy network is free.',
+      'Can I show you on my phone? It takes two minutes. If you would rather see it properly, when is a quiet 15 minutes this week? I can come back, or do it on a video call.',
+    ],
+  },
+  {
+    id: 'phone',
+    title: 'Phone call (cold or follow-up)',
+    summary: 'For calling a pharmacy before or after a visit. Goal: book a visit or a 15-minute demo, not to sell on the phone.',
+    body: [
+      'Hi, is that [pharmacy]? My name is [name], I am a pharmacist in [city]. I am not selling medicines or wholesale; I built software for independent pharmacies and I am visiting a few locally. Could I speak to the owner or manager?',
+      'If they are busy: no problem, when is a quieter time to call back? Note the name and time, and log a follow-up.',
+      'With the manager: I will keep it short. I built PharmStation to get the CD register, RP log and daily logs off paper, and to let you take paid bookings for private services online. It is £15 a month, or £29 with bookings and patient texting. Could I pop in for 15 minutes this week and show you? I am in the area on [day].',
+      'If they say they are happy with paper: that is fair, most pharmacies are. Can I ask what would have to be true for you to switch? Then log the answer as a note.',
+      'If they ask about NHS services: those are going through NHS assurance now. They are not live yet, and when they are, they come included in Complete at no extra cost.',
+    ],
+  },
+  {
     id: 'overview',
     title: 'Overview pitch',
     summary: 'A broad, polished introduction to PharmStation as the one-platform answer for modern pharmacy operations.',
@@ -133,7 +157,7 @@ const PITCHES: PitchItem[] = [
       'The main idea is simple. Pharmacy staff, locums, drivers, care homes and patients all have different things they need to do, but they should not need a different system for every job. With PharmStation, your pharmacy can manage daily work, communicate properly, keep records, deliver services and stay connected with the people around it.',
       'You can go paperless with your CD register, RP log, patient returns and your own custom logs for things like fridges, cleaning, visitors, date checks or anything else your pharmacy needs. You can scan a prescription or invoice with your phone, let the system pull out the information and then review it before it is added. Handover notes can be shared with the team, tasks can be assigned, and SOPs can be given to the right people so everyone knows what is expected.',
       'Communication is a big part of PharmStation. You can message patients, send broadcasts about services, closures, holidays or important updates, and keep the history all in one place. The Pharmacy Network also lets connected pharmacies communicate with each other. A pharmacy can ask about stock, send a prescription query, send an alert to nearby pharmacies or quickly find out who can help. Instead of making call after call, the right message can go to the right people and they can respond from the system.',
-      'PharmStation also helps with services. You can create services, build forms, manage appointments, let patients book online, take payments and keep track of service delivery. Patients can book with a pharmacy through a public booking page, and the pharmacy can manage the appointments, patients and follow-up from one place. There is also video consultation and a Private Electronic Prescription Service, giving prescribers and pharmacies a way to create, receive, track and manage private prescriptions digitally.',
+      'PharmStation also helps with services. You can create services, build forms, manage appointments, let patients book online, take payments and keep track of service delivery. Patients can book with a pharmacy through a public booking page, and the pharmacy can manage the appointments, patients and follow-up from one place. There is also secure video consultation, so patients can be seen without downloading an app.',
       'Then there is the wider operation. You can plan deliveries, organise rounds, manage redeliveries and give drivers a mobile view of their route, delivery history and proof of delivery. For care homes, you can manage residents, medication requests, supply cycles, packs and deliveries. For staffing, pharmacies can post shifts, manage applications and work with locums through the same platform.',
       'Every person can have their own account and connect to the pharmacy they work with, with manager approval and permissions based on their role. So a pharmacist, technician, dispenser, driver, locum or care-home user only sees what they need to see and can do what they are allowed to do.',
       'PharmStation is not just one tool for one problem. It is a full platform for the day-to-day running of modern pharmacy, on the web and on mobile. This is the main overview, and we will go deeper into every part of the system in the next videos.',
@@ -166,15 +190,15 @@ const PITCHES: PitchItem[] = [
     title: 'Commercial pitch',
     summary: 'A direct, sales-focused version that speaks to cost, fragmentation and the value of replacing the messy stack.',
     body: [
-      'Right now, your pharmacy is probably paying for five, six, maybe eight different systems just to function. One for NHS service claims. One for appointments. One for video consultations, if you have one at all. One for patient texts. One for deliveries. A stack of paper for CD registers, RP logs, patient returns and every other log a GPhC inspector might ask about. Add it up and most pharmacies are quietly spending somewhere between £130 and £300 a month, spread across tools that were never designed to talk to each other, on top of the paper that never talks to anything.',
+      'Right now, your pharmacy is probably paying for five, six, maybe eight different systems just to function. One for appointments. One for video consultations, if you have one at all. One for patient texts. One for deliveries. A stack of paper for CD registers, RP logs, patient returns and every other log a GPhC inspector might ask about. Add it up and most pharmacies are quietly spending somewhere between £130 and £300 a month, spread across tools that were never designed to talk to each other, on top of the paper that never talks to anything.',
       'None of those tools were built for pharmacy first. They were built for something else, then bent into shape, then sold to you as "the pharmacy solution." That is why they still look and feel like software from 2010: clunky forms, no autofill, no real-time anything, and a UI that makes you wince before you have even logged the entry.',
       'PharmStation was built differently. It was built by someone who has actually stood behind the counter, not a corporate roadmap team retrofitting a claims tool. One connected platform, one login, for everything your pharmacy actually does all day.',
       'Your CD register, RP log and patient returns go digital and searchable, no more hunting through a paper binder while an inspector waits. Add any custom log you need: fridge, cleaning, visitors, whatever your SOPs require, and go paperless for good. Handover notes, task assignment and your SOP library live in the same place, so nothing gets lost between shifts or forgotten because "the folder was on the other counter."',
       'Patients can message your pharmacy on a real, textable number, without you handing a personal mobile to whoever is on shift. Every approved staff member can see and answer from any terminal, spam is filtered automatically, and existing patients are recognised the second they text in, no re-explaining who they are every single time. Multiply that across every other pharmacy near you and you get the Pharmacy Network: instant stock checks, prescription queries and community alerts sent to pharmacies around you at once, answered with a tap instead of a phone call you have to make five more times.',
-      'Then there is everything patient-facing. Book appointments and NHS or private services online, take payment through checkout without setting up your own payment gateway, run secure video consultations without your patient downloading a single app, and issue private prescriptions digitally through PEPS so they can be tracked and honoured anywhere. When you are ready to sell products or services beyond the counter, PharmStation.co.uk/shop gives you a marketplace listing with your own products under your own control. No website to host, no SEO to chase, no fifteenth login for the patient to forget. Orders drop straight into the same delivery pipeline your driver already uses, or patients collect in-store with an order number.',
+      'Then there is everything patient-facing. Book appointments and private services online, take payment through checkout without setting up your own payment gateway, run secure video consultations without your patient downloading a single app. When you are ready to sell products or services beyond the counter, PharmStation.co.uk/shop gives you a marketplace listing with your own products under your own control. No website to host, no SEO to chase, no fifteenth login for the patient to forget. Orders drop straight into the same delivery pipeline your driver already uses, or patients collect in-store with an order number.',
       'Speaking of deliveries, plan rounds, manage redeliveries, and give your driver a proper app: today\'s stops, proof of delivery, and automatic status updates, not a clipboard and a prayer. Care homes get their own workspace for residents, medication requests and supply cycles. Short-staffed on a Tuesday? Post the shift and pull from the locum network, right there in the same system.',
       'And built into all of it is Genie, your in-app AI assistant. Ask it a question, get it to help pull up information or handle a routine task, instead of digging through menus.',
-      'Here is the part that should actually make you sit up: PharmStation costs less than the mess you are already paying for. Start free just by joining the network. Go digital with the Essential tier at £39 a month. Get the full platform, services, appointments, video, messaging, deliveries, the lot, for £79 a month. That is less than what most pharmacies already spend on service-claims software alone, and it replaces everything else too.',
+      'Here is the part that should actually make you sit up: PharmStation costs less than the mess you are already paying for. Start free just by joining the network. Go paperless with Essential at £15 a month. Get the full platform, services, appointments, payments, video, messaging, deliveries, the lot, for £29 a month. NHS services are being added and come included when they go live.',
       'You are not choosing between features and cost anymore. One platform, one price, everything pharmacy actually needs to run, built by someone who has done the job, not just studied it from a spreadsheet.',
     ],
   },
@@ -414,6 +438,13 @@ export function PharmacyOutreachPage() {
 
   const selected = profiles.find((p) => p.id === selectedId) ?? null
   const isAdmin = membership?.role === 'owner' || membership?.role === 'manager'
+  /** Outreach is PharmStation's own sales CRM; only platform admins use it. */
+  const [isPlatformAdmin, setIsPlatformAdmin] = useState<boolean | null>(null)
+  useEffect(() => {
+    let live = true
+    getUserClient().rpc('ps_is_platform_admin').then(({ data }) => { if (live) setIsPlatformAdmin(data === true) })
+    return () => { live = false }
+  }, [])
   const selectedPitch = PITCHES.find((pitch) => pitch.id === selectedPitchId) ?? null
 
   function openPitchesLibrary() {
@@ -563,6 +594,15 @@ export function PharmacyOutreachPage() {
   const nhsContacts = selected ? parseNhsContacts(selected.pharmacy.contacts) : null
 
   // ── Render ────────────────────────────────────────────────────────────────
+
+  if (isPlatformAdmin === false) {
+    return (
+      <div className="page-container outreach-page">
+        <PageHeader breadcrumbs={[{ label: 'Dashboard', to: '/' }, { label: 'Outreach' }]} title="Outreach" />
+        <p>This page is only available to the PharmStation team.</p>
+      </div>
+    )
+  }
 
   return (
     <div className="page-container outreach-page">

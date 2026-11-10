@@ -3,6 +3,7 @@ import { NavLink, useLocation } from 'react-router-dom'
 import { useUIStore, useChatStore, useSubscriptionStore, useAuthStore, featureForPath } from '@pharmstation/core'
 import { useIsMobile } from '../../hooks/useIsMobile'
 import { PLANS_ENFORCED } from '../../lib/billing'
+import { getUserClient } from '@pharmstation/supabase-client'
 import { Activity, BookMarked, BookOpenCheck, Building2, CalendarClock, CalendarDays, CalendarRange, Car, ChevronRight, ClipboardList, Clock, Contact, CreditCard, FileSignature, FileText, FolderOpen, History, Home, Inbox, LayoutDashboard, LayoutGrid, LayoutTemplate, Library, LifeBuoy, Link, List, Lock, Megaphone, MessageSquare, MessagesSquare, Network, NotebookPen, Package, PenLine, PhoneIncoming, Pill, Plus, Receipt, RotateCcw, ScanLine, Settings, Settings2, ShieldPlus, ShoppingBag, Sparkles, Stethoscope, StickyNote, Store, Timer, Truck, Undo2, UserCheck, Users, Video, Wrench, type LucideIcon } from 'lucide-react'
 
 interface NavItem {
@@ -230,10 +231,17 @@ export function SideNav() {
   const organisationType = useAuthStore((s) => s.organisation?.organisation_type)
   const permissions = useAuthStore((s) => s.permissions)
   const isCareHomeOrg = organisationType === 'carehome'
+  /** Pharmacy Outreach is PharmStation's own sales CRM: only platform admins see it. */
+  const [isPlatformAdmin, setIsPlatformAdmin] = useState(false)
+  useEffect(() => {
+    let live = true
+    getUserClient().rpc('ps_is_platform_admin').then(({ data }) => { if (live) setIsPlatformAdmin(data === true) })
+    return () => { live = false }
+  }, [])
   const canViewCareHomes = permissions?.care_home_view === true
   const canManageCareHomes = !isCareHomeOrg && permissions?.care_home_manage === true
   /** Care home logins only see their care home workspace; pharmacy staff need care_home_view. */
-  const canOversee = permissions?.view_audit === true
+  const canOversee = permissions?.view_audit === true && !isCareHomeOrg
   const visibleSections = useMemo(() => menuSections
     .map((section) => section.title === '' && !canOversee
       ? { ...section, items: section.items.filter((item) => item.to !== '/oversight') }
@@ -241,11 +249,12 @@ export function SideNav() {
     .filter((section) => {
       if (isCareHomeOrg) return section.title === '' || section.title === 'Care Homes'
       if (section.title === 'Care Homes') return canViewCareHomes
+      if (section.title === 'Outreach') return isPlatformAdmin
       return true
     })
     .map((section) => section.title === 'Care Homes' && !canManageCareHomes
       ? { ...section, items: section.items.filter((item) => item.to !== '/care-homes/manage') }
-      : section), [isCareHomeOrg, canViewCareHomes, canManageCareHomes, canOversee])
+      : section), [isCareHomeOrg, canViewCareHomes, canManageCareHomes, isPlatformAdmin, canOversee])
   const isLocked = (to: string) => {
     if (!PLANS_ENFORCED || !planLoaded) return false
     const feature = featureForPath(to.split('?')[0])

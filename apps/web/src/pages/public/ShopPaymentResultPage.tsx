@@ -9,6 +9,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { getUserClient } from '@pharmstation/supabase-client'
 import { PublicFooter } from '../../components/public/PublicFooter'
+import { trackConversion } from '../../lib/adTracking'
 
 type PaymentInfo = { id: string; status: string; amount_pence: number; description: string | null }
 
@@ -21,6 +22,9 @@ export function ShopPaymentResultPage() {
   const canceled = searchParams.get('canceled') === '1'
 
   const [payment, setPayment] = useState<PaymentInfo | null>(null)
+  useEffect(() => {
+    if (payment?.status === 'succeeded') trackConversion('purchase', { id: payment.id, valuePence: payment.amount_pence })
+  }, [payment])
   const [timedOut, setTimedOut] = useState(false)
   const attempts = useRef(0)
 
