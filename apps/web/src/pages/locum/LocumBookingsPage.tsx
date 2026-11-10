@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { getUserClient } from '@pharmstation/supabase-client'
 import { useAuthStore } from '@pharmstation/core'
-import { bookingModeLabel, bookingStatusLabel } from '../../components/locum/labels'
+import { bookingModeLabel, bookingStatusLabel, locumErrorText } from '../../components/locum/labels'
 import { confirmDialog } from '../../components/ui/dialog'
 
 interface BookingRow {
@@ -38,6 +38,14 @@ function minutesBetween(a: string, b: string) {
   const [ah, am] = a.split(':').map(Number)
   const [bh, bm] = b.split(':').map(Number)
   return bh * 60 + bm - (ah * 60 + am)
+}
+
+/** Current UK date and time as 'YYYY-MM-DD HH:MM', comparable with a shift's date and start. */
+function ukNow() {
+  return new Date().toLocaleString('sv-SE', { timeZone: 'Europe/London' }).slice(0, 16)
+}
+function hasStarted(shift: { date: string; start_time: string }) {
+  return ukNow() >= `${shift.date} ${fmt(shift.start_time)}`
 }
 
 function fmtDate(d: string) {
@@ -125,7 +133,7 @@ export function LocumBookingsPage() {
       if (error) throw error
       await load()
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Sign-in failed')
+      setError(locumErrorText(err, 'Sign-in failed'))
     } finally {
       setActionId(null)
     }
@@ -134,20 +142,29 @@ export function LocumBookingsPage() {
   async function handleSignOut(booking: BookingRow) {
     if (!booking.sign_in || !booking.shift) return
     const sh = booking.shift
-    const now = new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/London' })
+    const now = ukNow().slice(11)
     const end = fmt(sh.end_time)
     const overnight = sh.end_time <= sh.start_time
-    const early = !overnight && booking.shift.date === today && now < end && minutesBetween(now, end) > 30
-    const msg = `Sign out of this shift?\n\nIt started at ${fmt(sh.start_time)} and ends at ${end}.`
-      + (early ? `\n\nIt's ${now}, which is ${minutesBetween(now, end)} minutes before the end. The pharmacy will be asked to confirm your hours.` : '')
-    if (!window.confirm(msg)) return
+    if (!hasStarted(sh)) {
+      setError(`Your shift starts at ${fmt(sh.start_time)} on ${fmtDate(sh.date)}. You can sign out once it has started.`)
+      return
+    }
+    const early = !overnight && sh.date === ukNow().slice(0, 10) && now < end && minutesBetween(now, end) > 30
+    const ok = await confirmDialog({
+      title: 'Sign out of this shift?',
+      body: `It started at ${fmt(sh.start_time)} and ends at ${end}.`
+        + (early ? ` It's ${now}, which is ${minutesBetween(now, end)} minutes before the end. The pharmacy will be asked to confirm your hours.` : ''),
+      confirmLabel: 'Sign out',
+      danger: early,
+    })
+    if (!ok) return
     setActionId(booking.id)
     try {
       const { error } = await getUserClient().rpc('ps_locum_sign_out', { p_booking_id: booking.id })
       if (error) throw error
       await load()
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Sign-out failed')
+      setError(locumErrorText(err, 'Sign-out failed'))
     } finally {
       setActionId(null)
     }
@@ -162,7 +179,7 @@ export function LocumBookingsPage() {
       if (error) throw error
       await load()
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Cancellation failed')
+      setError(locumErrorText(err, 'Cancellation failed'))
     } finally {
       setActionId(null)
     }
@@ -293,6 +310,8 @@ export function LocumBookingsPage() {
                         >
                           {actionId === b.id ? '…' : 'Sign In'}
                         </button>
+                      ) : !hasSignOut && !hasStarted(b.shift) ? (
+                        <span className="ps-badge" title="You can sign out once the shift has started">Sign out from {fmt(b.shift.start_time)}</span>
                       ) : !hasSignOut ? (
                         <button
                           className="ps-btn ps-btn-warning ps-btn-sm"

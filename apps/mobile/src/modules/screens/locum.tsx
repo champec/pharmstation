@@ -1,3 +1,4 @@
+import { errorText } from '../../lib/error-text'
 import { useEffect, useMemo, useState, type ComponentType } from 'react'
 import {
   ActivityIndicator,
@@ -113,7 +114,7 @@ function FindShiftsScreen() {
           await saveShiftAlert({ name, query: query.trim() || null, minimum_rate: minimumRate, date_filter: dateFilter, eligible_only: eligibleOnly })
           Alert.alert('Alert created', 'You will be notified when a matching shift is posted.')
         } catch (e) {
-          Alert.alert('Could not create the alert', e instanceof Error ? e.message : 'Try again.')
+          Alert.alert('Could not create the alert', errorText(e, 'Try again.'))
         }
       } },
     ])
@@ -312,11 +313,13 @@ function BookingCard({ booking }: { booking: LocumBooking }) {
   if (!booking.shift) return null
   const isToday = booking.shift.date === TODAY
   const canWithdraw = ['pending', 'approved'].includes(booking.status) && booking.shift.date >= TODAY && !booking.sign_in
+  const ukNow = new Date().toLocaleString('sv-SE', { timeZone: 'Europe/London' }).slice(0, 16)
+  const started = ukNow >= `${booking.shift.date} ${booking.shift.start_time.slice(0, 5)}`
   const confirmClockOut = () => {
     const shift = booking.shift!
-    const now = new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/London', hour12: false })
+    const now = ukNow.slice(11)
     const end = timeLabel(shift.end_time)
-    const early = shift.end_time > shift.start_time && shift.date === TODAY && now < end
+    const early = shift.end_time > shift.start_time && shift.date === ukNow.slice(0, 10) && now < end
     Alert.alert('Clock out of this shift?', `It started at ${timeLabel(shift.start_time)} and ends at ${end}.${early ? `\n\nIt's ${now}, before the end of the shift. The pharmacy will be asked to confirm your hours.` : ''}`, [
       { text: 'Stay clocked in', style: 'cancel' },
       { text: 'Clock out', style: early ? 'destructive' : 'default', onPress: () => void clockOut(booking) },
@@ -334,7 +337,8 @@ function BookingCard({ booking }: { booking: LocumBooking }) {
       <View style={styles.bookingActions}>
         {canWithdraw ? <Pressable onPress={confirmWithdraw} style={styles.secondaryAction}><Text style={styles.secondaryActionText}>{booking.status === 'pending' ? 'Withdraw request' : 'Cancel booking'}</Text></Pressable> : null}
         {booking.status === 'approved' && isToday && !booking.sign_in ? <Pressable onPress={() => void clockIn(booking)} disabled={actionId === booking.id} style={styles.clockButton}><Ionicons name="log-in-outline" size={18} color={palette.textInverse} /><Text style={styles.clockButtonText}>Clock in</Text></Pressable> : null}
-        {booking.status === 'approved' && booking.sign_in && !booking.sign_in.signed_out_at ? <Pressable onPress={confirmClockOut} disabled={actionId === booking.id} style={styles.clockButton}><Ionicons name="log-out-outline" size={18} color={palette.textInverse} /><Text style={styles.clockButtonText}>Clock out</Text></Pressable> : null}
+        {booking.status === 'approved' && booking.sign_in && !booking.sign_in.signed_out_at && !started ? <Text style={styles.metaText}>You can clock out from {timeLabel(booking.shift.start_time)}</Text> : null}
+        {booking.status === 'approved' && booking.sign_in && !booking.sign_in.signed_out_at && started ? <Pressable onPress={confirmClockOut} disabled={actionId === booking.id} style={styles.clockButton}><Ionicons name="log-out-outline" size={18} color={palette.textInverse} /><Text style={styles.clockButtonText}>Clock out</Text></Pressable> : null}
       </View>
     </View>
   )

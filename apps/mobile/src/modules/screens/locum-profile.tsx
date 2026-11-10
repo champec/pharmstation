@@ -9,6 +9,7 @@
 //   - pharmacy SOPs to read and sign before working there
 // ============================================
 
+import { errorText } from '../../lib/error-text'
 import { useCallback, useEffect, useState } from 'react'
 import {
   ActivityIndicator,
@@ -129,7 +130,7 @@ export function LocumProfileScreen() {
         setSops([])
       }
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not load your profile.')
+      setError(errorText(e, 'Could not load your profile.'))
     } finally {
       setLoading(false)
     }
@@ -180,7 +181,7 @@ export function LocumProfileScreen() {
       if (dbErr) throw dbErr
       await load()
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Upload failed.')
+      setError(errorText(e, 'Upload failed.'))
     } finally {
       setBusy(null)
     }

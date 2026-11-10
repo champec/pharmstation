@@ -8,6 +8,7 @@
 // All writes go through the same database functions the website uses.
 // ============================================
 
+import { errorText } from '../../lib/error-text'
 import { useCallback, useEffect, useMemo, useState, type ComponentType } from 'react'
 import { ActivityIndicator, Alert, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
@@ -83,7 +84,7 @@ function useCover() {
         }),
       })))
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not load shifts.')
+      setError(errorText(e, 'Could not load shifts.'))
     } finally {
       setLoading(false)
     }

@@ -65,7 +65,11 @@ type RawShift = Omit<
 >
 
 function errorMessage(error: unknown) {
-  return error instanceof Error ? error.message : 'Something went wrong.'
+  // Supabase errors are plain objects with a message, not Error instances.
+  if (error && typeof error === 'object' && 'message' in error && (error as { message: unknown }).message) {
+    return String((error as { message: unknown }).message)
+  }
+  return 'Something went wrong.'
 }
 
 function addressLine(address: unknown): string {
