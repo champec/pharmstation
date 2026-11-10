@@ -13,7 +13,7 @@
 // ============================================
 
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { ActivityIndicator, Alert, Pressable, ScrollView, Share, StyleSheet, Text, View } from 'react-native'
+import { ActivityIndicator, Alert, Linking, Pressable, ScrollView, Share, StyleSheet, Text, View } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
 import { CameraView, type BarcodeScanningResult, useCameraPermissions } from 'expo-camera'
 import * as LocalAuthentication from 'expo-local-authentication'
@@ -67,6 +67,9 @@ export function SecurityTab() {
   const [error, setError] = useState<string | null>(null)
   const [manualLabel, setManualLabel] = useState('')
   const [manualKey, setManualKey] = useState('')
+  // Set-up with Google Authenticator (or any other authenticator app).
+  const [external, setExternal] = useState<{ factorId: string; secret: string; uri: string } | null>(null)
+  const [externalCode, setExternalCode] = useState('')
   const [permission, requestPermission] = useCameraPermissions()
   const now = useNow()
   const scanned = useRef(false)
@@ -119,6 +122,46 @@ export function SecurityTab() {
       )
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Couldn’t turn on two-step sign-in.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const setUpWithOtherApp = async () => {
+    setBusy(true)
+    setError(null)
+    try {
+      setExternal(await startPhoneTotpEnrollment())
+      setExternalCode('')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Couldn’t start set-up. Try again.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const openInAuthenticator = async () => {
+    if (!external) return
+    try {
+      await Linking.openURL(external.uri)
+    } catch {
+      setError('Google Authenticator isn’t installed on this phone. Install it, or type the setup key below.')
+    }
+  }
+
+  const confirmOtherApp = async () => {
+    if (!external) return
+    setBusy(true)
+    setError(null)
+    try {
+      await verifyTotpCode(external.factorId, externalCode.replace(/\s/g, ''))
+      setExternal(null)
+      setExternalCode('')
+      setAccountHasTotp(true)
+      if (membership) void logAuthEvent(organisation?.id, 'two_step_on')
+      Alert.alert('Two-step sign-in is on', 'When PharmStation asks for a code, open Google Authenticator and type the code it shows.')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'That code didn’t work. Try the newest code.')
     } finally {
       setBusy(false)
     }
@@ -286,7 +329,37 @@ export function SecurityTab() {
               Use this phone for your sign-in codes. Owners and managers need two-step sign-in, and it protects patient
               records if your password is ever guessed.
             </Text>
-            <Button label="Set up on this phone" onPress={setUpOnThisPhone} loading={busy} />
+            {external ? (
+              <>
+                <Text style={styles.muted}>
+                  1. Tap below to add PharmStation to Google Authenticator (Microsoft Authenticator and others work too).
+                  If that doesn’t open, choose “Enter a setup key” in the app and type:
+                </Text>
+                <Text selectable style={styles.setupKey}>
+                  {external.secret.match(/.{1,4}/g)?.join(' ') ?? external.secret}
+                </Text>
+                <Button label="Open Google Authenticator" variant="secondary" onPress={openInAuthenticator} />
+                <Field
+                  label="2. Type the 6-digit code it shows"
+                  value={externalCode}
+                  onChangeText={setExternalCode}
+                  keyboardType="number-pad"
+                  maxLength={7}
+                />
+                <Button label="Cancel" variant="ghost" onPress={() => setExternal(null)} />
+                <Button
+                  label="Turn on two-step sign-in"
+                  onPress={confirmOtherApp}
+                  loading={busy}
+                  disabled={externalCode.replace(/\s/g, '').length !== 6}
+                />
+              </>
+            ) : (
+              <>
+                <Button label="Use Google Authenticator instead" variant="ghost" onPress={setUpWithOtherApp} disabled={busy} />
+                <Button label="Set up on this phone" onPress={setUpOnThisPhone} loading={busy} />
+              </>
+            )}
           </>
         )}
       </View>
@@ -371,6 +444,7 @@ const styles = StyleSheet.create({
   error: { color: palette.danger, fontSize: 14, fontWeight: '600' },
   section: { fontSize: 13, fontWeight: '700', color: palette.textMuted, textTransform: 'uppercase', letterSpacing: 0.5 },
   actions: { gap: 10 },
+  setupKey: { fontSize: 18, fontWeight: '700', letterSpacing: 1, color: palette.text, fontVariant: ['tabular-nums'], textAlign: 'center' },
   codeCard: {
     flexDirection: 'row',
     alignItems: 'center',

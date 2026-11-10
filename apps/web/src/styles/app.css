@@ -6546,6 +6546,13 @@
   background: rgba(4, 176, 255, 0.05);
 }
 
+.saved-staff-hint {
+  margin-left: auto;
+  font-size: var(--ps-font-xs);
+  color: var(--ps-slate);
+  white-space: nowrap;
+}
+
 .divider-text {
   display: flex;
   align-items: center;
@@ -15205,4 +15212,11 @@ a.modern-shop-product-image, a.modern-shop-product-name { color: var(--ms-ink); 
 .activity-foot { display: flex; justify-content: space-between; align-items: center; padding: var(--ps-space-md); }
 @media (max-width: 800px) {
   .activity-filters label { min-width: calc(50% - var(--ps-space-md)); flex: 1 1 calc(50% - var(--ps-space-md)); }
+}
+
+.totp-app-choice {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ps-space-sm);
+  margin-bottom: var(--ps-space-md);
 }

@@ -8,6 +8,7 @@ export function TotpSetup({ onDone, startLabel = 'Set up two-step sign-in' }: { 
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [showSecret, setShowSecret] = useState(false)
+  const [app, setApp] = useState<'pharmstation' | 'other'>('pharmstation')
 
   const start = async () => {
     setError(null)
@@ -51,13 +52,39 @@ export function TotpSetup({ onDone, startLabel = 'Set up two-step sign-in' }: { 
 
   return (
     <form onSubmit={confirm} className="totp-setup">
+      <div className="totp-app-choice" role="radiogroup" aria-label="Which app will make your codes?">
+        <button
+          type="button"
+          role="radio"
+          aria-checked={app === 'pharmstation'}
+          className={`ps-btn ps-btn-sm ${app === 'pharmstation' ? 'ps-btn-secondary' : 'ps-btn-ghost'}`}
+          onClick={() => setApp('pharmstation')}
+        >
+          PharmStation app
+        </button>
+        <button
+          type="button"
+          role="radio"
+          aria-checked={app === 'other'}
+          className={`ps-btn ps-btn-sm ${app === 'other' ? 'ps-btn-secondary' : 'ps-btn-ghost'}`}
+          onClick={() => setApp('other')}
+        >
+          Google Authenticator or another app
+        </button>
+      </div>
       <ol className="totp-steps">
+        {app === 'pharmstation' ? (
+          <li>On your phone, open the PharmStation app and go to My Account &gt; Security.</li>
+        ) : (
+          <li>
+            On your phone, open Google Authenticator. Microsoft Authenticator, 1Password and other authenticator
+            apps work the same way.
+          </li>
+        )}
         <li>
-          On your phone, open the PharmStation app and go to My Account &gt; Security. Any authenticator app
-          works too, such as Google Authenticator, Microsoft Authenticator or 1Password.
-        </li>
-        <li>
-          Tap &ldquo;Scan a QR code&rdquo; (or add an account in your authenticator app) and scan this code.
+          {app === 'pharmstation'
+            ? <>Tap &ldquo;Scan a QR code&rdquo; and scan this code.</>
+            : <>Tap the + button, choose &ldquo;Scan a QR code&rdquo; and scan this code.</>}
           <div className="totp-qr">
             <img src={enrollment.qrCode} alt="QR code for your authenticator app" width={180} height={180} />
           </div>
