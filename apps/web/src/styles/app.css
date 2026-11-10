@@ -553,8 +553,10 @@
 .modern-shop-section-title h2,
 .modern-shop-catalog h2 { margin: 6px 0 0; font-size: clamp(28px, 4vw, 43px); letter-spacing: 0; line-height: 1; }
 .modern-shop-section-title > button { min-height: 44px; border: 0; background: transparent; color: var(--ms-teal); font-size: 14px; font-weight: 800; cursor: pointer; }
-.modern-shop-departments > div:last-child { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); gap: 10px; }
-.modern-shop-departments > div:last-child button { display: grid; min-width: 0; justify-items: center; gap: 5px; padding: 17px 8px; border: 1px solid var(--ms-line); border-radius: 7px; background: var(--ms-canvas); text-align: center; cursor: pointer; }
+.modern-shop-departments > div:last-child { display: grid; grid-template-columns: repeat(9, minmax(0, 1fr)); gap: 12px; }
+.modern-shop-departments > div:last-child button > img { width: 100%; height: auto; aspect-ratio: 1; margin-bottom: 6px; border-radius: 6px; object-fit: cover; background: #fff; transition: transform .2s ease; }
+.modern-shop-departments > div:last-child button:hover > img { transform: scale(1.03); }
+.modern-shop-departments > div:last-child button { display: grid; min-width: 0; align-content: start; justify-items: center; gap: 5px; padding: 10px 10px 14px; overflow: hidden; border: 1px solid var(--ms-line); border-radius: 7px; background: var(--ms-canvas); text-align: center; cursor: pointer; }
 .modern-shop-departments > div:last-child button:hover { border-color: var(--ms-teal); background: var(--ms-teal-soft); }
 .modern-shop-departments > div:last-child button > span { display: grid; width: 47px; height: 47px; place-items: center; margin-bottom: 5px; border-radius: 50%; background: #fff; color: var(--ms-coral); font-size: 22px; }
 .modern-shop-departments button strong { overflow-wrap: anywhere; font-size: 14px; line-height: 1.3; }
@@ -610,7 +612,7 @@
   .modern-shop-header { grid-template-columns: auto minmax(260px, 1fr) auto; }
   .modern-shop-header > .modern-shop-location { display: none; }
   .modern-shop-hero { grid-template-columns: minmax(0, 0.9fr) minmax(380px, 1.1fr); }
-  .modern-shop-departments > div:last-child { grid-template-columns: repeat(4, 1fr); }
+  .modern-shop-departments > div:last-child { grid-template-columns: repeat(3, 1fr); }
   .modern-shop-product-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 }
 
@@ -653,7 +655,10 @@
   .modern-shop-benefits > div { border-right: 0; }
   .modern-shop-departments,
   .modern-shop-catalog { padding: 45px 14px; }
-  .modern-shop-departments > div:last-child { grid-template-columns: repeat(2, 1fr); }
+  .modern-shop-departments > div:last-child { grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .modern-shop-departments > div:last-child button { padding: 6px 6px 10px; }
+  .modern-shop-departments button strong { font-size: 12.5px; }
+  .modern-shop-departments button small { display: none; }
   .modern-shop-section-title,
   .modern-shop-catalog > header { align-items: stretch; flex-direction: column; }
   .modern-shop-catalog-actions { justify-content: space-between; }

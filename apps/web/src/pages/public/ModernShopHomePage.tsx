@@ -14,6 +14,12 @@ const HERO_SLIDES = [
 ] as const
 const HERO_INTERVAL_MS = 6000
 
+/** Department tile pictures, by category slug (apps/web/public/images/departments). */
+const DEPARTMENT_IMAGES = new Set([
+  'medicines-treatments', 'vitamins-supplements', 'skin-care', 'baby-child', 'sexual-health',
+  'first-aid', 'toiletries-personal-care', 'mobility-daily-living', 'health-devices-tests',
+])
+
 const formatPrice = (pence: number) => `£${(pence / 100).toFixed(2)}`
 
 async function geocodePostcode(postcode: string): Promise<{ lat: number; lng: number } | null> {
@@ -197,7 +203,7 @@ export function ModernShopHomePage() {
 
         <section className="modern-shop-benefits"><div><span>✓</span><strong>Pharmacy fulfilled</strong><small>Prepared by a real local team</small></div><div><span>⌖</span><strong>Collection or delivery</strong><small>Options shown before checkout</small></div><div><span>＋</span><strong>Clinical confidence</strong><small>Consultation when a product requires it</small></div><div><span>↗</span><strong>Simple ordering</strong><small>Pay by card, in store or on delivery</small></div></section>
 
-        {rootCategories.length > 0 && <section className="modern-shop-departments"><div className="modern-shop-section-title"><div><span>Browse by need</span><h2>Shop departments</h2></div><button type="button" onClick={() => document.getElementById('shop-products')?.scrollIntoView()}>View everything →</button></div><div>{rootCategories.slice(0, 8).map((category) => <button type="button" key={category.id} onClick={() => setCategoryId(category.id)}><span>{category.name.slice(0, 1).toUpperCase()}</span><strong>{category.name}</strong><small>Explore products</small></button>)}</div></section>}
+        {rootCategories.length > 0 && <section className="modern-shop-departments"><div className="modern-shop-section-title"><div><span>Browse by need</span><h2>Shop departments</h2></div><button type="button" onClick={() => document.getElementById('shop-products')?.scrollIntoView()}>View everything →</button></div><div>{rootCategories.filter((category) => category.slug !== 'uncategorised').map((category) => <button type="button" key={category.id} onClick={() => setCategoryId(category.id)}>{DEPARTMENT_IMAGES.has(category.slug) ? <img src={`/images/departments/${category.slug}.webp`} alt="" loading="lazy" width={400} height={400} /> : <span>{category.name.slice(0, 1).toUpperCase()}</span>}<strong>{category.name}</strong><small>Explore products</small></button>)}</div></section>}
       </>}
 
       <section className="modern-shop-catalog" id="shop-products">
