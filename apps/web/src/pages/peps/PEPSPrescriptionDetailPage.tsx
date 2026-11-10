@@ -240,7 +240,7 @@ export function PEPSPrescriptionDetailPage() {
         {/* Actions + history */}
         <div>
           <div className="ps-card" style={{ marginBottom: 'var(--ps-space-md)', padding: 'var(--ps-space-lg)' }}>
-            <h3 style={{ marginTop: 0 }}>Actions</h3>
+            <h3 style={{ marginTop: 0, marginBottom: 'var(--ps-space-md)' }}>Actions</h3>
             {canPrintDocument && (
               <button className="ps-btn ps-btn-primary" style={{ width: '100%', marginBottom: 8 }} disabled={busy}
                 onClick={openPrintPage}>
@@ -296,7 +296,7 @@ export function PEPSPrescriptionDetailPage() {
           </div>
 
           <div className="ps-card" style={{ padding: 'var(--ps-space-lg)' }}>
-            <h3 style={{ marginTop: 0 }}>History</h3>
+            <h3 style={{ marginTop: 0, marginBottom: 'var(--ps-space-sm)' }}>History</h3>
             <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
               {activeEvents.map((ev) => (
                 <li key={ev.id} style={{ padding: '6px 0', borderBottom: '1px solid var(--ps-off-white)', fontSize: 'var(--ps-font-sm)' }}>

@@ -136,22 +136,24 @@ export function PEPSPrintablePrescriptionPage() {
         }
         .peps-print-shell {
           min-height: 100vh;
-          padding: 24px;
+          padding: 16px;
           display: flex;
-          justify-content: center;
+          flex-direction: column;
+          align-items: center;
+          gap: 12px;
           background: #eef2f7;
           font-family: "Segoe UI", Arial, sans-serif;
         }
         .peps-print-toolbar {
-          position: fixed;
-          top: 16px;
-          right: 16px;
+          width: 190mm;
+          max-width: 100%;
           display: flex;
+          justify-content: flex-end;
           gap: 8px;
-          z-index: 10;
         }
         .peps-print-sheet {
           width: 190mm;
+          max-width: 100%;
           background: #fff;
           border: 1px solid #d0d7de;
           border-radius: 8px;
@@ -175,6 +177,11 @@ export function PEPSPrintablePrescriptionPage() {
           display: flex;
           justify-content: space-between;
           gap: 12px;
+        }
+        @media screen and (max-width: 600px) {
+          .peps-print-sheet { padding: 16px; }
+          .peps-print-head { flex-direction: column; }
+          .peps-print-watermark { font-size: 64px; }
         }
         .peps-print-title {
           margin: 0 0 6px;
@@ -283,9 +290,9 @@ export function PEPSPrintablePrescriptionPage() {
         <section className="peps-print-section">
           <strong>Medication</strong>
           <ol className="peps-print-items">
-            {activeItems.map((item, idx) => (
+            {activeItems.map((item) => (
               <li key={item.id}>
-                <div><strong>{idx + 1}. {item.drug_name}</strong> - {item.quantity}</div>
+                <div><strong>{item.drug_name}</strong> - {item.quantity}</div>
                 {item.dosage && <div className="peps-print-dose">{item.dosage}</div>}
                 {item.cd_category && item.cd_category !== '0000' && (
                   <div className="peps-print-dose">{PEPS_CD_LABELS[pepsCdSchedule(item.cd_category)]}</div>

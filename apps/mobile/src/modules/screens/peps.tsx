@@ -547,10 +547,11 @@ function QueueScreen() {
   return (
     <View style={styles.screen}>
       {verified === false ? (
-        <Text style={[styles.alertWarn, { margin: 16, marginBottom: 0 }]}>
+        <Text style={[styles.alertWarn, { marginTop: 12 }]}>
           Your pharmacy hasn't been verified yet. You can receive and dispense private prescriptions once PharmStation has checked your pharmacy's details.
         </Text>
       ) : null}
+      <View style={styles.queuePills}>
       <Pills<QueueFilter>
         value={filter}
         onChange={setFilter}
@@ -560,12 +561,13 @@ function QueueScreen() {
           ['done', 'Done'],
         ]}
       />
+      </View>
       {error ? <Text style={styles.error}>{error}</Text> : null}
       <FlatList
         data={shown}
         keyExtractor={(r) => r.id}
         refreshControl={<RefreshControl refreshing={loading} onRefresh={load} />}
-        contentContainerStyle={{ padding: 16, paddingBottom: 40 }}
+        contentContainerStyle={{ paddingVertical: 16, paddingBottom: 40 }}
         ListHeaderComponent={
           filter === 'download' && toDownload.length > 0 ? (
             <View style={{ marginBottom: 12 }}>
@@ -658,7 +660,7 @@ function CollectScreen() {
   }
 
   return (
-    <ScrollView style={styles.screen} contentContainerStyle={{ padding: 16, gap: 14, paddingBottom: 48 }} keyboardShouldPersistTaps="handled">
+    <ScrollView style={styles.screen} contentContainerStyle={{ paddingVertical: 16, gap: 14, paddingBottom: 48 }} keyboardShouldPersistTaps="handled">
       <View>
         <Text style={styles.heading}>Collect a spine prescription</Text>
         <Text style={styles.muted}>
@@ -719,7 +721,7 @@ function NotPrescriber({ prescriber }: { prescriber: Prescriber | null }) {
           ? 'Prescribers register once on the web app (My account, Prescriber setup). PharmStation checks your registration before you can write prescriptions.'
           : 'PharmStation is checking your registration with your regulator. You can write prescriptions once it is approved.'}
       />
-      <View style={{ paddingHorizontal: 16 }}>
+      <View>
         <Action label="Open prescriber setup on the web" variant="secondary" onPress={() => void Linking.openURL(`${WEB_URL}/me/prescriber`)} />
       </View>
     </View>
@@ -765,7 +767,7 @@ function WrittenScreen() {
         data={rows}
         keyExtractor={(r) => r.id}
         refreshControl={<RefreshControl refreshing={loading} onRefresh={load} />}
-        contentContainerStyle={{ padding: 16, paddingBottom: 40 }}
+        contentContainerStyle={{ paddingVertical: 16, paddingBottom: 40 }}
         ListEmptyComponent={loading ? null : <Empty icon="create-outline" title="No prescriptions yet" body="Prescriptions you write appear here, with where they are now." />}
         renderItem={({ item }) => <RxCard rx={item} showWhere onPress={() => setOpenId(item.id)} />}
       />
@@ -965,7 +967,7 @@ function WriteScreen() {
   }
 
   return (
-    <ScrollView style={styles.screen} contentContainerStyle={{ padding: 16, gap: 14, paddingBottom: 64 }} keyboardShouldPersistTaps="handled">
+    <ScrollView style={styles.screen} contentContainerStyle={{ paddingVertical: 16, gap: 14, paddingBottom: 64 }} keyboardShouldPersistTaps="handled">
       <View style={styles.block}>
         <Text style={styles.name}>{prescriber.full_name}</Text>
         <Text style={styles.muted}>{prescriber.registration_body} {prescriber.registration_number}</Text>
@@ -1099,7 +1101,8 @@ const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: palette.bg },
   error: { color: palette.danger, paddingHorizontal: 16, paddingTop: 8 },
   heading: { fontSize: 20, fontWeight: '800', color: palette.text, marginBottom: 4 },
-  pills: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, paddingHorizontal: 0, paddingTop: 0 },
+  pills: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  queuePills: { paddingTop: 12 },
   pill: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: radius.pill, borderWidth: 1, borderColor: palette.border, backgroundColor: palette.surface },
   pillSmall: { minWidth: 40, alignItems: 'center', paddingHorizontal: 10, paddingVertical: 8, borderRadius: radius.pill, borderWidth: 1, borderColor: palette.border, backgroundColor: palette.surface },
   pillOn: { backgroundColor: palette.brand, borderColor: palette.brand },
