@@ -7770,11 +7770,37 @@
    Genie Chat Panel
    ============================================ */
 
+/* Floating launcher, bottom-right of every staff page */
+.genie-fab {
+  position: fixed;
+  right: var(--ps-space-lg);
+  bottom: var(--ps-space-lg);
+  z-index: 500;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ps-space-sm);
+  height: 48px;
+  padding: 0 var(--ps-space-md) 0 14px;
+  border: none;
+  border-radius: var(--ps-radius-full);
+  background: var(--ps-deep-blue);
+  color: var(--ps-white);
+  font-weight: 600;
+  font-size: var(--ps-font-sm);
+  box-shadow: var(--ps-shadow-lg);
+  cursor: pointer;
+  transition: transform var(--ps-transition-fast), box-shadow var(--ps-transition-fast);
+}
+.genie-fab:hover { transform: translateY(-1px); box-shadow: var(--ps-shadow-xl); }
+.genie-fab:focus-visible { outline: 3px solid var(--ps-electric-cyan); outline-offset: 2px; }
+
+/* The panel floats over the page without a backdrop, so the page stays usable. */
 .genie-panel {
   position: fixed;
-  bottom: var(--ps-space-md);
-  left: calc(var(--ps-sidenav-expanded) + var(--ps-space-md));
+  bottom: var(--ps-space-lg);
+  right: var(--ps-space-lg);
   width: 420px;
+  height: min(640px, calc(100vh - var(--ps-topnav-height) - var(--ps-space-xl)));
   max-height: calc(100vh - var(--ps-topnav-height) - var(--ps-space-xl));
   background: var(--ps-white);
   border-radius: var(--ps-radius-xl);
@@ -7786,9 +7812,40 @@
   animation: genie-slide-up 250ms ease;
 }
 
-[data-mode="icons"] ~ .genie-panel,
-.dashboard-layout:has([data-mode="icons"]) .genie-panel {
-  left: calc(var(--ps-sidenav-icons) + var(--ps-space-md));
+/* Proposed changes: confirm cards */
+.genie-action {
+  margin-top: var(--ps-space-sm);
+  padding: 12px;
+  border: 1px solid var(--ps-mist);
+  border-left: 3px solid var(--ps-deep-blue);
+  border-radius: 12px;
+  background: var(--ps-white);
+  font-size: var(--ps-font-sm);
+}
+.genie-action-done { border-left-color: var(--ps-success); }
+.genie-action-failed, .genie-action-expired { border-left-color: var(--ps-error); }
+.genie-action-cancelled { border-left-color: var(--ps-mist); opacity: 0.8; }
+.genie-action-summary { font-weight: 600; color: var(--ps-midnight); }
+.genie-action-details { margin: 6px 0 0; padding-left: 1.1em; color: var(--ps-slate); }
+.genie-action-details li + li { margin-top: 2px; }
+.genie-action-buttons { display: flex; justify-content: flex-end; gap: var(--ps-space-sm); margin-top: 10px; }
+.genie-action-result { margin-top: 8px; color: var(--ps-slate); font-size: var(--ps-font-xs); }
+.genie-action-result a { color: var(--ps-deep-blue); font-weight: 600; }
+
+.genie-page-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  margin-bottom: 6px;
+  padding: 2px 8px;
+  border-radius: var(--ps-radius-full);
+  background: var(--ps-off-white);
+  color: var(--ps-slate);
+  font-size: var(--ps-font-xs);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 @keyframes genie-slide-up {
@@ -8419,8 +8476,18 @@
     right: var(--ps-space-sm);
     bottom: var(--ps-space-sm);
     width: auto;
+    height: 80vh;
     max-height: 80vh;
   }
+  .genie-fab {
+    right: var(--ps-space-md);
+    bottom: var(--ps-space-md);
+    width: 52px;
+    height: 52px;
+    padding: 0;
+    justify-content: center;
+  }
+  .genie-fab-label { display: none; }
 }
 
 /* ============================================
@@ -12451,6 +12518,7 @@ textarea.form-input {
   body[data-print-mode="appointments-list"] .top-nav,
   body[data-print-mode="appointments-list"] .side-nav,
   body[data-print-mode="appointments-list"] .genie-panel,
+  body[data-print-mode="appointments-list"] .genie-fab,
   body[data-print-mode="appointments-list"] .appointments-list-screen-only {
     display: none !important;
   }
@@ -12767,8 +12835,7 @@ textarea.form-input {
     gap: var(--ps-space-sm);
   }
 
-  .genie-panel,
-  .dashboard-layout:has([data-mode="icons"]) .genie-panel {
+  .genie-panel {
     left: var(--ps-space-sm);
     right: var(--ps-space-sm);
     width: auto;
@@ -14455,6 +14522,7 @@ textarea.form-input {
   body[data-print-mode="service-record"] .top-nav,
   body[data-print-mode="service-record"] .side-nav,
   body[data-print-mode="service-record"] .genie-panel,
+  body[data-print-mode="service-record"] .genie-fab,
   body[data-print-mode="service-record"] .page-header,
   body[data-print-mode="service-record"] .no-print {
     display: none !important;
@@ -15206,3 +15274,4 @@ a.modern-shop-product-image, a.modern-shop-product-name { color: var(--ms-ink); 
 @media (max-width: 800px) {
   .activity-filters label { min-width: calc(50% - var(--ps-space-md)); flex: 1 1 calc(50% - var(--ps-space-md)); }
 }
+@media print { .genie-fab, .genie-panel { display: none !important; } }

@@ -793,8 +793,28 @@ export interface GenieUsage {
   limit: number
 }
 
+/** A change Genie proposed; nothing happens until the user confirms it. */
+export interface GenieAction {
+  id: string
+  tool: string
+  summary: string
+  details: string[]
+  status: 'pending' | 'running' | 'done' | 'cancelled' | 'failed' | 'expired'
+  result?: { message?: string; link?: string | null } | null
+  message_id?: string | null
+}
+
+/** The page the user is on when they ask Genie something. */
+export interface GeniePageContext {
+  path: string
+  title: string
+  details?: string
+}
+
 export interface ChatStreamEvent {
-  type: 'text_delta' | 'tool_call_start' | 'tool_call_delta' | 'tool_call_end' | 'tool_result' | 'done' | 'error' | 'conversation_created' | 'message_saved'
+  type: 'text_delta' | 'tool_call_start' | 'tool_call_delta' | 'tool_call_end' | 'tool_result' | 'done' | 'error' | 'conversation_created' | 'message_saved' | 'action_proposed'
+  // action_proposed
+  action?: GenieAction
   // text_delta
   content?: string
   // tool_call

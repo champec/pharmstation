@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
-import { useUIStore, useChatStore, useSubscriptionStore, useAuthStore, featureForPath } from '@pharmstation/core'
+import { useUIStore, useSubscriptionStore, useAuthStore, featureForPath } from '@pharmstation/core'
 import { useIsMobile } from '../../hooks/useIsMobile'
 import { PLANS_ENFORCED } from '../../lib/billing'
 import { getUserClient } from '@pharmstation/supabase-client'
-import { Activity, BookMarked, BookOpenCheck, Building2, CalendarClock, CalendarDays, CalendarRange, Car, ChevronRight, ClipboardList, Clock, Contact, CreditCard, FileSignature, FileText, FolderOpen, History, Home, Inbox, LayoutDashboard, LayoutGrid, LayoutTemplate, Library, LifeBuoy, Link, List, Lock, Megaphone, MessageSquare, MessagesSquare, Network, NotebookPen, Package, PenLine, PhoneIncoming, Pill, Plus, Receipt, RotateCcw, ScanLine, Settings, Settings2, ShieldPlus, ShoppingBag, Sparkles, Stethoscope, StickyNote, Store, Timer, Truck, Undo2, UserCheck, Users, Video, Wrench, type LucideIcon } from 'lucide-react'
+import { Activity, BookMarked, BookOpenCheck, Building2, CalendarClock, CalendarDays, CalendarRange, Car, ChevronRight, ClipboardList, Clock, Contact, CreditCard, FileSignature, FileText, FolderOpen, History, Home, Inbox, LayoutDashboard, LayoutGrid, LayoutTemplate, Library, LifeBuoy, Link, List, Lock, Megaphone, MessageSquare, MessagesSquare, Network, NotebookPen, Package, PenLine, PhoneIncoming, Pill, Plus, Receipt, RotateCcw, ScanLine, Settings, Settings2, ShieldPlus, ShoppingBag, Stethoscope, StickyNote, Store, Timer, Truck, Undo2, UserCheck, Users, Video, Wrench, type LucideIcon } from 'lucide-react'
 
 interface NavItem {
   to: string
@@ -223,7 +223,6 @@ function matchScore(item: NavItem, pathname: string, search: string): number {
 export function SideNav() {
   const { sideNavMode, mobileNavOpen } = useUIStore()
   const isMobile = useIsMobile()
-  const chatOpen = useChatStore((state) => state.isOpen)
   const location = useLocation()
   const planLoaded = useSubscriptionStore((s) => s.loaded)
   const hasFeature = useSubscriptionStore((s) => s.hasFeature)
@@ -374,15 +373,6 @@ export function SideNav() {
       </nav>
 
       <div className="side-nav-footer">
-        <button
-          type="button"
-          className={`side-nav-item genie-nav-btn ${chatOpen ? 'active' : ''}`}
-          onClick={() => useChatStore.getState().toggleOpen()}
-          title="Genie AI Assistant"
-        >
-          <span className="side-nav-item-icon"><Sparkles size={18} strokeWidth={1.75} aria-hidden="true" /></span>
-          {isExpanded && <span className="side-nav-item-label">Genie</span>}
-        </button>
         <NavLink to="/settings" className={({ isActive }) => `side-nav-item ${isActive ? 'active' : ''}`}>
           <span className="side-nav-item-icon"><Settings size={18} strokeWidth={1.75} aria-hidden="true" /></span>
           {isExpanded && <span className="side-nav-item-label">Settings</span>}

@@ -11,6 +11,8 @@ import type {
   ChatMessage,
   ChatAttachment,
   ChatStreamEvent,
+  GenieAction,
+  GeniePageContext,
   GenieUsage,
 } from '@pharmstation/types'
 import { getUserClient } from '@pharmstation/supabase-client'
@@ -40,6 +42,9 @@ export interface ChatState {
   /** This month's Genie messages for the pharmacy (null until known). */
   usage: GenieUsage | null
 
+  /** Changes Genie proposed in the open conversation (confirm cards). */
+  actions: GenieAction[]
+
   // UI
   isOpen: boolean
   showSettings: boolean
@@ -63,9 +68,18 @@ export interface ChatState {
     modelId?: string
     supabaseUrl: string
     accessToken: string
+    pageContext?: GeniePageContext | null
+  }) => Promise<void>
+  /** Confirm or cancel a proposed change. */
+  decideAction: (params: {
+    actionId: string
+    decision: 'confirm' | 'cancel'
+    supabaseUrl: string
+    accessToken: string
   }) => Promise<void>
   stopStreaming: () => void
   toggleOpen: () => void
+  setOpen: (open: boolean) => void
   setShowSettings: (show: boolean) => void
   setShowHistory: (show: boolean) => void
   reset: () => void
@@ -90,6 +104,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
   abortController: null,
   lastError: null,
   usage: null,
+  actions: [],
 
   isOpen: false,
   showSettings: false,
@@ -186,14 +201,22 @@ export const useChatStore = create<ChatState>((set, get) => ({
   loadMessages: async (conversationId: string) => {
     set({ messagesLoading: true, activeConversationId: conversationId })
     try {
-      const { data, error } = await getUserClient()
-        .from('ps_chat_messages')
-        .select('*')
-        .eq('conversation_id', conversationId)
-        .order('created_at', { ascending: true })
+      const [{ data, error }, { data: actions }] = await Promise.all([
+        getUserClient()
+          .from('ps_chat_messages')
+          .select('*')
+          .eq('conversation_id', conversationId)
+          .order('created_at', { ascending: true }),
+        getUserClient()
+          .from('ps_genie_actions')
+          .select('id, tool, summary, details, status, result, message_id')
+          .eq('conversation_id', conversationId)
+          .order('created_at', { ascending: true }),
+      ])
 
       if (error) throw error
-      set({ messages: (data as ChatMessage[]) ?? [] })
+      if (get().activeConversationId !== conversationId) return
+      set({ messages: (data as ChatMessage[]) ?? [], actions: (actions as GenieAction[] | null) ?? [] })
     } catch (err) {
       console.error('Failed to load messages:', err)
     } finally {
@@ -205,7 +228,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
   // Set active conversation
   // ============================================
   setActiveConversation: (id: string | null) => {
-    set({ activeConversationId: id, messages: [], showHistory: false })
+    set({ activeConversationId: id, messages: [], actions: [], showHistory: false })
     if (id) {
       get().loadMessages(id)
     }
@@ -218,6 +241,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
     set({
       activeConversationId: null,
       messages: [],
+      actions: [],
       streamingContent: '',
       streamingToolCalls: [],
       lastError: null,
@@ -281,6 +305,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
     modelId,
     supabaseUrl,
     accessToken,
+    pageContext,
   }) => {
     const { activeConversationId, messages } = get()
 
@@ -325,6 +350,9 @@ export const useChatStore = create<ChatState>((set, get) => ({
       }
       if (modelId) {
         body.model_id = modelId
+      }
+      if (pageContext) {
+        body.page_context = pageContext
       }
 
       const response = await fetch(`${supabaseUrl}/functions/v1/ai-chat`, {
@@ -389,6 +417,10 @@ export const useChatStore = create<ChatState>((set, get) => ({
             })
             break
 
+          case 'action_proposed':
+            if (event.action) set({ actions: [...get().actions, { ...event.action, message_id: null }] })
+            break
+
           case 'message_saved':
             savedMessageId = event.message_id ?? savedMessageId
             break
@@ -414,6 +446,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
             }
             set({
               messages: [...get().messages, assistantMsg],
+              // Cards proposed during this answer belong under it.
+              actions: get().actions.map((a) => (a.message_id ? a : { ...a, message_id: assistantMsg.id })),
               isStreaming: false,
               streamingContent: '',
               streamingToolCalls: [],
@@ -504,6 +538,30 @@ export const useChatStore = create<ChatState>((set, get) => ({
   },
 
   // ============================================
+  // Confirm / cancel a proposed change
+  // ============================================
+  decideAction: async ({ actionId, decision, supabaseUrl, accessToken }) => {
+    const patch = (changes: Partial<GenieAction>) =>
+      set({ actions: get().actions.map((a) => (a.id === actionId ? { ...a, ...changes } : a)) })
+    patch({ status: 'running' })
+    try {
+      const response = await fetch(`${supabaseUrl}/functions/v1/ai-chat`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
+        body: JSON.stringify({ action_id: actionId, decision }),
+      })
+      const body = await response.json().catch(() => ({}))
+      const status = (body.status as GenieAction['status']) ?? (response.ok ? 'done' : 'failed')
+      patch({
+        status,
+        result: { message: body.message ?? body.error ?? (response.ok ? undefined : 'That change could not be made.'), link: body.link ?? null },
+      })
+    } catch {
+      patch({ status: 'pending', result: { message: 'Genie could not be reached. Check your connection and try again.' } })
+    }
+  },
+
+  // ============================================
   // Stop streaming
   // ============================================
   stopStreaming: () => {
@@ -516,6 +574,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
   // UI
   // ============================================
   toggleOpen: () => set({ isOpen: !get().isOpen }),
+  setOpen: (open: boolean) => set({ isOpen: open }),
   setShowSettings: (show) => set({ showSettings: show }),
   setShowHistory: (show) => set({ showHistory: show }),
 
@@ -530,6 +589,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
       abortController: null,
       lastError: null,
       usage: null,
+      actions: [],
       isOpen: false,
       showSettings: false,
       showHistory: false,
