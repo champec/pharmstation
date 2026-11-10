@@ -3,7 +3,7 @@ import { NavLink, useLocation } from 'react-router-dom'
 import { useUIStore, useChatStore, useSubscriptionStore, useAuthStore, featureForPath } from '@pharmstation/core'
 import { useIsMobile } from '../../hooks/useIsMobile'
 import { PLANS_ENFORCED } from '../../lib/billing'
-import { BookMarked, BookOpenCheck, Building2, CalendarClock, CalendarDays, CalendarRange, Car, ChevronRight, ClipboardList, Clock, Contact, CreditCard, FileSignature, FileText, FolderOpen, History, Home, Inbox, LayoutDashboard, LayoutGrid, LayoutTemplate, Library, LifeBuoy, Link, List, Lock, Megaphone, MessageSquare, MessagesSquare, Network, NotebookPen, Package, PenLine, PhoneIncoming, Pill, Plus, Receipt, RotateCcw, ScanLine, Settings, Settings2, ShieldPlus, ShoppingBag, Sparkles, Stethoscope, StickyNote, Store, Timer, Truck, Undo2, UserCheck, Users, Video, Wrench, type LucideIcon } from 'lucide-react'
+import { Activity, BookMarked, BookOpenCheck, Building2, CalendarClock, CalendarDays, CalendarRange, Car, ChevronRight, ClipboardList, Clock, Contact, CreditCard, FileSignature, FileText, FolderOpen, History, Home, Inbox, LayoutDashboard, LayoutGrid, LayoutTemplate, Library, LifeBuoy, Link, List, Lock, Megaphone, MessageSquare, MessagesSquare, Network, NotebookPen, Package, PenLine, PhoneIncoming, Pill, Plus, Receipt, RotateCcw, ScanLine, Settings, Settings2, ShieldPlus, ShoppingBag, Sparkles, Stethoscope, StickyNote, Store, Timer, Truck, Undo2, UserCheck, Users, Video, Wrench, type LucideIcon } from 'lucide-react'
 
 interface NavItem {
   to: string
@@ -23,7 +23,10 @@ interface NavSection {
 const menuSections: NavSection[] = [
   {
     title: '',
-    items: [{ to: '/', icon: LayoutDashboard, label: 'Dashboard' }],
+    items: [
+      { to: '/', icon: LayoutDashboard, label: 'Dashboard' },
+      { to: '/oversight', icon: Activity, label: 'Oversight' },
+    ],
   },
   {
     title: 'Outreach',
@@ -230,7 +233,11 @@ export function SideNav() {
   const canViewCareHomes = permissions?.care_home_view === true
   const canManageCareHomes = !isCareHomeOrg && permissions?.care_home_manage === true
   /** Care home logins only see their care home workspace; pharmacy staff need care_home_view. */
+  const canOversee = permissions?.view_audit === true
   const visibleSections = useMemo(() => menuSections
+    .map((section) => section.title === '' && !canOversee
+      ? { ...section, items: section.items.filter((item) => item.to !== '/oversight') }
+      : section)
     .filter((section) => {
       if (isCareHomeOrg) return section.title === '' || section.title === 'Care Homes'
       if (section.title === 'Care Homes') return canViewCareHomes
@@ -238,7 +245,7 @@ export function SideNav() {
     })
     .map((section) => section.title === 'Care Homes' && !canManageCareHomes
       ? { ...section, items: section.items.filter((item) => item.to !== '/care-homes/manage') }
-      : section), [isCareHomeOrg, canViewCareHomes, canManageCareHomes])
+      : section), [isCareHomeOrg, canViewCareHomes, canManageCareHomes, canOversee])
   const isLocked = (to: string) => {
     if (!PLANS_ENFORCED || !planLoaded) return false
     const feature = featureForPath(to.split('?')[0])

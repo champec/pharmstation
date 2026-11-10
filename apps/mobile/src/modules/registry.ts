@@ -213,6 +213,13 @@ export const MODULES: MobileModule[] = [
     visible: (ctx) => ctx.isOrgConnected,
     tabs: [
       {
+        id: 'oversight',
+        title: 'Oversight',
+        icon: 'pulse-outline',
+        visible: (ctx) => has(ctx.permissions, 'view_audit'),
+        blurb: 'Alerts and activity across every pharmacy you manage',
+      },
+      {
         id: 'cd-register',
         title: 'CD Register',
         icon: 'lock-closed-outline',

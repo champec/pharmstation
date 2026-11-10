@@ -26,6 +26,7 @@ import { CDLedgerPage } from './pages/registers/CDLedgerPage'
 import { RPLogPage } from './pages/registers/RPLogPage'
 import { ReturnsPage } from './pages/registers/ReturnsPage'
 import { SettingsPage } from './pages/SettingsPage'
+import { OversightPage } from './pages/oversight/OversightPage'
 import { RPCertificatePage } from './pages/public/RPCertificatePage'
 import { ScanQueuePage } from './pages/registers/ScanQueuePage'
 // Expansion — Services
@@ -376,6 +377,7 @@ export function App() {
         <Route path="/registers/scan" element={<ScanQueuePage />} />
         <Route path="/registers/rp" element={<RPLogPage />} />
         <Route path="/registers/returns" element={<ReturnsPage />} />
+        <Route path="/oversight" element={<OversightPage />} />
         <Route path="/settings" element={<SettingsPage />} />
         <Route path="/outreach" element={<PharmacyOutreachPage />} />
         <Route path="/patient-safety" element={<PatientSafetyPage />} />

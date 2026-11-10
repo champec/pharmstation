@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuthStore } from '@pharmstation/core'
-import { BookMarked, CalendarClock, Map, MessagesSquare, Network, NotebookPen, BookOpenCheck, Settings, Truck, type LucideIcon } from 'lucide-react'
+import { Activity, BookMarked, CalendarClock, Map, MessagesSquare, Network, NotebookPen, BookOpenCheck, Settings, Truck, type LucideIcon } from 'lucide-react'
 import { PharmacyMapModal } from '../components/maps/PharmacyMapModal'
 import { RpStatusCard } from '../components/registers/RpStatusCard'
 import { PageHeader } from '../components/ui'
@@ -25,7 +25,7 @@ function greeting() {
 }
 
 export function DashboardPage() {
-  const { activeUser, organisation } = useAuthStore()
+  const { activeUser, organisation, permissions } = useAuthStore()
   const [showMap, setShowMap] = useState(false)
   const firstName = activeUser?.full_name?.split(' ')[0]
 
@@ -34,11 +34,16 @@ export function DashboardPage() {
       <PageHeader
         title={`${greeting()}${firstName ? `, ${firstName}` : ''}`}
         subtitle={organisation?.name ? `You're signed in to ${organisation.name}.` : undefined}
-        actions={
+        actions={<>
+          {permissions?.view_audit && (
+            <Link to="/oversight" className="ps-btn ps-btn-secondary">
+              <Activity size={16} aria-hidden="true" /> Oversight
+            </Link>
+          )}
           <button className="ps-btn ps-btn-secondary" onClick={() => setShowMap(true)}>
             <Map size={16} aria-hidden="true" /> Pharmacy map
           </button>
-        }
+        </>}
       />
 
       <RpStatusCard />
