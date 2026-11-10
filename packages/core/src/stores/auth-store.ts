@@ -27,6 +27,7 @@ import {
   resumeShiftPass,
   dropShiftPass,
   endAllShiftPasses,
+  primeShiftPass,
 } from '@pharmstation/supabase-client'
 
 export interface AuthState {
@@ -313,6 +314,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       if (!data.user || !data.session) {
         throw new Error('Login returned no session. Please try again.')
       }
+
+      // Pharmacy computer: keep a password-derived key in memory so a later
+      // "Switch user" can park this session encrypted (see shift-pass.ts).
+      if (orgId) await primeShiftPass(orgId, email, password)
 
       // Accounts with two-step sign-in stop here until the code is entered.
       const mfa = await getMfaStatus()
