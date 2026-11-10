@@ -9,6 +9,7 @@ import {
   type PatientSafetyReportData,
   type ReportStatus,
 } from './patientSafetyRepository'
+import { confirmDialog } from '../../components/ui/dialog'
 
 const steps = ['Event', 'People', 'Impact', 'Context', 'Learning', 'Review']
 
@@ -151,7 +152,7 @@ export function PatientSafetyPage() {
   }
 
   const removeReport = async (report: PatientSafetyReport) => {
-    if (!window.confirm(`Delete draft ${report.reference}? This cannot be undone.`)) return
+    if (!await confirmDialog(`Delete draft ${report.reference}? This cannot be undone.`)) return
     try {
       await deletePatientSafetyReport(report.id)
       setReports((current) => current.filter((item) => item.id !== report.id))

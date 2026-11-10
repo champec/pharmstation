@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom'
 import { useAuthStore, useAppointmentStore, useServiceStore, psNotify } from '@pharmstation/core'
 import { getUserClient } from '@pharmstation/supabase-client'
 import type { Service, ServiceForm, ServiceFormField, AppointmentSlot } from '@pharmstation/types'
+import { CalendarCheck } from 'lucide-react'
+import { alertDialog, promptDialog } from '../../components/ui/dialog'
 
 /* ---- Patient search option ---- */
 interface PatientOption {
@@ -17,7 +19,7 @@ export function NewAppointmentPage() {
   const navigate = useNavigate()
   const { organisation, activeUser } = useAuthStore()
   const { services, fetchServices, fetchServiceDetail, activeForms, fetchFormFields, activeFields } = useServiceStore()
-  const { slots, fetchSlots, bookAppointment, clearError, error } = useAppointmentStore()
+  const { slots, fetchSlots, bookAppointment, createSlot, clearError, error } = useAppointmentStore()
 
   /* ---- Step control ---- */
   const [step, setStep] = useState<'service' | 'patient' | 'slot' | 'form' | 'confirm'>('service')
@@ -43,6 +45,8 @@ export function NewAppointmentPage() {
   /* ---- Slot ---- */
   const [selectedDate, setSelectedDate] = useState('')
   const [selectedSlot, setSelectedSlot] = useState<AppointmentSlot | null>(null)
+  // No free slot (e.g. a walk-in): staff type a time and a one-off slot is made.
+  const [customTime, setCustomTime] = useState('')
 
   /* ---- Form ---- */
   const [selectedForm, setSelectedForm] = useState<ServiceForm | null>(null)
@@ -55,6 +59,17 @@ export function NewAppointmentPage() {
   const [completed, setCompleted] = useState(false)
   const [createdId, setCreatedId] = useState<string | null>(null)
   const [sendConfirmation, setSendConfirmation] = useState(true)
+  // Only offer the text when the pharmacy's SMS is switched on.
+  const [smsActive, setSmsActive] = useState<boolean | null>(null)
+  useEffect(() => {
+    if (!organisation?.id) return
+    getUserClient().from('ps_sms_settings').select('is_active').eq('org_id', organisation.id).maybeSingle()
+      .then(({ data }) => {
+        const on = !!(data as { is_active?: boolean } | null)?.is_active
+        setSmsActive(on)
+        if (!on) setSendConfirmation(false)
+      })
+  }, [organisation?.id])
   const [confirmationNote, setConfirmationNote] = useState<string | null>(null)
 
   const load = useCallback(() => {
@@ -135,7 +150,7 @@ export function NewAppointmentPage() {
       setSelectedPatient(data as PatientOption)
       setShowNewPatient(false)
     } catch (e: any) {
-      alert(e.message)
+      alertDialog(e.message)
     }
   }
 
@@ -149,17 +164,37 @@ export function NewAppointmentPage() {
       })
   }, [activeFields, formData])
 
+  // The typed time on the chosen date, for a booking without a free slot.
+  const customStart = useMemo(() => {
+    if (selectedSlot || !selectedDate || !customTime) return null
+    const d = new Date(`${selectedDate}T${customTime}:00`)
+    return Number.isNaN(d.getTime()) ? null : d
+  }, [selectedSlot, selectedDate, customTime])
+
   /* ---- Submit ---- */
   const handleSubmit = async () => {
     if (!organisation?.id || !selectedPatient) return
     setSubmitting(true)
     setSubmitError(null)
     try {
+      let slot = selectedSlot
+      if (!slot && customStart && selectedServiceId) {
+        const minutes = selectedService?.duration_minutes || 15
+        slot = await createSlot({
+          org_id: organisation.id,
+          service_id: selectedServiceId,
+          start_time: customStart.toISOString(),
+          end_time: new Date(customStart.getTime() + minutes * 60_000).toISOString(),
+          max_bookings: 1,
+          is_recurring: false,
+          is_active: true,
+        } as Partial<AppointmentSlot>)
+      }
       const created = await bookAppointment({
         org_id: organisation.id,
         service_id: selectedServiceId || undefined,
         patient_id: selectedPatient.id,
-        slot_id: selectedSlot?.id || undefined,
+        slot_id: slot?.id || undefined,
         form_id: selectedForm?.id || undefined,
         form_data: formData,
         notes: notes || undefined,
@@ -169,10 +204,11 @@ export function NewAppointmentPage() {
       setCreatedId(created.id)
 
       // Best-effort SMS confirmation — never blocks the booking.
-      if (sendConfirmation && (selectedPatient.phone || selectedPatient.id)) {
+      if (sendConfirmation && smsActive && selectedPatient.phone) {
         try {
-          const whenStr = selectedSlot
-            ? new Date(selectedSlot.start_time).toLocaleString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
+          const whenFrom = selectedSlot ? new Date(selectedSlot.start_time) : customStart
+          const whenStr = whenFrom
+            ? whenFrom.toLocaleString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
             : 'the agreed time'
           await psNotify.appointmentBooked({
             orgId: organisation.id,
@@ -198,9 +234,9 @@ export function NewAppointmentPage() {
   if (completed) {
     return (
       <div>
-        <div className="page-header"><h1>✅ Appointment Booked</h1></div>
+        <div className="page-header"><h1>Appointment Booked</h1></div>
         <div className="ps-card" style={{ padding: 'var(--ps-space-2xl)', textAlign: 'center' }}>
-          <div style={{ fontSize: '64px', marginBottom: 'var(--ps-space-md)' }}>📅</div>
+          <span className="ps-empty-icon success" aria-hidden="true"><CalendarCheck size={26} strokeWidth={1.75} /></span>
           <h2 style={{ color: 'var(--ps-midnight)', marginBottom: 'var(--ps-space-sm)' }}>
             Appointment Created
           </h2>
@@ -211,7 +247,7 @@ export function NewAppointmentPage() {
           </p>
           {confirmationNote && (
             <p style={{ color: 'var(--ps-slate)', fontSize: 'var(--ps-font-sm)', marginBottom: 'var(--ps-space-lg)' }}>
-              📲 {confirmationNote}
+              {confirmationNote}
             </p>
           )}
           <div style={{ display: 'flex', gap: 'var(--ps-space-sm)', justifyContent: 'center' }}>
@@ -242,7 +278,7 @@ export function NewAppointmentPage() {
           <span>New</span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <h1>📅 New Appointment</h1>
+          <h1>New Appointment</h1>
           <button className="ps-btn ps-btn-secondary" onClick={() => navigate('/appointments')}>← Back to Appointments</button>
         </div>
       </div>
@@ -284,7 +320,7 @@ export function NewAppointmentPage() {
       {step === 'service' && (
         <div className="ps-card" style={{ padding: 'var(--ps-space-lg)' }}>
           <h2 style={{ fontSize: 'var(--ps-font-lg)', fontWeight: 600, color: 'var(--ps-midnight)', marginBottom: 'var(--ps-space-md)' }}>
-            🩺 Select Service (optional)
+            Select Service (optional)
           </h2>
           <p style={{ color: 'var(--ps-slate)', fontSize: 'var(--ps-font-sm)', marginBottom: 'var(--ps-space-md)' }}>
             Choose a service for this appointment, or skip if it's a general consultation.
@@ -305,7 +341,7 @@ export function NewAppointmentPage() {
               >
                 <h3 style={{ fontSize: 'var(--ps-font-md)', margin: 0 }}>{service.name}</h3>
                 <p style={{ fontSize: 'var(--ps-font-sm)', color: 'var(--ps-slate)', margin: 'var(--ps-space-xs) 0 0' }}>
-                  ⏱ {service.duration_minutes} min
+                  {service.duration_minutes} min
                 </p>
               </div>
             ))}
@@ -338,7 +374,7 @@ export function NewAppointmentPage() {
       {step === 'patient' && (
         <div className="ps-card" style={{ padding: 'var(--ps-space-lg)' }}>
           <h2 style={{ fontSize: 'var(--ps-font-lg)', fontWeight: 600, color: 'var(--ps-midnight)', marginBottom: 'var(--ps-space-md)' }}>
-            👤 Select or Create Patient
+            Select or Create Patient
           </h2>
 
           <div className="form-group">
@@ -446,7 +482,7 @@ export function NewAppointmentPage() {
       {step === 'slot' && (
         <div className="ps-card" style={{ padding: 'var(--ps-space-lg)' }}>
           <h2 style={{ fontSize: 'var(--ps-font-lg)', fontWeight: 600, color: 'var(--ps-midnight)', marginBottom: 'var(--ps-space-md)' }}>
-            🕐 Select Time Slot
+            Select Time Slot
           </h2>
 
           <div className="form-group">
@@ -455,14 +491,31 @@ export function NewAppointmentPage() {
               className="ps-input"
               type="date"
               value={selectedDate}
-              onChange={(e) => { setSelectedDate(e.target.value); setSelectedSlot(null) }}
+              onChange={(e) => { setSelectedDate(e.target.value); setSelectedSlot(null); setCustomTime('') }}
             />
           </div>
 
           {selectedDate && dateSlots.length === 0 && (
-            <p style={{ color: 'var(--ps-slate)', fontSize: 'var(--ps-font-sm)' }}>
-              No available slots for this date{selectedServiceId ? ' and service' : ''}. You can still proceed without a specific slot.
-            </p>
+            selectedServiceId ? (
+              <div className="form-group" style={{ maxWidth: 320 }}>
+                <label htmlFor="custom-time">No free slots on this date. Enter a time instead</label>
+                <input
+                  id="custom-time"
+                  className="ps-input"
+                  type="time"
+                  step={300}
+                  value={customTime}
+                  onChange={(e) => setCustomTime(e.target.value)}
+                />
+                <small style={{ color: 'var(--ps-slate)' }}>
+                  A one-off {selectedService?.duration_minutes || 15}-minute slot is added for this booking.
+                </small>
+              </div>
+            ) : (
+              <p style={{ color: 'var(--ps-slate)', fontSize: 'var(--ps-font-sm)' }}>
+                No slots on this date. Choose a service on step 1 to book a specific time, or continue without one.
+              </p>
+            )
           )}
 
           {dateSlots.length > 0 && (
@@ -498,7 +551,12 @@ export function NewAppointmentPage() {
 
           <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 'var(--ps-space-lg)' }}>
             <button className="ps-btn ps-btn-secondary" onClick={() => setStep('patient')}>← Back</button>
-            <button className="ps-btn ps-btn-primary" onClick={() => setStep(selectedServiceId && activeForms.length > 0 ? 'form' : 'confirm')}>
+            <button
+              className="ps-btn ps-btn-primary"
+              disabled={!!selectedServiceId && !!selectedDate && !selectedSlot && !customStart}
+              title={!!selectedServiceId && !!selectedDate && !selectedSlot && !customStart ? 'Pick a slot or enter a time' : undefined}
+              onClick={() => setStep(selectedServiceId && activeForms.length > 0 ? 'form' : 'confirm')}
+            >
               {selectedServiceId && activeForms.length > 0 ? 'Next: Fill Form →' : 'Next: Confirm →'}
             </button>
           </div>
@@ -510,7 +568,7 @@ export function NewAppointmentPage() {
         <div className="ps-card" style={{ padding: 'var(--ps-space-lg)' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 'var(--ps-space-lg)' }}>
             <h2 style={{ fontSize: 'var(--ps-font-lg)', fontWeight: 600, color: 'var(--ps-midnight)', margin: 0 }}>
-              📝 {selectedForm?.name || 'Service Form'}
+              {selectedForm?.name || 'Service Form'}
             </h2>
             {activeForms.length > 1 && (
               <select
@@ -548,8 +606,8 @@ export function NewAppointmentPage() {
           </div>
 
           {requiredFieldsMissing.length > 0 && (
-            <div style={{ fontSize: 'var(--ps-font-sm)', color: 'var(--ps-error)', marginBottom: 'var(--ps-space-md)' }}>
-              Missing required: {requiredFieldsMissing.map((f) => f.label).join(', ')}
+            <div style={{ fontSize: 'var(--ps-font-sm)', color: 'var(--ps-slate)', marginBottom: 'var(--ps-space-md)' }}>
+              You can leave the form for now. These need filling in before the service is recorded: {requiredFieldsMissing.map((f) => f.label).join(', ')}.
             </div>
           )}
 
@@ -564,7 +622,7 @@ export function NewAppointmentPage() {
       {step === 'confirm' && (
         <div className="ps-card" style={{ padding: 'var(--ps-space-lg)' }}>
           <h2 style={{ fontSize: 'var(--ps-font-lg)', fontWeight: 600, color: 'var(--ps-midnight)', marginBottom: 'var(--ps-space-lg)' }}>
-            ✅ Review & Confirm
+            Review & Confirm
           </h2>
 
           <div style={{ display: 'grid', gridTemplateColumns: '140px 1fr', gap: 'var(--ps-space-sm)', fontSize: 'var(--ps-font-sm)', marginBottom: 'var(--ps-space-lg)' }}>
@@ -575,7 +633,11 @@ export function NewAppointmentPage() {
             <span>{selectedPatient ? `${selectedPatient.first_name} ${selectedPatient.last_name}` : '—'}</span>
 
             <strong>Time Slot:</strong>
-            <span>{selectedSlot ? `${new Date(selectedSlot.start_time).toLocaleString('en-GB')} – ${new Date(selectedSlot.end_time).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}` : 'No slot selected'}</span>
+            <span>{selectedSlot
+              ? `${new Date(selectedSlot.start_time).toLocaleString('en-GB')} – ${new Date(selectedSlot.end_time).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}`
+              : customStart
+                ? `${customStart.toLocaleString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })} (one-off slot)`
+                : 'No time set'}</span>
 
             <strong>Staff:</strong>
             <span>{activeUser?.full_name || activeUser?.email || 'Unknown'}</span>
@@ -607,11 +669,20 @@ export function NewAppointmentPage() {
           )}
 
           {/* Confirmation text toggle */}
-          <label style={{ display: 'flex', alignItems: 'center', gap: 'var(--ps-space-sm)', cursor: 'pointer', fontSize: 'var(--ps-font-sm)', color: 'var(--ps-slate)', marginBottom: 'var(--ps-space-md)' }}>
-            <input type="checkbox" checked={sendConfirmation} onChange={(e) => setSendConfirmation(e.target.checked)} />
-            Send the patient an SMS confirmation
-            {!selectedPatient?.phone && <span style={{ color: 'var(--ps-warning)' }}> (no phone on file — will be skipped)</span>}
-          </label>
+          {smsActive === false ? (
+            <p style={{ fontSize: 'var(--ps-font-sm)', color: 'var(--ps-slate)', marginBottom: 'var(--ps-space-md)' }}>
+              No confirmation text will be sent: SMS isn't switched on for this pharmacy (Settings → Messaging).
+            </p>
+          ) : !selectedPatient?.phone ? (
+            <p style={{ fontSize: 'var(--ps-font-sm)', color: 'var(--ps-slate)', marginBottom: 'var(--ps-space-md)' }}>
+              No confirmation text will be sent: the patient has no mobile number on file.
+            </p>
+          ) : (
+            <label style={{ display: 'flex', alignItems: 'center', gap: 'var(--ps-space-sm)', cursor: 'pointer', fontSize: 'var(--ps-font-sm)', color: 'var(--ps-slate)', marginBottom: 'var(--ps-space-md)' }}>
+              <input type="checkbox" checked={sendConfirmation} disabled={smsActive === null} onChange={(e) => setSendConfirmation(e.target.checked)} />
+              Send the patient a confirmation text
+            </label>
+          )}
 
           <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 'var(--ps-space-lg)' }}>
             <button className="ps-btn ps-btn-secondary" onClick={() => setStep(selectedServiceId && activeForms.length > 0 ? 'form' : 'slot')}>
@@ -672,7 +743,7 @@ function FormField({ field, value, onChange }: { field: ServiceFormField; value:
       {field.field_type === 'signature' && (
         <div
           style={{ border: '2px dashed var(--ps-cloud-blue)', borderRadius: 'var(--ps-radius-md)', padding: 'var(--ps-space-lg)', textAlign: 'center', color: 'var(--ps-mist)', cursor: 'pointer' }}
-          onClick={() => { const name = window.prompt('Type name for signature:'); if (name) onChange(name) }}
+          onClick={async () => { const name = await promptDialog('Type name for signature:'); if (name) onChange(name) }}
         >
           {value ? <span style={{ color: 'var(--ps-midnight)', fontStyle: 'italic', fontSize: 'var(--ps-font-lg)' }}>{value as string}</span> : 'Click to sign'}
         </div>

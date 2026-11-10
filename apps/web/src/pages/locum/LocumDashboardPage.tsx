@@ -66,12 +66,10 @@ export function LocumDashboardPage() {
         // Upcoming confirmed bookings (this + future shifts)
         client
           .from('ps_locum_bookings')
-          .select('id, shift_id, status, shift:ps_locum_shifts(date, start_time, end_time, rate_per_hour, org_id)')
+          .select('id, shift_id, status, shift:ps_locum_shifts!inner(date, start_time, end_time, rate_per_hour, org_id)')
           .eq('locum_id', locumProfile.id)
           .eq('status', 'approved')
-          .gte('ps_locum_shifts.date', today)
-          .order('ps_locum_shifts(date)', { ascending: true })
-          .limit(5),
+          .gte('shift.date', today),
 
         // Pending applications count
         client
@@ -89,7 +87,11 @@ export function LocumDashboardPage() {
           .limit(4),
       ])
 
-      setUpcoming((upcomingRes.data ?? []) as unknown as UpcomingBooking[])
+      if (upcomingRes.error) throw upcomingRes.error
+      type Up = UpcomingBooking & { shift: { date: string; start_time: string } }
+      setUpcoming(((upcomingRes.data ?? []) as unknown as Up[])
+        .sort((x, y) => (x.shift.date + x.shift.start_time).localeCompare(y.shift.date + y.shift.start_time))
+        .slice(0, 5))
       setPendingCount(pendingRes.count ?? 0)
       setRecentInvoices((invoicesRes.data ?? []) as RecentInvoice[])
 
@@ -155,14 +157,9 @@ export function LocumDashboardPage() {
           <Link to="/locum/bookings" className="stat-card-link">View pending →</Link>
         </div>
         <div className="stat-card">
-          <div className="stat-card-label">Invoices</div>
-          <div className="stat-card-value">{loading ? '…' : recentInvoices.length}</div>
-          <Link to="/locum/invoices" className="stat-card-link">View invoices →</Link>
-        </div>
-        <div className="stat-card">
-          <div className="stat-card-label">Stripe Account</div>
-          <div className="stat-card-value">{locumProfile?.stripe_onboarded ? '✓ Connected' : '—'}</div>
-          <Link to="/locum/profile" className="stat-card-link">Profile →</Link>
+          <div className="stat-card-label">Timesheets</div>
+          <div className="stat-card-value">Weekly</div>
+          <Link to="/locum/timesheets" className="stat-card-link">Print a timesheet →</Link>
         </div>
       </div>
 
@@ -205,7 +202,7 @@ export function LocumDashboardPage() {
             <div style={{ padding: '1.5rem', textAlign: 'center', color: 'var(--ps-slate)' }}>Loading…</div>
           ) : recentInvoices.length === 0 ? (
             <div style={{ padding: '1.5rem', textAlign: 'center' }}>
-              <p className="text-muted">No invoices yet. Invoices are generated the Wednesday after each working week.</p>
+              <p className="text-muted">Pharmacies pay you directly for your shifts. Print a weekly timesheet from Timesheets to send with your invoice.</p>
             </div>
           ) : (
             <table className="ps-table">

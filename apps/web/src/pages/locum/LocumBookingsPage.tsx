@@ -2,6 +2,8 @@ import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { getUserClient } from '@pharmstation/supabase-client'
 import { useAuthStore } from '@pharmstation/core'
+import { bookingModeLabel, bookingStatusLabel } from '../../components/locum/labels'
+import { confirmDialog } from '../../components/ui/dialog'
 
 interface BookingRow {
   id: string
@@ -20,6 +22,7 @@ interface BookingRow {
     status: string
     booking_mode: string
   } | null
+  org?: { name: string; address: string } | null
   sign_in: {
     id: string
     signed_in_at: string
@@ -31,6 +34,12 @@ interface BookingRow {
 type Tab = 'upcoming' | 'pending' | 'past'
 
 function fmt(t: string) { return t.slice(0, 5) }
+function minutesBetween(a: string, b: string) {
+  const [ah, am] = a.split(':').map(Number)
+  const [bh, bm] = b.split(':').map(Number)
+  return bh * 60 + bm - (ah * 60 + am)
+}
+
 function fmtDate(d: string) {
   return new Date(d).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
 }
@@ -87,7 +96,18 @@ export function LocumBookingsPage() {
         }
       }
 
-      setBookings(rows.map((b) => ({ ...b, sign_in: signInMap[b.id] ?? null })))
+      // Pharmacy name and address for each booking
+      const orgIds = [...new Set(rows.flatMap((b) => (b.shift ? [b.shift.org_id] : [])))]
+      const orgMap: Record<string, { name: string; address: string }> = {}
+      if (orgIds.length > 0) {
+        const { data: orgs } = await client.rpc('ps_locum_shift_orgs', { p_org_ids: orgIds })
+        for (const o of (orgs ?? []) as { id: string; name: string; address: Record<string, string> | null }[]) {
+          const a = o.address ?? {}
+          orgMap[o.id] = { name: o.name, address: [a.line_1 ?? a.line1, a.line_2 ?? a.line2, a.city ?? a.town, a.postcode].filter(Boolean).join(', ') }
+        }
+      }
+
+      setBookings(rows.map((b) => ({ ...b, org: b.shift ? orgMap[b.shift.org_id] ?? null : null, sign_in: signInMap[b.id] ?? null })))
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load bookings')
     } finally {
@@ -112,7 +132,15 @@ export function LocumBookingsPage() {
   }
 
   async function handleSignOut(booking: BookingRow) {
-    if (!booking.sign_in) return
+    if (!booking.sign_in || !booking.shift) return
+    const sh = booking.shift
+    const now = new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/London' })
+    const end = fmt(sh.end_time)
+    const overnight = sh.end_time <= sh.start_time
+    const early = !overnight && booking.shift.date === today && now < end && minutesBetween(now, end) > 30
+    const msg = `Sign out of this shift?\n\nIt started at ${fmt(sh.start_time)} and ends at ${end}.`
+      + (early ? `\n\nIt's ${now}, which is ${minutesBetween(now, end)} minutes before the end. The pharmacy will be asked to confirm your hours.` : '')
+    if (!window.confirm(msg)) return
     setActionId(booking.id)
     try {
       const { error } = await getUserClient().rpc('ps_locum_sign_out', { p_booking_id: booking.id })
@@ -126,7 +154,7 @@ export function LocumBookingsPage() {
   }
 
   async function handleCancelApplication(bookingId: string) {
-    if (!window.confirm('Withdraw this application?')) return
+    if (!await confirmDialog('Withdraw this application?')) return
     setActionId(bookingId)
     try {
       // The RPC records the reason and reopens an instant-book shift
@@ -219,12 +247,20 @@ export function LocumBookingsPage() {
                       <span className="text-muted">·</span>
                       <span>{fmt(b.shift.start_time)} – {fmt(b.shift.end_time)}</span>
                       {hours && <span className="text-muted">({hours}h)</span>}
-                      <span className={BOOKING_BADGE[b.status] ?? 'ps-badge'}>{b.status}</span>
+                      <span className={BOOKING_BADGE[b.status] ?? 'ps-badge'}>{bookingStatusLabel(b.status)}</span>
                     </div>
+                    {b.org && (
+                      <div style={{ marginBottom: '0.25rem' }}>
+                        <strong>{b.org.name}</strong>
+                        {b.org.address && (
+                          <> · <a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${b.org.name}, ${b.org.address}`)}`} target="_blank" rel="noopener noreferrer">{b.org.address}</a></>
+                        )}
+                      </div>
+                    )}
                     <div style={{ fontSize: '0.875rem', color: 'var(--ps-slate)' }}>
                       £{Number(b.shift.rate_per_hour).toFixed(2)}/hr
                       {total && <> · {total} total</>}
-                      {' · '}<span className="ps-badge">{b.shift.booking_mode}</span>
+                      {' · '}<span className="ps-badge">{bookingModeLabel(b.shift.booking_mode)}</span>
                     </div>
                     {b.cancellation_reason && (
                       <p style={{ fontSize: '0.8rem', color: 'var(--ps-danger)', marginTop: '0.25rem' }}>
@@ -238,8 +274,8 @@ export function LocumBookingsPage() {
                         {b.sign_in.signed_out_at && (
                           <> · Signed out: {fmtTs(b.sign_in.signed_out_at)}</>
                         )}
-                        {b.sign_in.duration_minutes && (
-                          <> · {b.sign_in.duration_minutes} min</>
+                        {b.sign_in.duration_minutes != null && (
+                          <> · {b.sign_in.duration_minutes < 1 ? 'under 1 min' : `${b.sign_in.duration_minutes} min`}</>
                         )}
                       </div>
                     )}
@@ -248,7 +284,7 @@ export function LocumBookingsPage() {
                   {/* Actions */}
                   <div style={{ display: 'flex', gap: '0.5rem', flexShrink: 0, flexWrap: 'wrap' }}>
                     {/* Sign-in / sign-out on day of confirmed shift */}
-                    {b.status === 'approved' && isToday && (
+                    {b.status === 'approved' && (isToday || (hasSignIn && !hasSignOut)) && (
                       !hasSignIn ? (
                         <button
                           className="ps-btn ps-btn-primary ps-btn-sm"
@@ -266,7 +302,7 @@ export function LocumBookingsPage() {
                           {actionId === b.id ? '…' : 'Sign Out'}
                         </button>
                       ) : (
-                        <span className="ps-badge ps-badge-success">Signed out</span>
+                        <span className="ps-badge ps-badge-success" title="The pharmacy confirms the shift, or it is confirmed automatically after the shift if your hours match the booking">Signed out · awaiting confirmation</span>
                       )
                     )}
                     {/* Withdraw pending application */}

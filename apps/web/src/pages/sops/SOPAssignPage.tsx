@@ -1,8 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { useAuthStore, useSOPStore, canManageSOPs } from '@pharmstation/core'
+import { useAuthStore, useSOPStore, canManageSOPs, fetchActiveOrgMembers } from '@pharmstation/core'
 import type { OrganisationMember } from '@pharmstation/types'
-import { getUserClient } from '@pharmstation/supabase-client'
 
 export function SOPAssignPage() {
   const { docId } = useParams<{ docId: string }>()
@@ -47,17 +46,10 @@ export function SOPAssignPage() {
   useEffect(() => {
     if (!organisation?.id) return
     setMembersLoading(true)
-    getUserClient()
-      .from('ps_organisation_members')
-      .select('*, user_profile:ps_user_profiles!user_id(*)')
-      .eq('organisation_id', organisation.id)
-      .eq('status', 'active')
-      .order('created_at')
-      .then(({ data, error: e }) => {
-        setMembersLoading(false)
-        if (e) { setError(e.message); return }
-        setMembers(data as OrganisationMember[])
-      })
+    fetchActiveOrgMembers(organisation.id)
+      .then((list) => setMembers(list))
+      .catch((e) => setError(e.message))
+      .finally(() => setMembersLoading(false))
   }, [organisation?.id])
 
   const handleToggleAll = async () => {
@@ -114,7 +106,7 @@ export function SOPAssignPage() {
         </div>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div>
-            <h1>👥 Assign SOP</h1>
+            <h1>Assign SOP</h1>
             {doc && <p style={{ margin: '4px 0 0', color: 'var(--ps-text-muted)', fontSize: 13 }}>{doc.title} · v{doc.version}</p>}
           </div>
           <button className="ps-btn ps-btn-secondary" onClick={() => navigate(`/sops/${docId}/edit`)}>
@@ -131,29 +123,31 @@ export function SOPAssignPage() {
       )}
 
       <div className="ps-card" style={{ marginBottom: 20 }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, cursor: 'pointer' }}>
           <div>
-            <h3 style={{ margin: '0 0 4px' }}>Assign to All Staff</h3>
+            <h3 style={{ margin: '0 0 4px' }}>Assign to all staff</h3>
             <p style={{ margin: 0, fontSize: 13, color: 'var(--ps-text-muted)' }}>
               All current and future active members of this organisation will see this SOP.
             </p>
           </div>
-          <label className="ps-toggle">
+          <span className="ps-toggle">
             <input
               type="checkbox"
+              role="switch"
+              aria-label="Assign to all staff"
               checked={isAllAssignment}
               onChange={handleToggleAll}
               disabled={saving}
             />
             <span className="ps-toggle-track" />
-          </label>
-        </div>
+          </span>
+        </label>
       </div>
 
       {!isAllAssignment && (
         <div className="ps-card">
           <div style={{ marginBottom: 16 }}>
-            <h3 style={{ margin: '0 0 4px' }}>Assign to Specific Members</h3>
+            <h3 style={{ margin: '0 0 4px' }}>Assign to specific members</h3>
             <p style={{ margin: 0, fontSize: 13, color: 'var(--ps-text-muted)' }}>
               Toggle individual staff members who should have access to this SOP.
             </p>
@@ -168,9 +162,10 @@ export function SOPAssignPage() {
               {members.map((m) => {
                 const assigned = assignedMemberIds.has(m.id)
                 return (
-                  <div
+                  <label
                     key={m.id}
                     style={{
+                      cursor: 'pointer',
                       display: 'flex',
                       alignItems: 'center',
                       gap: 12,
@@ -203,22 +198,24 @@ export function SOPAssignPage() {
                       <div style={{ fontWeight: 600, fontSize: 14 }}>
                         {m.user_profile?.full_name ?? m.user_id}
                       </div>
-                      <div style={{ fontSize: 12, color: 'var(--ps-text-muted)', textTransform: 'capitalize' }}>
-                        {m.role}
+                      <div style={{ fontSize: 12, color: 'var(--ps-text-muted)' }}>
+                        <span style={{ textTransform: 'capitalize' }}>{m.role}</span>
                         {m.user_profile?.email ? ` · ${m.user_profile.email}` : ''}
                       </div>
                     </div>
 
-                    <label className="ps-toggle">
+                    <span className="ps-toggle">
                       <input
                         type="checkbox"
+                        role="switch"
+                        aria-label={`Assign to ${m.user_profile?.full_name ?? 'this member'}`}
                         checked={assigned}
                         onChange={() => handleToggleMember(m)}
                         disabled={saving}
                       />
                       <span className="ps-toggle-track" />
-                    </label>
-                  </div>
+                    </span>
+                  </label>
                 )
               })}
             </div>

@@ -4,8 +4,10 @@
 // ============================================
 
 import { useEffect, useRef, useState } from 'react'
-import { useAuthStore, useChatStore } from '@pharmstation/core'
-import type { ChatMessage, AIModel } from '@pharmstation/types'
+import { CircleCheck, History, Lock, Sparkles, SquarePen, Trash2, User, Wrench, X } from 'lucide-react'
+import { PLANS, useAuthStore, useChatStore, useSubscriptionStore } from '@pharmstation/core'
+import type { ChatMessage } from '@pharmstation/types'
+import { PLANS_ENFORCED } from '../../lib/billing'
 import { JumpToLatest, useAutoGrow, useStickToBottom } from '../chat/chat'
 import { Markdown } from '../chat/Markdown'
 
@@ -22,11 +24,12 @@ export function GeniePanel() {
     streamingToolCalls,
     lastError,
     showHistory,
-    showSettings,
     modelsLoading,
     loadModels,
     loadConversations,
     loadOrgAISettings,
+    loadUsage,
+    usage,
     orgAISettings,
     setActiveConversation,
     startNewConversation,
@@ -34,12 +37,19 @@ export function GeniePanel() {
     sendMessage,
     stopStreaming,
     setShowHistory,
-    setShowSettings,
   } = useChatStore()
 
   const { organisation, userSession } = useAuthStore()
+  const planLoaded = useSubscriptionStore((s) => s.loaded)
+  const plan = useSubscriptionStore((s) => s.plan)
+  // Plan gate (only once billing is enforced). Before that every pharmacy gets the Essential allowance.
+  const locked = PLANS_ENFORCED && planLoaded && PLANS[plan].genieMonthlyMessages <= 0
+  // Same rule as the server: the effective plan's allowance (complimentary upgrades included),
+  // and at least the Essential allowance until plans are enforced.
+  const monthlyLimit = PLANS_ENFORCED
+    ? PLANS[plan].genieMonthlyMessages
+    : Math.max(PLANS[plan].genieMonthlyMessages, PLANS.essential.genieMonthlyMessages)
   const [inputValue, setInputValue] = useState('')
-  const [selectedModelId, setSelectedModelId] = useState<string | null>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
 
   const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
@@ -52,14 +62,15 @@ export function GeniePanel() {
       }
       loadConversations(organisation.id)
       loadOrgAISettings(organisation.id)
+      loadUsage(organisation.id, monthlyLimit)
     }
-  }, [isOpen, organisation?.id])
+  }, [isOpen, organisation?.id, monthlyLimit])
 
   // Keep the newest message in view by scrolling the message list itself, never the page.
   // Follows streaming text only while the reader is at the bottom.
   const { ref: messagesRef, onScroll, showJump, scrollToBottom } = useStickToBottom<HTMLDivElement>(
     `${messages.length}:${streamingContent.length}:${isStreaming}`,
-    `${activeConversationId}:${showHistory}:${showSettings}`,
+    `${activeConversationId}:${showHistory}`,
   )
   useAutoGrow(inputRef, inputValue, 140)
 
@@ -71,11 +82,10 @@ export function GeniePanel() {
   }, [isOpen, activeConversationId])
 
   const sendText = async (text: string) => {
-    if (!text || isStreaming || !organisation?.id || !userSession?.access_token) return
+    if (!text || isStreaming || locked || !organisation?.id || !userSession?.access_token) return
     await sendMessage({
       organisationId: organisation.id,
       message: text,
-      modelId: selectedModelId ?? undefined,
       supabaseUrl,
       accessToken: userSession.access_token,
     })
@@ -105,12 +115,14 @@ export function GeniePanel() {
     }
   }
 
-  // Get active model info
-  const activeModel = selectedModelId
-    ? models.find((m) => m.id === selectedModelId)
-    : orgAISettings?.standard_model_id
-      ? models.find((m) => m.id === orgAISettings.standard_model_id)
-      : models.find((m) => m.is_default && m.model_type === 'standard')
+  // Genie only uses approved models; show the one the server will pick.
+  const genieModels = models.filter((m) => m.genie_enabled)
+  const activeModel =
+    genieModels.find((m) => m.id === orgAISettings?.standard_model_id) ??
+    genieModels.find((m) => m.is_default) ??
+    genieModels[0]
+  const patientDataOn = orgAISettings?.genie_patient_data === true
+  const usedUp = !!usage && usage.limit > 0 && usage.used >= usage.limit
 
   if (!isOpen) return null
 
@@ -119,10 +131,10 @@ export function GeniePanel() {
       {/* Header */}
       <div className="genie-header">
         <div className="genie-header-left">
-          <span className="genie-header-icon">✨</span>
+          <span className="genie-header-icon"><Sparkles size={18} strokeWidth={1.75} aria-hidden="true" /></span>
           <span className="genie-header-title">Genie</span>
           {activeModel && (
-            <span className="genie-model-badge">{activeModel.display_name} · OpenRouter</span>
+            <span className="genie-model-badge">{activeModel.display_name}</span>
           )}
         </div>
         <div className="genie-header-actions">
@@ -130,25 +142,20 @@ export function GeniePanel() {
             className="genie-icon-btn"
             onClick={() => startNewConversation()}
             title="New chat"
+            aria-label="New chat"
           >
-            ✏️
+            <SquarePen size={16} strokeWidth={1.75} aria-hidden="true" />
           </button>
           <button
             className={`genie-icon-btn ${showHistory ? 'active' : ''}`}
-            onClick={() => { setShowHistory(!showHistory); setShowSettings(false) }}
+            onClick={() => setShowHistory(!showHistory)}
             title="Chat history"
+            aria-label="Chat history"
           >
-            📋
+            <History size={16} strokeWidth={1.75} aria-hidden="true" />
           </button>
-          <button
-            className={`genie-icon-btn ${showSettings ? 'active' : ''}`}
-            onClick={() => { setShowSettings(!showSettings); setShowHistory(false) }}
-            title="Model settings"
-          >
-            ⚙️
-          </button>
-          <button className="genie-icon-btn" onClick={toggleOpen} title="Close">
-            ✕
+          <button className="genie-icon-btn" onClick={toggleOpen} title="Close" aria-label="Close Genie">
+            <X size={16} strokeWidth={1.75} aria-hidden="true" />
           </button>
         </div>
       </div>
@@ -180,8 +187,9 @@ export function GeniePanel() {
                     className="genie-history-delete"
                     onClick={(e) => { e.stopPropagation(); deleteConversation(conv.id) }}
                     title="Delete"
+                    aria-label="Delete chat"
                   >
-                    🗑
+                    <Trash2 size={14} strokeWidth={1.75} aria-hidden="true" />
                   </button>
                 </div>
               ))
@@ -190,62 +198,54 @@ export function GeniePanel() {
         </div>
       )}
 
-      {/* Settings panel */}
-      {showSettings && (
-        <div className="genie-settings">
-          <div className="genie-settings-header">Model Settings</div>
-          <div className="genie-settings-body">
-            <label className="genie-settings-label">Chat Model</label>
-            <div className="genie-model-list">
-              {models
-                .filter((m) => m.model_type === 'standard')
-                .map((model) => (
-                  <ModelOption
-                    key={model.id}
-                    model={model}
-                    isSelected={
-                      selectedModelId
-                        ? model.id === selectedModelId
-                        : model.id === activeModel?.id
-                    }
-                    onSelect={() => setSelectedModelId(model.id)}
-                  />
-                ))}
-            </div>
+      {/* Messages area */}
+      {!showHistory && locked && (
+        <div className="genie-messages-wrap">
+          <div className="genie-welcome">
+            <div className="genie-welcome-icon"><Lock size={26} strokeWidth={1.75} aria-hidden="true" /></div>
+            <h3>Genie is part of the Essential plan</h3>
+            <p>
+              Upgrade to Essential or Complete in Settings to ask Genie about your registers, logs and team.
+            </p>
           </div>
         </div>
       )}
 
-      {/* Messages area */}
-      {!showHistory && !showSettings && (
+      {!showHistory && !locked && (
         <div className="genie-messages-wrap">
         <div className="genie-messages" ref={messagesRef} onScroll={onScroll}>
           {messages.length === 0 && !isStreaming && (
             <div className="genie-welcome">
-              <div className="genie-welcome-icon">✨</div>
+              <div className="genie-welcome-icon"><Sparkles size={26} strokeWidth={1.75} aria-hidden="true" /></div>
               <h3>Hello! I'm Genie</h3>
               <p>
-                Your pharmacy AI assistant. I can search registers, look up
-                drugs, check stock, and answer compliance questions.
+                Your pharmacy assistant. I can search the CD register and RP
+                log, check CD balances, look up controlled drugs and your team,
+                and answer pharmacy questions.
               </p>
+              {!patientDataOn && (
+                <p className="genie-privacy-note">
+                  Patient details are hidden from Genie. Please don't type patient names or details.
+                </p>
+              )}
               <div className="genie-suggestions">
                 <button
                   className="genie-suggestion"
                   onClick={() => sendSuggestion('Show me today\'s CD register entries')}
                 >
-                  📑 Today's CD entries
+                  Today's CD entries
                 </button>
                 <button
                   className="genie-suggestion"
                   onClick={() => sendSuggestion('Who was the RP yesterday?')}
                 >
-                  👤 Yesterday's RP
+                  Yesterday's RP
                 </button>
                 <button
                   className="genie-suggestion"
                   onClick={() => sendSuggestion('Check balance for morphine')}
                 >
-                  💊 Drug balance
+                  Drug balance
                 </button>
               </div>
             </div>
@@ -258,7 +258,7 @@ export function GeniePanel() {
           {/* Streaming message */}
           {isStreaming && (
             <div className="genie-message genie-message-assistant">
-              <div className="genie-message-avatar">✨</div>
+              <div className="genie-message-avatar"><Sparkles size={16} strokeWidth={1.75} aria-hidden="true" /></div>
               <div className="genie-message-content">
                 {streamingContent ? (
                   <div className="genie-message-text"><Markdown text={streamingContent} /></div>
@@ -273,7 +273,7 @@ export function GeniePanel() {
                   <div className="genie-tool-calls">
                     {streamingToolCalls.map((tc) => (
                       <div key={tc.id} className="genie-tool-call">
-                        <span className="genie-tool-icon">🔧</span>
+                        <span className="genie-tool-icon"><Wrench size={14} strokeWidth={1.75} aria-hidden="true" /></span>
                         <span className="genie-tool-name">{formatActiveToolName(tc.name)}</span>
                         <span className="genie-tool-spinner" />
                       </div>
@@ -299,29 +299,37 @@ export function GeniePanel() {
         )}
         {isStreaming && (
           <button className="genie-stop-btn" onClick={stopStreaming}>
-            ⏹ Stop
+            Stop
           </button>
         )}
         <div className="genie-input-wrapper">
           <textarea
             ref={inputRef}
             className="genie-input"
-            placeholder="Ask Genie anything..."
+            placeholder={usedUp ? 'Monthly Genie allowance used' : 'Ask Genie anything...'}
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
             onKeyDown={handleKeyDown}
             rows={1}
-            disabled={isStreaming}
+            disabled={isStreaming || locked || usedUp}
           />
           <button
             className="genie-send-btn"
             aria-label="Send"
             onClick={handleSend}
-            disabled={!inputValue.trim() || isStreaming}
+            disabled={!inputValue.trim() || isStreaming || locked || usedUp}
           >
             <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path fill="currentColor" d="M3.4 20.4 21 12 3.4 3.6 3.4 10l12.6 2-12.6 2z" /></svg>
           </button>
         </div>
+        {!locked && (
+          <div className="genie-footnote">
+            Genie can make mistakes. Check the register before acting.
+            {usage && usage.limit > 0 && (
+              <> · {usage.used.toLocaleString('en-GB')} of {usage.limit.toLocaleString('en-GB')} questions used this month</>
+            )}
+          </div>
+        )}
       </div>
     </div>
   )
@@ -337,7 +345,7 @@ function MessageBubble({ message, onRetry }: { message: ChatMessage; onRetry: ()
 
   return (
     <div className={`genie-message genie-message-${message.role} ${isError ? 'error' : ''}`}>
-      {!isUser && <div className="genie-message-avatar">✨</div>}
+      {!isUser && <div className="genie-message-avatar"><Sparkles size={16} strokeWidth={1.75} aria-hidden="true" /></div>}
       <div className="genie-message-content">
         <div className="genie-message-text">
           {isUser ? message.content : <Markdown text={message.content ?? ''} />}
@@ -346,7 +354,7 @@ function MessageBubble({ message, onRetry }: { message: ChatMessage; onRetry: ()
           <div className="genie-tool-calls">
             {(message.tool_calls as { id: string; name: string }[]).map((tc) => (
               <div key={tc.id} className="genie-tool-call completed">
-                <span className="genie-tool-icon">✅</span>
+                <span className="genie-tool-icon"><CircleCheck size={14} strokeWidth={1.75} aria-hidden="true" /></span>
                 <span className="genie-tool-name">{formatToolName(tc.name)}</span>
               </div>
             ))}
@@ -360,37 +368,8 @@ function MessageBubble({ message, onRetry }: { message: ChatMessage; onRetry: ()
           {isError && <button type="button" onClick={onRetry}>Retry</button>}
         </div>
       </div>
-      {isUser && <div className="genie-message-avatar genie-avatar-user">👤</div>}
+      {isUser && <div className="genie-message-avatar genie-avatar-user"><User size={16} strokeWidth={1.75} aria-hidden="true" /></div>}
     </div>
-  )
-}
-
-function ModelOption({
-  model,
-  isSelected,
-  onSelect,
-}: {
-  model: AIModel
-  isSelected: boolean
-  onSelect: () => void
-}) {
-  return (
-    <button
-      className={`genie-model-option ${isSelected ? 'selected' : ''}`}
-      onClick={onSelect}
-    >
-      <span className="genie-model-provider-icon">
-        🔀
-      </span>
-      <div className="genie-model-info">
-        <span className="genie-model-name">{model.display_name}</span>
-        <span className="genie-model-desc">
-          OpenRouter ·{' '}
-          ${model.input_cost_per_1k}/1k in · ${model.output_cost_per_1k}/1k out
-        </span>
-      </div>
-      {isSelected && <span className="genie-model-check">✓</span>}
-    </button>
   )
 }
 

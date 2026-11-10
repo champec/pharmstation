@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { useAuthStore, useDeliveryRoundStore, useAppointmentStore } from '@pharmstation/core'
 import { getUserClient } from '@pharmstation/supabase-client'
 import type { Patient } from '@pharmstation/types'
+import { alertDialog, confirmDialog } from '../../components/ui/dialog'
 
 export function RoundTemplateDetailPage() {
   const { id } = useParams<{ id: string }>()
@@ -64,19 +65,19 @@ export function RoundTemplateDetailPage() {
       setPatientSearch('')
       fetchTemplate(id)
     } catch (e: any) {
-      alert(e.message)
+      alertDialog(e.message)
     }
     setSaving(false)
   }
 
   const handleRemovePatient = async (tpId: string) => {
-    if (!id || !confirm('Remove patient from template?')) return
+    if (!id || !await confirmDialog('Remove patient from template?')) return
     setSaving(true)
     try {
       await getUserClient().from('ps_delivery_round_template_patients').delete().eq('id', tpId)
       fetchTemplate(id)
     } catch (e: any) {
-      alert(e.message)
+      alertDialog(e.message)
     }
     setSaving(false)
   }
@@ -88,7 +89,7 @@ export function RoundTemplateDetailPage() {
       await updateTemplate(id, { name: name.trim(), notes: notes.trim() || null } as any)
       navigate('/deliveries/templates')
     } catch (e: any) {
-      alert(e.message)
+      alertDialog(e.message)
     }
     setSaving(false)
   }
@@ -101,8 +102,8 @@ export function RoundTemplateDetailPage() {
   }
 
   return (
-    <div>
-      <div className="page-header">
+    <div className="care-home-page">
+      <div className="page-header care-home-page-header">
         <div className="breadcrumbs">
           <a href="/" onClick={(e) => { e.preventDefault(); navigate('/') }}>Dashboard</a>
           <span className="separator">/</span>
@@ -112,7 +113,12 @@ export function RoundTemplateDetailPage() {
           <span className="separator">/</span>
           <span>{template.name}</span>
         </div>
-        <h1>📋 {template.name}</h1>
+        <div className="care-home-title-row">
+          <div>
+            <p className="care-home-eyebrow">Delivery template</p>
+            <h1>{template.name}</h1>
+          </div>
+        </div>
       </div>
 
       {error && <div className="auth-error" style={{ marginBottom: 'var(--ps-space-md)' }}>{error}</div>}
@@ -154,7 +160,7 @@ export function RoundTemplateDetailPage() {
                   onMouseLeave={(e) => { (e.currentTarget as HTMLDivElement).style.background = '' }}
                 >
                   <span>{p.first_name} {p.last_name} — {p.postcode}</span>
-                  <span style={{ color: 'var(--ps-primary)', fontSize: 'var(--ps-font-sm)' }}>+ Add</span>
+                  <span style={{ color: 'var(--ps-deep-blue)', fontSize: 'var(--ps-font-sm)' }}>+ Add</span>
                 </div>
               ))}
           </div>
@@ -172,7 +178,7 @@ export function RoundTemplateDetailPage() {
                       {tp.include_all_active_meds ? 'All active meds' : `${tp.medications?.length ?? 0} specific med(s)`}
                     </span>
                   </div>
-                  <button className="ps-btn ps-btn-ghost ps-btn-sm" onClick={() => handleRemovePatient(tp.id)} style={{ color: 'var(--ps-red)' }}>Remove</button>
+                  <button className="ps-btn ps-btn-ghost ps-btn-sm" onClick={() => handleRemovePatient(tp.id)} style={{ color: 'var(--ps-error)' }}>Remove</button>
                 </div>
               ))}
           </div>

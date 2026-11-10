@@ -148,7 +148,7 @@ export function BillingSettingsTab() {
         <div>
           <div className="billing-eyebrow">Current plan</div>
           <h3>
-            {loaded ? PLANS[plan].name : '…'}
+            {!loaded ? '…' : hasStripeSub ? PLANS[subscription!.plan].name : PLANS[plan].name}
             {subscription?.is_founding_member && <span className="ps-badge ps-badge-blue">Founding member</span>}
             {subscription?.status === 'trialing' && <span className="ps-badge ps-badge-green">Free trial</span>}
             {(subscription?.status === 'past_due' || subscription?.status === 'unpaid') && (
@@ -156,6 +156,13 @@ export function BillingSettingsTab() {
             )}
           </h3>
           {statusLine() && <p>{statusLine()}</p>}
+          {comped && hasStripeSub && planRank(subscription!.override_plan!) > planRank(subscription!.plan) && (
+            <p>
+              You also have complimentary {PLANS[subscription!.override_plan!].name} access
+              {subscription!.override_until ? ` until ${fmtDate(subscription!.override_until)}` : ''}, so you can use
+              everything in {PLANS[subscription!.override_plan!].name} until then.
+            </p>
+          )}
           {comped && !hasStripeSub && (
             <p>
               Complimentary {PLANS[subscription!.override_plan!].name} access
@@ -172,7 +179,10 @@ export function BillingSettingsTab() {
       </div>
 
       {!canManage && (
-        <p className="billing-note">Only the pharmacy owner, or staff they give billing access, can change the plan. Sign in with your own staff account to do it.</p>
+        <p className="billing-note">
+          Only the pharmacy owner, or staff they give billing access, can change the plan.
+          {!membership && ' Sign in with your own staff account to do it.'}
+        </p>
       )}
 
       {!hasStripeSub && (

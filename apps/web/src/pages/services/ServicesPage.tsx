@@ -4,6 +4,7 @@ import { useAuthStore, useServiceStore } from '@pharmstation/core'
 import { NHS_SERVICES_ENABLED } from '../../lib/features'
 import type { Service } from '@pharmstation/types'
 import { Modal } from '../../components/Modal'
+import { Settings, Stethoscope } from 'lucide-react'
 
 export function ServicesPage() {
   const navigate = useNavigate()
@@ -75,19 +76,19 @@ export function ServicesPage() {
           <span>Services</span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--ps-space-md)' }}>
-          <h1>🩺 Services</h1>
+          <h1>Services</h1>
           <div style={{ display: 'flex', gap: 'var(--ps-space-sm)' }}>
             <button
               className="ps-btn ps-btn-secondary"
               onClick={() => navigate('/services/deliveries')}
             >
-              📋 Delivery History
+              Delivery History
             </button>
             <button
               className="ps-btn ps-btn-secondary"
               onClick={() => navigate('/services/library')}
             >
-              📚 Browse Library
+              Browse Library
             </button>
             {canManage && (
               <button
@@ -127,14 +128,14 @@ export function ServicesPage() {
       {/* Empty state */}
       {!loading && services.length === 0 && (
         <div className="ps-card" style={{ padding: 'var(--ps-space-2xl)', textAlign: 'center' }}>
-          <div style={{ fontSize: '48px', marginBottom: 'var(--ps-space-md)' }}>🩺</div>
+          <span className="ps-empty-icon" aria-hidden="true"><Stethoscope size={26} strokeWidth={1.75} /></span>
           <h2 style={{ color: 'var(--ps-midnight)', marginBottom: 'var(--ps-space-sm)' }}>No services yet</h2>
           <p style={{ color: 'var(--ps-slate)', marginBottom: 'var(--ps-space-lg)', maxWidth: 400, margin: '0 auto var(--ps-space-lg)' }}>
             Get started by browsing the service library or creating a custom service.
           </p>
           <div style={{ display: 'flex', gap: 'var(--ps-space-sm)', justifyContent: 'center' }}>
             <button className="ps-btn ps-btn-secondary" onClick={() => navigate('/services/library')}>
-              📚 Browse Library
+              Browse Library
             </button>
             {canManage && (
               <button className="ps-btn ps-btn-primary" onClick={() => { resetForm(); setShowCreateModal(true) }}>
@@ -275,7 +276,7 @@ function ServiceCard({ service, onClick }: { service: Service; onClick: () => vo
               padding: '1px 8px', borderRadius: 99, fontSize: '0.7rem', fontWeight: 700,
               background: '#005eb8', color: '#fff', whiteSpace: 'nowrap', letterSpacing: '0.02em',
             }}>
-              🏥 NHS
+              NHS
             </span>
           )}
         </div>
@@ -298,9 +299,9 @@ function ServiceCard({ service, onClick }: { service: Service; onClick: () => vo
       </p>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--ps-space-sm)' }}>
-        <span className="ps-badge ps-badge-blue">⏱ {service.duration_minutes} min</span>
+        <span className="ps-badge ps-badge-blue">{service.duration_minutes} min</span>
         {service.is_public && (
-          <span className="ps-badge ps-badge-amber">🌐 Public</span>
+          <span className="ps-badge ps-badge-amber">Public</span>
         )}
         <div style={{ marginLeft: 'auto', display: 'flex', gap: 'var(--ps-space-xs)' }}>
           {nhsLocked ? (
@@ -326,7 +327,7 @@ function ServiceCard({ service, onClick }: { service: Service; onClick: () => vo
               title="Manage service & forms"
               style={{ padding: '4px 8px', fontSize: '1rem', lineHeight: 1 }}
             >
-              ⚙️
+              <Settings size={16} aria-hidden="true" />
             </button>
           )}
         </div>

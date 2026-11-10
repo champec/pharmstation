@@ -1,27 +1,21 @@
-// Pharmacy Management — tab screens. CD register / RP log / handover are
-// mobile-capable; the Team tab is web-only (locked by ModuleHost).
+// Pharmacy Management — tab screens. CD register, RP log, handover and logs are
+// built. Team covers staff, invites and sign-in activity; fine-grained
+// permissions stay on the website.
 import type { ComponentType } from 'react'
-import { makeTab } from '@/components/module/TabPlaceholder'
-
-const COLOR = '#DC2626'
+import { cdRegisterScreen } from './cd-register'
+import { HandoverScreen } from './handover'
+import { LogsScreen } from './logs'
+import { OversightScreen } from './oversight'
+import { ActivityLogScreen } from './activity-log'
+import { RpLogScreen } from './rp-log'
+import { TeamScreen } from './team'
 
 export const pharmacyScreens: Record<string, ComponentType> = {
-  'cd-register': makeTab({
-    icon: 'lock-closed-outline',
-    title: 'CD Register',
-    blurb: 'View and search controlled drug entries on the move.',
-    color: COLOR,
-  }),
-  'rp-log': makeTab({
-    icon: 'clipboard-outline',
-    title: 'RP Log',
-    blurb: 'Responsible pharmacist sign-in record.',
-    color: COLOR,
-  }),
-  handover: makeTab({
-    icon: 'reader-outline',
-    title: 'Handover',
-    blurb: 'Shift handover notes and outstanding tasks.',
-    color: COLOR,
-  }),
+  oversight: OversightScreen,
+  activity: ActivityLogScreen,
+  'cd-register': cdRegisterScreen,
+  'rp-log': RpLogScreen,
+  handover: HandoverScreen,
+  logs: LogsScreen,
+  team: TeamScreen,
 }

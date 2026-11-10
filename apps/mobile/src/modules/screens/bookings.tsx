@@ -1,14 +1,15 @@
-// Services → Bookings: upcoming appointments for this pharmacy, with the
-// same confirm / cancel / move actions as the web appointment page. Changes
-// go through the `appointments` edge function so the patient is texted and
-// slot counts stay right.
+// Services → Bookings: this pharmacy's appointments, with the same actions as
+// the web appointment page: confirm, move, cancel (through the `appointments`
+// edge function so the patient is texted and slot counts stay right), mark
+// completed or no-show, call the patient and join a video appointment.
 import { useCallback, useEffect, useState } from 'react'
-import { ActivityIndicator, Alert, FlatList, Modal, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native'
+import { ActivityIndicator, Alert, FlatList, Linking, Modal, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
 
 import { userClient } from '@/lib/supabase'
 import { useAuthStore } from '@/stores/auth-store'
 import { palette, radius } from '@/theme/palette'
+import { EmptyState as SharedEmptyState } from '@/components/ui/EmptyState'
 
 const COLOR = '#9333EA'
 
@@ -57,41 +58,60 @@ export function BookingsScreen() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [open, setOpen] = useState<Booking | null>(null)
+  const [view, setView] = useState<'upcoming' | 'past'>('upcoming')
 
   const load = useCallback(async () => {
     if (!orgId) return
     setLoading(true)
-    const { data, error: err } = await userClient
+    let q = userClient
       .from('ps_appointments')
       .select('id, status, hold_expires_at, patient_review_reason, notes, patient:ps_patients(first_name, last_name, phone), service:ps_services(name, is_video), slot:ps_appointment_slots!inner(start_time, end_time)')
       .eq('org_id', orgId)
-      .in('status', ['pending', 'confirmed'])
-      .gte('slot.start_time', new Date(Date.now() - 2 * 3_600_000).toISOString())
       .limit(200)
+    if (view === 'upcoming') {
+      // Still to happen, plus today's that haven't been marked yet.
+      const startOfDay = new Date(); startOfDay.setHours(0, 0, 0, 0)
+      q = q.in('status', ['pending', 'confirmed']).gte('slot.start_time', startOfDay.toISOString())
+    } else {
+      q = q.lt('slot.start_time', new Date().toISOString())
+        .gte('slot.start_time', new Date(Date.now() - 30 * 86_400_000).toISOString())
+    }
+    const { data, error: err } = await q
     if (err) setError(err.message)
     else {
       setError(null)
       const rows = (data ?? []) as unknown as Booking[]
       rows.sort((a, b) => (a.slot?.start_time ?? '').localeCompare(b.slot?.start_time ?? ''))
+      if (view === 'past') rows.reverse()
       setItems(rows)
     }
     setLoading(false)
-  }, [orgId])
+  }, [orgId, view])
 
   useEffect(() => { void load() }, [load])
 
   return (
     <View style={styles.screen}>
+      <View style={styles.tabs}>
+        {(['upcoming', 'past'] as const).map((v) => (
+          <Pressable key={v} onPress={() => setView(v)} accessibilityRole="tab" accessibilityState={{ selected: view === v }}
+            style={[styles.tab, view === v && styles.tabOn]}>
+            <Text style={[styles.tabText, view === v && styles.tabTextOn]}>{v === 'upcoming' ? 'Upcoming' : 'Last 30 days'}</Text>
+          </Pressable>
+        ))}
+      </View>
       {error ? <Text style={styles.error}>{error}</Text> : null}
       <FlatList
         data={items}
         keyExtractor={(b) => b.id}
         refreshControl={<RefreshControl refreshing={loading} onRefresh={load} />}
         ListEmptyComponent={loading ? null : (
-          <View style={styles.empty}>
-            <Ionicons name="calendar-outline" size={36} color={COLOR} />
-            <Text style={styles.emptyText}>No upcoming bookings</Text>
-          </View>
+          <SharedEmptyState
+            icon="calendar-outline"
+            color={COLOR}
+            title={view === 'upcoming' ? 'No upcoming bookings' : 'No bookings in the last 30 days'}
+            text="Appointments booked online or by the team appear here."
+          />
         )}
         renderItem={({ item, index }) => {
           const start = item.slot?.start_time
@@ -122,8 +142,35 @@ function BookingModal({ booking, onClose, onChanged }: { booking: Booking | null
   const [busy, setBusy] = useState(false)
   const [slots, setSlots] = useState<Slot[] | null>(null)
 
+  const [video, setVideo] = useState<{ url: string } | null>(null)
+
   useEffect(() => { setSlots(null) }, [booking?.id])
+  useEffect(() => {
+    setVideo(null)
+    if (!booking?.service?.is_video) return
+    userClient.from('ps_video_consultations')
+      .select('daily_room_url, org_token')
+      .eq('appointment_id', booking.id).not('status', 'in', '(completed,cancelled)')
+      .order('created_at', { ascending: false }).limit(1).maybeSingle()
+      .then(({ data }) => {
+        const v = data as { daily_room_url: string | null; org_token: string | null } | null
+        if (v?.daily_room_url) setVideo({ url: v.org_token ? `${v.daily_room_url}?t=${v.org_token}` : v.daily_room_url })
+      })
+  }, [booking?.id, booking?.service?.is_video])
   if (!booking) return null
+
+  // Completed / no-show need no text to the patient, so they are a plain update
+  // (the same as the web appointment page).
+  const mark = async (status: 'completed' | 'no_show', done: string) => {
+    setBusy(true)
+    const { error } = await userClient.from('ps_appointments')
+      .update({ status, updated_at: new Date().toISOString() })
+      .eq('id', booking.id).in('status', ['pending', 'confirmed'])
+    setBusy(false)
+    if (error) { Alert.alert('Could not update', error.message); return }
+    Alert.alert(done)
+    onChanged()
+  }
 
   const run = async (body: Record<string, unknown>, done: string) => {
     setBusy(true)
@@ -165,7 +212,13 @@ function BookingModal({ booking, onClose, onChanged }: { booking: Booking | null
         </View>
         <ScrollView contentContainerStyle={{ padding: 16, gap: 10 }}>
           <Text style={styles.name}>{booking.patient ? `${booking.patient.first_name} ${booking.patient.last_name}` : 'Patient'}</Text>
-          {booking.patient?.phone ? <Text style={styles.muted}>{booking.patient.phone}</Text> : null}
+          {booking.patient?.phone ? (
+            <Pressable onPress={() => Linking.openURL(`tel:${booking.patient!.phone}`)} accessibilityRole="link" accessibilityLabel={`Call ${booking.patient.phone}`}>
+              <Text style={[styles.muted, { color: palette.brand, fontWeight: '600' }]}>
+                <Ionicons name="call-outline" size={14} /> {booking.patient.phone}
+              </Text>
+            </Pressable>
+          ) : null}
           {booking.slot ? <Text style={styles.muted}>{day(booking.slot.start_time)}, {time(booking.slot.start_time)} to {time(booking.slot.end_time)}</Text> : null}
           {booking.patient_review_reason ? <Text style={styles.warn}>Check the patient record: {booking.patient_review_reason}</Text> : null}
           {booking.hold_expires_at ? <Text style={styles.warn}>The patient is still paying online.</Text> : null}
@@ -178,6 +231,12 @@ function BookingModal({ booking, onClose, onChanged }: { booking: Booking | null
               {booking.status === 'pending' && !booking.hold_expires_at ? (
                 <Action label="Confirm and text patient" color={COLOR} onPress={() => run({ action: 'staff_set_status', status: 'confirmed' }, 'Booking confirmed')} disabled={busy} />
               ) : null}
+              {video ? <Action label="Join video call" color={COLOR} onPress={() => Linking.openURL(video.url)} disabled={busy} /> : null}
+              {booking.service?.is_video && !video ? (
+                <Text style={styles.muted}>The video room is set up automatically before the appointment, or from the web app.</Text>
+              ) : null}
+              {!booking.hold_expires_at ? <Action label="Mark completed" color={palette.success} onPress={() => mark('completed', 'Marked completed')} disabled={busy} /> : null}
+              {!booking.hold_expires_at ? <Action label="Mark no-show" color={palette.warning} outline onPress={() => mark('no_show', 'Marked as no-show')} disabled={busy} /> : null}
               {!booking.hold_expires_at ? <Action label="Move to another time" color={palette.brand} outline onPress={loadSlots} disabled={busy} /> : null}
               <Action label="Cancel booking" color={palette.danger} outline onPress={cancel} disabled={busy} />
             </View>
@@ -229,5 +288,10 @@ const styles = StyleSheet.create({
   sheetTitle: { fontSize: 18, fontWeight: '700', color: palette.text, flex: 1 },
   slot: { padding: 12, backgroundColor: palette.surface, borderRadius: radius.sm, borderWidth: 1, borderColor: palette.border },
   action: { paddingVertical: 13, borderRadius: radius.md, alignItems: 'center' },
+  tabs: { flexDirection: 'row', gap: 8, paddingHorizontal: 16, paddingTop: 12 },
+  tab: { flex: 1, paddingVertical: 9, borderRadius: radius.md, borderWidth: 1, borderColor: palette.border, alignItems: 'center' },
+  tabOn: { backgroundColor: palette.brand, borderColor: palette.brand },
+  tabText: { fontSize: 14, fontWeight: '600', color: palette.text },
+  tabTextOn: { color: palette.textInverse },
   actionText: { fontSize: 15, fontWeight: '700' },
 })

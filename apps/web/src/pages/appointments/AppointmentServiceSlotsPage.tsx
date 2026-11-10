@@ -4,6 +4,8 @@ import { useAuthStore, useAppointmentStore, useServiceStore } from '@pharmstatio
 import type { AppointmentSlot } from '@pharmstation/types'
 import { Modal } from '../../components/Modal'
 import { expandRecurrenceDates, toLocalDateString, RECURRENCE_HORIZON_DAYS } from '../../lib/recurrence'
+import { alertDialog, confirmDialog } from '../../components/ui/dialog'
+import { Clock } from 'lucide-react'
 
 function toDateInputValue(date: Date) {
   const year = date.getFullYear()
@@ -270,11 +272,11 @@ export function AppointmentServiceSlotsPage() {
   }
 
   const handleDeactivate = async (slotId: string) => {
-    if (!confirm('Deactivate this slot? It will no longer accept bookings.')) return
+    if (!await confirmDialog('Deactivate this slot? It will no longer accept bookings.')) return
     try {
       await deleteSlot(slotId)
     } catch (e: any) {
-      alert(e.message)
+      alertDialog(e.message)
     }
   }
 
@@ -439,7 +441,7 @@ export function AppointmentServiceSlotsPage() {
         </div>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--ps-space-md)', flexWrap: 'wrap' }}>
           <div>
-            <h1 style={{ marginBottom: 'var(--ps-space-xs)' }}>⏰ {service?.name || 'Service'} Slots</h1>
+            <h1 style={{ marginBottom: 'var(--ps-space-xs)' }}>{service?.name || 'Service'} Slots</h1>
             <p style={{ margin: 0, color: 'var(--ps-slate)' }}>
               Focus on one service at a time. Recurring slots collapse into a series row and expand into their individual occurrences.
             </p>
@@ -497,7 +499,7 @@ export function AppointmentServiceSlotsPage() {
 
       {!loading && slotRows.length === 0 && (
         <div className="ps-card" style={{ padding: 'var(--ps-space-2xl)', textAlign: 'center' }}>
-          <div style={{ fontSize: '48px', marginBottom: 'var(--ps-space-md)' }}>⏰</div>
+          <span className="ps-empty-icon" aria-hidden="true"><Clock size={26} strokeWidth={1.75} /></span>
           <h2 style={{ color: 'var(--ps-midnight)', marginBottom: 'var(--ps-space-sm)' }}>No slots in this view</h2>
           <p style={{ color: 'var(--ps-slate)', margin: '0 auto var(--ps-space-lg)', maxWidth: 460 }}>
             Try widening the date range or turn on recurring occurrences if you want to inspect those specific generated slots.
@@ -541,7 +543,7 @@ export function AppointmentServiceSlotsPage() {
                       <td style={{ padding: 'var(--ps-space-sm) var(--ps-space-md)', textAlign: 'right' }}>
                         <div style={{ display: 'flex', gap: 'var(--ps-space-xs)', justifyContent: 'flex-end' }}>
                           <button className="ps-btn ps-btn-secondary ps-btn-sm" onClick={() => openEdit(slot)}>
-                            ✏️ Edit
+                            Edit
                           </button>
                           <button className="ps-btn ps-btn-ghost ps-btn-sm" onClick={() => handleDeactivate(slot.id)} style={{ color: 'var(--ps-error)' }}>
                             ✕
@@ -580,7 +582,7 @@ export function AppointmentServiceSlotsPage() {
                             {row.slots.length} slots
                           </span>
                           <button className="ps-btn ps-btn-secondary ps-btn-sm" onClick={() => openEditSeries(row.key)}>
-                            ✏️ Edit Series
+                            Edit Series
                           </button>
                         </div>
                       </td>
@@ -604,7 +606,7 @@ export function AppointmentServiceSlotsPage() {
                         <td style={{ padding: 'var(--ps-space-sm) var(--ps-space-md)', textAlign: 'right' }}>
                           <div style={{ display: 'flex', gap: 'var(--ps-space-xs)', justifyContent: 'flex-end' }}>
                             <button className="ps-btn ps-btn-secondary ps-btn-sm" onClick={() => openEdit(slot)}>
-                              ✏️ Edit
+                              Edit
                             </button>
                             <button className="ps-btn ps-btn-ghost ps-btn-sm" onClick={() => handleDeactivate(slot.id)} style={{ color: 'var(--ps-error)' }}>
                               ✕

@@ -5,6 +5,7 @@ import { getUserClient } from '@pharmstation/supabase-client'
 import type { VideoConsultation, VideoConsultationStatus } from '@pharmstation/types'
 import { Modal } from '../../components/Modal'
 import { Drawer } from '../../components/Drawer'
+import { Copy } from 'lucide-react'
 
 /* ---- Status badge styling ---- */
 const STATUS_CONFIG: Record<VideoConsultationStatus, { label: string; cssClass: string }> = {
@@ -118,6 +119,20 @@ export function VideoConsultsPage() {
   }, [organisation?.id, tab, fetchConsultations])
 
   useEffect(() => { load() }, [load])
+
+  // Five wrong codes lock the patient's link (ps_verify_video_access_code).
+  // A new code clears the count; staff then give or text it to the patient.
+  const resetAccessCode = async (c: VideoConsultation) => {
+    const n = crypto.getRandomValues(new Uint32Array(1))[0]
+    const code = String(100000 + (n % 900000))
+    const { error } = await getUserClient()
+      .from('ps_video_consultations')
+      .update({ patient_access_code: code, access_code_attempts: 0 })
+      .eq('id', c.id)
+    if (error) { window.alert(`Could not make a new code: ${error.message}`); return }
+    window.alert(`New access code: ${code}. Give it to the patient, or use "Resend link" to text it.`)
+    load()
+  }
 
   /* ---- Patient search ---- */
   const searchPatients = useCallback(async (query: string) => {
@@ -242,7 +257,7 @@ export function VideoConsultsPage() {
           <span>Video Consultations</span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--ps-space-md)' }}>
-          <h1>📹 Video Consultations</h1>
+          <h1>Video Consultations</h1>
           <button className="ps-btn ps-btn-primary" onClick={openNewConsultation}>
             + New Consultation
           </button>
@@ -265,7 +280,7 @@ export function VideoConsultsPage() {
             className={`ps-btn ${tab === t ? 'ps-btn-primary' : 'ps-btn-secondary'}`}
             onClick={() => setTab(t)}
           >
-            {t === 'upcoming' ? '📅 Upcoming' : t === 'active' ? '🟢 Active' : '📋 Past'}
+            {t === 'upcoming' ? 'Upcoming' : t === 'active' ? 'Active' : 'Past'}
           </button>
         ))}
       </div>
@@ -321,7 +336,16 @@ export function VideoConsultsPage() {
                       <span className={status.cssClass}>{status.label}</span>
                     </td>
                     <td style={{ padding: 'var(--ps-space-sm) var(--ps-space-md)' }}>
-                      {c.status !== 'completed' && c.status !== 'cancelled' && !isExpired ? (
+                      {c.status !== 'completed' && c.status !== 'cancelled' && !isExpired && (c.access_code_attempts ?? 0) >= 5 ? (
+                        <span style={{ display: 'flex', alignItems: 'center', gap: 'var(--ps-space-xs)', flexWrap: 'wrap' }}>
+                          <span style={{ color: 'var(--ps-error)', fontSize: 'var(--ps-font-sm)' }}>Locked, too many wrong codes</span>
+                          <button
+                            className="ps-btn ps-btn-ghost"
+                            style={{ padding: '2px 8px', fontSize: 'var(--ps-font-xs)' }}
+                            onClick={() => void resetAccessCode(c)}
+                          >New code</button>
+                        </span>
+                      ) : c.status !== 'completed' && c.status !== 'cancelled' && !isExpired ? (
                         <span style={{ display: 'flex', alignItems: 'center', gap: 'var(--ps-space-xs)' }}>
                           <code style={{ fontFamily: 'var(--ps-font-mono)', fontSize: 'var(--ps-font-base)', letterSpacing: '0.15em' }}>
                             {c.patient_access_code}
@@ -331,7 +355,7 @@ export function VideoConsultsPage() {
                             style={{ padding: '2px 6px', fontSize: 'var(--ps-font-xs)' }}
                             onClick={() => copyToClipboard(c.patient_access_code)}
                             title="Copy code"
-                          >📋</button>
+                          ><Copy size={16} aria-hidden="true" /></button>
                         </span>
                       ) : '—'}
                     </td>
@@ -352,7 +376,7 @@ export function VideoConsultsPage() {
                               onClick={() => copyToClipboard(getPatientLink(c))}
                               title="Copy patient link"
                             >
-                              🔗 Link
+                              Link
                             </button>
                             {c.status === 'scheduled' && (
                               <>
@@ -367,7 +391,7 @@ export function VideoConsultsPage() {
                                       : resendStates[c.id]?.error || 'Text the patient their consultation link and access code again'
                                   }
                                 >
-                                  {resendStates[c.id]?.status === 'sending' ? 'Sending…' : '📲 Resend Link'}
+                                  {resendStates[c.id]?.status === 'sending' ? 'Sending…' : 'Resend Link'}
                                 </button>
                                 {resendStates[c.id]?.status === 'sent' && (
                                   <span style={{ alignSelf: 'center', color: 'var(--ps-success)', fontSize: 'var(--ps-font-xs)', whiteSpace: 'nowrap' }}>✓ Sent</span>
@@ -546,14 +570,14 @@ export function VideoConsultsPage() {
                 style={{ flex: 1 }}
                 onClick={() => copyToClipboard(createdConsultation.patient_access_code)}
               >
-                📋 Copy Code
+                Copy Code
               </button>
               <button
                 className="ps-btn ps-btn-primary"
                 style={{ flex: 1 }}
                 onClick={() => copyToClipboard(getPublicPatientLink(createdPatientLink))}
               >
-                🔗 Copy Patient Link
+                Copy Patient Link
               </button>
             </div>
 
@@ -564,7 +588,7 @@ export function VideoConsultsPage() {
               disabled={textState === 'sending'}
               title="Text the patient their consultation link and access code again"
             >
-              {textState === 'sending' ? 'Sending link…' : '📲 Resend Link'}
+              {textState === 'sending' ? 'Sending link…' : 'Resend Link'}
             </button>
             {textState === 'sent' && (
               <p style={{ color: 'var(--ps-success)', fontSize: 'var(--ps-font-sm)', margin: 0 }}>✓ Patient link sent by text.</p>

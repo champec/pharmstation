@@ -49,7 +49,7 @@ export function DeleteAccountCard() {
 
   return (
     <div className="ps-card" style={{ marginBottom: '1.25rem' }}>
-      <div className="ps-card-header"><h2 className="ps-card-title">🗑️ Delete my account</h2></div>
+      <div className="ps-card-header"><h2 className="ps-card-title">Delete my account</h2></div>
       <div className="ps-card-body">
         {pending ? (
           <>
@@ -65,7 +65,7 @@ export function DeleteAccountCard() {
           <>
             <p style={{ fontSize: '0.875rem', marginBottom: '0.75rem' }}>
               We&rsquo;ll remove your account and personal details. By law, entries you made in controlled drug
-              registers, the RP log and similar records stay with the pharmacy, under your name.
+              registers, the RP log and similar records stay with the pharmacy, shown as “Deleted user” instead of your name.
             </p>
             <div className="form-group">
               <label className="form-label" htmlFor="delete-reason">Anything you&rsquo;d like to tell us? (optional)</label>

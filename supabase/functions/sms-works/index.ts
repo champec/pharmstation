@@ -1,3 +1,4 @@
+import '../_shared/monitoring.ts' // platform error tracking (see _shared/monitoring.ts)
 // ============================================
 // PharmStation Edge Function: sms-works
 // All SMS Works (https://thesmsworks.co.uk) outbound SMS interactions.
@@ -84,6 +85,20 @@ function getPlatformJwt(): string {
   return `JWT ${token}`
 }
 
+/** Plain-words version of an SMS Works error for staff (the raw one is logged). */
+function friendlyGatewayError(status: number, code: unknown, msg: string) {
+  const m = msg.toLowerCase()
+  if (String(code) === '4004' || m.includes('destination') || m.includes('invalid number')) {
+    return "That number can't receive texts. Check it's a UK mobile number."
+  }
+  if (m.includes('credit') || m.includes('balance') || status === 402) {
+    return 'Texting is temporarily unavailable. Please try again later or contact support.'
+  }
+  if (m.includes('sender')) return "The sender name wasn't accepted. Check it in Settings, Messaging."
+  if (status === 401 || status === 403) return 'Texting is temporarily unavailable. Please contact support.'
+  return `The text couldn't be sent (gateway error ${code ?? status}). Please try again.`
+}
+
 async function smsworksFetch(path: string, options: RequestInit = {}) {
   const res = await fetch(`${SMSWORKS_API_BASE}${path}`, {
     ...options,
@@ -99,8 +114,9 @@ async function smsworksFetch(path: string, options: RequestInit = {}) {
   if (!res.ok) {
     // SMS Works errors look like { status, errorCode, message }
     const code = (body as Record<string, unknown>).errorCode
-    const msg = (body as Record<string, unknown>).message || `HTTP ${res.status}`
-    throw new Error(`SMS Works${code ? ` [${code}]` : ''}: ${msg}`)
+    const msg = String((body as Record<string, unknown>).message || `HTTP ${res.status}`)
+    console.error(`SMS Works${code ? ` [${code}]` : ''}: ${msg}`)
+    throw new Error(friendlyGatewayError(res.status, code, msg))
   }
 
   return body as Record<string, unknown>
@@ -660,11 +676,13 @@ async function handleTestConnection(body: Record<string, unknown>) {
   if (!org_id) throw new Error('Missing org_id')
   const admin = getAdminClient()
   try {
-    const balance = await smsworksFetch('/credits/balance')
+    // Checks the gateway is reachable. The gateway balance is PharmStation's
+    // own account, so it is never returned to pharmacies.
+    await smsworksFetch('/credits/balance')
     await admin.rpc('ps_sms_save_settings', { p_org_id: org_id }) // ensure row exists
     await admin.from('ps_sms_settings')
       .update({ last_tested_at: new Date().toISOString() }).eq('org_id', org_id)
-    return { valid: true, balance: balance.credits ?? null }
+    return { valid: true }
   } catch (e: unknown) {
     return { valid: false, error: e instanceof Error ? e.message : 'Unknown error' }
   }
@@ -1033,6 +1051,18 @@ Deno.serve(async (req: Request) => {
       .eq('organisation_id', body.org_id).eq('user_id', user.id)
       .eq('status', 'active').maybeSingle()
     if (!membership) throw new Error('You do not have access to this organisation')
+
+    // Texting patients (and renting a reply number) needs a verified pharmacy,
+    // same as the Pharmacy Network, so a brand-new sign-up can't text anyone.
+    if (['send_sms', 'notify', 'send_broadcast', 'assign_reply_number'].includes(action)) {
+      const { data: org } = await getAdminClient()
+        .from('ps_organisations').select('verification_status').eq('id', body.org_id).maybeSingle()
+      if (org?.verification_status !== 'verified') {
+        throw new Error(
+          'Texting patients is available once your pharmacy is verified. We check every pharmacy against the GPhC register, usually within one working day.',
+        )
+      }
+    }
 
     let result: unknown
     switch (action) {

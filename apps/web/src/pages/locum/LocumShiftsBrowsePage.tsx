@@ -1,6 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { getUserClient } from '@pharmstation/supabase-client'
+import { Bell } from 'lucide-react'
+import { PageHeader } from '../../components/ui'
+import { bookingModeLabel } from '../../components/locum/labels'
 import { useAuthStore } from '@pharmstation/core'
+import { confirmDialog } from '../../components/ui/dialog'
 
 interface ShiftWithCriteria {
   id: string
@@ -211,17 +215,30 @@ export function LocumShiftsBrowsePage() {
     }
   }
 
+  async function createAlert() {
+    if (!locumProfile) return
+    const rate = Number(filterRateMin) || 0
+    const name = [rate ? `£${rate}+/hr` : '', filterEligible ? 'eligible only' : ''].filter(Boolean).join(', ') || 'All shifts'
+    if (!await confirmDialog(`Get a notification on the PharmStation phone app when a new shift is posted that matches: ${name}?\n\nManage alerts in the app under Locum Shifts › Profile.`)) return
+    const { error: e } = await getUserClient().from('ps_locum_saved_searches').insert({
+      locum_id: locumProfile.id, name, minimum_rate: rate, date_filter: 'all', eligible_only: filterEligible, alerts_enabled: true,
+    })
+    if (e) setApplyError(e.message)
+    else { setApplyError(null); setApplyNotice('Alert created. New matching shifts will be sent to the PharmStation app on your phone.') }
+  }
+
   return (
     <div className="page-container">
-      <div className="page-header">
-        <div>
-          <h1 className="page-title">Browse Shifts</h1>
-          <p className="page-subtitle">Available locum shifts across the network</p>
-        </div>
-        <button className="ps-btn ps-btn-ghost ps-btn-sm" onClick={load} disabled={loading}>
-          Refresh
-        </button>
-      </div>
+      <PageHeader
+        title="Browse shifts"
+        subtitle="Available locum shifts across the network"
+        actions={<>
+          <button className="ps-btn ps-btn-ghost ps-btn-sm" onClick={load} disabled={loading}>Refresh</button>
+          <button className="ps-btn ps-btn-secondary ps-btn-sm" onClick={createAlert} title="Get a phone notification when a new shift matches these filters">
+            <Bell size={16} strokeWidth={1.75} aria-hidden="true" /> Alert me
+          </button>
+        </>}
+      />
 
       {error && <div className="ps-alert ps-alert-error" style={{ marginBottom: '1rem' }}>{error}</div>}
       {applyError && <div className="ps-alert ps-alert-error" style={{ marginBottom: '1rem' }}>{applyError}</div>}
@@ -282,7 +299,7 @@ export function LocumShiftsBrowsePage() {
                   <div style={{ display: 'flex', gap: '1rem', fontSize: '0.875rem', color: 'var(--ps-slate)', flexWrap: 'wrap' }}>
                     <span>£{Number(shift.rate_per_hour).toFixed(2)}/hr · £{total} total</span>
                     {orgNames[shift.org_id] && <span>{orgNames[shift.org_id]}</span>}
-                    <span className="ps-badge">{shift.booking_mode}</span>
+                    <span className="ps-badge">{bookingModeLabel(shift.booking_mode)}</span>
                     {shift.criteria?.references_required && <span className="ps-badge ps-badge-warning">References req.</span>}
                     {shift.criteria?.sop_required && <span className="ps-badge ps-badge-warning">SOP sign-off req.</span>}
                   </div>

@@ -2,6 +2,8 @@ import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuthStore, useDeliveryRoundStore } from '@pharmstation/core'
 import { Modal } from '../../components/Modal'
+import { LayoutTemplate } from 'lucide-react'
+import { alertDialog, confirmDialog } from '../../components/ui/dialog'
 
 export function RoundTemplatesPage() {
   const navigate = useNavigate()
@@ -42,14 +44,14 @@ export function RoundTemplatesPage() {
       setNewName('')
       setNewNotes('')
     } catch (e: any) {
-      alert(e.message)
+      alertDialog(e.message)
     }
     setSaving(false)
   }
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Delete this template? This cannot be undone.')) return
-    try { await deleteTemplate(id) } catch (e: any) { alert(e.message) }
+    if (!await confirmDialog('Delete this template? This cannot be undone.')) return
+    try { await deleteTemplate(id) } catch (e: any) { alertDialog(e.message) }
   }
 
   const handleCreateRound = async (templateId: string) => {
@@ -59,14 +61,14 @@ export function RoundTemplatesPage() {
       const round = await createRoundFromTemplate(templateId, organisation.id, membership.user_id)
       navigate(`/deliveries/${round.id}`)
     } catch (e: any) {
-      alert(e.message)
+      alertDialog(e.message)
     }
     setSaving(false)
   }
 
   return (
-    <div>
-      <div className="page-header">
+    <div className="care-home-page">
+      <div className="page-header care-home-page-header">
         <div className="breadcrumbs">
           <a href="/" onClick={(e) => { e.preventDefault(); navigate('/') }}>Dashboard</a>
           <span className="separator">/</span>
@@ -74,11 +76,17 @@ export function RoundTemplatesPage() {
           <span className="separator">/</span>
           <span>Templates</span>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <h1>📋 Round Templates</h1>
-          <button className="ps-btn ps-btn-primary" onClick={() => { setNewName(''); setNewNotes(''); setShowCreateModal(true) }}>
-            + New Template
-          </button>
+        <div className="care-home-title-row">
+          <div>
+            <p className="care-home-eyebrow">Deliveries</p>
+            <h1>Round templates</h1>
+            <p className="care-home-subtitle">Save regular rounds once and create them again in one click.</p>
+          </div>
+          <div className="care-home-header-actions">
+            <button className="ps-btn ps-btn-primary" onClick={() => { setNewName(''); setNewNotes(''); setShowCreateModal(true) }}>
+              + New template
+            </button>
+          </div>
         </div>
       </div>
 
@@ -95,7 +103,7 @@ export function RoundTemplatesPage() {
 
       {!loading && templates.length === 0 && (
         <div className="ps-card" style={{ padding: 'var(--ps-space-2xl)', textAlign: 'center' }}>
-          <div style={{ fontSize: '48px', marginBottom: 'var(--ps-space-md)' }}>📋</div>
+          <span className="ps-empty-icon" aria-hidden="true"><LayoutTemplate size={26} strokeWidth={1.75} /></span>
           <h2 style={{ color: 'var(--ps-midnight)', marginBottom: 'var(--ps-space-sm)' }}>No templates yet</h2>
           <p style={{ color: 'var(--ps-slate)', marginBottom: 'var(--ps-space-lg)' }}>
             Create a template for regular delivery rounds (e.g. weekly care home deliveries).
@@ -136,7 +144,7 @@ export function RoundTemplatesPage() {
                 <button
                   className="ps-btn ps-btn-ghost ps-btn-sm"
                   onClick={() => handleDelete(tpl.id)}
-                  style={{ color: 'var(--ps-red)' }}
+                  style={{ color: 'var(--ps-error)' }}
                 >
                   Delete
                 </button>

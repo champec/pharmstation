@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuthStore } from '@pharmstation/core'
 import { MfaCodeForm } from '../../components/mfa/MfaCodeForm'
 import { PasswordInput } from '../../components/PasswordInput'
@@ -12,6 +12,8 @@ import { PasswordInput } from '../../components/PasswordInput'
 export function PersonalLoginPage() {
   const { userLogin, mfaPendingFactorId } = useAuthStore()
   const navigate = useNavigate()
+  const [params] = useSearchParams()
+  const confirmed = params.get('confirmed') === '1'
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
@@ -25,7 +27,12 @@ export function PersonalLoginPage() {
       // Personal login never requires org membership — even on a browser
       // that has an org session (e.g. a pharmacy terminal).
       await userLogin(email, password, { requireOrgMembership: false })
-      if (useAuthStore.getState().isUserLoggedIn) navigate('/me', { replace: true })
+      if (useAuthStore.getState().isUserLoggedIn) {
+        // Locums go straight to their portal; everyone else to their account.
+        const { locumProfile, userSession } = useAuthStore.getState()
+        const signedUpAsLocum = userSession?.user?.user_metadata?.default_role === 'locum'
+        navigate(locumProfile ? '/locum/dashboard' : signedUpAsLocum ? '/locum/complete-profile' : '/me', { replace: true })
+      }
     } catch (err: unknown) {
       const message =
         err instanceof Error
@@ -61,6 +68,11 @@ export function PersonalLoginPage() {
         Access your personal account — no pharmacy sign-in needed
       </p>
 
+      {confirmed && !error && (
+        <div className="ps-alert ps-alert-success" style={{ marginBottom: '1rem' }}>
+          Your email is confirmed. Sign in to carry on.
+        </div>
+      )}
       {error && <div className="auth-error">{error}</div>}
 
       <form onSubmit={handleSubmit}>
@@ -104,8 +116,11 @@ export function PersonalLoginPage() {
       </form>
 
       <div style={{ marginTop: '16px', textAlign: 'center', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+        <Link to="/me/signup" style={{ fontSize: 'var(--ps-font-sm)' }}>
+          New to PharmStation? Create an account
+        </Link>
         <Link to="/login/org" style={{ fontSize: 'var(--ps-font-sm)' }}>
-          🏥 Pharmacy sign in instead
+          Pharmacy sign in instead
         </Link>
       </div>
     </div>

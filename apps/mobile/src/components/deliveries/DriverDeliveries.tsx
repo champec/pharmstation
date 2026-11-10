@@ -148,8 +148,24 @@ export function DriverRouteScreen() {
 
   const saveDelivery = async () => {
     if (!selectedStop) return
+    const signatureData = signatureRef.current?.getData() ?? undefined
+    const name = recipientName.trim()
+    // Proof rules (same as the website): the patient signs or gives their
+    // name, a representative gives their name, a safe place is described.
+    if (deliveryMethod === 'handed_to_patient' && !signatureData && !name) {
+      Alert.alert('Proof needed', 'Ask the patient to sign, or type their name.')
+      return
+    }
+    if (deliveryMethod === 'handed_to_representative' && !name) {
+      Alert.alert('Proof needed', 'Type the name of the person who took the medicines.')
+      return
+    }
+    if (deliveryMethod === 'left_in_safe_place' && !name) {
+      Alert.alert('Proof needed', 'Say where you left the medicines, for example "porch, behind the plant pot".')
+      return
+    }
     await completeDelivery(selectedStop.id, {
-      signatureData: signatureRef.current?.getData() ?? undefined,
+      signatureData,
       deliveryMethod,
       recipientName,
       evidenceFiles,
@@ -225,7 +241,7 @@ export function DriverRouteScreen() {
             </View>
             <View style={styles.progressMeta}>
               <Text style={styles.progressText}>
-                {resolvedCount} of {activeRound.patients.length} stops resolved
+                {resolvedCount} of {activeRound.patients.length} {activeRound.patients.length === 1 ? 'stop' : 'stops'} resolved
               </Text>
               {tracking ? (
                 <View style={styles.livePill}>
@@ -327,7 +343,13 @@ export function DriverRouteScreen() {
                 style={styles.recipientInput}
                 value={recipientName}
                 onChangeText={setRecipientName}
-                placeholder={deliveryMethod === 'left_in_safe_place' ? 'Safe place details (optional)' : 'Recipient name (optional)'}
+                placeholder={
+                  deliveryMethod === 'left_in_safe_place'
+                    ? 'Where did you leave it? (required)'
+                    : deliveryMethod === 'handed_to_representative'
+                      ? 'Name of the person who took it (required)'
+                      : 'Patient name (or ask them to sign below)'
+                }
               />
               <Text style={styles.fieldLabel}>Photo evidence (optional)</Text>
               <View style={styles.photoActions}>
@@ -356,7 +378,9 @@ export function DriverRouteScreen() {
                   ))}
                 </View>
               ) : null}
-              <Text style={styles.fieldLabel}>Customer signature (optional)</Text>
+              <Text style={styles.fieldLabel}>
+                {deliveryMethod === 'handed_to_patient' ? 'Signature (or type their name above)' : 'Signature (optional)'}
+              </Text>
               <SignaturePad ref={signatureRef} />
               <Pressable onPress={() => signatureRef.current?.clear()}>
                 <Text style={styles.clearSignature}>Clear signature</Text>
@@ -585,7 +609,7 @@ function RoundCard({ round, onPress }: { round: DeliveryRound; onPress: () => vo
         <StatusPill status={round.status} />
       </View>
       <View style={styles.cardBottom}>
-        <Text style={styles.cardMetric}>{round.patients.length} stops</Text>
+        <Text style={styles.cardMetric}>{round.patients.length} {round.patients.length === 1 ? 'stop' : 'stops'}</Text>
         <Text style={styles.cardMetric}>{resolved} resolved</Text>
         <Ionicons name="chevron-forward" size={19} color={palette.textMuted} />
       </View>
@@ -610,7 +634,7 @@ function OpenJobCard({
         </View>
         <View style={styles.flex}>
           <Text style={styles.roundTitle}>{round.title || 'Available delivery'}</Text>
-          <Text style={styles.roundMeta}>{formatRoundDate(round)} · {round.patients.length} stops</Text>
+          <Text style={styles.roundMeta}>{formatRoundDate(round)} · {round.patients.length} {round.patients.length === 1 ? 'stop' : 'stops'}</Text>
         </View>
       </View>
       <Button label="Claim job" variant="secondary" disabled={saving} onPress={onClaim} />
@@ -670,12 +694,6 @@ function StopCard({
         <View style={styles.quickActions}>
           <IconAction icon="navigate-outline" label="Navigate" onPress={onNavigate} />
           {stop.patient?.phone ? <IconAction icon="call-outline" label="Call" onPress={onCall} /> : null}
-          {roundActive && stop.status === 'pending' ? (
-            <IconAction icon="play-outline" label="Begin" onPress={() => onStatus('in_transit')} />
-          ) : null}
-          {roundActive && stop.status === 'in_transit' ? (
-            <IconAction icon="location-outline" label="Arrived" onPress={() => onStatus('arrived')} />
-          ) : null}
         </View>
       ) : null}
       {roundActive && !resolved ? (
@@ -688,18 +706,6 @@ function StopCard({
           />
           <Pressable accessibilityLabel="Delivery failed" style={styles.failButton} onPress={onFail}>
             <Ionicons name="close" size={21} color={palette.danger} />
-          </Pressable>
-          <Pressable
-            accessibilityLabel="Mark bags returned"
-            style={styles.returnButton}
-            onPress={() =>
-              Alert.alert('Mark as returned?', 'This records that the bags were returned to the pharmacy.', [
-                { text: 'Cancel', style: 'cancel' },
-                { text: 'Returned', onPress: () => onStatus('returned') },
-              ])
-            }
-          >
-            <Ionicons name="return-down-back" size={21} color={palette.textMuted} />
           </Pressable>
         </View>
       ) : null}

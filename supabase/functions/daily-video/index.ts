@@ -1,3 +1,4 @@
+import '../_shared/monitoring.ts' // platform error tracking (see _shared/monitoring.ts)
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 const DAILY_API_BASE = 'https://api.daily.co/v1'
@@ -10,7 +11,7 @@ const corsHeaders = {
 // --- Daily API helper ---
 async function dailyFetch(path: string, options: RequestInit = {}) {
   const apiKey = Deno.env.get('DAILY_API_KEY')
-  if (!apiKey) throw new Error('DAILY_API_KEY not configured')
+  if (!apiKey) throw new Error("Video calls aren't set up yet. Please contact PharmStation support.")
   const res = await fetch(`${DAILY_API_BASE}${path}`, {
     ...options,
     headers: {
@@ -21,7 +22,11 @@ async function dailyFetch(path: string, options: RequestInit = {}) {
   })
   if (!res.ok) {
     const err = await res.json().catch(() => ({}))
-    throw new Error(`Daily API ${res.status}: ${err.error || 'unknown'}`)
+    console.error('Daily API error', res.status, (err as { error?: string }).error)
+    if (res.status === 401 || res.status === 403) {
+      throw new Error("Video calls aren't set up correctly. Please contact PharmStation support.")
+    }
+    throw new Error('The video service could not set up the call. Please try again in a minute.')
   }
   return res.json()
 }

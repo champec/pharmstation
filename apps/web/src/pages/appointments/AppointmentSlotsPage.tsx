@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuthStore, useAppointmentStore, useServiceStore } from '@pharmstation/core'
 import type { Service } from '@pharmstation/types'
+import { Clock } from 'lucide-react'
 
 function formatDateTime(iso: string) {
   const date = new Date(iso)
@@ -18,7 +19,7 @@ export function AppointmentSlotsPage() {
   const navigate = useNavigate()
   const { organisation } = useAuthStore()
   const { slots, loading, error, fetchSlots, clearError } = useAppointmentStore()
-  const { services, fetchServices } = useServiceStore()
+  const { services, fetchServices, loading: servicesLoading, error: servicesError } = useServiceStore()
 
   const load = useCallback(() => {
     if (organisation?.id) {
@@ -29,12 +30,16 @@ export function AppointmentSlotsPage() {
 
   useEffect(() => { load() }, [load])
 
+  // Only this pharmacy's own services (the store can briefly hold another
+  // page's list), active ones plus inactive ones that still have slots.
   const visibleServices = useMemo(() => {
     return services.filter((service) => {
+      if (service.org_id !== organisation?.id) return false
       if (service.is_active) return true
       return slots.some((slot) => slot.service_id === service.id)
     })
-  }, [services, slots])
+  }, [services, slots, organisation?.id])
+  const busy = loading || servicesLoading
 
   const now = useMemo(() => new Date(), [])
 
@@ -50,7 +55,7 @@ export function AppointmentSlotsPage() {
         </div>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--ps-space-md)', flexWrap: 'wrap' }}>
           <div>
-            <h1 style={{ marginBottom: 'var(--ps-space-xs)' }}>⏰ Appointment Slots</h1>
+            <h1 style={{ marginBottom: 'var(--ps-space-xs)' }}>Appointment Slots</h1>
             <p style={{ margin: 0, color: 'var(--ps-slate)' }}>
               Pick a service first, then manage its slots on a focused page with date and recurrence controls.
             </p>
@@ -61,14 +66,14 @@ export function AppointmentSlotsPage() {
         </div>
       </div>
 
-      {error && (
+      {(error || servicesError) && (
         <div className="auth-error" style={{ marginBottom: 'var(--ps-space-md)' }}>
-          {error}
+          {error || `Services could not be loaded: ${servicesError}`}
           <button className="ps-btn ps-btn-ghost ps-btn-sm" onClick={clearError} style={{ marginLeft: 'var(--ps-space-sm)' }}>Dismiss</button>
         </div>
       )}
 
-      {loading && visibleServices.length === 0 && (
+      {busy && visibleServices.length === 0 && (
         <div className="dashboard-grid">
           {[1, 2, 3].map((item) => (
             <div key={item} className="ps-card" style={{ padding: 'var(--ps-space-lg)', opacity: 0.55 }}>
@@ -80,9 +85,9 @@ export function AppointmentSlotsPage() {
         </div>
       )}
 
-      {!loading && visibleServices.length === 0 && (
+      {!busy && !servicesError && visibleServices.length === 0 && (
         <div className="ps-card" style={{ padding: 'var(--ps-space-2xl)', textAlign: 'center' }}>
-          <div style={{ fontSize: '48px', marginBottom: 'var(--ps-space-md)' }}>⏰</div>
+          <span className="ps-empty-icon" aria-hidden="true"><Clock size={26} strokeWidth={1.75} /></span>
           <h2 style={{ color: 'var(--ps-midnight)', marginBottom: 'var(--ps-space-sm)' }}>No services ready for slots</h2>
           <p style={{ color: 'var(--ps-slate)', margin: '0 auto var(--ps-space-lg)', maxWidth: 440 }}>
             Create or activate a service first, then open it here to manage bookable slots without one long recurring list.

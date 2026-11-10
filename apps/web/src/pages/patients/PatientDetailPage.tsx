@@ -5,6 +5,7 @@ import { getUserClient } from '@pharmstation/supabase-client'
 import type { Appointment, AppointmentStatus } from '@pharmstation/types'
 import { Modal } from '../../components/Modal'
 import { PatientServicesTab } from '../../components/services/PatientServicesTab'
+import { alertDialog } from '../../components/ui/dialog'
 
 const STATUS_BADGE: Record<AppointmentStatus, { cls: string; label: string }> = {
   pending: { cls: 'ps-badge-amber', label: 'Pending' },
@@ -106,7 +107,7 @@ export function PatientDetailPage() {
       setShowEditModal(false)
       fetchPatientDetail(patientId)
     } catch (e: any) {
-      alert(e.message)
+      alertDialog(e.message)
     }
     setSaving(false)
   }
@@ -134,9 +135,9 @@ export function PatientDetailPage() {
           <span>{patient.first_name} {patient.last_name}</span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <h1>👤 {patient.first_name} {patient.last_name}</h1>
+          <h1>{patient.first_name} {patient.last_name}</h1>
           <div style={{ display: 'flex', gap: 'var(--ps-space-sm)' }}>
-            <button className="ps-btn ps-btn-secondary" onClick={() => setShowEditModal(true)}>✏️ Edit</button>
+            <button className="ps-btn ps-btn-secondary" onClick={() => setShowEditModal(true)}>Edit</button>
             <button className="ps-btn ps-btn-secondary" onClick={() => navigate('/patients')}>← Back</button>
           </div>
         </div>
@@ -189,7 +190,7 @@ export function PatientDetailPage() {
             }}
             onClick={() => setTab(t)}
           >
-            {t === 'appointments' ? '📅 Appointments' : t === 'services' ? '🩺 Services' : t === 'messages' ? '💬 Messages' : '📹 Video Consults'}
+            {t === 'appointments' ? 'Appointments' : t === 'services' ? 'Services' : t === 'messages' ? 'Messages' : 'Video Consults'}
           </button>
         ))}
       </div>
@@ -246,13 +247,13 @@ export function PatientDetailPage() {
 
       {tab === 'messages' && (
         <div className="ps-card" style={{ padding: 'var(--ps-space-xl)', textAlign: 'center', color: 'var(--ps-slate)' }}>
-          💬 Message history coming soon.
+          Message history coming soon.
         </div>
       )}
 
       {tab === 'video' && (
         <div className="ps-card" style={{ padding: 'var(--ps-space-xl)', textAlign: 'center', color: 'var(--ps-slate)' }}>
-          📹 Video consultation history coming soon.
+          Video consultation history coming soon.
         </div>
       )}
 

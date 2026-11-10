@@ -28,7 +28,7 @@ export const MODULES: MobileModule[] = [
   {
     id: 'account',
     title: 'My Account',
-    description: 'Your profile, pharmacies and security',
+    description: 'Your profile, pharmacies, security and help',
     icon: 'person-circle-outline',
     color: '#208AEF',
     tier: 'user',
@@ -42,6 +42,12 @@ export const MODULES: MobileModule[] = [
         title: 'Security',
         icon: 'shield-checkmark-outline',
         blurb: 'Two-step sign-in codes',
+      },
+      {
+        id: 'help',
+        title: 'Help',
+        icon: 'help-buoy-outline',
+        blurb: 'Contact PharmStation support',
       },
     ],
   },
@@ -80,6 +86,12 @@ export const MODULES: MobileModule[] = [
         icon: 'wallet-outline',
         blurb: 'Completed hours and estimated earnings',
       },
+      {
+        id: 'profile',
+        title: 'Profile',
+        icon: 'person-outline',
+        blurb: 'Compliance, documents, shift alerts and SOPs',
+      },
     ],
   },
 
@@ -87,41 +99,49 @@ export const MODULES: MobileModule[] = [
   {
     id: 'deliveries',
     title: 'Deliveries',
-    description: 'Driver rounds, proof of delivery and history',
+    description: 'Plan rounds, drive them, proof of delivery and history',
     icon: 'car-outline',
     color: '#059669',
     tier: 'org',
-    // Driving is mobile-first; round setup happens on the web.
+    // Drivers run their rounds here; managers can plan rounds here too.
     platform: 'mobile',
     visible: (ctx) =>
       ctx.isOrgConnected && (canDrive(ctx) || canManageDeliveries(ctx)),
     tabs: [
       {
         id: 'route',
-        title: 'My Route',
+        title: 'My route',
         icon: 'navigate-outline',
-        visible: (ctx) => canDrive(ctx) || canManageDeliveries(ctx),
+        visible: (ctx) => canDrive(ctx),
         blurb: 'Today’s stops, tick-off and signature capture',
       },
       {
         id: 'history',
         title: 'History',
         icon: 'receipt-outline',
+        visible: (ctx) => canDrive(ctx),
         blurb: 'Completed deliveries and proof of delivery',
       },
       {
         id: 'map',
         title: 'Map',
         icon: 'map-outline',
+        visible: (ctx) => canDrive(ctx),
         blurb: 'See stops on a map and open native navigation',
       },
       {
-        id: 'setup',
-        title: 'Setup',
-        icon: 'options-outline',
-        platform: 'web',
+        id: 'rounds',
+        title: 'Rounds',
+        icon: 'albums-outline',
         visible: (ctx) => canManageDeliveries(ctx),
-        blurb: 'Create rounds and assign drivers',
+        blurb: 'Plan rounds, assign drivers and text patients',
+      },
+      {
+        id: 'redelivery',
+        title: 'Redeliver',
+        icon: 'refresh-outline',
+        visible: (ctx) => canManageDeliveries(ctx),
+        blurb: 'Stops that were not delivered',
       },
     ],
   },
@@ -151,8 +171,8 @@ export const MODULES: MobileModule[] = [
   },
   {
     id: 'product-scanner',
-    title: 'Product Scanner',
-    description: 'Demo medicine barcode and dm+d lookup',
+    title: 'Pack Lookup',
+    description: 'Scan a medicine pack to identify it and check your CD register',
     icon: 'barcode-outline',
     color: '#0F766E',
     tier: 'org',
@@ -168,15 +188,44 @@ export const MODULES: MobileModule[] = [
     ],
   },
   {
+    id: 'locum-cover',
+    title: 'Locum Cover',
+    description: 'Confirm applicants and record worked shifts',
+    icon: 'people-circle-outline',
+    color: '#7C3AED',
+    tier: 'org',
+    platform: 'both',
+    visible: (ctx) => has(ctx.permissions, 'approve_locums'),
+    tabs: [
+      { id: 'shifts', title: 'Shifts', icon: 'calendar-outline', blurb: 'Upcoming shifts and applications' },
+      { id: 'record', title: 'To record', icon: 'checkmark-done-outline', blurb: 'Mark finished shifts as worked or no-show' },
+      { id: 'post', title: 'Post shift', icon: 'add-circle-outline', platform: 'web', blurb: 'Post new shifts on the website' },
+    ],
+  },
+  {
     id: 'pharmacy',
     title: 'Pharmacy Management',
-    description: 'Registers, handover and team tasks',
+    description: 'RP log, handover, daily logs and registers',
     icon: 'business-outline',
     color: '#DC2626',
     tier: 'org',
     platform: 'both',
     visible: (ctx) => ctx.isOrgConnected,
     tabs: [
+      {
+        id: 'oversight',
+        title: 'Oversight',
+        icon: 'pulse-outline',
+        visible: (ctx) => has(ctx.permissions, 'view_audit'),
+        blurb: 'Alerts and activity across every pharmacy you manage',
+      },
+      {
+        id: 'activity',
+        title: 'Activity',
+        icon: 'time-outline',
+        visible: (ctx) => has(ctx.permissions, 'view_audit'),
+        blurb: 'Searchable log of who did what, when and where',
+      },
       {
         id: 'cd-register',
         title: 'CD Register',
@@ -196,17 +245,22 @@ export const MODULES: MobileModule[] = [
         title: 'Handover',
         icon: 'reader-outline',
         visible: (ctx) => has(ctx.permissions, 'handover_all'),
-        blurb: 'Shift handover notes and tasks',
+        blurb: 'RP on duty, today’s checks and handover notes',
+      },
+      {
+        id: 'logs',
+        title: 'Logs',
+        icon: 'list-outline',
+        blurb: 'Fridge temperatures, cleaning, visitors and other logs',
       },
       {
         id: 'team',
         title: 'Team',
         icon: 'people-outline',
-        platform: 'web',
         visible: (ctx) =>
           has(ctx.permissions, 'manage_users') ||
           has(ctx.permissions, 'org_settings'),
-        blurb: 'Manage staff, roles and permissions',
+        blurb: 'Invite staff, change roles, reset two-step sign-in',
       },
     ],
   },
@@ -231,6 +285,39 @@ export const MODULES: MobileModule[] = [
         title: 'Alerts',
         icon: 'notifications-outline',
         blurb: 'Push notifications and pharmacy alerts',
+      },
+    ],
+  },
+  {
+    id: 'sops',
+    title: 'SOPs',
+    description: 'Read and sign your SOPs; managers track sign-offs and reviews',
+    icon: 'book-outline',
+    color: '#0D9488',
+    tier: 'org',
+    platform: 'both',
+    visible: (ctx) => ctx.isOrgConnected,
+    tabs: [
+      {
+        id: 'mine',
+        title: 'My SOPs',
+        icon: 'book-outline',
+        blurb: 'SOPs assigned to you to read and sign',
+      },
+      {
+        id: 'team',
+        title: 'Team',
+        icon: 'people-outline',
+        visible: (ctx) => ctx.canManageSOPs === true,
+        blurb: 'Who has signed each SOP, and reviews due',
+      },
+      {
+        id: 'builder',
+        title: 'Builder',
+        icon: 'construct-outline',
+        platform: 'web',
+        visible: (ctx) => ctx.canManageSOPs === true,
+        blurb: 'Write, publish and assign SOPs',
       },
     ],
   },
@@ -266,6 +353,143 @@ export const MODULES: MobileModule[] = [
     ],
   },
 
+  {
+    id: 'shop',
+    title: 'Shop',
+    description: 'Online orders, pharmacist checks and stock',
+    icon: 'bag-handle-outline',
+    color: '#DB2777',
+    tier: 'org',
+    platform: 'both',
+    visible: (ctx) => ctx.isOrgConnected,
+    tabs: [
+      {
+        id: 'orders',
+        title: 'Orders',
+        icon: 'receipt-outline',
+        blurb: 'New orders, pharmacist checks and order progress',
+      },
+      {
+        id: 'stock',
+        title: 'Stock',
+        icon: 'cube-outline',
+        blurb: 'Stock counts and which products are on sale',
+      },
+      {
+        id: 'setup',
+        title: 'Setup',
+        icon: 'options-outline',
+        platform: 'web',
+        blurb: 'Add products and photos, questionnaires, delivery and payment settings',
+      },
+    ],
+  },
+
+  {
+    id: 'care-homes',
+    title: 'Care Homes',
+    description: 'Residents, MAR doses, medication requests and delivery groups',
+    icon: 'home-outline',
+    color: '#0F766E',
+    tier: 'org',
+    platform: 'both',
+    visible: (ctx) => ctx.isOrgConnected && has(ctx.permissions, 'care_home_view'),
+    tabs: [
+      { id: 'residents', title: 'Residents', icon: 'people-outline', blurb: 'Resident records, allergies, medicines and notes' },
+      {
+        id: 'doses',
+        title: 'Doses',
+        icon: 'medkit-outline',
+        blurb: 'Today’s MAR rounds from published charts',
+      },
+      { id: 'requests', title: 'Requests', icon: 'clipboard-outline', blurb: 'Medication requests between the care home and pharmacy' },
+      {
+        id: 'groups',
+        title: 'Groups',
+        icon: 'albums-outline',
+        visible: (ctx) => !ctx.isCareHomeOrg,
+        blurb: 'Delivery groups and where each one is',
+      },
+    ],
+  },
+  {
+    id: 'peps',
+    title: 'Prescriptions',
+    description: 'Private and vet e-prescriptions (PEPS)',
+    icon: 'document-text-outline',
+    color: '#1B5E8C',
+    // User tier: prescribers may not belong to a pharmacy. Pharmacy tabs need one.
+    tier: 'user',
+    platform: 'both',
+    visible: () => true,
+    tabs: [
+      {
+        id: 'queue',
+        title: 'Queue',
+        icon: 'file-tray-full-outline',
+        visible: (ctx) => ctx.isOrgConnected,
+        blurb: 'Prescriptions sent to or held by your pharmacy',
+      },
+      {
+        id: 'collect',
+        title: 'Collect',
+        icon: 'barcode-outline',
+        visible: (ctx) => ctx.isOrgConnected,
+        blurb: 'Claim a spine prescription with its reference',
+      },
+      {
+        id: 'written',
+        title: 'Written',
+        icon: 'documents-outline',
+        blurb: 'Prescriptions you have written',
+      },
+      {
+        id: 'write',
+        title: 'Write',
+        icon: 'create-outline',
+        blurb: 'Write, sign and send a prescription',
+      },
+    ],
+  },
+
+  {
+    id: 'billing',
+    title: 'Plan & Billing',
+    description: 'Your PharmStation plan and text credits',
+    icon: 'card-outline',
+    color: '#257BB4',
+    tier: 'org',
+    platform: 'both',
+    visible: (ctx) => ctx.isOrgConnected,
+    tabs: [
+      {
+        id: 'plan',
+        title: 'Plan',
+        icon: 'card-outline',
+        blurb: 'Current plan, renewal date and text credits',
+      },
+    ],
+  },
+
+  {
+    id: 'genie',
+    title: 'Genie',
+    description: 'Ask about your registers, RP log and team',
+    icon: 'sparkles-outline',
+    color: '#6D28D9',
+    tier: 'org',
+    platform: 'both',
+    visible: (ctx) => ctx.isOrgConnected,
+    tabs: [
+      {
+        id: 'ask',
+        title: 'Ask',
+        icon: 'sparkles-outline',
+        blurb: 'Your pharmacy AI assistant',
+      },
+    ],
+  },
+
   // ---------- WEB-ONLY (surfaced as informational cards) ----------
   {
     id: 'video',
@@ -274,10 +498,16 @@ export const MODULES: MobileModule[] = [
     icon: 'videocam-outline',
     color: '#475569',
     tier: 'org',
-    platform: 'web',
+    platform: 'both',
     visible: (ctx) => ctx.isOrgConnected,
-    webHint: 'Video consultations run in the web app on a desktop browser.',
-    tabs: [],
+    tabs: [
+      {
+        id: 'consultations',
+        title: 'Calls',
+        icon: 'videocam-outline',
+        blurb: 'Book, text the link and join patient video calls',
+      },
+    ],
   },
 ]
 
@@ -286,18 +516,22 @@ export const MODULES: MobileModule[] = [
 // ----------------------------------------------------------------------------
 
 /** All modules visible to this person (any platform). */
+/** A care home login only gets the care homes module plus personal (user tier) ones. */
+const fitsOrgType = (m: MobileModule, ctx: ModuleContext) =>
+  !ctx.isCareHomeOrg || m.tier === 'user' || m.id === 'care-homes'
+
 export function visibleModules(ctx: ModuleContext): MobileModule[] {
-  return MODULES.filter((m) => m.visible(ctx))
+  return MODULES.filter((m) => fitsOrgType(m, ctx) && m.visible(ctx))
 }
 
 /** Modules this device can actually open (mobile/both) and the user can see. */
 export function launchableModules(ctx: ModuleContext): MobileModule[] {
-  return MODULES.filter((m) => m.visible(ctx) && isLaunchable(m))
+  return MODULES.filter((m) => fitsOrgType(m, ctx) && m.visible(ctx) && isLaunchable(m))
 }
 
 /** Visible modules that live on the web — shown as "open on web" cards. */
 export function webOnlyModules(ctx: ModuleContext): MobileModule[] {
-  return MODULES.filter((m) => m.visible(ctx) && m.platform === 'web')
+  return MODULES.filter((m) => fitsOrgType(m, ctx) && m.visible(ctx) && m.platform === 'web')
 }
 
 export function findModule(id: string): MobileModule | undefined {

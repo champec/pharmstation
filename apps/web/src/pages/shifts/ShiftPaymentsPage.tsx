@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { getUserClient } from '@pharmstation/supabase-client'
 import { useAuthStore } from '@pharmstation/core'
+import { PageHeader } from '../../components/ui'
 
 type PaymentTab = 'invoices' | 'mandate'
 
@@ -159,13 +160,12 @@ export function ShiftPaymentsPage() {
 
   return (
     <div className="page-container">
-      <div className="page-header">
-        <div>
-          <h1 className="page-title">Payments</h1>
-          <p className="page-subtitle">Invoice management for locum shifts</p>
-        </div>
-        <button className="ps-btn ps-btn-ghost ps-btn-sm" onClick={() => { loadInvoices(); loadMandate() }} disabled={loadingInvoices}>Refresh</button>
-      </div>
+      <PageHeader
+        breadcrumbs={[{ label: 'Dashboard', to: '/' }, { label: 'Shifts', to: '/shifts' }, { label: 'Payments' }]}
+        title="Locum payments"
+        subtitle="Invoices from locums for completed shifts, and how you pay them."
+        actions={<button className="ps-btn ps-btn-secondary" onClick={() => { loadInvoices(); loadMandate() }} disabled={loadingInvoices}>Refresh</button>}
+      />
 
       <div className="ps-tabs" style={{ marginBottom: '1.5rem' }}>
         {(['invoices', 'mandate'] as PaymentTab[]).map((t) => (
@@ -217,7 +217,7 @@ export function ShiftPaymentsPage() {
               className="ps-btn ps-btn-ghost ps-btn-sm"
               onClick={() => { setShowJobPanel((v) => !v); setJobResult(null) }}
             >
-              {showJobPanel ? 'Hide' : '⚙ Generate Invoices Manually'}
+              {showJobPanel ? 'Hide' : 'Generate Invoices Manually'}
             </button>
             {showJobPanel && (
               <div className="ps-card" style={{ marginTop: '0.75rem' }}>

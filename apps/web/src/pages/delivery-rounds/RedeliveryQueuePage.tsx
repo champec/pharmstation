@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom'
 import { useAuthStore, useDeliveryRoundStore } from '@pharmstation/core'
 import type { DeliveryRoundPatient } from '@pharmstation/types'
 import { Modal } from '../../components/Modal'
+import { CircleCheck } from 'lucide-react'
+import { alertDialog, confirmDialog } from '../../components/ui/dialog'
 
 export function RedeliveryQueuePage() {
   const navigate = useNavigate()
@@ -51,7 +53,7 @@ export function RedeliveryQueuePage() {
       setShowMoveModal(false)
       setMovingPatientId(null)
     } catch (e: any) {
-      alert(e.message)
+      alertDialog(e.message)
     }
     setSaving(false)
   }
@@ -64,22 +66,22 @@ export function RedeliveryQueuePage() {
       setSelectedIds([])
       navigate(`/deliveries/${round.id}`)
     } catch (e: any) {
-      alert(e.message)
+      alertDialog(e.message)
     }
     setSaving(false)
   }
 
   const handleReturned = async (rpId: string) => {
-    if (!confirm('Mark medications as returned to pharmacy?')) return
+    if (!await confirmDialog('Mark medications as returned to pharmacy?')) return
     setSaving(true)
-    try { await markReturned(rpId) } catch (e: any) { alert(e.message) }
+    try { await markReturned(rpId) } catch (e: any) { alertDialog(e.message) }
     setSaving(false)
   }
 
   const handleCancel = async (rpId: string) => {
-    if (!confirm('Cancel redelivery for this patient?')) return
+    if (!await confirmDialog('Cancel redelivery for this patient?')) return
     setSaving(true)
-    try { await cancelRedelivery(rpId) } catch (e: any) { alert(e.message) }
+    try { await cancelRedelivery(rpId) } catch (e: any) { alertDialog(e.message) }
     setSaving(false)
   }
 
@@ -87,8 +89,8 @@ export function RedeliveryQueuePage() {
     new Date(d).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
 
   return (
-    <div>
-      <div className="page-header">
+    <div className="care-home-page">
+      <div className="page-header care-home-page-header">
         <div className="breadcrumbs">
           <a href="/" onClick={(e) => { e.preventDefault(); navigate('/') }}>Dashboard</a>
           <span className="separator">/</span>
@@ -96,13 +98,19 @@ export function RedeliveryQueuePage() {
           <span className="separator">/</span>
           <span>Redelivery Queue</span>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <h1>⚠️ Redelivery Queue</h1>
-          {selectedIds.length > 0 && (
-            <button className="ps-btn ps-btn-primary" onClick={handleCreateRedeliveryRound} disabled={saving}>
-              Create Redelivery Round ({selectedIds.length} patient{selectedIds.length !== 1 ? 's' : ''})
-            </button>
-          )}
+        <div className="care-home-title-row">
+          <div>
+            <p className="care-home-eyebrow">Deliveries</p>
+            <h1>Redelivery queue</h1>
+            <p className="care-home-subtitle">Stops that failed or were skipped. Select them to book a new round.</p>
+          </div>
+          <div className="care-home-header-actions">
+            {selectedIds.length > 0 && (
+              <button className="ps-btn ps-btn-primary" onClick={handleCreateRedeliveryRound} disabled={saving}>
+                Create redelivery round ({selectedIds.length} patient{selectedIds.length !== 1 ? 's' : ''})
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
@@ -119,7 +127,7 @@ export function RedeliveryQueuePage() {
 
       {!loading && redeliveryQueue.length === 0 && (
         <div className="ps-card" style={{ padding: 'var(--ps-space-2xl)', textAlign: 'center' }}>
-          <div style={{ fontSize: '48px', marginBottom: 'var(--ps-space-md)' }}>✅</div>
+          <span className="ps-empty-icon success" aria-hidden="true"><CircleCheck size={26} strokeWidth={1.75} /></span>
           <h2 style={{ color: 'var(--ps-midnight)', marginBottom: 'var(--ps-space-sm)' }}>Queue is empty</h2>
           <p style={{ color: 'var(--ps-slate)' }}>No failed deliveries awaiting redelivery.</p>
         </div>
@@ -144,7 +152,7 @@ export function RedeliveryQueuePage() {
                     {rp.delivery_postcode || (rp.patient as any)?.postcode ? `, ${rp.delivery_postcode || (rp.patient as any)?.postcode}` : ''}
                   </div>
                   {(rp.failure_reason || rp.status === 'skipped') && (
-                    <div style={{ fontSize: 'var(--ps-font-sm)', color: 'var(--ps-red)', marginTop: 2 }}>
+                    <div style={{ fontSize: 'var(--ps-font-sm)', color: 'var(--ps-error)', marginTop: 2 }}>
                       {rp.status === 'skipped' ? 'Skipped' : 'Failed'}{rp.failure_reason ? `: ${rp.failure_reason}` : ''}
                     </div>
                   )}
@@ -182,7 +190,7 @@ export function RedeliveryQueuePage() {
                     className="ps-btn ps-btn-ghost ps-btn-sm"
                     onClick={() => handleCancel(rp.id)}
                     disabled={saving}
-                    style={{ color: 'var(--ps-red)' }}
+                    style={{ color: 'var(--ps-error)' }}
                   >
                     Cancel
                   </button>

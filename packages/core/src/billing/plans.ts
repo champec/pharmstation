@@ -42,6 +42,8 @@ export interface Plan {
   staffLimit: number | null
   /** Patient SMS included each month. */
   smsIncluded: number
+  /** Genie messages per month (0 = no Genie). Keep in step with GENIE_MONTHLY_MESSAGES in supabase/functions/_shared/billing-plans.ts. */
+  genieMonthlyMessages: number
   features: Feature[]
   /** Bullet points for pricing cards. */
   highlights: string[]
@@ -78,6 +80,7 @@ export const PLANS: Record<PlanId, Plan> = {
     tagline: 'Join the pharmacy network for free',
     staffLimit: 3,
     smsIncluded: 0,
+    genieMonthlyMessages: 0,
     features: NETWORK_FEATURES,
     highlights: [
       'Pharmacy-to-pharmacy messaging and stock checks',
@@ -94,6 +97,7 @@ export const PLANS: Record<PlanId, Plan> = {
     tagline: 'Paperless compliance',
     staffLimit: 3,
     smsIncluded: 0,
+    genieMonthlyMessages: 300,
     features: ESSENTIAL_FEATURES,
     highlights: [
       'Everything in Network',
@@ -101,7 +105,7 @@ export const PLANS: Record<PlanId, Plan> = {
       'Custom logs: fridge, cleaning, date checks',
       'SOP library with read-and-sign',
       'Patient safety reporting',
-      'Genie AI assistant',
+      'Genie AI assistant (300 questions a month)',
       'Up to 3 staff',
     ],
   },
@@ -114,14 +118,17 @@ export const PLANS: Record<PlanId, Plan> = {
     tagline: 'Compliance plus services that earn you money',
     staffLimit: null,
     smsIncluded: 0,
+    genieMonthlyMessages: 1500,
     features: COMPLETE_FEATURES,
     highlights: [
       'Everything in Essential',
       'Online booking with card payments to your bank',
       'Appointments calendar and video consultations',
       'Patient text messaging, inbox and broadcasts (texts bought as top-ups)',
+      'Your own two-way reply number for patient texts',
       'Delivery rounds and driver app',
       'Online shop and care homes',
+      'Genie AI assistant (1,500 questions a month)',
       'Unlimited staff',
       'NHS services included when live',
     ],

@@ -1,7 +1,18 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
+import { Plus } from 'lucide-react'
+import { AudienceSwitch } from '../../components/public/AudienceSwitch'
 import { useShopStore } from '@pharmstation/core'
 import { PublicFooter } from '../../components/public/PublicFooter'
+
+const HERO_SLIDES = [
+  { key: 'everyday', image: '/images/shop-hero.webp', label: 'Everyday essentials', match: null },
+  { key: 'vitamins', image: '/images/hero-vitamins.webp', label: 'Vitamins and supplements', match: /vitamin|supplement/i },
+  { key: 'skincare', image: '/images/hero-skincare.webp', label: 'Skin care', match: /skin|toiletries|personal care/i },
+  { key: 'coldflu', image: '/images/hero-coldflu.webp', label: 'Cold, flu and allergy', match: /cold|flu|allerg|hay ?fever/i },
+  { key: 'baby', image: '/images/hero-baby.webp', label: 'Baby and child', match: /baby|child/i },
+] as const
+const HERO_INTERVAL_MS = 6000
 
 const formatPrice = (pence: number) => `£${(pence / 100).toFixed(2)}`
 
@@ -29,11 +40,14 @@ export function ModernShopHomePage() {
   const [locationOpen, setLocationOpen] = useState(false)
   const [locating, setLocating] = useState(false)
   const [locationError, setLocationError] = useState<string | null>(null)
-  const [search, setSearch] = useState('')
+  const [params] = useSearchParams()
+  const [search, setSearch] = useState(params.get('q') ?? '')
   const [categoryId, setCategoryId] = useState('')
   const [deliveryOnly, setDeliveryOnly] = useState(false)
   const [view, setView] = useState<'products' | 'pharmacies'>('products')
   const [basketOpen, setBasketOpen] = useState(false)
+  const [heroIndex, setHeroIndex] = useState(0)
+  const [heroPaused, setHeroPaused] = useState(false)
 
   useEffect(() => {
     fetchShopOrgs(location?.lat ?? null, location?.lng ?? null)
@@ -96,7 +110,28 @@ export function ModernShopHomePage() {
     return !query || `${org.name} ${org.address?.city || ''} ${org.address?.postcode || ''}`.toLowerCase().includes(query)
   }), [shopOrgs, deliveryOnly, search])
   const rootCategories = categories.filter((category) => !category.parent_id)
-  const heroProducts = products.filter((product) => product.image_url).slice(0, 3)
+  const categoryById = useMemo(() => new Map(categories.map((category) => [category.id, category])), [categories])
+  const heroSlides = useMemo(() => {
+    const withImages = products.filter((product) => product.image_url)
+    const categoryText = (categoryId: string | null) => {
+      const category = categoryId ? categoryById.get(categoryId) : undefined
+      const parent = category?.parent_id ? categoryById.get(category.parent_id) : undefined
+      return `${category?.name ?? ''} ${parent?.name ?? ''}`
+    }
+    return HERO_SLIDES.map((slide) => {
+      const matched = slide.match ? withImages.filter((product) => slide.match!.test(categoryText(product.category_id))) : []
+      const filler = withImages.filter((product) => !matched.includes(product))
+      return { ...slide, products: [...matched, ...(slide.match ? [] : filler)].slice(0, 3) }
+    }).filter((slide, index) => index === 0 || slide.products.length > 0)
+  }, [products, categoryById])
+  const activeHeroIndex = heroIndex % heroSlides.length
+  const heroProducts = heroSlides[activeHeroIndex]?.products ?? []
+  useEffect(() => {
+    if (heroPaused || heroSlides.length < 2) return
+    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return
+    const timer = window.setInterval(() => setHeroIndex((index) => (index + 1) % heroSlides.length), HERO_INTERVAL_MS)
+    return () => window.clearInterval(timer)
+  }, [heroPaused, heroSlides.length])
   const cartCount = cart.reduce((total, item) => total + item.quantity, 0)
   const cartSubtotal = cart.reduce((total, item) => total + item.product.price_pence * item.quantity, 0)
   const cartOrg = cartOrgId ? orgById.get(cartOrgId) : undefined
@@ -107,6 +142,7 @@ export function ModernShopHomePage() {
   }
 
   return <div className="modern-shop">
+    <AudienceSwitch active="patients" />
     <div className="modern-shop-offer">Free collection from participating pharmacies <span>•</span> Pharmacist support when you need it</div>
     <header className="modern-shop-header">
       <button type="button" className="modern-shop-logo" onClick={() => navigate('/shop')}><span className="modern-shop-wordmark">Pharm<span>Station</span></span><small>Shop</small></button>
@@ -152,8 +188,10 @@ export function ModernShopHomePage() {
       {!search && !categoryId && view === 'products' && <>
         <section className="modern-shop-hero">
           <div className="modern-shop-hero-copy"><span>Local pharmacy, made effortless</span><h1>Health essentials.<br />Ready when you are.</h1><p>Browse nearby pharmacy stock, choose collection or delivery, and get pharmacist-led support for products that need it.</p><div><button type="button" onClick={() => document.getElementById('shop-products')?.scrollIntoView({ behavior: 'smooth' })}>Shop essentials</button><button type="button" onClick={() => setView('pharmacies')}>Choose a pharmacy</button></div></div>
-          <div className="modern-shop-hero-products" aria-label="Featured products">
-            {heroProducts.length ? heroProducts.map((product, index) => <button type="button" key={product.id} className={`item-${index + 1}`} onClick={() => openProductShop(product.org_id)}><img src={product.image_url!} alt={product.name} /><span>{product.name}</span><b>{formatPrice(product.price_pence)}</b></button>) : <div className="modern-shop-hero-placeholder"><b>Everyday care</b><small>Products from pharmacies near you</small></div>}
+          <div className="modern-shop-hero-products" aria-roledescription="carousel" aria-label="Featured products" onMouseEnter={() => setHeroPaused(true)} onMouseLeave={() => setHeroPaused(false)} onFocus={() => setHeroPaused(true)} onBlur={() => setHeroPaused(false)}>
+            {heroSlides.map((slide, index) => <div key={slide.key} className={`modern-shop-hero-slide${index === activeHeroIndex ? ' is-active' : ''}`} style={{ backgroundImage: `url(${slide.image})` }} aria-hidden="true" />)}
+            {heroProducts.length ? heroProducts.map((product, index) => <button type="button" key={`${heroSlides[activeHeroIndex]?.key}-${product.id}`} className={`modern-shop-hero-card item-${index + 1}`} onClick={() => navigate(`/shop/${orgById.get(product.org_id)?.slug || product.org_id}/${product.id}`)}><img src={product.image_url!} alt={product.name} /><span>{product.name}</span><b>{formatPrice(product.price_pence)}</b></button>) : <div className="modern-shop-hero-placeholder"><b>Everyday care</b><small>Products from pharmacies near you</small></div>}
+            {heroSlides.length > 1 && <div className="modern-shop-hero-dots" role="tablist" aria-label="Choose a featured range">{heroSlides.map((slide, index) => <button type="button" role="tab" key={slide.key} aria-selected={index === activeHeroIndex} aria-label={slide.label} className={index === activeHeroIndex ? 'is-active' : ''} onClick={() => setHeroIndex(index)} />)}</div>}
           </div>
         </section>
 
@@ -168,9 +206,10 @@ export function ModernShopHomePage() {
         {publicLoading && <div className="modern-shop-loading"><i /><span>Stocking the shelves…</span></div>}
         {!publicLoading && view === 'products' && (products.length ? <div className="modern-shop-product-grid">{products.map((product) => {
           const org = orgById.get(product.org_id)
+          const href = `/shop/${org?.slug || product.org_id}/${product.id}`
           return <article key={product.id} className="modern-shop-product-card">
-            <button type="button" className="modern-shop-product-image" onClick={() => openProductShop(product.org_id)}>{product.image_url ? <img src={product.image_url} alt={product.name} /> : <span className="modern-shop-product-placeholder">Product image</span>}{product.questionnaire && <em>Pharmacist check</em>}{product.stock_quantity === 0 && <b>Out of stock</b>}</button>
-            <div><small>{product.category?.name || 'Pharmacy essentials'}</small><button type="button" className="modern-shop-product-name" onClick={() => openProductShop(product.org_id)}>{product.name}</button><p>{org?.name || 'Local pharmacy'}{org?.distance_km != null ? ` · ${org.distance_km.toFixed(1)} km` : ''}</p><footer><strong>{formatPrice(product.price_pence)}</strong><button type="button" disabled={!product.stock_quantity} onClick={() => openProductShop(product.org_id)} aria-label={`View ${product.name}`}>＋</button></footer></div>
+            <Link to={href} className="modern-shop-product-image">{product.image_url ? <img src={product.image_url} alt={product.name} /> : <span className="modern-shop-product-placeholder">Product image</span>}{product.medicine_class === 'p' ? <em>Pharmacy medicine</em> : product.questionnaire && <em>Pharmacist check</em>}{product.stock_quantity === 0 && <b>Out of stock</b>}</Link>
+            <div><small>{product.category?.name || 'Pharmacy essentials'}</small><Link to={href} className="modern-shop-product-name">{product.name}</Link><p>{org?.name || 'Local pharmacy'}{org?.distance_km != null ? ` · ${org.distance_km.toFixed(1)} km` : ''}</p><footer><strong>{formatPrice(product.price_pence)}</strong><Link to={href} aria-label={`View ${product.name}`}><Plus size={18} aria-hidden="true" /></Link></footer></div>
           </article>
         })}</div> : <div className="modern-shop-empty"><span>⌕</span><strong>No products found</strong><p>Try another search or browse all departments.</p><button type="button" onClick={() => { setSearch(''); setCategoryId('') }}>Clear filters</button></div>)}
 

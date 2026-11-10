@@ -2,12 +2,21 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuthStore, useNetworkStore } from '@pharmstation/core'
 import type { NetworkSmsContact } from '@pharmstation/types'
+import { Trash2 } from 'lucide-react'
+import { PageHeader } from '../../../components/ui/PageHeader'
+import { confirmDialog } from '../../../components/ui/dialog'
 
 function timeLabel(t: string) {
   return t ? t.slice(0, 5) : '—'
 }
 
 /** UK mobile in any common format → "+447xxxxxxxxx", or null if it isn't one. */
+/** "+447700900123" -> "07700 900123" for display. */
+function formatUkMobile(n: string): string {
+  const local = n.replace(/^\+44/, '0').replace(/\s/g, '')
+  return /^07\d{9}$/.test(local) ? `${local.slice(0, 5)} ${local.slice(5)}` : n
+}
+
 function normaliseUkMobile(raw: string): string | null {
   let n = raw.replace(/[^\d+]/g, '')
   if (n.startsWith('+')) n = n.slice(1)
@@ -116,16 +125,11 @@ export function NetworkSettingsPage() {
 
   return (
     <div>
-      <div className="page-header">
-        <div className="breadcrumbs">
-          <a href="/" onClick={(e) => { e.preventDefault(); navigate('/') }}>Dashboard</a>
-          <span className="separator">/</span>
-          <a href="/messaging/network" onClick={(e) => { e.preventDefault(); navigate('/messaging/network') }}>Pharmacy Network</a>
-          <span className="separator">/</span>
-          <span>Settings</span>
-        </div>
-        <h1>⚙️ Network Settings</h1>
-      </div>
+      <PageHeader
+        breadcrumbs={[{ label: 'Dashboard', to: '/' }, { label: 'Messaging', to: '/messaging' }, { label: 'Pharmacy Network', to: '/messaging/network' }, { label: 'Settings' }]}
+        title="Network settings"
+        subtitle="Choose whether other pharmacies can message you, and who gets a text for urgent messages."
+      />
 
       {error && (
         <div className="auth-error" style={{ marginBottom: 'var(--ps-space-md)' }}>
@@ -159,7 +163,7 @@ export function NetworkSettingsPage() {
               style={{ marginTop: 3 }}
             />
             <div>
-              <div style={{ fontWeight: 600 }}>📱 Receive urgent text alerts</div>
+              <div style={{ fontWeight: 600 }}>Receive urgent text alerts</div>
               <div style={{ fontSize: '0.85rem', color: 'var(--ps-slate)' }}>
                 When another pharmacy marks a message as urgent, text the numbers below so nothing waits until someone
                 checks the screen. The text says who wrote and links to the message; it never contains the message itself.
@@ -180,7 +184,7 @@ export function NetworkSettingsPage() {
       <div className="ps-card" style={{ padding: 'var(--ps-space-lg)' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 'var(--ps-space-md)' }}>
           <div>
-            <h3 style={{ margin: '0 0 4px' }}>📱 SMS Notification Numbers</h3>
+            <h3 style={{ margin: '0 0 4px' }}>SMS Notification Numbers</h3>
             <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--ps-slate)' }}>
               UK mobiles that get urgent network alerts (up to 3 are texted each time). Each number has its own hours.
             </p>
@@ -197,7 +201,7 @@ export function NetworkSettingsPage() {
 
         {!smsPingsEnabled && (
           <div style={{ padding: 'var(--ps-space-md)', background: '#fff8e6', borderRadius: 'var(--ps-radius)', marginBottom: 'var(--ps-space-md)', fontSize: '0.9rem' }}>
-            ⚠️ Turn on urgent text alerts above, then save, to add numbers.
+            Turn on urgent text alerts above, then save, to add numbers.
           </div>
         )}
 
@@ -276,7 +280,7 @@ export function NetworkSettingsPage() {
                   }} />
 
                   <div style={{ flex: 1, minWidth: 180 }}>
-                    <div style={{ fontWeight: 600 }}>{c.phone_number}</div>
+                    <div style={{ fontWeight: 600 }}>{formatUkMobile(c.phone_number)}</div>
                     <div style={{ fontSize: '0.8rem', color: 'var(--ps-slate)' }}>
                       {c.label && <>{c.label} · </>}
                       Active: {timeLabel(c.notify_start)} – {timeLabel(c.notify_end)}
@@ -295,7 +299,7 @@ export function NetworkSettingsPage() {
                       style={{ fontSize: '0.8rem', padding: '4px 10px' }}
                       onClick={() => toggleContactEnabled(c)}
                     >
-                      {c.is_enabled ? '⏸ Disable' : '▶ Enable'}
+                      {c.is_enabled ? 'Disable' : '▶ Enable'}
                     </button>
 
                     {/* Pause */}
@@ -334,9 +338,11 @@ export function NetworkSettingsPage() {
                     <button
                       className="ps-btn ps-btn-ghost"
                       style={{ fontSize: '0.8rem', padding: '4px 8px', color: 'var(--ps-red, crimson)' }}
-                      onClick={() => deleteSmsContact(c.id)}
+                      onClick={async () => { if (await confirmDialog(`Remove ${formatUkMobile(c.phone_number)} from urgent text alerts?`)) deleteSmsContact(c.id) }}
+                      aria-label={`Remove ${formatUkMobile(c.phone_number)}`}
+                      title="Remove number"
                     >
-                      🗑
+                      <Trash2 size={16} strokeWidth={1.75} aria-hidden="true" />
                     </button>
                   </div>
                 </div>

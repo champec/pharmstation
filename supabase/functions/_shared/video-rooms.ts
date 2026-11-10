@@ -11,7 +11,7 @@ const DAILY_API_BASE = 'https://api.daily.co/v1'
 
 async function dailyFetch(path: string, body: unknown) {
   const apiKey = Deno.env.get('DAILY_API_KEY')
-  if (!apiKey) throw new Error('DAILY_API_KEY not configured')
+  if (!apiKey) throw new Error("Video calls aren't set up yet. Please contact PharmStation support.")
   const res = await fetch(`${DAILY_API_BASE}${path}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
@@ -19,7 +19,11 @@ async function dailyFetch(path: string, body: unknown) {
   })
   if (!res.ok) {
     const err = await res.json().catch(() => ({}))
-    throw new Error(`Daily API ${res.status}: ${(err as { error?: string }).error || 'unknown'}`)
+    console.error('Daily API error', res.status, (err as { error?: string }).error)
+    if (res.status === 401 || res.status === 403) {
+      throw new Error("Video calls aren't set up correctly. Please contact PharmStation support.")
+    }
+    throw new Error('The video service could not set up the call. Please try again in a minute.')
   }
   return res.json()
 }

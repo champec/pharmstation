@@ -1,3 +1,4 @@
+import '../_shared/monitoring.ts' // platform error tracking (see _shared/monitoring.ts)
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',

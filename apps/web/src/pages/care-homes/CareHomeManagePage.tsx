@@ -2,6 +2,9 @@ import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useAuthStore, useCareHomeStore } from '@pharmstation/core'
 import type { CareHomeGroupType, CareHomeUnit } from '@pharmstation/types'
+import { chLabel, chDate } from './careHomeLabels'
+import { AddResidentForm } from './AddResidentForm'
+import { PageHeader } from '../../components/ui/PageHeader'
 
 function residentName(first?: string, last?: string) {
   return [first, last].filter(Boolean).join(' ') || 'Unnamed resident'
@@ -26,6 +29,7 @@ export function CareHomeManagePage() {
     updateGroup,
     addResidentToGroup,
     removeResidentFromGroup,
+    selectedLinkId,
     clearError,
   } = useCareHomeStore()
 
@@ -43,6 +47,7 @@ export function CareHomeManagePage() {
   const [patientsModalGroup, setPatientsModalGroup] = useState<CareHomeUnit | null>(null)
   const [residentToAdd, setResidentToAdd] = useState('')
   const [actionError, setActionError] = useState<string | null>(null)
+  const [showResidentForm, setShowResidentForm] = useState(false)
 
   useEffect(() => {
     if (organisation?.id) void fetchLinks(organisation.id, organisation.organisation_type ?? 'pharmacy')
@@ -180,24 +185,23 @@ export function CareHomeManagePage() {
     await selectLink(linkId)
   }
 
+  const residentsLabel = (id: string) => (id === selectedLinkId ? `${residents.length} resident${residents.length === 1 ? '' : 's'}` : 'Open to see residents')
+
   // ---------- List view ----------
   if (!linkId) {
     return (
       <div className="care-home-page">
-        <div className="page-header care-home-page-header">
-          <div className="care-home-title-row">
-            <div>
-              <p className="care-home-eyebrow">Care home management</p>
-              <h1>Care homes</h1>
-              <p className="care-home-subtitle">Manage care home details, groups and the patients inside them.</p>
-            </div>
-            {canManage && (
-              <button className="ps-btn ps-btn-primary" type="button" onClick={() => setShowCreateForm((v) => !v)}>
-                {showCreateForm ? 'Close' : 'Add care home'}
-              </button>
-            )}
-          </div>
-        </div>
+        <PageHeader
+          breadcrumbs={[{ label: 'Dashboard', to: '/' }, { label: 'Care homes', to: '/care-homes' }, { label: 'Manage care homes' }]}
+          eyebrow="Care homes"
+          title="Manage care homes"
+          subtitle="Care home details, delivery groups and the residents in each home."
+          actions={canManage ? (
+            <button className="ps-btn ps-btn-primary" type="button" onClick={() => setShowCreateForm((v) => !v)}>
+              {showCreateForm ? 'Close' : '+ Add care home'}
+            </button>
+          ) : undefined}
+        />
 
         {(error || actionError) && (
           <div className="auth-error care-home-alert" role="alert">
@@ -208,7 +212,7 @@ export function CareHomeManagePage() {
 
         {showCreateForm && canManage && (
           <form className="care-home-request-form" onSubmit={(event) => void handleCreateCareHome(event)}>
-            <label className="care-home-form-span-2">Care home name<input className="ps-input" required value={createForm.name} onChange={(e) => setCreateForm({ ...createForm, name: e.target.value })} /></label>
+            <label className="care-home-form-span-2">Care home name *<input className="ps-input" required value={createForm.name} onChange={(e) => setCreateForm({ ...createForm, name: e.target.value })} /></label>
             <label>Contact name<input className="ps-input" value={createForm.contactName} onChange={(e) => setCreateForm({ ...createForm, contactName: e.target.value })} /></label>
             <label>Contact email<input className="ps-input" type="email" value={createForm.contactEmail} onChange={(e) => setCreateForm({ ...createForm, contactEmail: e.target.value })} /></label>
             <label>Contact phone<input className="ps-input" value={createForm.contactPhone} onChange={(e) => setCreateForm({ ...createForm, contactPhone: e.target.value })} /></label>
@@ -217,15 +221,16 @@ export function CareHomeManagePage() {
         )}
 
         {links.length === 0 && !loading ? (
-          <div className="care-home-inline-empty">No care homes linked yet.</div>
+          <div className="care-home-inline-empty">{canManage ? 'No care homes yet. Use "Add care home" to set up the first one.' : 'No care homes yet. Ask a pharmacy manager to add one.'}</div>
         ) : (
           <div className="care-home-manage-grid">
             {links.map((item) => (
               <button key={item.id} className="care-home-manage-card" type="button" onClick={() => navigate(`/care-homes/manage/${item.id}`)}>
                 <strong>{item.care_home_organisation?.name ?? 'Care home'}</strong>
                 <small>{item.service_name ?? 'Care home service'}</small>
+                <small>{residentsLabel(item.id)}</small>
                 <small>{item.contact_name ?? 'No contact'}{item.contact_phone ? ` · ${item.contact_phone}` : ''}</small>
-                <span className={`ps-badge ${item.status === 'active' ? 'ps-badge-success' : 'ps-badge-warning'}`}>{item.status}</span>
+                <span className={`ps-badge ${item.status === 'active' ? 'ps-badge-success' : 'ps-badge-warning'}`}>{chLabel('linkStatus', item.status)}</span>
               </button>
             ))}
           </div>
@@ -237,21 +242,16 @@ export function CareHomeManagePage() {
   // ---------- Detail view ----------
   return (
     <div className="care-home-page">
-      <div className="page-header care-home-page-header">
-        <div className="breadcrumbs">
-          <a href="/care-homes/manage" onClick={(e) => { e.preventDefault(); navigate('/care-homes/manage') }}>Care home management</a>
-          <span className="separator">/</span>
-          <span>{link?.care_home_organisation?.name ?? 'Care home'}</span>
-        </div>
-        <div className="care-home-title-row">
-          <div>
-            <p className="care-home-eyebrow">Care home profile</p>
-            <h1>{link?.care_home_organisation?.name ?? 'Care home'}</h1>
-            <p className="care-home-subtitle">{residents.length} patient{residents.length === 1 ? '' : 's'} · {groups.length} group{groups.length === 1 ? '' : 's'}</p>
-          </div>
-          <button className="ps-btn ps-btn-secondary" type="button" onClick={() => navigate('/care-homes')}>Open groups board</button>
-        </div>
-      </div>
+      <PageHeader
+        breadcrumbs={[{ label: 'Care homes', to: '/care-homes' }, { label: 'Manage care homes', to: '/care-homes/manage' }, { label: link?.care_home_organisation?.name ?? 'Care home' }]}
+        eyebrow="Care home profile"
+        title={link?.care_home_organisation?.name ?? 'Care home'}
+        subtitle={`${residents.length} resident${residents.length === 1 ? '' : 's'} · ${groups.length} group${groups.length === 1 ? '' : 's'}`}
+        actions={<>
+          <button className="ps-btn ps-btn-secondary" type="button" onClick={() => navigate(`/care-homes?link=${linkId}`)}>Open groups board</button>
+          {canManage && <button className="ps-btn ps-btn-primary" type="button" onClick={() => { setShowResidentForm(true); setTimeout(() => document.getElementById('care-home-residents')?.scrollIntoView({ behavior: 'smooth' }), 0) }}>+ Add resident</button>}
+        </>}
+      />
 
       {(error || actionError) && (
         <div className="auth-error care-home-alert" role="alert">
@@ -281,10 +281,40 @@ export function CareHomeManagePage() {
         </form>
       ) : (
         <div className="care-home-metrics">
-          <article><span>Contact</span><strong>{link?.contact_name ?? '—'}</strong><small>{[link?.contact_phone, link?.contact_email].filter(Boolean).join(' · ') || 'no contact details'}</small></article>
-          <article><span>Cycle day</span><strong>{link?.cycle_day ?? '—'}</strong><small>day of month supplies are due</small></article>
-          <article><span>Cycle length</span><strong>{link?.default_cycle_length_days ?? 28} days</strong><small>default supply period</small></article>
-          <article><span>Service</span><strong>{link?.service_name ?? '—'}</strong><small>{link?.notes ?? 'no notes'}</small></article>
+          <article><span>Contact</span><strong>{link?.contact_name ?? 'Not recorded'}</strong><small>{[link?.contact_phone, link?.contact_email].filter(Boolean).join(' · ') || 'No contact details'}</small></article>
+          <article><span>Cycle day</span><strong>{link?.cycle_day ?? 'Not set'}</strong><small>Day of the month supplies are due</small></article>
+          <article><span>Cycle length</span><strong>{link?.default_cycle_length_days ?? 28} days</strong><small>Default supply period</small></article>
+          <article><span>Status</span><strong>{chLabel('linkStatus', link?.status)}</strong><small>{link?.service_name ?? 'Care home service'}{link?.notes ? ` · ${link.notes}` : ''}</small></article>
+        </div>
+      )}
+
+      <div className="care-home-section-heading" id="care-home-residents">
+        <div><p>Residents</p><h2>{residents.length} resident{residents.length === 1 ? '' : 's'}</h2></div>
+        {canManage && !showResidentForm && <button className="ps-btn ps-btn-secondary" type="button" onClick={() => setShowResidentForm(true)}>+ Add resident</button>}
+      </div>
+
+      {showResidentForm && canManage && linkId && <AddResidentForm linkId={linkId} onDone={() => setShowResidentForm(false)} />}
+
+      {residents.length === 0 ? (
+        <div className="care-home-inline-empty">{canManage ? 'No residents yet. Add residents from your patient records, or create a new patient.' : 'No residents yet.'}</div>
+      ) : (
+        <div className="care-home-table-wrap">
+          <table className="care-home-table care-home-clickable-table">
+            <thead><tr><th>Resident</th><th>Room</th><th>Groups</th><th>Status</th></tr></thead>
+            <tbody>
+              {residents.map((resident) => {
+                const names = groups.filter((group) => resident.unit_id === group.id || resident.group_memberships?.some((m) => m.group_id === group.id)).map((group) => group.name)
+                return (
+                  <tr key={resident.id} tabIndex={0} onClick={() => navigate(`/care-homes/${linkId}/residents/${resident.id}`)} onKeyDown={(event) => { if (event.key === 'Enter') navigate(`/care-homes/${linkId}/residents/${resident.id}`) }}>
+                    <td><strong>{residentName(resident.patient?.first_name, resident.patient?.last_name)}</strong><small>{resident.patient?.dob ? `Born ${chDate(resident.patient.dob)}` : resident.patient?.nhs_number ?? 'Date of birth not recorded'}</small></td>
+                    <td>{resident.room_number ?? 'Not recorded'}</td>
+                    <td>{names.length ? names.join(', ') : 'No group'}</td>
+                    <td><span className={`ps-badge ${resident.status === 'active' ? 'ps-badge-success' : 'ps-badge-warning'}`}>{chLabel('residentStatus', resident.status)}</span></td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
         </div>
       )}
 
@@ -307,22 +337,22 @@ export function CareHomeManagePage() {
       )}
 
       {groups.length === 0 ? (
-        <div className="care-home-inline-empty">No groups yet. Groups organise patients into deliveries.</div>
+        <div className="care-home-inline-empty">No delivery groups yet. Groups organise residents into delivery rounds.</div>
       ) : (
         <div className="care-home-table-wrap">
           <table className="care-home-table">
-            <thead><tr><th>Group</th><th>Unit / floor</th><th>Type</th><th>Cycle day</th><th>Patients</th><th>State</th><th className="care-home-no-print">Actions</th></tr></thead>
+            <thead><tr><th>Group</th><th>Unit / floor</th><th>Type</th><th>Cycle day</th><th>Residents</th><th>State</th><th className="care-home-no-print">Actions</th></tr></thead>
             <tbody>
               {groups.map((group) => (
                 <tr key={group.id}>
                   <td><strong>{group.name}</strong></td>
-                  <td>{group.floor_name ?? '—'}</td>
-                  <td>{group.group_type}</td>
-                  <td>{group.cycle_day ?? '—'}</td>
+                  <td>{group.floor_name ?? 'Not set'}</td>
+                  <td>{chLabel('groupType', group.group_type)}</td>
+                  <td>{group.cycle_day ?? 'Not set'}</td>
                   <td>{groupMemberCount(group)}</td>
-                  <td><span className={`ps-badge ${group.group_state === 'idle' ? 'ps-badge-muted' : 'ps-badge-blue'}`}>{group.group_state.replaceAll('_', ' ')}</span></td>
+                  <td><span className={`ps-badge ${group.group_state === 'idle' ? 'ps-badge-muted' : 'ps-badge-blue'}`}>{chLabel('groupState', group.group_state)}</span></td>
                   <td className="care-home-row-actions care-home-no-print">
-                    <button className="ps-btn ps-btn-ghost ps-btn-sm" type="button" onClick={() => setPatientsModalGroup(group)}>Patients</button>
+                    <button className="ps-btn ps-btn-ghost ps-btn-sm" type="button" onClick={() => setPatientsModalGroup(group)}>Residents</button>
                     {canManage && <button className="ps-btn ps-btn-ghost ps-btn-sm" type="button" onClick={() => openGroupEdit(group)}>Edit</button>}
                     <button className="ps-btn ps-btn-ghost ps-btn-sm" type="button" onClick={() => navigate(`/care-homes/${linkId}/groups/${group.id}`)}>Open round</button>
                   </td>
@@ -340,7 +370,7 @@ export function CareHomeManagePage() {
             <div className="modal-dialog" style={{ maxWidth: 480 }} role="dialog" aria-modal="true" aria-label="Edit group">
               <div className="modal-header">
                 <h2>Edit group</h2>
-                <button className="ps-btn ps-btn-ghost ps-btn-sm modal-close" type="button" onClick={() => setEditingGroup(null)}>✕</button>
+                <button className="ps-btn ps-btn-ghost ps-btn-sm modal-close" type="button" aria-label="Close" title="Close" onClick={() => setEditingGroup(null)}>✕</button>
               </div>
               <form onSubmit={(event) => void handleSaveGroup(event)}>
                 <div className="modal-body care-home-new-med-form">
@@ -363,23 +393,23 @@ export function CareHomeManagePage() {
         <>
           <div className="modal-backdrop" onClick={() => setPatientsModalGroup(null)} />
           <div className="modal-container">
-            <div className="modal-dialog" style={{ maxWidth: 560 }} role="dialog" aria-modal="true" aria-label={`Patients in ${modalGroup.name}`}>
+            <div className="modal-dialog" style={{ maxWidth: 560 }} role="dialog" aria-modal="true" aria-label={`Residents in ${modalGroup.name}`}>
               <div className="modal-header">
-                <h2>Patients in {modalGroup.name}</h2>
-                <button className="ps-btn ps-btn-ghost ps-btn-sm modal-close" type="button" onClick={() => setPatientsModalGroup(null)}>✕</button>
+                <h2>Residents in {modalGroup.name}</h2>
+                <button className="ps-btn ps-btn-ghost ps-btn-sm modal-close" type="button" aria-label="Close" title="Close" onClick={() => setPatientsModalGroup(null)}>✕</button>
               </div>
               <div className="modal-body">
                 {canManage && (
                   <form className="care-home-modal-add-row" onSubmit={(event) => void handleAddResidentToGroup(event)}>
                     <select className="ps-input" value={residentToAdd} onChange={(e) => setResidentToAdd(e.target.value)}>
-                      <option value="">Add a patient to this group...</option>
+                      <option value="">Add a resident to this group...</option>
                       {modalAvailable.map((r) => <option key={r.id} value={r.id}>{residentName(r.patient?.first_name, r.patient?.last_name)}{r.room_number ? ` · Room ${r.room_number}` : ''}</option>)}
                     </select>
                     <button className="ps-btn ps-btn-primary" type="submit" disabled={saving || !residentToAdd}>Add</button>
                   </form>
                 )}
                 {modalMembers.length === 0 ? (
-                  <div className="care-home-inline-empty">No patients in this group yet.</div>
+                  <div className="care-home-inline-empty">{residents.length === 0 ? 'Add residents to this care home first, then put them in groups.' : 'No residents in this group yet.'}</div>
                 ) : (
                   <ul className="care-home-modal-member-list">
                     {modalMembers.map((resident) => (
@@ -388,7 +418,7 @@ export function CareHomeManagePage() {
                           <strong>{residentName(resident.patient?.first_name, resident.patient?.last_name)}</strong>
                           <small>{resident.room_number ? `Room ${resident.room_number}` : 'No room'} · {resident.patient?.nhs_number ?? 'No NHS number'}</small>
                         </button>
-                        <span className={`ps-badge ${resident.status === 'active' ? 'ps-badge-success' : 'ps-badge-warning'}`}>{resident.status}</span>
+                        <span className={`ps-badge ${resident.status === 'active' ? 'ps-badge-success' : 'ps-badge-warning'}`}>{chLabel('residentStatus', resident.status)}</span>
                         {canManage && (
                           <button className="ps-btn ps-btn-ghost ps-btn-sm" type="button" disabled={saving} onClick={() => void handleRemoveResidentFromGroup(resident.id)}>Remove</button>
                         )}

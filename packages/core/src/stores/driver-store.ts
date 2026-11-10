@@ -27,11 +27,15 @@ export interface CompleteDeliveryOptions {
 export interface DriverState {
   assignedRounds: DeliveryRound[]
   openRounds: DeliveryRound[]
+  /** The driver's finished rounds from the last 30 days, newest first. */
+  recentRounds: DeliveryRound[]
   activeRoute: DeliveryRound | null
   loading: boolean
   saving: boolean
   error: string | null
   locationWatchId: number | null
+  /** Why location sharing isn't working, for a banner on the route page. */
+  locationError: string | null
 
   // Fetch
   fetchAssignedRounds: (memberId: string, orgId?: string) => Promise<void>
@@ -79,17 +83,20 @@ export const useDriverStore = create<DriverState>((set, get) => {
   return {
     assignedRounds: [],
     openRounds: [],
+    recentRounds: [],
     activeRoute: null,
     loading: false,
     saving: false,
     error: null,
     locationWatchId: null,
+    locationError: null,
 
     fetchAssignedRounds: async (memberId, orgId) => {
       set({ loading: true, error: null })
       try {
         const client = getUserClient()
-        const [assigned, open] = await Promise.all([
+        const since = new Date(Date.now() - 30 * 86_400_000).toISOString()
+        const [assigned, open, recent] = await Promise.all([
           client
             .from('ps_delivery_rounds')
             .select(DRIVER_ROUND_SELECT)
@@ -105,10 +112,20 @@ export const useDriverStore = create<DriverState>((set, get) => {
                 .eq('status', 'scheduled')
                 .order('scheduled_date', { ascending: true })
             : Promise.resolve({ data: [], error: null }),
+          client
+            .from('ps_delivery_rounds')
+            .select('*, patients:ps_delivery_round_patients(id, status)')
+            .eq('driver_id', memberId)
+            .eq('status', 'completed')
+            .gte('completed_at', since)
+            .order('completed_at', { ascending: false })
+            .limit(20),
         ])
         if (assigned.error) throw assigned.error
         if (open.error) throw open.error
+        if (recent.error) throw recent.error
         set({
+          recentRounds: (recent.data ?? []) as DeliveryRound[],
           assignedRounds: ((assigned.data ?? []) as DeliveryRound[]).map(sortStops),
           openRounds: ((open.data ?? []) as DeliveryRound[]).map(sortStops),
           loading: false,
@@ -224,18 +241,28 @@ export const useDriverStore = create<DriverState>((set, get) => {
     },
 
     startLocationTracking: (roundId, driverId) => {
-      if (typeof navigator === 'undefined' || !navigator.geolocation) return
+      if (typeof navigator === 'undefined' || !navigator.geolocation) {
+        set({ locationError: 'This browser can’t share your location, so the pharmacy can’t see where you are.' })
+        return
+      }
       if (get().locationWatchId !== null) return
       lastFix = null
       const watchId = navigator.geolocation.watchPosition(
         (pos) => {
+          if (get().locationError) set({ locationError: null })
           const fix = { lat: pos.coords.latitude, lng: pos.coords.longitude, at: Date.now() }
           // Every 15 seconds or 50 metres, not every fix the browser gives.
           if (!shouldSendLocation(lastFix, fix)) return
           lastFix = fix
           void get().postLocationUpdate(roundId, driverId, fix.lat, fix.lng)
         },
-        (err) => console.error('Geolocation error:', err),
+        (err) => {
+          set({
+            locationError: err.code === 1
+              ? 'Location is off for this site, so the pharmacy can’t see where you are. Allow location in your browser settings to share it.'
+              : 'Your location can’t be found right now, so the pharmacy can’t see where you are. It will try again.',
+          })
+        },
         { enableHighAccuracy: true, maximumAge: 15000, timeout: 30000 },
       )
       set({ locationWatchId: watchId })
@@ -247,6 +274,7 @@ export const useDriverStore = create<DriverState>((set, get) => {
         navigator.geolocation.clearWatch(watchId)
         set({ locationWatchId: null })
       }
+      set({ locationError: null })
       lastFix = null
     },
 

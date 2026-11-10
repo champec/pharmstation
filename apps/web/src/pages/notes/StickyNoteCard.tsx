@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import type { StickyNote } from '@pharmstation/types'
 import { useStickyNoteStore } from '@pharmstation/core'
+import { Pencil, Settings, Square, SquareCheck, Trash2 } from 'lucide-react'
 
 const PRIORITY_COLORS: Record<number, string> = {
   1: 'var(--sticky-p1)',
@@ -127,12 +128,12 @@ export function StickyNoteCard({ note, currentUserId, isDragging, onDragStart, o
       <div className="sticky-note-meta">
         {note.assignee && (
           <span className="sticky-note-assignee" title={`Assigned to ${note.assignee.full_name}`}>
-            👤 {note.assignee.full_name}
+            {note.assignee.full_name}
           </span>
         )}
         {note.target_date && (
           <span className="sticky-note-date">
-            📅 {new Date(note.target_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
+            {new Date(note.target_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
           </span>
         )}
       </div>
@@ -145,7 +146,7 @@ export function StickyNoteCard({ note, currentUserId, isDragging, onDragStart, o
           title={note.is_completed ? 'Mark incomplete' : 'Mark complete'}
           onClick={(e) => { e.stopPropagation(); toggleCompleted(note.id, note.is_completed) }}
         >
-          {note.is_completed ? '✅' : '⬜'}
+          {note.is_completed ? <SquareCheck size={16} aria-hidden="true" /> : <Square size={16} aria-hidden="true" />}
         </button>
 
         {/* Edit (author only) */}
@@ -155,7 +156,7 @@ export function StickyNoteCard({ note, currentUserId, isDragging, onDragStart, o
             title="Edit note"
             onClick={handleEditClick}
           >
-            ✏️
+            <Pencil size={16} aria-hidden="true" />
           </button>
         )}
 
@@ -166,7 +167,7 @@ export function StickyNoteCard({ note, currentUserId, isDragging, onDragStart, o
             title="Note settings"
             onClick={(e) => { e.stopPropagation(); onOpenSettings() }}
           >
-            ⚙️
+            <Settings size={16} aria-hidden="true" />
           </button>
         )}
 
@@ -177,7 +178,7 @@ export function StickyNoteCard({ note, currentUserId, isDragging, onDragStart, o
             title="Delete note"
             onClick={(e) => { e.stopPropagation(); onDelete() }}
           >
-            🗑️
+            <Trash2 size={16} aria-hidden="true" />
           </button>
         )}
       </div>

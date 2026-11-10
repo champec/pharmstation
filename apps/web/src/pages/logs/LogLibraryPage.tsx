@@ -3,7 +3,8 @@ import { useNavigate } from 'react-router-dom'
 import { useAuthStore, useLogStore } from '@pharmstation/core'
 import type { LogTemplate, LogCategory } from '@pharmstation/types'
 import { CATEGORY_CONFIG, categoryOf, scheduleLabel } from './logUtils'
-import { Celebration, useCelebration } from './LogBits'
+import { PageHeader } from '../../components/ui/PageHeader'
+import { Celebration, CategoryIcon, useCelebration } from './LogBits'
 
 const FILTERS: ('all' | LogCategory)[] = ['all', 'fridge', 'cleaning', 'cd', 'visitor', 'date_check', 'custom']
 
@@ -39,7 +40,7 @@ export function LogLibraryPage() {
     setSubscribeError(null)
     try {
       await subscribeToLibrary(organisation.id, template.id)
-      celebrate(`${template.title} added`, 'It is now on your Logs page.', categoryOf(template).emoji)
+      celebrate(`${template.title} added`, 'It is now on your Logs page.', categoryOf(template).icon)
     } catch (e) {
       setSubscribeError(e instanceof Error ? e.message : 'Could not add this log')
     } finally {
@@ -54,32 +55,22 @@ export function LogLibraryPage() {
 
   return (
     <div className="logs-page">
-      <div className="page-header">
-        <div className="breadcrumbs">
-          <a href="/" onClick={(e) => { e.preventDefault(); navigate('/') }}>Dashboard</a>
-          <span className="separator">/</span>
-          <a href="/logs" onClick={(e) => { e.preventDefault(); navigate('/logs') }}>Logs</a>
-          <span className="separator">/</span>
-          <span>Library</span>
-        </div>
-        <div className="logs-header">
-          <div>
-            <h1>📚 Log library</h1>
-            <p className="log-muted">Ready-made logs for UK pharmacies. Add one in a click; you can rename it later.</p>
-          </div>
-          <div className="logs-header-actions">
-            <button className="ps-btn ps-btn-secondary" onClick={() => navigate('/logs')}>← My logs</button>
-            <button className="ps-btn ps-btn-primary" onClick={() => navigate('/logs/new')}>+ Build your own</button>
-          </div>
-        </div>
-      </div>
+      <PageHeader
+        breadcrumbs={[{ label: 'Dashboard', to: '/' }, { label: 'Logs', to: '/logs' }, { label: 'Library' }]}
+        title="Log library"
+        subtitle="Ready-made logs for UK pharmacies. Add one in a click; you can rename it later."
+        actions={<>
+          <button className="ps-btn ps-btn-secondary" onClick={() => navigate('/logs')}>← My logs</button>
+          <button className="ps-btn ps-btn-primary" onClick={() => navigate('/logs/new')}>+ Build your own</button>
+        </>}
+      />
 
       <div className="log-library-filters">
         <input className="ps-input" placeholder="Search logs…" value={search} onChange={(e) => setSearch(e.target.value)} aria-label="Search logs" />
         <div className="log-chips">
           {FILTERS.map((c) => (
             <button key={c} className={`log-chip${category === c ? ' is-on' : ''}`} onClick={() => setCategory(c)}>
-              {c === 'all' ? 'All' : `${CATEGORY_CONFIG[c].emoji} ${CATEGORY_CONFIG[c].label}`}
+              {c === 'all' ? 'All' : CATEGORY_CONFIG[c].label}
             </button>
           ))}
         </div>
@@ -106,7 +97,7 @@ export function LogLibraryPage() {
               <article key={template.id} className="log-card log-library-card" style={{ ['--cat' as string]: cat.color, ['--cat-tint' as string]: cat.tint }}>
                 <div className="log-card-main as-div">
                   <div className="log-card-top">
-                    <span className="log-card-emoji" aria-hidden>{cat.emoji}</span>
+                    <CategoryIcon icon={cat.icon} />
                     <div className="log-card-titles">
                       <h3>{template.title}</h3>
                       <span className="log-muted">{scheduleLabel(template.schedule_type, template.required_days)}{n ? ` · ${n} fields` : ''}</span>

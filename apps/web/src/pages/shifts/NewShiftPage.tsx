@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate, useSearchParams, Link } from 'react-router-dom'
 import { getUserClient } from '@pharmstation/supabase-client'
 import { useAuthStore } from '@pharmstation/core'
+import { PageHeader } from '../../components/ui'
 
 interface ServiceOption {
   id: string
@@ -96,7 +97,7 @@ export function NewShiftPage() {
           end_time: endTime + ':00',
           rate_per_hour: parseFloat(rate),
           booking_mode: bookingMode,
-          payment_mode: 'platform',
+          payment_mode: 'external',
           status: 'open',
           notes: notes.trim() || null,
         })
@@ -130,15 +131,11 @@ export function NewShiftPage() {
 
   return (
     <div className="page-container">
-      <div className="page-header">
-        <div className="breadcrumbs">
-          <Link to="/shifts">Shifts</Link>
-          <span className="separator">/</span>
-          <span>Post New Shift</span>
-        </div>
-        <h1 className="page-title">Post a Locum Shift</h1>
-        <p className="page-subtitle">Shifts are published immediately and visible to eligible locums.</p>
-      </div>
+      <PageHeader
+        breadcrumbs={[{ label: 'Dashboard', to: '/' }, { label: 'Shifts', to: '/shifts' }, { label: 'Post shift' }]}
+        title="Post a locum shift"
+        subtitle="Shifts are published straight away and shown to eligible locums."
+      />
 
       {error && (
         <div className="ps-alert ps-alert-error" style={{ marginBottom: '1.5rem' }}>{error}</div>
@@ -300,9 +297,9 @@ export function NewShiftPage() {
 
         {/* Payment notice */}
         <div className="ps-alert ps-alert-info" style={{ marginBottom: '1.5rem' }}>
-          <strong>Payments:</strong> All shifts use platform payments (Stripe). A 50p platform fee
-          applies per confirmed shift. Locums are paid automatically on the Wednesday after
-          their working week.
+          <strong>Payment:</strong> you pay the locum directly, at the rate above, after the shift.
+          PharmStation records their sign-in and sign-out times, and the weekly timesheet
+          (Shifts › Timesheets) shows what you owe each locum.
         </div>
 
         {/* Submit */}

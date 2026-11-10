@@ -1,10 +1,16 @@
+import { BookingNavAccount } from '../../components/public/BookingNavAccount'
 import { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
-import { getUserClient } from '@pharmstation/supabase-client'
+import { getUserClient, getPatientClient } from '@pharmstation/supabase-client'
+import { usePatientStore } from '@pharmstation/core'
 import type { Organisation, Service, AppointmentSlot, ServiceForm, ServiceFormField } from '@pharmstation/types'
 import { orgSlugOrIdFilter } from '../../lib/orgSlugFilter'
 import { PublicFooter } from '../../components/public/PublicFooter'
+import { trackConversion } from '../../lib/adTracking'
 import { Turnstile, turnstileEnabled } from '../../components/public/Turnstile'
+
+// Anonymous visitors may only read these columns (column grants on ps_organisations).
+const PUBLIC_ORG_COLUMNS = 'id, name, slug, address, public_description, public_logo_url, is_public, is_active, organisation_type'
 
 /** Dig the real message out of an edge function error response. */
 async function functionError(err: unknown, data: any): Promise<string | undefined> {
@@ -46,6 +52,21 @@ export function PublicBookingConfirmPage() {
   const resetCaptcha = useRef<(() => void) | null>(null)
   const [manageToken, setManageToken] = useState<string | null>(null)
 
+  // Signed in to the patient portal: fill in their details, and send the
+  // booking with their session so it is linked to their account.
+  const { patient, isLoggedIn, loading: patientLoading, initialize: initPatient, logout: patientLogout } = usePatientStore()
+  useEffect(() => { if (patientLoading) initPatient() }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (!isLoggedIn || !patient) return
+    const p = patient as unknown as Record<string, string | null>
+    setFirstName((v) => v || p.first_name || '')
+    setLastName((v) => v || p.last_name || '')
+    setEmail((v) => v || p.email || '')
+    setPhone((v) => v || p.phone || '')
+    setDob((v) => v || (p.dob ? String(p.dob).slice(0, 10) : ''))
+    setNhsNumber((v) => v || p.nhs_number || '')
+  }, [isLoggedIn, patient])
+
   useEffect(() => {
     if (!orgSlug || !serviceId || !slotId) {
       setError('Missing booking details. Please go back and select a time slot.')
@@ -54,12 +75,12 @@ export function PublicBookingConfirmPage() {
     }
     const client = getUserClient()
     Promise.all([
-      client.from('ps_organisations').select('*').eq('is_public', true).or(orgSlugOrIdFilter(orgSlug)).limit(1).single(),
+      client.from('ps_organisations').select(PUBLIC_ORG_COLUMNS).eq('is_public', true).or(orgSlugOrIdFilter(orgSlug)).limit(1).single(),
       client.from('ps_services').select('*').eq('id', serviceId).single(),
       client.from('ps_appointment_slots').select('*').eq('id', slotId).single(),
       client.from('ps_service_forms').select('*, fields:ps_service_form_fields(*)').eq('service_id', serviceId).eq('is_default', true).limit(1).maybeSingle(),
     ]).then(([orgRes, svcRes, slotRes, formRes]) => {
-      if (orgRes.data) setOrg(orgRes.data as Organisation)
+      if (orgRes.data) setOrg(orgRes.data as unknown as Organisation)
       if (svcRes.data) setService(svcRes.data as Service)
       if (slotRes.data) setSlot(slotRes.data as AppointmentSlot)
       if (formRes.data) {
@@ -79,7 +100,7 @@ export function PublicBookingConfirmPage() {
     setSubmitting(true)
     setError('')
     try {
-      const client = getUserClient()
+      const client = isLoggedIn ? getPatientClient() : getUserClient()
       // One server call does every check (pharmacy, service and slot belong
       // together, capacity, rate limits, security check) and saves the
       // booking. The browser can no longer write appointments directly.
@@ -128,6 +149,7 @@ export function PublicBookingConfirmPage() {
         return
       }
 
+      trackConversion('booking', { id: booking.appointment_id as string })
       setSubmitted(true)
     } catch (e: any) {
       setError(e.message || 'Failed to create booking.')
@@ -149,14 +171,14 @@ export function PublicBookingConfirmPage() {
 
   return (
     <div className="booking-public">
-      <header className="booking-nav"><button type="button" className="booking-wordmark" onClick={() => navigate('/book')}>Pharm<span>Station</span><small>Book</small></button><nav><a href="/shop">Shop</a><a href="/maps">Find a pharmacy</a><a href="/patient/login">Sign in</a></nav></header>
+      <header className="booking-nav"><button type="button" className="booking-wordmark" onClick={() => navigate('/book')}>Pharm<span>Station</span><small>Book</small></button><nav><a href="/shop">Shop</a><a href="/maps">Find a pharmacy</a><BookingNavAccount /></nav></header>
       <main className="booking-confirm-main">
         <button type="button" className="booking-back" onClick={() => navigate(-1)}>← Choose another time</button>
         <header className="booking-confirm-heading"><span className="booking-eyebrow">Step 3 of 3</span><h1>Complete your booking</h1><p>Check the appointment and tell the pharmacy who will be attending.</p></header>
         <div className="booking-confirm-layout">
           <aside className="booking-confirm-summary"><span className="booking-eyebrow">Appointment summary</span><h2>{service?.name}</h2><dl><div><dt>Pharmacy</dt><dd>{org?.name}</dd></div>{slot && <><div><dt>Date</dt><dd>{new Date(slot.start_time).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })}</dd></div><div><dt>Time</dt><dd>{new Date(slot.start_time).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })} – {new Date(slot.end_time).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}</dd></div></>}{service?.is_chargeable && service.price_pence != null && service.price_pence > 0 && <div><dt>Payment</dt><dd>£{(service.price_pence / 100).toFixed(2)} paid securely online to confirm your slot</dd></div>}</dl><p>Your details are sent securely to the pharmacy handling this appointment.</p></aside>
           <div className="booking-confirm-form">
-            <section><header><span>01</span><div><h2>Your details</h2><p>Fields marked * are required. Give a mobile number to get your confirmation by text.</p></div></header><div className="booking-form-grid">
+            <section><header><span>01</span><div><h2>Your details</h2><p>Fields marked * are required. Give a mobile number or an email address. With a mobile number you also get your confirmation and reminder by text.</p>{isLoggedIn && patient && <p className="booking-signed-in">Booking as <strong>{patient.first_name} {patient.last_name}</strong>. It will appear in <a href="/patient/appointments">My appointments</a>. Not you? <button type="button" className="booking-link-button" onClick={() => { void patientLogout() }}>Sign out</button></p>}</div></header><div className="booking-form-grid">
           <div className="form-group">
             <label>First Name *</label>
             <input className="ps-input" value={firstName} onChange={(e) => setFirstName(e.target.value)} />

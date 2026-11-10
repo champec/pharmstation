@@ -92,6 +92,14 @@ export async function adminListDeletionRequests(): Promise<DeletionRequest[]> {
   return (data ?? []) as DeletionRequest[]
 }
 
+/** Platform admins: anonymise the account (sign-in destroyed, personal
+ *  details cleared, memberships revoked) and mark the request done. Records
+ *  made at pharmacies keep a nameless author. */
+export async function adminCompleteAccountDeletion(id: string, note?: string) {
+  const { error } = await getUserClient().rpc('ps_admin_complete_account_deletion', { p_id: id, p_note: note ?? null })
+  if (error) throw error
+}
+
 export async function adminSetDeletionRequest(id: string, status: 'done' | 'declined', note?: string) {
   const { error } = await getUserClient().rpc('ps_admin_set_deletion_request', {
     p_id: id, p_status: status, p_note: note ?? null,

@@ -126,7 +126,14 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
     try {
       // Check user session
-      const { data: userData } = await getUserClient().auth.getSession()
+      const { data: stored } = await getUserClient().auth.getSession()
+      const userData: { session: typeof stored.session | null } = { session: stored.session }
+      // A stored session can outlive the account (deleted, banned or signed
+      // out everywhere). Ask the server; if it refuses, start signed out.
+      if (userData.session && (await userSessionRejected())) {
+        await getUserClient().auth.signOut({ scope: 'local' }).catch(() => {})
+        userData.session = null
+      }
       let mfa: Awaited<ReturnType<typeof getMfaStatus>> | null = null
       if (userData.session) {
         try {
@@ -492,6 +499,27 @@ function needsMfaSetup(
   if (hasFactor || !membership) return false
   if (membership.role === 'owner' || membership.role === 'manager') return true
   return MFA_PERMISSIONS.some((key) => permissions?.[key] === true)
+}
+
+/** True when the server refuses the stored user session. Network failures
+ *  (offline) don't count. */
+async function userSessionRejected(): Promise<boolean> {
+  try {
+    const { error } = await getUserClient().auth.getUser()
+    if (!error) return false
+    const status = (error as { status?: number }).status ?? 0
+    if (status === 0) return false // offline
+    if (error.name !== 'AuthRetryableFetchError') return status >= 400
+    // auth-js reports any 5xx as retryable, and London answers /user with a
+    // 500 for a deleted or banned account. A refresh tells them apart: it is
+    // refused (4xx) for a gone account, and works when the server was just busy.
+    const { error: refreshError } = await getUserClient().auth.refreshSession()
+    if (!refreshError) return false
+    const refreshStatus = (refreshError as { status?: number }).status ?? 0
+    return refreshError.name !== 'AuthRetryableFetchError' && refreshStatus >= 400 && refreshStatus < 500
+  } catch {
+    return false
+  }
 }
 
 async function finishUserLogin(

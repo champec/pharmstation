@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { Download, History } from 'lucide-react'
+import { PageHeader } from '../../components/ui/PageHeader'
 import { useAuthStore } from '@pharmstation/core'
 import type { RegisterEntry, RegisterLedger, RpAbsence } from '@pharmstation/types'
 import { Drawer } from '../../components/Drawer'
@@ -16,7 +18,8 @@ import {
   rpErrorMessage,
   rpLedger,
   rpSignOut,
-  rpWriteRecord,
+  rpCorrect,
+  rpRecordLate,
   type RpSession,
 } from '../../lib/rpLog'
 import {
@@ -64,8 +67,8 @@ function crossesDay(session: RpSession): boolean {
 
 type FormTarget = { mode: 'late' } | { mode: 'correct'; session: RpSession }
 
-function RpRecordForm({ target, ledger, onDone, onCancel }: { target: FormTarget; ledger: RegisterLedger; onDone: () => void; onCancel: () => void }) {
-  const { activeUser } = useAuthStore()
+function RpRecordForm({ target, onDone, onCancel }: { target: FormTarget; ledger: RegisterLedger; onDone: () => void; onCancel: () => void }) {
+  const { activeUser, organisation } = useAuthStore()
   const cur = target.mode === 'correct' ? target.session.current : null
   const [name, setName] = useState(cur?.pharmacist_name ?? activeUser?.full_name ?? '')
   const [gphc, setGphc] = useState(cur?.gphc_number ?? activeUser?.gphc_number ?? '')
@@ -93,20 +96,26 @@ function RpRecordForm({ target, ledger, onDone, onCancel }: { target: FormTarget
     setSaving(true)
     setError(null)
     try {
-      await rpWriteRecord({
-        ledger,
-        correctsRootId: target.mode === 'correct' ? target.session.root.id : null,
-        reason: target.mode === 'correct' ? reason.trim() : null,
-        date: ukDate(new Date(inAt)),
-        pharmacistName: name.trim(),
-        gphcNumber: gphc.trim(),
-        signedInAt: inAt,
-        signedOutAt: outAt,
-        notes: target.mode === 'late'
-          ? `Recorded late: ${reason.trim()}${notes.trim() ? ` · ${notes.trim()}` : ''}`.slice(0, NOTES_MAX + 120)
-          : notes.trim() || null,
-        authorisedBy: activeUser?.full_name ?? null,
-      })
+      if (target.mode === 'late') {
+        if (!organisation) throw new Error('No pharmacy selected')
+        await rpRecordLate({
+          organisationId: organisation.id,
+          signedInAt: inAt,
+          signedOutAt: outAt!,
+          reason: reason.trim(),
+          notes: notes.trim() || null,
+        })
+      } else {
+        await rpCorrect({
+          entryId: target.session.root.id,
+          signedInAt: inAt,
+          signedOutAt: outAt,
+          pharmacistName: name.trim(),
+          gphcNumber: gphc.trim(),
+          notes: notes.trim() || null,
+          reason: reason.trim(),
+        })
+      }
       onDone()
     } catch (err) {
       setError(rpErrorMessage(err))
@@ -280,10 +289,18 @@ export function RPLogPage() {
     return map
   }, [filtered])
 
+  // Don't list days before the pharmacy existed (or its earliest RP record, if older).
+  const firstDay = useMemo(() => {
+    const opened = organisation?.created_at ? ukDate(new Date(organisation.created_at)) : null
+    const earliest = sessions.reduce<string | null>((m, s) => (m === null || s.date < m ? s.date : m), null)
+    return [opened, earliest].filter((d): d is string => !!d).sort()[0] ?? null
+  }, [organisation?.created_at, sessions])
+
   const days = useMemo(() => {
-    const all = dateList(since, today)
+    const from = firstDay && firstDay > since ? firstDay : since
+    const all = from > today ? [today] : dateList(from, today)
     return search.trim() ? all.filter((d) => byDate.has(d)) : all
-  }, [since, today, byDate, search])
+  }, [since, today, byDate, search, firstDay])
 
   // Runs of past days with no RP collapse into one line.
   const dayBlocks = useMemo(() => {
@@ -386,27 +403,19 @@ export function RPLogPage() {
 
   return (
     <div className="logs-page">
-      <div className="page-header">
-        <div className="breadcrumbs">
-          <a href="/" onClick={(e) => { e.preventDefault(); navigate('/') }}>Dashboard</a>
-          <span className="separator">/</span>
-          <a href="/registers" onClick={(e) => { e.preventDefault(); navigate('/registers') }}>Registers</a>
-          <span className="separator">/</span>
-          <span>RP Log</span>
-        </div>
-        <div className="logs-header">
-          <div>
-            <h1>👤 RP log</h1>
-            <p className="log-muted">Who was the Responsible Pharmacist, when, and any time they were away.</p>
-          </div>
-          <div className="logs-header-actions no-print">
-            <button className="ps-btn ps-btn-ghost" onClick={() => setCertOpen(true)}>🪪 RP notice</button>
-            <button className="ps-btn ps-btn-secondary" onClick={handlePrint} disabled={loading}>🖨️ Print / PDF</button>
-            <button className="ps-btn ps-btn-secondary" onClick={handleCsv} disabled={loading || entries.length === 0} title="Every record, sign-out, correction and absence">⬇ CSV</button>
-            {canSign && <button className="ps-btn ps-btn-secondary" onClick={openLate}>+ Record a missed session</button>}
-          </div>
-        </div>
-      </div>
+      <PageHeader
+        breadcrumbs={[{ label: 'Dashboard', to: '/' }, { label: 'Registers', to: '/registers' }, { label: 'RP log' }]}
+        title="RP log"
+        subtitle="Who was the Responsible Pharmacist, when, and any time they were away."
+        actions={<div className="logs-header-actions no-print">
+          <button className="ps-btn ps-btn-ghost" onClick={() => setCertOpen(true)}>RP notice</button>
+          <button className="ps-btn ps-btn-secondary" onClick={handlePrint} disabled={loading}>Print / PDF</button>
+          <button className="ps-btn ps-btn-secondary" onClick={handleCsv} disabled={loading || entries.length === 0} title="Every record, sign-out, correction and absence">
+            <Download size={16} strokeWidth={1.75} aria-hidden="true" /> CSV
+          </button>
+          {canSign && <button className="ps-btn ps-btn-secondary" onClick={openLate}>+ Record a missed session</button>}
+        </div>}
+      />
 
       <RpStatusCard onChange={() => load()} refreshKey={refreshKey} />
 
@@ -483,7 +492,7 @@ export function RPLogPage() {
                       <button className="ps-btn ps-btn-primary ps-btn-sm" onClick={() => setSignOutFor(s)}>Sign out</button>
                     )}
                     {canSign && <button className="ps-btn ps-btn-ghost ps-btn-sm" onClick={() => setForm({ mode: 'correct', session: s })}>Correct</button>}
-                    <button className="ps-btn ps-btn-ghost ps-btn-sm" onClick={() => setHistoryFor(s)} aria-label="History">🕘</button>
+                    <button className="ps-btn ps-btn-ghost ps-btn-sm" onClick={() => setHistoryFor(s)} aria-label="History" title="History"><History size={16} strokeWidth={1.75} aria-hidden="true" /></button>
                   </div>
                 </div>
               )

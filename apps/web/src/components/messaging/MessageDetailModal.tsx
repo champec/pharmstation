@@ -26,8 +26,8 @@ export const STATUS_BADGES: Record<string, string> = {
  *  unconfirmed until the webhook reports, so we show it as pending. */
 export const STATUS_LABELS: Record<string, string> = {
   created: 'Created',
-  sending: '⏳ Pending',
-  sent: '⏳ Pending',
+  sending: 'Pending',
+  sent: 'Pending',
   delivered: '✓ Delivered',
   failed: 'Failed',
   'permanent-failure': 'Perm. failure',
@@ -37,7 +37,6 @@ export const STATUS_LABELS: Record<string, string> = {
 
 export const FAILED_STATUSES = ['failed', 'permanent-failure', 'temporary-failure', 'technical-failure']
 
-const CHANNEL_ICON: Record<string, string> = { sms: '📱', email: '📧', letter: '✉️' }
 
 function formatDate(d: string | null | undefined) {
   if (!d) return '—'
@@ -123,7 +122,7 @@ export function MessageDetailModal({ message, onClose, onChanged }: Props) {
     <Modal
       isOpen={!!m}
       onClose={close}
-      title={m ? `${CHANNEL_ICON[m.channel] || ''} ${m.channel.toUpperCase()} Message` : ''}
+      title={m ? `${m.channel.toUpperCase()} message` : ''}
       width="680px"
     >
       {m && (
@@ -225,7 +224,7 @@ export function MessageDetailModal({ message, onClose, onChanged }: Props) {
           <div style={{ display: 'flex', gap: 'var(--ps-space-sm)', flexWrap: 'wrap' }}>
             {m.notify_message_id && (
               <button className="ps-btn ps-btn-secondary" disabled={checking} onClick={() => handleCheckStatus(m)}>
-                {checking ? 'Checking…' : '🔄 Check status'}
+                {checking ? 'Checking…' : 'Check status'}
               </button>
             )}
             {FAILED_STATUSES.includes(m.status) && m.body && (
@@ -235,7 +234,7 @@ export function MessageDetailModal({ message, onClose, onChanged }: Props) {
             )}
             {m.body && (
               <button className="ps-btn ps-btn-secondary" onClick={() => handleReuse(m)}>
-                📝 Reuse message
+                Reuse message
               </button>
             )}
             <button className="ps-btn ps-btn-ghost" style={{ marginLeft: 'auto' }} onClick={close}>

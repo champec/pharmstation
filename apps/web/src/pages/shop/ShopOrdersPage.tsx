@@ -6,9 +6,13 @@
 
 import { useEffect, useCallback, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { RefreshCw, ShoppingBag } from 'lucide-react'
+import { PageHeader } from '../../components/ui/PageHeader'
+import { EmptyState } from '../../components/ui/EmptyState'
 import { useAuthStore, useShopStore, useDeliveryRoundStore } from '@pharmstation/core'
 import type { ShopOrder, ShopOrderStatus } from '@pharmstation/types'
 import { Modal } from '../../components/Modal'
+import { confirmDialog, promptDialog } from '../../components/ui/dialog'
 
 const formatPrice = (pence: number) => `£${(pence / 100).toFixed(2)}`
 
@@ -56,6 +60,8 @@ export function ShopOrdersPage() {
   useEffect(() => { load() }, [load])
 
   const filtered = orders.filter((o) => {
+    // Keep the open order in view after it moves on (e.g. New → Confirmed).
+    if (o.id === expandedId) return true
     if (statusFilter === 'all') return true
     if (statusFilter === 'active') return !['completed', 'cancelled'].includes(o.status)
     return o.status === statusFilter
@@ -64,7 +70,7 @@ export function ShopOrdersPage() {
   const handleStatus = async (order: ShopOrder, status: ShopOrderStatus) => {
     if (
       status === 'cancelled'
-      && !window.confirm(`Cancel order ${order.order_number}? Its items go back into stock${order.payment_status === 'paid' ? ' and the customer is refunded in full' : ''}. A cancelled order can't be reopened.`)
+      && !await confirmDialog(`Cancel order ${order.order_number}? Its items go back into stock${order.payment_status === 'paid' ? ' and the customer is refunded in full' : ''}. A cancelled order can't be reopened.`)
     ) return
     try {
       if (status === 'cancelled' && order.payment_status === 'paid') {
@@ -82,10 +88,10 @@ export function ShopOrdersPage() {
   const handleReview = async (order: ShopOrder, approve: boolean) => {
     let notes: string | null = null
     if (approve) {
-      notes = window.prompt(`Approve ${order.order_number}? Add a note for the record (optional):`, '')
+      notes = await promptDialog(`Approve ${order.order_number}? Add a note for the record (optional):`, '')
       if (notes === null) return
     } else {
-      notes = window.prompt(`Reject ${order.order_number}? The order is cancelled and its stock goes back${order.payment_status === 'paid' ? ', and the customer is refunded in full' : ''}. Reason (required, kept on record):`, '')
+      notes = await promptDialog(`Reject ${order.order_number}? The order is cancelled and its stock goes back${order.payment_status === 'paid' ? ', and the customer is refunded in full' : ''}. Reason (required, kept on record):`, '')
       if (notes === null) return
       if (!notes.trim()) { useShopStore.setState({ error: 'Please give a reason for rejecting the order' }); return }
     }
@@ -137,19 +143,12 @@ export function ShopOrdersPage() {
 
   return (
     <div>
-      <div className="page-header">
-        <div className="breadcrumbs">
-          <a href="/" onClick={(e) => { e.preventDefault(); navigate('/') }}>Dashboard</a>
-          <span className="separator">/</span>
-          <a href="/shop-admin" onClick={(e) => { e.preventDefault(); navigate('/shop-admin') }}>Shop</a>
-          <span className="separator">/</span>
-          <span>Orders</span>
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--ps-space-md)' }}>
-          <h1>📦 Shop Orders</h1>
-          <button className="ps-btn ps-btn-secondary" onClick={load}>↻ Refresh</button>
-        </div>
-      </div>
+      <PageHeader
+        breadcrumbs={[{ label: 'Dashboard', to: '/' }, { label: 'Shop', to: '/shop-admin' }, { label: 'Orders' }]}
+        title="Shop orders"
+        subtitle="Orders from your online shop. Check medicines, prepare orders and let customers know when they're ready."
+        actions={<button className="ps-btn ps-btn-secondary" onClick={load}><RefreshCw size={16} strokeWidth={1.75} aria-hidden="true" /> Refresh</button>}
+      />
 
       {error && (
         <div className="ps-card" style={{ padding: 'var(--ps-space-md)', marginBottom: 'var(--ps-space-md)', color: 'var(--ps-error, #dc2626)' }}>
@@ -164,13 +163,11 @@ export function ShopOrdersPage() {
             key={s}
             className="ps-btn ps-btn-secondary"
             onClick={() => setStatusFilter(s)}
-            style={statusFilter === s ? { background: 'var(--ps-deep-blue, #0077B6)', color: 'white' } : undefined}
+            style={statusFilter === s ? { background: 'var(--ps-deep-blue)', color: 'white' } : undefined}
           >
             {s === 'active' ? 'Active' : s === 'all' ? 'All' : STATUS_META[s].label}
             {s === 'new' && orders.some((o) => o.status === 'new') && (
-              <span style={{ marginLeft: 6, background: '#dc2626', color: 'white', borderRadius: 999, padding: '0 7px', fontSize: 12 }}>
-                {orders.filter((o) => o.status === 'new').length}
-              </span>
+              <span style={{ marginLeft: 4 }}>({orders.filter((o) => o.status === 'new').length})</span>
             )}
           </button>
         ))}
@@ -179,9 +176,15 @@ export function ShopOrdersPage() {
       {loading && <p style={{ color: 'var(--ps-slate)' }}>Loading…</p>}
 
       {!loading && filtered.length === 0 && (
-        <div className="ps-card" style={{ padding: 'var(--ps-space-xl)', textAlign: 'center', color: 'var(--ps-slate)' }}>
-          No orders here yet. When customers order from your shop they will appear in this list.
-        </div>
+        orders.length === 0 ? (
+          <EmptyState icon={ShoppingBag} title="No orders yet">
+            When customers order from your shop, their orders appear here.
+          </EmptyState>
+        ) : (
+          <EmptyState icon={ShoppingBag} title="No orders match this filter" actions={<button className="ps-btn ps-btn-secondary" onClick={() => setStatusFilter('all')}>Show all orders</button>}>
+            Try another filter to see more orders.
+          </EmptyState>
+        )
       )}
 
       <div style={{ display: 'grid', gap: 'var(--ps-space-sm)' }}>
@@ -197,25 +200,25 @@ export function ShopOrdersPage() {
                 <strong style={{ fontFamily: 'monospace' }}>{o.order_number}</strong>
                 <span className="ps-badge" style={{ background: meta.bg, color: meta.color }}>{meta.label}</span>
                 {o.payment_status === 'awaiting_payment' && o.status !== 'cancelled' && (
-                  <span className="ps-badge" style={{ background: '#f1f5f9', color: '#475569' }}>💳 Waiting for card payment</span>
+                  <span className="ps-badge" style={{ background: '#f1f5f9', color: '#475569' }}>Waiting for card payment</span>
                 )}
                 {o.payment_status === 'paid' && (
-                  <span className="ps-badge" style={{ background: '#dcfce7', color: '#166534' }}>💳 Paid by card</span>
+                  <span className="ps-badge" style={{ background: '#dcfce7', color: '#166534' }}>Paid by card</span>
                 )}
                 {(o.payment_status === 'refunded' || o.payment_status === 'partially_refunded') && (
-                  <span className="ps-badge" style={{ background: '#e0f2fe', color: '#075985' }}>💳 {o.payment_status === 'refunded' ? 'Refunded' : 'Part refunded'}</span>
+                  <span className="ps-badge" style={{ background: '#e0f2fe', color: '#075985' }}>{o.payment_status === 'refunded' ? 'Refunded' : 'Part refunded'}</span>
                 )}
                 {o.review_status === 'pending' && o.status !== 'cancelled' && (
-                  <span className="ps-badge" style={{ background: '#fef3c7', color: '#92400e' }}>💊 Needs pharmacist check</span>
+                  <span className="ps-badge" style={{ background: '#fef3c7', color: '#92400e' }}>Needs pharmacist check</span>
                 )}
                 {o.review_status === 'approved' && (
-                  <span className="ps-badge" style={{ background: '#dcfce7', color: '#166534' }}>💊 Pharmacist approved</span>
+                  <span className="ps-badge" style={{ background: '#dcfce7', color: '#166534' }}>Pharmacist approved</span>
                 )}
                 {o.review_status === 'rejected' && (
-                  <span className="ps-badge" style={{ background: '#fee2e2', color: '#991b1b' }}>💊 Rejected by pharmacist</span>
+                  <span className="ps-badge" style={{ background: '#fee2e2', color: '#991b1b' }}>Rejected by pharmacist</span>
                 )}
                 <span style={{ color: 'var(--ps-slate)', fontSize: 'var(--ps-font-sm)' }}>
-                  {o.fulfilment_method === 'delivery' ? '🚚 Delivery' : '🏪 Collection'}
+                  {o.fulfilment_method === 'delivery' ? 'Delivery' : 'Collection'}
                 </span>
                 <span style={{ flex: 1, color: 'var(--ps-slate)', fontSize: 'var(--ps-font-sm)' }}>
                   {o.guest_name || 'Registered patient'}{o.guest_phone ? ` · ${o.guest_phone}` : ''}
@@ -252,19 +255,19 @@ export function ShopOrdersPage() {
 
                   {o.fulfilment_method === 'delivery' && o.delivery_address && (
                     <p style={{ margin: 'var(--ps-space-sm) 0 0', color: 'var(--ps-slate)', fontSize: 'var(--ps-font-sm)' }}>
-                      📍 {[o.delivery_address.line_1, o.delivery_address.city, o.delivery_address.postcode].filter(Boolean).join(', ')}
+                      {[o.delivery_address.line_1, o.delivery_address.city, o.delivery_address.postcode].filter(Boolean).join(', ')}
                     </p>
                   )}
                   {o.fulfilment_method === 'delivery' && (
                     <div style={{ marginTop: 'var(--ps-space-sm)' }}>
                       {o.delivery_round_id ? (
                         <button className="ps-btn ps-btn-secondary" onClick={() => navigate(`/deliveries/${o.delivery_round_id}`)}>
-                          🚚 On a delivery run — view →
+                          On a delivery run — view →
                         </button>
                       ) : (
                         !['completed', 'cancelled'].includes(o.status) && !['pending', 'rejected'].includes(o.review_status) && o.payment_status !== 'awaiting_payment' && (
                           <button className="ps-btn ps-btn-secondary" onClick={() => openRunModal(o)}>
-                            🚚 Add to delivery run
+                            Add to delivery run
                           </button>
                         )
                       )}
@@ -272,7 +275,7 @@ export function ShopOrdersPage() {
                   )}
                   {o.customer_notes && (
                     <p style={{ margin: 'var(--ps-space-sm) 0 0', fontSize: 'var(--ps-font-sm)' }}>
-                      💬 <em>{o.customer_notes}</em>
+                      <strong>Customer note:</strong> <em>{o.customer_notes}</em>
                     </p>
                   )}
 
@@ -282,7 +285,7 @@ export function ShopOrdersPage() {
                     return (
                       <div key={r.id} style={{ marginTop: 'var(--ps-space-md)', border: '1px solid #ede9fe', background: '#faf5ff', borderRadius: 'var(--ps-radius-md)', padding: 'var(--ps-space-md)' }}>
                         <strong style={{ color: '#5b21b6', fontSize: 'var(--ps-font-sm)' }}>
-                          📝 Consultation answers{item ? ` — ${item.product_name}` : ''}
+                          Consultation answers{item ? ` — ${item.product_name}` : ''}
                         </strong>
                         <table style={{ width: '100%', fontSize: 'var(--ps-font-sm)', marginTop: 6, borderCollapse: 'collapse' }}>
                           <tbody>
@@ -301,7 +304,7 @@ export function ShopOrdersPage() {
                   {/* Pharmacist check (P medicines / consultation products) */}
                   {o.review_status === 'pending' && o.status !== 'cancelled' && (
                     <div style={{ marginTop: 'var(--ps-space-md)', border: '1px solid #fde68a', background: '#fffbeb', borderRadius: 'var(--ps-radius-md)', padding: 'var(--ps-space-md)' }}>
-                      <strong style={{ fontSize: 'var(--ps-font-sm)', color: '#92400e' }}>💊 A pharmacist needs to check this order</strong>
+                      <strong style={{ fontSize: 'var(--ps-font-sm)', color: '#92400e' }}>A pharmacist needs to check this order</strong>
                       <p style={{ margin: '4px 0 var(--ps-space-sm)', fontSize: 'var(--ps-font-sm)', color: 'var(--ps-slate)' }}>
                         Read the answers above. The order can't be confirmed until a pharmacist approves it. Your name and GPhC number are recorded with the decision.
                       </p>
@@ -313,7 +316,7 @@ export function ShopOrdersPage() {
                   )}
                   {(o.review_status === 'approved' || o.review_status === 'rejected') && o.reviewed_at && (
                     <p style={{ margin: 'var(--ps-space-md) 0 0', fontSize: 'var(--ps-font-sm)', color: 'var(--ps-slate)' }}>
-                      💊 {o.review_status === 'approved' ? 'Approved' : 'Rejected'} by {o.reviewed_by_name || 'pharmacist'}
+                      {o.review_status === 'approved' ? 'Approved' : 'Rejected'} by {o.reviewed_by_name || 'pharmacist'}
                       {o.reviewed_by_gphc ? ` (GPhC ${o.reviewed_by_gphc})` : ''} on{' '}
                       {new Date(o.reviewed_at).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
                       {o.review_notes ? ` · “${o.review_notes}”` : ''}
@@ -356,11 +359,11 @@ export function ShopOrdersPage() {
               <div><strong>{runOrder.guest_name || 'Registered patient'}</strong>{runOrder.guest_phone ? ` · ${runOrder.guest_phone}` : ''}</div>
               {runOrder.delivery_address && (
                 <div style={{ color: 'var(--ps-slate)', marginTop: 2 }}>
-                  📍 {[runOrder.delivery_address.line_1, runOrder.delivery_address.city, runOrder.delivery_address.postcode].filter(Boolean).join(', ')}
+                  {[runOrder.delivery_address.line_1, runOrder.delivery_address.city, runOrder.delivery_address.postcode].filter(Boolean).join(', ')}
                 </div>
               )}
               <div style={{ color: 'var(--ps-slate)', marginTop: 2 }}>
-                📦 {(runOrder.items || []).map((it) => `${it.quantity} × ${it.product_name}`).join(', ')}
+                {(runOrder.items || []).map((it) => `${it.quantity} × ${it.product_name}`).join(', ')}
               </div>
               <div style={{ color: 'var(--ps-slate)', marginTop: 6, fontSize: 12 }}>
                 The stop is prefilled with this name, address and item list{runOrder.patient_id ? '.' : ' — a patient record will be created for this customer.'}

@@ -1,3 +1,4 @@
+import '../_shared/monitoring.ts' // platform error tracking (see _shared/monitoring.ts)
 // ============================================
 // mfa-email-recovery — "Can't get your code? Email me one"
 //

@@ -1,3 +1,4 @@
+import '../_shared/monitoring.ts' // platform error tracking (see _shared/monitoring.ts)
 // ============================================
 // PharmStation Edge Function: nhs-dos-lookup
 // NHS Directory of Services (DoS) UEC REST API

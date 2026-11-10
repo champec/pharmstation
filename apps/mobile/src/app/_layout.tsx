@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react'
-import { ActivityIndicator, Platform, StyleSheet, View } from 'react-native'
-import { Stack, useRouter } from 'expo-router'
+import { ActivityIndicator, AppState, Platform, Pressable, StyleSheet, Text, View } from 'react-native'
+import { Stack, usePathname, useRouter, type ErrorBoundaryProps } from 'expo-router'
 import * as Notifications from 'expo-notifications'
 import { StatusBar } from 'expo-status-bar'
 import * as SplashScreen from 'expo-splash-screen'
@@ -12,9 +12,42 @@ import { registerForPush, type PushPayload } from '@/lib/push'
 import { useCommsStore } from '@/stores/comms-store'
 import { StartupNotices } from '@/components/StartupNotices'
 import { BRAND_BLUE, BrandLogo } from '@/components/BrandLogo'
+import { palette, radius } from '@/theme/palette'
+import { captureError, flushMonitoring, initMonitoring, trackScreen } from '@/lib/monitoring'
 
 // Keep the native splash up until we know whether someone is signed in.
 SplashScreen.preventAutoHideAsync().catch(() => {})
+initMonitoring()
+
+// Shown instead of a blank screen when a screen crashes; the crash is reported
+// to the platform Monitoring page.
+export function ErrorBoundary({ error, retry }: ErrorBoundaryProps) {
+  useEffect(() => {
+    captureError(error, { kind: 'render' })
+  }, [error])
+  return (
+    <View style={styles.crash}>
+      <Text style={styles.crashTitle}>Something went wrong on this screen</Text>
+      <Text style={styles.crashBody}>The PharmStation team has been told automatically. Nothing you saved has been lost.</Text>
+      <Pressable accessibilityRole="button" onPress={retry} style={styles.crashButton}>
+        <Text style={styles.crashButtonText}>Try again</Text>
+      </Pressable>
+    </View>
+  )
+}
+
+function useUsageTracking() {
+  const pathname = usePathname()
+  useEffect(() => {
+    if (pathname) trackScreen(pathname)
+  }, [pathname])
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state !== 'active') flushMonitoring()
+    })
+    return () => sub.remove()
+  }, [])
+}
 
 export default function RootLayout() {
   const initialize = useAuthStore((s) => s.initialize)
@@ -25,6 +58,7 @@ export default function RootLayout() {
   }, [initialize])
 
   usePush(!initializing)
+  useUsageTracking()
 
   useEffect(() => {
     if (!initializing) SplashScreen.hideAsync().catch(() => {})
@@ -71,6 +105,21 @@ function usePush(ready: boolean) {
       if (handled.current === id) return
       handled.current = id
       const data = (response.notification.request.content.data ?? {}) as PushPayload
+      // Locum pushes (from locum-notify) open the locum module.
+      if (data.type === 'locum_booking' || data.type === 'locum_shift') {
+        router.push({ pathname: '/module/[id]', params: { id: 'locum', tab: data.type === 'locum_shift' ? 'find' : 'bookings' } })
+        return
+      }
+      // Pharmacy locum alerts open Locum Cover.
+      if (data.event_type === 'locum') {
+        router.push({ pathname: '/module/[id]', params: { id: 'locum-cover', tab: 'shifts' } })
+        return
+      }
+      // Shop order alerts open the shop's order list.
+      if (data.event_type === 'shop_order') {
+        router.push({ pathname: '/module/[id]', params: { id: 'shop', tab: 'orders' } })
+        return
+      }
       if (data.thread_id) useCommsStore.getState().setPendingOpen({ threadId: data.thread_id })
       else if (data.from_number) useCommsStore.getState().setPendingOpen({ phone: data.from_number })
       router.push({ pathname: '/module/[id]', params: { id: 'communications', tab: 'notifications' } })
@@ -91,4 +140,9 @@ const styles = StyleSheet.create({
     backgroundColor: BRAND_BLUE,
   },
   spinner: { marginTop: 28 },
+  crash: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24, backgroundColor: palette.bg },
+  crashTitle: { fontSize: 18, fontWeight: '600', color: palette.text, textAlign: 'center', marginBottom: 8 },
+  crashBody: { fontSize: 15, color: palette.textMuted, textAlign: 'center', marginBottom: 20 },
+  crashButton: { backgroundColor: palette.brand, paddingVertical: 12, paddingHorizontal: 24, borderRadius: radius.md },
+  crashButtonText: { color: palette.textInverse, fontWeight: '600', fontSize: 15 },
 })

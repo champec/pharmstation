@@ -636,6 +636,34 @@ export function ukToday(date: Date = new Date()): string {
  * line once a pharmacist or pharmacy technician has checked it. Mirrors
  * ps_is_cd_scan_reviewer() in the database, which is what actually enforces it.
  */
+/**
+ * The unit a CD register counts in, from the drug's form: tablets, capsules,
+ * ml, patches, ampoules... Registers record quantities in these units, so
+ * show it next to every balance and quantity.
+ */
+export function cdUnit(form?: string | null): string {
+  const f = (form ?? '').toLowerCase()
+  if (!f) return 'units'
+  if (f.includes('patch')) return 'patches'
+  if (f.includes('injection') || f.includes('ampoule') || f.includes('infusion')) return 'ampoules'
+  if (f.includes('suppositor')) return 'suppositories'
+  if (f.includes('lozenge')) return 'lozenges'
+  if (f.includes('film')) return 'films'
+  if (f.includes('spray')) return 'sprays'
+  if (f.includes('capsule')) return 'capsules'
+  if (f.includes('tablet') || f.includes('pill')) return 'tablets'
+  if (/(solution|liquid|syrup|linctus|mixture|suspension|elixir|drops|oral)/.test(f)) return 'ml'
+  if (f.includes('granule') || f.includes('powder')) return 'sachets'
+  return 'units'
+}
+
+/** "28 tablets", "12.5 ml". */
+export function cdQty(n: number | null | undefined, form?: string | null): string {
+  if (n == null || Number.isNaN(n)) return '—'
+  const v = Number.isInteger(n) ? String(n) : String(Number(n.toFixed(2)))
+  return `${v} ${cdUnit(form)}`
+}
+
 export function canApproveCdScan(role: UserRole | null | undefined, gphcNumber?: string | null): boolean {
   if (role === 'pharmacist' || role === 'technician' || role === 'locum') return true
   return !!gphcNumber?.trim()
@@ -674,6 +702,8 @@ export interface AIModel {
   is_active: boolean
   is_default: boolean
   sort_order: number
+  /** Genie (ai-chat) only uses models with this flag. */
+  genie_enabled?: boolean
   created_at: string
   updated_at: string
 }
@@ -691,6 +721,8 @@ export interface AIOrgSettings {
   monthly_token_limit: number | null
   tokens_used_this_month: number
   enable_ai_features: boolean
+  /** Genie may see patient data. Only platform admins can change it. */
+  genie_patient_data?: boolean
   created_at: string
   updated_at: string
 }
@@ -755,6 +787,12 @@ export interface ChatRequest {
   model_type?: AIModelType          // or specify by type, resolved server-side
 }
 
+/** Genie messages used this month by the pharmacy, and its monthly allowance. */
+export interface GenieUsage {
+  used: number
+  limit: number
+}
+
 export interface ChatStreamEvent {
   type: 'text_delta' | 'tool_call_start' | 'tool_call_delta' | 'tool_call_end' | 'tool_result' | 'done' | 'error' | 'conversation_created' | 'message_saved'
   // text_delta
@@ -771,6 +809,7 @@ export interface ChatStreamEvent {
   // done
   input_tokens?: number
   output_tokens?: number
+  usage?: GenieUsage
   // error
   error?: string
 }
@@ -1318,6 +1357,7 @@ export interface VideoConsultation {
   scheduled_for: string
   started_at: string | null
   ended_at: string | null
+  access_code_attempts?: number | null
   created_at: string
   // Joined
   patient?: Patient
@@ -1577,6 +1617,12 @@ export interface SOPDocument {
   published_at: string | null
   /** Sections changed since the last publish; staff still read the last published copy. */
   has_unpublished_changes?: boolean
+  /** How often the SOP must be reviewed (months, default 12). */
+  review_interval_months?: number
+  /** Date (YYYY-MM-DD) the next review is due. Set by publishing or marking reviewed. */
+  next_review_due?: string | null
+  last_reviewed_at?: string | null
+  last_reviewed_by?: string | null
   created_at: string
   updated_at: string
   // Joined
@@ -1636,6 +1682,20 @@ export interface SOPDocumentVersion {
   nodes: Pick<SOPNode, 'id' | 'parent_id' | 'title' | 'content_type' | 'rich_content' | 'pdf_storage_path' | 'sort_order'>[]
   published_at: string
   published_by: string | null
+}
+
+/** One entry in an SOP's review history (written by the database). */
+export interface SOPReview {
+  id: string
+  document_id: string
+  org_id: string
+  version: number
+  outcome: 'first_published' | 'new_version' | 'no_changes'
+  notes: string | null
+  reviewed_at: string
+  reviewed_by: string | null
+  reviewer_name: string | null
+  next_review_due: string | null
 }
 
 // Rich view used in the progress page
@@ -1737,6 +1797,8 @@ export interface NetworkPharmacy {
   is_on_platform: boolean
   linked_org_id: string | null
   linked_org_name: string | null
+  /** The pharmacy has urgent text alerts turned on (ps_network_search only). */
+  accepts_sms_pings?: boolean
 }
 
 export interface NetworkSettings {
@@ -2616,6 +2678,7 @@ export type AlertEventType =
   | 'peps'
   | 'network_message'
   | 'shop_order'
+  | 'locum'
   | 'system'
   | 'patient_message'
   | (string & {})
@@ -2688,6 +2751,11 @@ export interface ShopSettings {
   collection_enabled: boolean
   /** How shop customers can pay: in store / on delivery, card online, or either. */
   payment_methods: ShopPaymentMethods
+  /** Shown on the shop front. Opening the shop needs the pharmacist in charge and a contact. */
+  pharmacist_in_charge_name: string | null
+  pharmacist_in_charge_gphc: string | null
+  contact_phone: string | null
+  contact_email: string | null
   created_at: string
   updated_at: string
 }

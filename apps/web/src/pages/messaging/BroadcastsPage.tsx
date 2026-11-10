@@ -53,7 +53,7 @@ export function BroadcastsPage() {
           <span>Broadcasts</span>
         </div>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <h1>📢 Broadcasts</h1>
+          <h1>Broadcasts</h1>
           <button className="ps-btn ps-btn-primary" onClick={() => navigate('/messaging/broadcasts/new')}>
             + New Broadcast
           </button>
@@ -98,7 +98,7 @@ export function BroadcastsPage() {
                   <td style={{ fontWeight: 500 }}>{b.name}</td>
                   <td>
                     <span style={{ textTransform: 'uppercase', fontSize: '0.85rem' }}>
-                      {b.channel === 'sms' ? '📱' : b.channel === 'email' ? '📧' : '✉️'} {b.channel}
+                      {b.channel}
                     </span>
                   </td>
                   <td>

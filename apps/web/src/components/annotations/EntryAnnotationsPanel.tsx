@@ -142,7 +142,7 @@ export function EntryAnnotationsPanel({ entry, onAnnotationAdded }: EntryAnnotat
             return (
               <li key={a.id} className="annotation-item">
                 <span className={`annotation-badge ${meta.className}`}>
-                  {meta.icon} {meta.label}
+                  {meta.label}
                 </span>
                 <span className="annotation-text">{a.annotation_text}</span>
                 <span className="annotation-meta">
@@ -167,7 +167,7 @@ export function EntryAnnotationsPanel({ entry, onAnnotationAdded }: EntryAnnotat
             className="ps-btn ps-btn-ghost annotation-btn"
             onClick={() => openAction('note')}
           >
-            📝 Add note
+            Add note
           </button>
           {isSupplyEntry && !flagged && (
             <button
@@ -176,7 +176,7 @@ export function EntryAnnotationsPanel({ entry, onAnnotationAdded }: EntryAnnotat
               onClick={() => openAction('part_supply')}
               title="Mark this entry as a part supply (balance owed to patient)"
             >
-              ⏳ Mark part supply
+              Mark part supply
             </button>
           )}
           {flagged && !closed && (
@@ -229,9 +229,9 @@ export function EntryAnnotationsPanel({ entry, onAnnotationAdded }: EntryAnnotat
             {saving
               ? 'Saving…'
               : activeAction === 'note'
-              ? '📝 Save note'
+              ? 'Save note'
               : activeAction === 'part_supply'
-              ? '⏳ Mark part supply'
+              ? 'Mark part supply'
               : '✔ Close part supply'}
           </button>
           <button

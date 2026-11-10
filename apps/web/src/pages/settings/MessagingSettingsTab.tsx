@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useAuthStore, useMessagingStore } from '@pharmstation/core'
 import type { SmsInboundFilterMode, SmsTemplate } from '@pharmstation/types'
+import { confirmDialog } from '../../components/ui/dialog'
 
 // ============================================================
 // Messaging Settings — SMS Works first (platform SMS provider)
@@ -114,7 +115,7 @@ export function MessagingSettingsTab() {
     try {
       const result = await testSmsConnection(orgId)
       setTestResult(result.valid
-        ? { success: true, message: `Connected — platform balance: ${result.balance ?? 'n/a'} credits.` }
+        ? { success: true, message: 'Connected. Your pharmacy can send texts.' }
         : { success: false, message: result.error || 'Connection failed' })
     } catch (e: unknown) {
       setTestResult({ success: false, message: e instanceof Error ? e.message : 'Connection failed' })
@@ -142,7 +143,7 @@ export function MessagingSettingsTab() {
 
   const handleReleaseReplyNumber = async () => {
     if (!orgId) return
-    if (!window.confirm('Release your reply number? Patients will no longer be able to reply to your messages, and the monthly rental stops.')) return
+    if (!await confirmDialog('Release your reply number? Patients will no longer be able to reply to your messages, and the monthly rental stops.')) return
     setReplyBusy(true)
     setReplyNotice(null)
     try {
@@ -176,11 +177,10 @@ export function MessagingSettingsTab() {
 
   const handleDeleteTemplate = useCallback(async (t: SmsTemplate) => {
     if (!orgId) return
-    if (!window.confirm(`Delete template "${t.name}"?`)) return
+    if (!await confirmDialog(`Delete template "${t.name}"?`)) return
     try { await deleteSmsTemplate(orgId, t.id) } catch { /* surfaced via error banner */ }
   }, [orgId, deleteSmsTemplate])
 
-  const fmtPence = (p: number) => `£${(p / 100).toFixed(2)}`
 
   return (
     <div>
@@ -201,10 +201,10 @@ export function MessagingSettingsTab() {
 
       {/* ── Status ── */}
       <div className="ps-card" style={cardStyle}>
-        <h3 style={{ margin: '0 0 var(--ps-space-sm)' }}>📱 SMS (via SMS Works)</h3>
+        <h3 style={{ margin: '0 0 var(--ps-space-sm)' }}>SMS (via SMS Works)</h3>
         <p style={hintStyle}>
-          Text messages are sent through PharmStation's SMS gateway — no account or API key needed.
-          Usage is metered per pharmacy and billed monthly.
+          Text messages are sent through PharmStation's SMS gateway, so there's no account or API key to set up.
+          Each text uses credits from your prepaid SMS packs (one credit per 160 characters). Buy packs in Settings, Plan &amp; billing.
         </p>
         <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 'var(--ps-space-sm) var(--ps-space-md)' }}>
           <div style={{
@@ -217,9 +217,15 @@ export function MessagingSettingsTab() {
             Enable SMS
           </label>
           <button className="ps-btn ps-btn-secondary" disabled={testing} onClick={handleTest}>
-            {testing ? 'Testing…' : '🔌 Test Connection'}
+            {testing ? 'Testing…' : 'Test Connection'}
           </button>
         </div>
+        {organisation?.verification_status !== 'verified' && (
+          <p style={{ ...hintStyle, marginTop: 'var(--ps-space-sm)', color: 'var(--ps-warning)' }}>
+            You can set up texting now, but texts only send once your pharmacy is verified. We check every
+            pharmacy against the GPhC register, usually within one working day.
+          </p>
+        )}
         {testResult && (
           <div style={{ marginTop: 'var(--ps-space-sm)', fontSize: '0.9rem', color: testResult.success ? 'var(--ps-success)' : 'var(--ps-error)' }}>
             {testResult.success ? '✓' : '✗'} {testResult.message}
@@ -295,7 +301,7 @@ export function MessagingSettingsTab() {
         <h3 style={{ margin: '0 0 var(--ps-space-sm)' }}>Two-way Replies</h3>
         <p style={hintStyle}>
           Rent a dedicated virtual number so patients can reply to your messages. Replies appear in your
-          Messaging inbox. Adds a £13.50 + VAT monthly rental to your bill.
+          Messaging inbox. Reply numbers come with the Complete plan.
         </p>
 
         {smsSettings?.reply_enabled && smsSettings.reply_number ? (
@@ -313,7 +319,7 @@ export function MessagingSettingsTab() {
           </div>
         ) : (
           <button className="ps-btn ps-btn-secondary" disabled={replyBusy} onClick={handleRequestReplyNumber}>
-            {replyBusy ? 'Requesting…' : '📞 Request a reply number'}
+            {replyBusy ? 'Requesting…' : 'Request a reply number'}
           </button>
         )}
         {replyNotice && <div style={{ marginTop: 'var(--ps-space-sm)', fontSize: '0.9rem', color: 'var(--ps-slate)' }}>{replyNotice}</div>}
@@ -458,8 +464,8 @@ export function MessagingSettingsTab() {
       <div className="ps-card" style={cardStyle}>
         <h3 style={{ margin: '0 0 var(--ps-space-sm)' }}>Usage & Billing</h3>
         <p style={hintStyle}>
-          Messages are billed per SMS segment, plus the reply-number rental where enabled. Figures update as
-          delivery receipts arrive.
+          Texts sent and received each month, and the credits they used (one per 160 characters). Figures
+          update as delivery receipts arrive.
         </p>
         {usage.length === 0 ? (
           <p style={{ color: 'var(--ps-slate)', fontSize: '0.9rem', margin: 0 }}>No usage recorded yet.</p>
@@ -470,9 +476,7 @@ export function MessagingSettingsTab() {
                 <th style={{ padding: 'var(--ps-space-xs)' }}>Month</th>
                 <th style={{ padding: 'var(--ps-space-xs)', textAlign: 'right' }}>Sent</th>
                 <th style={{ padding: 'var(--ps-space-xs)', textAlign: 'right' }}>Received</th>
-                <th style={{ padding: 'var(--ps-space-xs)', textAlign: 'right' }}>Segments</th>
-                <th style={{ padding: 'var(--ps-space-xs)', textAlign: 'right' }}>Number rental</th>
-                <th style={{ padding: 'var(--ps-space-xs)', textAlign: 'right' }}>Est. charge</th>
+                <th style={{ padding: 'var(--ps-space-xs)', textAlign: 'right' }}>Credits used</th>
               </tr>
             </thead>
             <tbody>
@@ -482,8 +486,7 @@ export function MessagingSettingsTab() {
                   <td style={{ padding: 'var(--ps-space-xs)', textAlign: 'right' }}>{u.outbound_count}</td>
                   <td style={{ padding: 'var(--ps-space-xs)', textAlign: 'right' }}>{u.inbound_count}</td>
                   <td style={{ padding: 'var(--ps-space-xs)', textAlign: 'right' }}>{u.segments}</td>
-                  <td style={{ padding: 'var(--ps-space-xs)', textAlign: 'right' }}>{u.reply_enabled ? fmtPence(u.reply_number_rental_pence) : '—'}</td>
-                  <td style={{ padding: 'var(--ps-space-xs)', textAlign: 'right', fontWeight: 600 }}>{fmtPence(u.estimated_charge_pence)}</td>
+
                 </tr>
               ))}
             </tbody>
@@ -503,7 +506,7 @@ export function MessagingSettingsTab() {
         <NhsNotifySection />
       ) : (
         <div className="ps-card" style={{ ...cardStyle, borderLeft: '4px solid var(--ps-mist)' }}>
-          <h3 style={{ margin: '0 0 var(--ps-space-sm)', color: 'var(--ps-slate)' }}>🏥 NHS Notify (email & letters)</h3>
+          <h3 style={{ margin: '0 0 var(--ps-space-sm)', color: 'var(--ps-slate)' }}>NHS Notify (email & letters)</h3>
           <p style={{ color: 'var(--ps-slate)', margin: 0, fontSize: '0.9rem', lineHeight: 1.7 }}>
             GOV.UK / NHS Notify no longer supports community pharmacies, so email and letter channels are
             unavailable. Pharmacies directly affiliated with the NHS (NHS-funded, hospital, GP surgeries within an
@@ -603,7 +606,7 @@ function NhsNotifySection() {
 
   return (
     <div style={{ borderTop: '2px solid var(--ps-mist)', paddingTop: 'var(--ps-space-lg)' }}>
-      <h2 style={{ margin: '0 0 var(--ps-space-xs)' }}>🏥 NHS Notify (email & letters)</h2>
+      <h2 style={{ margin: '0 0 var(--ps-space-xs)' }}>NHS Notify (email & letters)</h2>
       <p style={hintStyle}>
         Your organisation is NHS-affiliated, so email and letter channels via NHS Notify remain available.
         SMS is still delivered via the platform gateway above unless support has switched your provider.
@@ -660,7 +663,7 @@ function NhsNotifySection() {
             disabled={testing || (!apiKey.trim() && !settings?.has_api_key)}
             onClick={handleTestConnection}
           >
-            {testing ? 'Testing...' : '🔌 Test Connection'}
+            {testing ? 'Testing...' : 'Test Connection'}
           </button>
         </div>
         {testResult && (
@@ -687,15 +690,15 @@ function NhsNotifySection() {
         </ul>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--ps-space-md)' }}>
           <div>
-            <label style={labelStyle}>📱 SMS Template ID</label>
+            <label style={labelStyle}>SMS Template ID</label>
             <input className="ps-input" placeholder="e.g. a1b2c3d4-e5f6-7890-abcd-ef1234567890" value={smsTemplateId} onChange={(e) => setSmsTemplateId(e.target.value)} />
           </div>
           <div>
-            <label style={labelStyle}>📧 Email Template ID</label>
+            <label style={labelStyle}>Email Template ID</label>
             <input className="ps-input" placeholder="e.g. a1b2c3d4-e5f6-7890-abcd-ef1234567890" value={emailTemplateId} onChange={(e) => setEmailTemplateId(e.target.value)} />
           </div>
           <div>
-            <label style={labelStyle}>✉️ Letter Template ID</label>
+            <label style={labelStyle}>Letter Template ID</label>
             <input className="ps-input" placeholder="e.g. a1b2c3d4-e5f6-7890-abcd-ef1234567890" value={letterTemplateId} onChange={(e) => setLetterTemplateId(e.target.value)} />
           </div>
         </div>

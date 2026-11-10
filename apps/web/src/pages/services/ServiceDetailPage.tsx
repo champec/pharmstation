@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { useAuthStore, useServiceStore } from '@pharmstation/core'
 import { getUserClient } from '@pharmstation/supabase-client'
 import { Modal } from '../../components/Modal'
+import { Trash2 } from 'lucide-react'
 
 export function ServiceDetailPage() {
   const { serviceId } = useParams<{ serviceId: string }>()
@@ -199,7 +200,7 @@ export function ServiceDetailPage() {
           <span>{activeService.name}</span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <h1>🩺 {activeService.name}</h1>
+          <h1>{activeService.name}</h1>
           <div style={{ display: 'flex', gap: 'var(--ps-space-sm)' }}>
             <button
               className="ps-btn ps-btn-success"
@@ -236,19 +237,19 @@ export function ServiceDetailPage() {
               {activeService.description || 'No description'}
             </p>
             <div style={{ display: 'flex', gap: 'var(--ps-space-sm)', alignItems: 'center', flexWrap: 'wrap' }}>
-              <span className="ps-badge ps-badge-blue">⏱ {activeService.duration_minutes} min</span>
+              <span className="ps-badge ps-badge-blue">{activeService.duration_minutes} min</span>
               <span className={`ps-badge ${activeService.is_active ? 'ps-badge-green' : 'ps-badge-red'}`}>
                 {activeService.is_active ? 'Active' : 'Inactive'}
               </span>
-              {activeService.is_public && <span className="ps-badge ps-badge-amber">🌐 Public</span>}
+              {activeService.is_public && <span className="ps-badge ps-badge-amber">Public</span>}
               {activeService.is_chargeable && activeService.price_pence != null && (
-                <span className="ps-badge ps-badge-green">💳 £{(activeService.price_pence / 100).toFixed(2)}</span>
+                <span className="ps-badge ps-badge-green">£{(activeService.price_pence / 100).toFixed(2)}</span>
               )}
             </div>
           </div>
           {canManage && (
             <button className="ps-btn ps-btn-secondary ps-btn-sm" onClick={openEditModal}>
-              ✏️ Edit
+              Edit
             </button>
           )}
         </div>
@@ -287,7 +288,7 @@ export function ServiceDetailPage() {
       {/* Payments card */}
       <div className="ps-card" style={{ padding: 'var(--ps-space-lg)', marginBottom: 'var(--ps-space-lg)' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 'var(--ps-space-sm)' }}>
-          <h3 style={{ margin: 0, fontSize: 'var(--ps-font-md)', fontWeight: 600, color: 'var(--ps-midnight)' }}>💳 Payments</h3>
+          <h3 style={{ margin: 0, fontSize: 'var(--ps-font-md)', fontWeight: 600, color: 'var(--ps-midnight)' }}>Payments</h3>
           <label style={{ display: 'flex', alignItems: 'center', gap: 'var(--ps-space-xs)', cursor: 'pointer', fontSize: 'var(--ps-font-sm)' }}>
             <input
               type="checkbox"
@@ -341,7 +342,7 @@ export function ServiceDetailPage() {
       {/* Forms section */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 'var(--ps-space-md)' }}>
         <h2 style={{ fontSize: 'var(--ps-font-lg)', fontWeight: 600, color: 'var(--ps-midnight)', margin: 0 }}>
-          📝 Service Forms
+          Service Forms
         </h2>
         {canManage && !activeService.is_nhs_service && (
           <button
@@ -408,7 +409,7 @@ export function ServiceDetailPage() {
                       setDeleteFormId(form.id)
                     }}
                   >
-                    🗑
+                    <Trash2 size={16} aria-hidden="true" />
                   </button>
                 )}
               </div>
@@ -424,7 +425,7 @@ export function ServiceDetailPage() {
             className="ps-btn ps-btn-danger"
             onClick={() => setDeleteConfirmOpen(true)}
           >
-            🗄 Remove Service
+            Remove Service
           </button>
         </div>
       )}

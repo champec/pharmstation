@@ -9,6 +9,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { getUserClient } from '@pharmstation/supabase-client'
 import { PublicFooter } from '../../components/public/PublicFooter'
+import { trackConversion } from '../../lib/adTracking'
 
 type PaymentInfo = { id: string; status: string; amount_pence: number; description: string | null }
 
@@ -21,6 +22,9 @@ export function ShopPaymentResultPage() {
   const canceled = searchParams.get('canceled') === '1'
 
   const [payment, setPayment] = useState<PaymentInfo | null>(null)
+  useEffect(() => {
+    if (payment?.status === 'succeeded') trackConversion('purchase', { id: payment.id, valuePence: payment.amount_pence })
+  }, [payment])
   const [timedOut, setTimedOut] = useState(false)
   const attempts = useRef(0)
 
@@ -62,26 +66,33 @@ export function ShopPaymentResultPage() {
         <span className="booking-eyebrow">Order {orderNumber ?? ''}</span>
         <h1>{title}</h1>
         <div className="booking-payment-copy">{body}</div>
-        <button type="button" className="booking-primary-action" onClick={() => navigate(orgSlug ? `/shop/${orgSlug}` : '/shop')}>
-          Back to the shop
-        </button>
+        <div className="shop-track-actions">
+          {orderNumber && !canceled && (
+            <button type="button" className="booking-secondary-action" onClick={() => navigate(`/shop/order/${encodeURIComponent(orderNumber)}`)}>
+              Track your order
+            </button>
+          )}
+          <button type="button" className="booking-primary-action" onClick={() => navigate(orgSlug ? `/shop/${orgSlug}` : '/shop')}>
+            Back to the shop
+          </button>
+        </div>
       </main>
       <PublicFooter />
     </div>
   )
 
   if (canceled) {
-    return view('⚠️', 'Payment cancelled', (
+    return view('!', 'Payment cancelled', (
       <p>You have not been charged and your order has been cancelled. You can order again whenever you like.</p>
     ))
   }
   if (!paymentId) {
-    return view('❓', 'No payment reference', <p>We couldn't find a payment reference in the link.</p>)
+    return view('?', 'No payment reference', <p>We couldn't find a payment reference in the link.</p>)
   }
   if (payment?.status === 'succeeded') {
-    return view('✅', 'Order paid', (
+    return view('✓', 'Order paid', (
       <>
-        <p>{payment.description ?? 'Your order'} — <strong>£{(payment.amount_pence / 100).toFixed(2)}</strong></p>
+        <p>{payment.description ?? 'Your order'}: <strong>£{(payment.amount_pence / 100).toFixed(2)}</strong></p>
         <p>
           The pharmacy has your order and will be in touch on the number you gave. Stripe has emailed you a receipt.
           If your order includes a pharmacy medicine, a pharmacist checks your answers first, and you are refunded in full if it can't be supplied.
@@ -90,14 +101,14 @@ export function ShopPaymentResultPage() {
     ))
   }
   if (payment && ['failed', 'canceled'].includes(payment.status)) {
-    return view('❌', 'Payment not completed', (
+    return view('✕', 'Payment not completed', (
       <p>Your payment didn't go through, so you have not been charged. Please try ordering again.</p>
     ))
   }
   if (timedOut) {
-    return view('⏳', 'Payment processing', (
+    return view('…', 'Payment processing', (
       <p>Your payment is still being confirmed. If you were charged, your order is safe and the pharmacy will see it shortly.</p>
     ))
   }
-  return view('⏳', 'Confirming your payment…', <p>One moment while we confirm your payment with Stripe.</p>)
+  return view('…', 'Confirming your payment…', <p>One moment while we confirm your payment with Stripe.</p>)
 }

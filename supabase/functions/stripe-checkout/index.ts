@@ -1,3 +1,4 @@
+import '../_shared/monitoring.ts' // platform error tracking (see _shared/monitoring.ts)
 // ============================================
 // PharmStation Edge Function: stripe-checkout
 // Creates Stripe Checkout Sessions for patient payments (Phase 1).
@@ -261,12 +262,29 @@ async function createCheckoutSession(body: Record<string, unknown>): Promise<Res
     await db.from('ps_payments').update({ status: 'failed' }).eq('id', payment.id)
     // Release the slot: the patient never reached a payment page.
     if (appointment_id) await cancelPendingAppointment(db, appointment_id)
+    if (await forgetDeadDestination(db, org_id, e)) return json({ error: NO_CARD_PAYMENTS }, 409)
     // Surface Stripe's real message — a generic error hides fixable problems
     // (invalid email, Connect capability issues, etc.)
     const msg = (e as { message?: string })?.message ?? 'Stripe checkout could not be created'
     return json({ error: `Stripe: ${msg}` }, 502)
   }
 }
+
+// The pharmacy's payout account no longer exists for this Stripe key (made in
+// test mode before the switch to live, or deleted). Stop offering card
+// payments for it until the pharmacy reconnects Stripe, instead of failing
+// every checkout with Stripe's raw error.
+async function forgetDeadDestination(db: ReturnType<typeof getAdminClient>, orgId: string, e: unknown): Promise<boolean> {
+  const err = e as { code?: string; param?: string; message?: string }
+  const dead = err?.code === 'resource_missing' &&
+    ((err.param ?? '').includes('destination') || /no such destination/i.test(err.message ?? ''))
+  if (!dead) return false
+  await db.from('ps_org_billing')
+    .update({ charges_enabled: false, stripe_account_status: 'restricted', updated_at: new Date().toISOString() })
+    .eq('org_id', orgId)
+  return true
+}
+const NO_CARD_PAYMENTS = "This pharmacy can't take card payments online right now. Please contact the pharmacy to book."
 
 // Cancel an appointment only while it is still awaiting payment. The
 // ps_appointment_slot_decrement trigger frees the slot on 'cancelled'.
@@ -529,6 +547,7 @@ async function createShopCheckout(body: Record<string, unknown>): Promise<Respon
     // Mark this attempt failed but keep the order: the customer can try again
     // until it times out (pg_cron cancels unpaid card orders after 45 minutes).
     await db.from('ps_payments').update({ status: 'failed' }).eq('id', payment.id)
+    if (await forgetDeadDestination(db, order.org_id, e)) return json({ error: NO_CARD_PAYMENTS }, 409)
     const msg = (e as { message?: string })?.message ?? 'Stripe checkout could not be created'
     return json({ error: `Stripe: ${msg}` }, 502)
   }

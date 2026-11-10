@@ -281,7 +281,10 @@ export const useLocumStore = create<LocumState>((set, get) => ({
 export function shiftHours(shift: Pick<LocumShift, 'start_time' | 'end_time'>) {
   const [startHour, startMinute] = shift.start_time.split(':').map(Number)
   const [endHour, endMinute] = shift.end_time.split(':').map(Number)
-  return Math.max(0, (endHour * 60 + endMinute - startHour * 60 - startMinute) / 60)
+  let minutes = endHour * 60 + endMinute - startHour * 60 - startMinute
+  // A shift that ends at or before its start runs past midnight.
+  if (minutes <= 0) minutes += 24 * 60
+  return minutes / 60
 }
 
 export function shiftTotal(shift: LocumShift) {

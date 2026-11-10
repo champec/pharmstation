@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
+import { Lock } from 'lucide-react'
 import { useNavigate, useSearchParams, useLocation } from 'react-router-dom'
 import { useAuthStore, useMessagingStore } from '@pharmstation/core'
 import { getUserClient } from '@pharmstation/supabase-client'
@@ -8,9 +9,9 @@ import { Modal } from '../../components/Modal'
 type Channel = 'sms' | 'email' | 'letter'
 
 const CHANNELS: { value: Channel; label: string; icon: string }[] = [
-  { value: 'sms', label: 'SMS', icon: '📱' },
-  { value: 'email', label: 'Email', icon: '📧' },
-  { value: 'letter', label: 'Letter', icon: '✉️' },
+  { value: 'sms', label: 'SMS', icon: '' },
+  { value: 'email', label: 'Email', icon: '' },
+  { value: 'letter', label: 'Letter', icon: '' },
 ]
 
 function smsFragments(text: string): number {
@@ -52,13 +53,18 @@ export function ComposeMessagePage() {
   // State
   const [sending, setSending] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
+  // Don't flash "SMS is not enabled" while settings are still loading.
+  const [settingsLoaded, setSettingsLoaded] = useState(false)
   const [showSuccess, setShowSuccess] = useState(false)
 
   useEffect(() => {
     if (organisation?.id) {
-      fetchRouting(organisation.id)
-      fetchSmsSettings(organisation.id)
-      fetchSettings(organisation.id) // NHS Notify (email/letter, NHS-affiliated orgs only)
+      setSettingsLoaded(false)
+      Promise.allSettled([
+        fetchRouting(organisation.id),
+        fetchSmsSettings(organisation.id),
+        fetchSettings(organisation.id), // NHS Notify (email/letter, NHS-affiliated orgs only)
+      ]).then(() => setSettingsLoaded(true))
     }
   }, [organisation?.id, fetchRouting, fetchSmsSettings, fetchSettings])
 
@@ -162,12 +168,17 @@ export function ComposeMessagePage() {
     setShowSuccess(false)
   }
 
+  // Email and letters are NHS Notify only; fall back to SMS for everyone else.
+  useEffect(() => {
+    if (settingsLoaded && !routing?.nhsChannelsEnabled && channel !== 'sms') setChannel('sms')
+  }, [settingsLoaded, routing?.nhsChannelsEnabled, channel])
+
   // Provider-aware availability:
   //  • SMS → platform SMS Works gateway (ps_sms_settings.is_active)
   //  • Email/Letter → NHS Notify, only for NHS-affiliated orgs (nhs_channels_enabled)
   const smsReady = !!smsSettings?.is_active
   const nhsReady = !!routing?.nhsChannelsEnabled && !!settings?.has_api_key && !!settings?.is_active
-  const isNotConfigured = channel === 'sms' ? !smsReady : !nhsReady
+  const isNotConfigured = settingsLoaded && (channel === 'sms' ? !smsReady : !nhsReady)
 
   const configureMessage = channel === 'sms'
     ? <>SMS is not enabled for this pharmacy. Enable it in <a href="/settings?tab=messaging" onClick={(e) => { e.preventDefault(); navigate('/settings?tab=messaging') }}>Settings → Messaging</a>.</>
@@ -185,8 +196,12 @@ export function ComposeMessagePage() {
           <span className="separator">/</span>
           <span>Compose</span>
         </div>
-        <h1>✏️ Compose Message</h1>
+        <h1>Compose Message</h1>
       </div>
+
+      {!settingsLoaded && (
+        <p className="text-muted" style={{ marginBottom: 'var(--ps-space-md)' }}>Checking your messaging settings…</p>
+      )}
 
       {isNotConfigured && (
         <div className="auth-error" style={{ marginBottom: 'var(--ps-space-md)' }}>
@@ -201,7 +216,7 @@ export function ComposeMessagePage() {
           <div style={{ marginBottom: 'var(--ps-space-lg)' }}>
             <label style={{ display: 'block', fontWeight: 600, marginBottom: 'var(--ps-space-sm)' }}>Channel</label>
             <div style={{ display: 'flex', gap: 'var(--ps-space-sm)' }}>
-              {CHANNELS.map((ch) => {
+              {CHANNELS.filter((ch) => ch.value === 'sms' || routing?.nhsChannelsEnabled).map((ch) => {
                 const unavailable = ch.value !== 'sms' && !routing?.nhsChannelsEnabled
                 return (
                   <button
@@ -211,7 +226,7 @@ export function ComposeMessagePage() {
                     style={unavailable ? { opacity: 0.5 } : undefined}
                     title={unavailable ? 'NHS-affiliated organisations only' : undefined}
                   >
-                    {ch.icon} {ch.label}{unavailable ? ' 🔒' : ''}
+                    {ch.label}{unavailable && <Lock size={12} aria-label="Not available" style={{ marginLeft: 4 }} />}
                   </button>
                 )
               })}
@@ -229,8 +244,8 @@ export function ComposeMessagePage() {
               }}>
                 <span style={{ fontWeight: 500 }}>{selectedPatient.first_name} {selectedPatient.last_name}</span>
                 <span style={{ color: 'var(--ps-slate)', fontSize: '0.85rem' }}>
-                  {selectedPatient.phone && `📱 ${selectedPatient.phone}`}
-                  {selectedPatient.email && ` · 📧 ${selectedPatient.email}`}
+                  {selectedPatient.phone && `${selectedPatient.phone}`}
+                  {selectedPatient.email && ` · ${selectedPatient.email}`}
                 </span>
                 <button className="ps-btn ps-btn-ghost" onClick={clearPatient} style={{ marginLeft: 'auto' }}>✕</button>
               </div>
@@ -374,7 +389,7 @@ export function ComposeMessagePage() {
               padding: 'var(--ps-space-md)', minHeight: '120px',
             }}>
               <div style={{ fontSize: '0.8rem', color: 'var(--ps-slate)', marginBottom: 'var(--ps-space-xs)' }}>
-                📱 To: {phoneNumber || '—'}
+                To: {phoneNumber || '—'}
               </div>
               <div style={{
                 background: 'var(--ps-deep-blue)', color: 'white',
@@ -393,7 +408,7 @@ export function ComposeMessagePage() {
               padding: 'var(--ps-space-md)', minHeight: '120px',
             }}>
               <div style={{ fontSize: '0.8rem', color: 'var(--ps-slate)', marginBottom: 'var(--ps-space-xs)' }}>
-                📧 To: {emailAddress || '—'}
+                To: {emailAddress || '—'}
               </div>
               <div style={{ fontWeight: 600, marginBottom: 'var(--ps-space-sm)' }}>
                 {subject || 'Message from your pharmacy'}

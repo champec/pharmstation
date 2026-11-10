@@ -211,7 +211,7 @@ export function PersonalProfilePage() {
 
       {/* Workplace */}
       <div className="ps-card" style={{ marginBottom: '1.25rem' }}>
-        <div className="ps-card-header"><h2 className="ps-card-title">🏥 Workplace</h2></div>
+        <div className="ps-card-header"><h2 className="ps-card-title">Workplace</h2></div>
         <div className="ps-card-body">
           {isOrgLoggedIn && organisation ? (
             <>
@@ -234,7 +234,7 @@ export function PersonalProfilePage() {
 
       {/* Notifications */}
       <div className="ps-card" style={{ marginBottom: '1.25rem' }}>
-        <div className="ps-card-header"><h2 className="ps-card-title">🔔 Notification Preferences</h2></div>
+        <div className="ps-card-header"><h2 className="ps-card-title">Notification Preferences</h2></div>
         <div className="ps-card-body">
           <p className="text-muted" style={{ marginBottom: '0.75rem', fontSize: '0.875rem' }}>
             These are personal — they apply everywhere you sign in. Your pharmacy's manager separately controls
@@ -256,7 +256,7 @@ export function PersonalProfilePage() {
               style={{ marginTop: 3 }}
             />
             <div>
-              <div style={{ fontWeight: 600 }}>📱 Text me alerts</div>
+              <div style={{ fontWeight: 600 }}>Text me alerts</div>
               <div className="text-muted" style={{ fontSize: '0.8rem' }}>
                 Get a text message for alert types your pharmacy has switched SMS on for (comes out of the
                 pharmacy's SMS allowance).
@@ -279,7 +279,7 @@ export function PersonalProfilePage() {
           <label style={{ display: 'flex', alignItems: 'flex-start', gap: '0.5rem', cursor: 'pointer', margin: '0.75rem 0' }}>
             <input type="checkbox" checked={false} disabled style={{ marginTop: 3 }} />
             <div>
-              <div style={{ fontWeight: 600 }}>📲 Mobile app push notifications</div>
+              <div style={{ fontWeight: 600 }}>Mobile app push notifications</div>
               <div className="text-muted" style={{ fontSize: '0.8rem' }}>Coming soon — will switch on automatically once the mobile app ships.</div>
             </div>
           </label>
@@ -287,7 +287,7 @@ export function PersonalProfilePage() {
           <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.5rem', margin: '0.75rem 0' }}>
             <input type="checkbox" checked={webPushEnabled} readOnly style={{ marginTop: 3 }} />
             <div style={{ flex: 1 }}>
-              <div style={{ fontWeight: 600 }}>🖥️ Browser pop-up notifications</div>
+              <div style={{ fontWeight: 600 }}>Browser pop-up notifications</div>
               <div className="text-muted" style={{ fontSize: '0.8rem', marginBottom: '0.4rem' }}>
                 {!browserSupportsPush
                   ? 'Not supported in this browser.'
@@ -311,7 +311,7 @@ export function PersonalProfilePage() {
 
       {/* Locum */}
       <div className="ps-card" style={{ marginBottom: '1.25rem' }}>
-        <div className="ps-card-header"><h2 className="ps-card-title">💼 Locum Work</h2></div>
+        <div className="ps-card-header"><h2 className="ps-card-title">Locum Work</h2></div>
         <div className="ps-card-body">
           {!locumChecked ? (
             <div className="loading-indicator">Checking…</div>
@@ -320,9 +320,9 @@ export function PersonalProfilePage() {
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.75rem', flexWrap: 'wrap' }}>
                 <span className="ps-badge ps-badge-success">Locum profile active</span>
                 {locum.stripe_onboarded ? (
-                  <span className="ps-badge ps-badge-success">💰 Payments set up</span>
+                  <span className="ps-badge ps-badge-success">Payments set up</span>
                 ) : (
-                  <span className="ps-badge ps-badge-warning">💰 Payments not set up</span>
+                  <span className="ps-badge ps-badge-warning">Payments not set up</span>
                 )}
               </div>
               <p className="text-muted" style={{ marginBottom: '0.75rem', fontSize: '0.875rem' }}>
@@ -350,7 +350,7 @@ export function PersonalProfilePage() {
 
       {/* Prescriber */}
       <div className="ps-card" style={{ marginBottom: '1.25rem' }}>
-        <div className="ps-card-header"><h2 className="ps-card-title">🪪 Prescriber</h2></div>
+        <div className="ps-card-header"><h2 className="ps-card-title">Prescriber</h2></div>
         <div className="ps-card-body">
           <p className="text-muted" style={{ marginBottom: '0.75rem', fontSize: '0.875rem' }}>
             Prescriber setup belongs to your personal profile, not a pharmacy account. Register or update your prescriber details here.
@@ -372,7 +372,7 @@ export function PersonalProfilePage() {
 
       {/* Personal billing — future (Phase 6) */}
       <div className="ps-card">
-        <div className="ps-card-header"><h2 className="ps-card-title">💳 Personal Billing</h2></div>
+        <div className="ps-card-header"><h2 className="ps-card-title">Personal Billing</h2></div>
         <div className="ps-card-body">
           <p className="text-muted" style={{ fontSize: '0.875rem' }}>
             Personal payment methods, invoices and receipts will appear here soon.

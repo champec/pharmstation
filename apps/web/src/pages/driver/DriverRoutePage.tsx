@@ -11,6 +11,7 @@ import {
 } from '@pharmstation/core'
 import type { DeliveryRoundPatient, DeliveryMethod } from '@pharmstation/types'
 import { Modal } from '../../components/Modal'
+import { alertDialog } from '../../components/ui/dialog'
 
 const PATIENT_STATUS_BADGE: Record<string, { cls: string; label: string }> = {
   pending: { cls: 'ps-badge-slate', label: 'Pending' },
@@ -68,6 +69,7 @@ export function DriverRoutePage() {
     stopLocationTracking,
     subscribeToRoute,
     clearError,
+    locationError,
   } = useDriverStore()
 
   const [activeStop, setActiveStop] = useState<DeliveryRoundPatient | null>(null)
@@ -111,7 +113,7 @@ export function DriverRoutePage() {
     try {
       await startRound(roundId)
     } catch (e: any) {
-      alert(e.message)
+      alertDialog(e.message)
     }
     setStarting(false)
   }
@@ -231,15 +233,20 @@ export function DriverRoutePage() {
   const window = formatTimeWindow(round.scheduled_time_start, round.scheduled_time_end)
 
   return (
-    <div>
-      <div className="page-header">
+    <div className="care-home-page">
+      <div className="page-header care-home-page-header">
         <div className="breadcrumbs">
           <a href="/driver" onClick={(e) => { e.preventDefault(); navigate('/driver') }}>My Deliveries</a>
           <span className="separator">/</span>
           <span>{round.title || 'Delivery Route'}</span>
         </div>
-        <h1>🗺️ {round.title || 'Delivery Route'}</h1>
-        {window && <p style={{ color: 'var(--ps-slate)', marginTop: 4 }}>🕐 {window}</p>}
+        <div className="care-home-title-row">
+          <div>
+            <p className="care-home-eyebrow">Delivery route</p>
+            <h1>{round.title || 'Delivery route'}</h1>
+            {window && <p className="care-home-subtitle">{window}</p>}
+          </div>
+        </div>
       </div>
 
       {error && (
@@ -258,7 +265,7 @@ export function DriverRoutePage() {
           </span>
         </div>
         <div style={{ height: 8, background: 'var(--ps-off-white)', borderRadius: 4, overflow: 'hidden' }}>
-          <div style={{ height: '100%', width: `${progressPct}%`, background: 'var(--ps-primary)', borderRadius: 4, transition: 'width 0.3s ease' }} />
+          <div style={{ height: '100%', width: `${progressPct}%`, background: 'var(--ps-deep-blue)', borderRadius: 4, transition: 'width 0.3s ease' }} />
         </div>
 
         {round.status === 'scheduled' && isMyRound && (
@@ -268,7 +275,7 @@ export function DriverRoutePage() {
             disabled={starting}
             style={{ marginTop: 'var(--ps-space-sm)', width: '100%' }}
           >
-            {starting ? 'Starting…' : '🚀 Start deliveries'}
+            {starting ? 'Starting…' : 'Start deliveries'}
           </button>
         )}
         {round.status === 'draft' && (
@@ -276,14 +283,16 @@ export function DriverRoutePage() {
             The pharmacy hasn't scheduled this round yet.
           </p>
         )}
-        {round.status === 'in_progress' && isMyRound && (
+        {round.status === 'in_progress' && isMyRound && (locationError ? (
+          <div className="auth-error" role="status" style={{ marginTop: 'var(--ps-space-sm)' }}>{locationError}</div>
+        ) : (
           <p style={{ marginTop: 'var(--ps-space-sm)', color: 'var(--ps-slate)', fontSize: 'var(--ps-font-xs)' }}>
-            📍 Your location is shared with the pharmacy until the round is finished.
+            Your location is shared with the pharmacy until the round is finished.
           </p>
-        )}
+        ))}
         {round.status === 'completed' && (
-          <div style={{ textAlign: 'center', marginTop: 'var(--ps-space-sm)', color: 'var(--ps-green)', fontWeight: 600 }}>
-            ✅ Round complete
+          <div style={{ textAlign: 'center', marginTop: 'var(--ps-space-sm)', color: 'var(--ps-success)', fontWeight: 600 }}>
+            Round complete
           </div>
         )}
       </div>
@@ -303,32 +312,32 @@ export function DriverRoutePage() {
               style={{
                 padding: 'var(--ps-space-md)',
                 opacity: resolved ? 0.6 : 1,
-                borderLeft: p.status === 'delivered' ? '4px solid var(--ps-green)' : ['pending_redelivery', 'failed'].includes(p.status) ? '4px solid var(--ps-red)' : '4px solid transparent',
+                borderLeft: p.status === 'delivered' ? '4px solid var(--ps-success)' : ['pending_redelivery', 'failed'].includes(p.status) ? '4px solid var(--ps-error)' : '4px solid transparent',
               }}
             >
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 'var(--ps-space-sm)' }}>
                 <div style={{ minWidth: 0 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--ps-space-sm)', marginBottom: 4, flexWrap: 'wrap' }}>
-                    <span style={{ fontWeight: 700, fontSize: '1.1rem', color: 'var(--ps-primary)' }}>{p.delivery_order}</span>
+                    <span style={{ fontWeight: 700, fontSize: '1.1rem', color: 'var(--ps-deep-blue)' }}>{p.delivery_order}</span>
                     <span style={{ fontWeight: 600 }}>{pat?.first_name} {pat?.last_name}</span>
                     <span className={`ps-badge ${badge.cls}`}>{badge.label}</span>
                   </div>
                   <div style={{ fontSize: 'var(--ps-font-sm)', color: 'var(--ps-slate)', overflowWrap: 'anywhere' }}>
-                    📍 {address || 'No address recorded'}
+                    {address || 'No address recorded'}
                   </div>
                   <div style={{ display: 'flex', gap: 'var(--ps-space-md)', flexWrap: 'wrap', marginTop: 2, fontSize: 'var(--ps-font-sm)' }}>
                     {address && (
-                      <a href={mapsLink(address)} target="_blank" rel="noreferrer" style={{ color: 'var(--ps-primary)' }}>🧭 Directions</a>
+                      <a href={mapsLink(address)} target="_blank" rel="noreferrer" style={{ color: 'var(--ps-deep-blue)' }}>Directions</a>
                     )}
                     {pat?.phone && (
-                      <a href={`tel:${pat.phone}`} style={{ color: 'var(--ps-primary)' }}>📞 {pat.phone}</a>
+                      <a href={`tel:${pat.phone}`} style={{ color: 'var(--ps-deep-blue)' }}>{pat.phone}</a>
                     )}
                   </div>
                   {p.notes && (
                     <div style={{ fontSize: 'var(--ps-font-xs)', color: 'var(--ps-slate)', marginTop: 4, fontStyle: 'italic' }}>{p.notes}</div>
                   )}
                 </div>
-                {p.signature_data && <span title="Signature collected" style={{ fontSize: '1.2rem' }}>✍️</span>}
+                {p.signature_data && <span className="ps-badge ps-badge-success" title="Signature collected">Signed</span>}
               </div>
 
               {p.medications && p.medications.length > 0 && (
@@ -342,21 +351,21 @@ export function DriverRoutePage() {
               )}
 
               {p.failure_reason && (
-                <div style={{ marginTop: 'var(--ps-space-xs)', fontSize: 'var(--ps-font-sm)', color: 'var(--ps-red)' }}>
-                  ⚠️ {p.failure_reason}
+                <div style={{ marginTop: 'var(--ps-space-xs)', fontSize: 'var(--ps-font-sm)', color: 'var(--ps-error)' }}>
+                  Reason: {p.failure_reason}
                 </div>
               )}
 
               {round.status === 'in_progress' && isMyRound && !resolved && (
                 <div style={{ display: 'flex', gap: 'var(--ps-space-sm)', marginTop: 'var(--ps-space-sm)', flexWrap: 'wrap' }}>
                   <button className="ps-btn ps-btn-primary ps-btn-sm" onClick={() => openModal('deliver', p)} disabled={saving}>
-                    ✅ Delivered
+                    Delivered
                   </button>
-                  <button className="ps-btn ps-btn-secondary ps-btn-sm" onClick={() => openModal('fail', p)} disabled={saving} style={{ color: 'var(--ps-red)' }}>
-                    ❌ Couldn't deliver
+                  <button className="ps-btn ps-btn-secondary ps-btn-sm" onClick={() => openModal('fail', p)} disabled={saving} style={{ color: 'var(--ps-error)' }}>
+                    Couldn't deliver
                   </button>
                   <button className="ps-btn ps-btn-ghost ps-btn-sm" onClick={() => openModal('skip', p)} disabled={saving}>
-                    ⏭️ Skip
+                    Skip
                   </button>
                 </div>
               )}
@@ -476,7 +485,7 @@ export function DriverRoutePage() {
               className="ps-btn ps-btn-primary"
               onClick={handleConfirmReason}
               disabled={saving || !reason.trim()}
-              style={{ background: 'var(--ps-red)' }}
+              style={{ background: 'var(--ps-error)' }}
             >
               {saving ? 'Saving…' : modal === 'skip' ? 'Skip stop' : 'Confirm'}
             </button>

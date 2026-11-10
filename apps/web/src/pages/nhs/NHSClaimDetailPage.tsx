@@ -101,7 +101,7 @@ export function NHSClaimDetailPage() {
         </div>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <h1>
-            📋 {SERVICE_TYPE_LABELS[claim.service_type] ?? claim.service_type}
+            {SERVICE_TYPE_LABELS[claim.service_type] ?? claim.service_type}
             <span style={{
               marginLeft: 'var(--ps-space-sm)',
               display: 'inline-block', padding: '2px 10px', borderRadius: 99,

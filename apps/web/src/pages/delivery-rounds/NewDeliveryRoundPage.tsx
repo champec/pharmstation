@@ -1,8 +1,8 @@
 import { useState, useEffect, useCallback } from 'react'
+import { Settings2, Trash2 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useAuthStore, useDeliveryRoundStore, usePatientMedicationStore, useAppointmentStore } from '@pharmstation/core'
-import type { Patient, PatientMedication, DeliveryRoundStatus, BnfDrugSearchResult } from '@pharmstation/types'
-import { resolvePermissions } from '@pharmstation/types'
+import type { Patient, PatientMedication, BnfDrugSearchResult } from '@pharmstation/types'
 import { Modal } from '../../components/Modal'
 
 interface RoundPatientEntry {
@@ -15,7 +15,7 @@ interface RoundPatientEntry {
 export function NewDeliveryRoundPage() {
   const navigate = useNavigate()
   const { organisation, membership } = useAuthStore()
-  const { createRound, addPatientToRound, assignDriver, fetchAvailableDrivers, availableDrivers } = useDeliveryRoundStore()
+  const { createRoundWithStops, fetchAvailableDrivers, availableDrivers } = useDeliveryRoundStore()
   const { searchPatients, patients: searchedPatients, createPatient } = useAppointmentStore()
   const { fetchMedications, searchDrugs, drugSearchResults, addMedication, removeMedication, clearSearch } = usePatientMedicationStore()
 
@@ -253,10 +253,7 @@ export function NewDeliveryRoundPage() {
 
   // ---- Drivers ----
 
-  const drivers = availableDrivers.filter((d) => {
-    const perms = resolvePermissions(d.role, d.permissions)
-    return perms.delivery_drive
-  })
+  const drivers = availableDrivers
 
   // ---- Create round ----
 
@@ -265,34 +262,25 @@ export function NewDeliveryRoundPage() {
     setSaving(true)
     setError(null)
     try {
-      const round = await createRound({
-        organisation_id: organisation.id,
+      // One database transaction: the round, its stops and medicines.
+      const roundId = await createRoundWithStops({
+        orgId: organisation.id,
         title: title.trim() || null,
-        status: (scheduledDate ? 'scheduled' : 'draft') as DeliveryRoundStatus,
-        scheduled_date: scheduledDate || null,
-        scheduled_time_start: timeStart || null,
-        scheduled_time_end: timeEnd || null,
+        scheduledDate: scheduledDate || null,
+        timeStart: timeStart || null,
+        timeEnd: timeEnd || null,
         notes: roundNotes.trim() || null,
-        created_by: membership.user_id,
+        driverId: driverId || null,
+        stops: selectedPatients.map((sp) => ({
+          patientId: sp.patient.id,
+          notes: sp.notes || undefined,
+          address: sp.addressOverride,
+          medications: sp.medications
+            .filter((m) => m.selected)
+            .map((m) => ({ patient_medication_id: m.med.id, quantity: m.quantity })),
+        })),
       })
-
-      for (let i = 0; i < selectedPatients.length; i++) {
-        const sp = selectedPatients[i]
-        const selectedMeds = sp.medications
-          .filter((m) => m.selected)
-          .map((m) => ({ patient_medication_id: m.med.id, quantity: m.quantity }))
-        const addr = sp.addressOverride
-        await addPatientToRound(
-          round.id, organisation.id, sp.patient.id, i + 1, selectedMeds,
-          addr.line1 || addr.line2 || addr.city || addr.postcode
-            ? { line1: addr.line1, line2: addr.line2, city: addr.city, postcode: addr.postcode }
-            : undefined,
-          sp.notes || undefined,
-        )
-      }
-
-      if (driverId) await assignDriver(round.id, driverId)
-      navigate(`/deliveries/${round.id}`)
+      navigate(`/deliveries/${roundId}`)
     } catch (e: any) {
       setError(e.message)
     }
@@ -303,8 +291,8 @@ export function NewDeliveryRoundPage() {
   const configMedsList = showConfigMedsModal ? getConfigMedsList() : []
 
   return (
-    <div>
-      <div className="page-header">
+    <div className="care-home-page">
+      <div className="page-header care-home-page-header">
         <div className="breadcrumbs">
           <a href="/" onClick={(e) => { e.preventDefault(); navigate('/') }}>Dashboard</a>
           <span className="separator">/</span>
@@ -312,38 +300,56 @@ export function NewDeliveryRoundPage() {
           <span className="separator">/</span>
           <span>New Delivery</span>
         </div>
-        <h1>📦 New Delivery</h1>
+        <div className="care-home-title-row">
+          <div>
+            <p className="care-home-eyebrow">Deliveries</p>
+            <h1>New delivery round</h1>
+            <p className="care-home-subtitle">Pick the patients, check their medicines, then schedule the round.</p>
+          </div>
+        </div>
       </div>
 
       {error && <div className="auth-error" style={{ marginBottom: 'var(--ps-space-md)' }}>{error}</div>}
 
       {/* Step indicator */}
-      <div style={{ display: 'flex', gap: 'var(--ps-space-lg)', marginBottom: 'var(--ps-space-lg)' }}>
-        {[{ n: 1, label: 'Select Patients' }, { n: 2, label: 'Review' }, { n: 3, label: 'Schedule & Create' }].map(({ n, label }) => (
-          <div
-            key={n}
-            style={{ display: 'flex', alignItems: 'center', gap: 'var(--ps-space-xs)', cursor: n < step ? 'pointer' : 'default' }}
-            onClick={() => n < step && setStep(n)}
-          >
-            <div style={{
-              width: 28, height: 28, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center',
-              background: step >= n ? 'var(--ps-primary)' : 'var(--ps-off-white)',
-              color: step >= n ? '#fff' : 'var(--ps-slate)', fontWeight: 600, fontSize: 'var(--ps-font-sm)',
-            }}>
-              {step > n ? '✓' : n}
-            </div>
-            <span style={{ fontSize: 'var(--ps-font-sm)', color: step >= n ? 'var(--ps-midnight)' : 'var(--ps-slate)', fontWeight: step === n ? 600 : 400 }}>
-              {label}
-            </span>
-          </div>
-        ))}
-      </div>
+      <ol aria-label="Steps" style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--ps-space-lg)', margin: 'var(--ps-space-lg) 0', padding: 0, listStyle: 'none' }}>
+        {[{ n: 1, label: 'Select patients' }, { n: 2, label: 'Review' }, { n: 3, label: 'Schedule and create' }].map(({ n, label }) => {
+          const done = step > n
+          const current = step === n
+          return (
+            <li key={n} aria-current={current ? 'step' : undefined}>
+              <button
+                type="button"
+                disabled={!done}
+                onClick={() => done && setStep(n)}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 'var(--ps-space-sm)', background: 'none', border: 'none', padding: 0,
+                  cursor: done ? 'pointer' : 'default', font: 'inherit',
+                }}
+              >
+                <span style={{
+                  width: 28, height: 28, borderRadius: '50%', display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                  boxSizing: 'border-box', fontWeight: 600, fontSize: 'var(--ps-font-sm)',
+                  background: done || current ? 'var(--ps-deep-blue)' : 'var(--ps-white)',
+                  color: done || current ? 'var(--ps-white)' : 'var(--ps-slate)',
+                  border: done || current ? '2px solid var(--ps-deep-blue)' : '2px solid var(--ps-mist)',
+                }}>
+                  {done ? '✓' : n}
+                </span>
+                <span style={{ fontSize: 'var(--ps-font-sm)', color: done || current ? 'var(--ps-midnight)' : 'var(--ps-slate)', fontWeight: current ? 600 : 400 }}>
+                  {label}
+                </span>
+              </button>
+            </li>
+          )
+        })}
+      </ol>
 
       {/* ========== Step 1 — Select Patients ========== */}
       {step === 1 && (
         <div>
           <div className="ps-card" style={{ padding: 'var(--ps-space-md)', marginBottom: 'var(--ps-space-md)' }}>
-            <h3 style={{ marginBottom: 'var(--ps-space-sm)' }}>Search & Add Patients</h3>
+            <h3 style={{ marginBottom: 'var(--ps-space-sm)' }}>Find and add patients</h3>
             <input
               className="ps-input"
               placeholder="Search patients by name, NHS number, phone…"
@@ -371,7 +377,7 @@ export function NewDeliveryRoundPage() {
                           {p.postcode || ''} {p.phone ? `· ${p.phone}` : ''}
                         </span>
                       </div>
-                      <span style={{ color: 'var(--ps-primary)', fontSize: 'var(--ps-font-sm)' }}>+ Add</span>
+                      <span style={{ color: 'var(--ps-deep-blue)', fontSize: 'var(--ps-font-sm)' }}>+ Add</span>
                     </div>
                   ))}
                 {/* Add New Patient — always at bottom */}
@@ -381,7 +387,7 @@ export function NewDeliveryRoundPage() {
                   onMouseEnter={(e) => { (e.currentTarget as HTMLDivElement).style.background = '#e8eaed' }}
                   onMouseLeave={(e) => { (e.currentTarget as HTMLDivElement).style.background = 'var(--ps-off-white)' }}
                 >
-                  <span style={{ fontWeight: 600, color: 'var(--ps-primary)' }}>
+                  <span style={{ fontWeight: 600, color: 'var(--ps-deep-blue)' }}>
                     ＋ Add new patient
                     {patientSearch.trim() && <span style={{ color: 'var(--ps-slate)', marginLeft: 'var(--ps-space-sm)', fontSize: 'var(--ps-font-sm)', fontWeight: 400 }}>"{patientSearch.trim()}"</span>}
                   </span>
@@ -408,16 +414,16 @@ export function NewDeliveryRoundPage() {
                         <span className={`ps-badge ${medCount > 0 ? 'ps-badge-blue' : 'ps-badge-amber'}`} style={{ fontSize: 'var(--ps-font-xs)' }}>
                           {medCount} med{medCount !== 1 ? 's' : ''}
                         </span>
-                        {/* ⚙️ Configure Meds gear button */}
+                        {/* Configure medicines */}
                         <button
                           className="ps-btn ps-btn-ghost ps-btn-sm"
                           title="Configure medications for this patient"
                           onClick={() => openConfigMeds(sp.patient.id, `${sp.patient.first_name} ${sp.patient.last_name}`)}
-                          style={{ fontSize: '18px', padding: '4px 8px', lineHeight: 1 }}
+                          aria-label="Choose medicines"
                         >
-                          ⚙️
+                          <Settings2 size={16} strokeWidth={1.75} aria-hidden="true" />
                         </button>
-                        <button className="ps-btn ps-btn-ghost ps-btn-sm" onClick={() => removePatient(sp.patient.id)} style={{ color: 'var(--ps-red)' }}>
+                        <button className="ps-btn ps-btn-ghost ps-btn-sm" onClick={() => removePatient(sp.patient.id)} style={{ color: 'var(--ps-error)' }}>
                           ✕
                         </button>
                       </div>
@@ -434,7 +440,7 @@ export function NewDeliveryRoundPage() {
                       </div>
                     ) : (
                       <div style={{ marginTop: 'var(--ps-space-xs)', fontSize: 'var(--ps-font-sm)', color: 'var(--ps-slate)' }}>
-                        No medications configured — click ⚙️ to add
+                        No medicines chosen yet. Use the settings button to add them.
                       </div>
                     )}
                   </div>
@@ -463,7 +469,13 @@ export function NewDeliveryRoundPage() {
                   {sp.patient.address_line_1}{sp.patient.postcode ? `, ${sp.patient.postcode}` : ''}
                 </div>
                 <div style={{ fontSize: 'var(--ps-font-sm)', marginTop: 4 }}>
-                  {sp.medications.filter((m) => m.selected).length} medication{sp.medications.filter((m) => m.selected).length !== 1 ? 's' : ''}:
+                  {sp.medications.filter((m) => m.selected).length === 0 ? (
+                    <span style={{ color: 'var(--ps-slate)' }}>
+                      No medicines listed. Go back to add them, or add them later from Manage medicines on the round.
+                    </span>
+                  ) : (
+                    <>{sp.medications.filter((m) => m.selected).length} medicine{sp.medications.filter((m) => m.selected).length !== 1 ? 's' : ''}:</>
+                  )}
                   {sp.medications.filter((m) => m.selected).map((m) => (
                     <span key={m.med.id} style={{ marginLeft: 'var(--ps-space-xs)', background: 'var(--ps-off-white)', padding: '2px 8px', borderRadius: 'var(--ps-radius-sm)', fontSize: 'var(--ps-font-xs)' }}>
                       {m.med.drug_name} ×{m.quantity}
@@ -476,7 +488,7 @@ export function NewDeliveryRoundPage() {
 
           <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 'var(--ps-space-lg)' }}>
             <button className="ps-btn ps-btn-secondary" onClick={() => setStep(1)}>← Back</button>
-            <button className="ps-btn ps-btn-primary" onClick={() => setStep(3)}>Next: Schedule →</button>
+            <button className="ps-btn ps-btn-primary" onClick={() => setStep(3)}>Next: schedule →</button>
           </div>
         </div>
       )}
@@ -485,7 +497,7 @@ export function NewDeliveryRoundPage() {
       {step === 3 && (
         <div>
           <div className="ps-card" style={{ padding: 'var(--ps-space-md)' }}>
-            <h3 style={{ marginBottom: 'var(--ps-space-md)' }}>Schedule & Assign</h3>
+            <h3 style={{ marginBottom: 'var(--ps-space-md)' }}>Schedule and assign driver</h3>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--ps-space-md)' }}>
               <div className="form-group">
                 <label>Round Title</label>
@@ -495,8 +507,8 @@ export function NewDeliveryRoundPage() {
                 <label>Assign Driver</label>
                 <select className="ps-input" value={driverId} onChange={(e) => setDriverId(e.target.value)}>
                   <option value="">— Select Driver —</option>
-                  {drivers.map((d: any) => (
-                    <option key={d.id} value={d.id}>{d.user_profile?.full_name} ({d.role})</option>
+                  {drivers.map((d) => (
+                    <option key={d.id} value={d.id}>{d.full_name} ({d.role})</option>
                   ))}
                 </select>
               </div>
@@ -592,7 +604,7 @@ export function NewDeliveryRoundPage() {
       </Modal>
 
       {/* ========== Configure Medications Modal ========== */}
-      <Modal isOpen={showConfigMedsModal} onClose={closeConfigMeds} title={`⚙️ Configure Medications — ${configMedsPatientName}`} width="640px">
+      <Modal isOpen={showConfigMedsModal} onClose={closeConfigMeds} title={`Configure Medications — ${configMedsPatientName}`} width="640px">
         <div>
           {configMedsLoading ? (
             <div style={{ textAlign: 'center', padding: 'var(--ps-space-lg)', color: 'var(--ps-slate)' }}>Loading medications…</div>
@@ -633,7 +645,7 @@ export function NewDeliveryRoundPage() {
                             padding: 'var(--ps-space-sm) var(--ps-space-md)',
                             background: isSelected ? '#f0f7ff' : 'var(--ps-off-white)',
                             borderRadius: 'var(--ps-radius-md)',
-                            border: isSelected ? '1px solid var(--ps-primary)' : '1px solid transparent',
+                            border: isSelected ? '1px solid var(--ps-deep-blue)' : '1px solid transparent',
                           }}
                         >
                           {/* Checkbox to include in this round */}
@@ -685,10 +697,11 @@ export function NewDeliveryRoundPage() {
                           <button
                             className="ps-btn ps-btn-ghost ps-btn-sm"
                             onClick={() => handleRemoveMedFromPatient(med.id)}
-                            style={{ color: 'var(--ps-red)', fontSize: 'var(--ps-font-sm)', padding: '2px 6px' }}
+                            style={{ color: 'var(--ps-error)', fontSize: 'var(--ps-font-sm)', padding: '2px 6px' }}
                             title="Remove medication"
+                            aria-label="Remove medication"
                           >
-                            🗑️
+                            <Trash2 size={16} strokeWidth={1.75} aria-hidden="true" />
                           </button>
                         </div>
                       )
@@ -734,7 +747,7 @@ export function NewDeliveryRoundPage() {
                                 {drug.form && <span>{drug.form}</span>}
                                 {drug.manufacturer && <span> · {drug.manufacturer}</span>}
                                 {drug.controlledDrugSchedule && (
-                                  <span style={{ marginLeft: 'var(--ps-space-xs)', color: 'var(--ps-red)', fontWeight: 600 }}>CD {drug.controlledDrugSchedule}</span>
+                                  <span style={{ marginLeft: 'var(--ps-space-xs)', color: 'var(--ps-error)', fontWeight: 600 }}>CD {drug.controlledDrugSchedule}</span>
                                 )}
                               </div>
                             </div>
@@ -751,11 +764,11 @@ export function NewDeliveryRoundPage() {
                           <div style={{ fontSize: 'var(--ps-font-xs)', color: 'var(--ps-slate)' }}>
                             {selectedDrug.form}{selectedDrug.manufacturer && ` · ${selectedDrug.manufacturer}`}
                             {selectedDrug.controlledDrugSchedule && (
-                              <span style={{ marginLeft: 'var(--ps-space-xs)', color: 'var(--ps-red)', fontWeight: 600 }}>CD {selectedDrug.controlledDrugSchedule}</span>
+                              <span style={{ marginLeft: 'var(--ps-space-xs)', color: 'var(--ps-error)', fontWeight: 600 }}>CD {selectedDrug.controlledDrugSchedule}</span>
                             )}
                           </div>
                         </div>
-                        <button className="ps-btn ps-btn-ghost ps-btn-sm" style={{ color: 'var(--ps-primary)', fontSize: 'var(--ps-font-sm)' }} onClick={() => setSelectedDrug(null)}>Change</button>
+                        <button className="ps-btn ps-btn-ghost ps-btn-sm" style={{ color: 'var(--ps-deep-blue)', fontSize: 'var(--ps-font-sm)' }} onClick={() => setSelectedDrug(null)}>Change</button>
                       </div>
                       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--ps-space-sm)' }}>
                         <div className="form-group">

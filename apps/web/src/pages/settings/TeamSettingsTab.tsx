@@ -16,6 +16,7 @@ import {
   type TeamMember,
   type UserRole,
 } from '@pharmstation/types'
+import { alertDialog, confirmDialog, promptDialog } from '../../components/ui/dialog'
 
 const STAFF_ROLES: InvitableRole[] = ['pharmacist', 'technician', 'dispenser', 'locum']
 const SENIOR_ROLES: InvitableRole[] = ['owner', 'manager']
@@ -57,7 +58,7 @@ export function TeamSettingsTab() {
   const [inviteRole, setInviteRole] = useState<InvitableRole>('dispenser')
   const [inviting, setInviting] = useState(false)
   const [inviteError, setInviteError] = useState<string | null>(null)
-  const [newInvite, setNewInvite] = useState<{ email: string; role: InvitableRole; link: string; expiresAt: string } | null>(null)
+  const [newInvite, setNewInvite] = useState<{ email: string; role: InvitableRole; link: string; expiresAt: string; emailed: boolean } | null>(null)
   const [copied, setCopied] = useState(false)
 
   const load = useCallback(async () => {
@@ -89,7 +90,7 @@ export function TeamSettingsTab() {
     try {
       const email = inviteEmail.trim().toLowerCase()
       const res = await createInvite(orgId, email, inviteRole)
-      setNewInvite({ email, role: inviteRole, link: inviteLink(res.token), expiresAt: res.expiresAt })
+      setNewInvite({ email, role: inviteRole, link: inviteLink(res.token), expiresAt: res.expiresAt, emailed: res.emailed })
       setInviteEmail('')
       load()
     } catch (err) {
@@ -105,12 +106,12 @@ export function TeamSettingsTab() {
       await navigator.clipboard.writeText(newInvite.link)
       setCopied(true)
     } catch {
-      window.prompt('Copy this invite link', newInvite.link)
+      await promptDialog({ title: 'Copy this invite link', body: 'Your browser blocked automatic copying. Select the link below and copy it.', defaultValue: newInvite.link, confirmLabel: 'Done' })
     }
   }
 
   const change = async (m: TeamMember, changes: { role?: UserRole; status?: 'active' | 'suspended' | 'revoked' }, confirmText?: string) => {
-    if (confirmText && !window.confirm(confirmText)) return
+    if (confirmText && !await confirmDialog(confirmText)) return
     setBusyId(m.member_id)
     setError(null)
     try {
@@ -124,12 +125,12 @@ export function TeamSettingsTab() {
   }
 
   const resetTwoStep = async (m: TeamMember) => {
-    if (!window.confirm(`Reset two-step sign-in for ${m.full_name}? Use this if they've lost their phone. They'll sign in with just their password and${m.role === 'owner' || m.role === 'manager' ? ' be asked to' : ' can'} set up a new authenticator app.`)) return
+    if (!await confirmDialog(`Reset two-step sign-in for ${m.full_name}? Use this if they've lost their phone. They'll sign in with just their password and${m.role === 'owner' || m.role === 'manager' ? ' be asked to' : ' can'} set up a new authenticator app.`)) return
     setBusyId(m.member_id)
     setError(null)
     try {
       await resetMemberTwoStep(m.member_id)
-      window.alert(`Two-step sign-in reset for ${m.full_name}.`)
+      alertDialog(`Two-step sign-in reset for ${m.full_name}.`)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not reset two-step sign-in')
     } finally {
@@ -138,7 +139,7 @@ export function TeamSettingsTab() {
   }
 
   const revoke = async (inv: OrganisationInvite) => {
-    if (!window.confirm(`Cancel the invite for ${inv.email}? The link will stop working.`)) return
+    if (!await confirmDialog(`Cancel the invite for ${inv.email}? The link will stop working.`)) return
     setBusyId(inv.id)
     try {
       await revokeInvite(inv.id)
@@ -210,10 +211,17 @@ export function TeamSettingsTab() {
 
           {newInvite && (
             <div className="team-invite-result" role="status">
-              <p>
-                Invite ready for <strong>{newInvite.email}</strong>. Send them this link. It&rsquo;s shown once, so
-                copy it now. If it&rsquo;s lost, just invite them again.
-              </p>
+              {newInvite.emailed ? (
+                <p>
+                  We&rsquo;ve emailed an invite to <strong>{newInvite.email}</strong>. If it doesn&rsquo;t arrive, ask
+                  them to check their spam folder, or send them this link yourself.
+                </p>
+              ) : (
+                <p>
+                  Invite ready for <strong>{newInvite.email}</strong>, but we couldn&rsquo;t email it. Send them this
+                  link. It&rsquo;s shown once, so copy it now. If it&rsquo;s lost, just invite them again.
+                </p>
+              )}
               <div className="team-invite-link">
                 <input className="ps-input" readOnly value={newInvite.link} aria-label="Invite link"
                   onFocus={(e) => e.currentTarget.select()} />

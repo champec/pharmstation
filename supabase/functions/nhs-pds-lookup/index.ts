@@ -1,3 +1,4 @@
+import '../_shared/monitoring.ts' // platform error tracking (see _shared/monitoring.ts)
 // ============================================
 // PharmStation Edge Function: nhs-pds-lookup
 // NHS Personal Demographics Service (PDS) FHIR R4 lookup

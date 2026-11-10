@@ -9,6 +9,7 @@ import type {
 } from '@pharmstation/types'
 import { getUserClient } from '@pharmstation/supabase-client'
 import { DeliveryRouteMap } from '../../components/maps/DeliveryRouteMap'
+import { alertDialog, confirmDialog, promptDialog } from '../../components/ui/dialog'
 
 const ROUND_STATUS_BADGE: Record<DeliveryRoundStatus, { cls: string; label: string }> = {
   draft: { cls: 'ps-badge-muted', label: 'Draft' },
@@ -59,6 +60,8 @@ export function DeliveryRoundDetailPage() {
     subscribeToRound,
     addMedicationToRoundPatient,
     removeMedicationFromRoundPatient,
+    availableDrivers,
+    fetchAvailableDrivers,
     clearError,
   } = useDeliveryRoundStore()
 
@@ -98,6 +101,10 @@ export function DeliveryRoundDetailPage() {
   }, [organisation?.id, links.length, fetchLinks])
 
   useEffect(() => { load() }, [load])
+
+  useEffect(() => {
+    if (organisation?.id) void fetchAvailableDrivers(organisation.id)
+  }, [organisation?.id, fetchAvailableDrivers])
 
   useEffect(() => {
     const paths = round?.patients?.flatMap((patient) => patient.proof_photo_paths ?? []) ?? []
@@ -153,7 +160,7 @@ export function DeliveryRoundDetailPage() {
   }
 
   const handleCancel = async () => {
-    if (!id || !confirm('Cancel this delivery?')) return
+    if (!id || !await confirmDialog('Cancel this delivery?')) return
     setSaving(true)
     try { await cancelRound(id) } catch (e: any) { setActionError(e.message) }
     setSaving(false)
@@ -161,14 +168,14 @@ export function DeliveryRoundDetailPage() {
 
   const handleSaveTemplate = async () => {
     if (!id || !organisation?.id || !membership?.user_id) return
-    const name = prompt('Template name:')
+    const name = await promptDialog('Template name:')
     if (!name) return
     setSaving(true)
     try {
       await saveAsTemplate(id, name, organisation.id, membership.user_id)
-      alert('Saved as template!')
+      alertDialog('Saved as template!')
     } catch (e: any) {
-      alert(e.message)
+      alertDialog(e.message)
     }
     setSaving(false)
   }
@@ -180,14 +187,14 @@ export function DeliveryRoundDetailPage() {
       const newRound = await repeatRound(id, organisation.id, membership.user_id)
       navigate(`/deliveries/${newRound.id}`)
     } catch (e: any) {
-      alert(e.message)
+      alertDialog(e.message)
     }
     setSaving(false)
   }
 
   const handleNotifyPatients = async () => {
     if (!id || !organisation?.id) return
-    if (!confirm('Send SMS notifications to all patients in this delivery?')) return
+    if (!await confirmDialog('Send SMS notifications to all patients in this delivery?')) return
     setNotifying(true)
     try {
       const result = await sendRoundNotifications(id, organisation.id)
@@ -195,9 +202,9 @@ export function DeliveryRoundDetailPage() {
         result.noPhone ? `${result.noPhone} with no mobile number` : '',
         result.optedOut ? `${result.optedOut} opted out of texts` : '',
       ].filter(Boolean).join(', ')
-      alert(`Texts sent: ${result.sent}. Failed: ${result.failed}.${extra ? ` Not sent: ${extra}.` : ''}`)
+      alertDialog(`Texts sent: ${result.sent}. Failed: ${result.failed}.${extra ? ` Not sent: ${extra}.` : ''}`)
     } catch (e: any) {
-      alert(`Failed to send notifications: ${e.message}`)
+      alertDialog(`Failed to send notifications: ${e.message}`)
     }
     setNotifying(false)
   }
@@ -349,7 +356,7 @@ export function DeliveryRoundDetailPage() {
         )}
         {['scheduled', 'in_progress'].includes(round.status) && (
           <button className="ps-btn ps-btn-secondary" type="button" onClick={handleNotifyPatients} disabled={notifying}>
-            {notifying ? 'Sending…' : '📱 Notify patients'}
+            {notifying ? 'Sending…' : 'Notify patients'}
           </button>
         )}
         {round.status === 'completed' && (
@@ -359,7 +366,7 @@ export function DeliveryRoundDetailPage() {
           </>
         )}
         {['draft', 'scheduled'].includes(round.status) && (
-          <button className="ps-btn ps-btn-ghost" type="button" onClick={handleCancel} disabled={saving} style={{ color: 'var(--ps-red)' }}>Cancel delivery</button>
+          <button className="ps-btn ps-btn-ghost" type="button" onClick={handleCancel} disabled={saving} style={{ color: 'var(--ps-error)' }}>Cancel delivery</button>
         )}
       </div>
 
@@ -387,16 +394,18 @@ export function DeliveryRoundDetailPage() {
         <article><span>Pending</span><strong>{pending}</strong><small>awaiting delivery</small></article>
       </div>
 
-      {round.driver && (
-        <p className="care-home-subtitle">🚗 Driver: {(round.driver as any).user_profile?.full_name}</p>
-      )}
+      <p className="care-home-subtitle">
+        Driver: {round.driver_id
+          ? (availableDrivers.find((d) => d.id === round.driver_id)?.full_name ?? 'Assigned')
+          : 'No driver yet (any driver can take it)'}
+      </p>
       {round.notes && (
-        <p className="care-home-subtitle">📝 {round.notes}</p>
+        <p className="care-home-subtitle">Notes: {round.notes}</p>
       )}
 
       {patients.length > 0 && (
         <div className="ps-card" style={{ padding: 'var(--ps-space-md)', margin: 'var(--ps-space-md) 0' }}>
-          <h3 style={{ marginBottom: 'var(--ps-space-sm)' }}>🗺️ Route map</h3>
+          <h3 style={{ marginBottom: 'var(--ps-space-sm)' }}>Route map</h3>
           <DeliveryRouteMap
             patients={patients}
             roundId={round.id}
@@ -440,10 +449,10 @@ export function DeliveryRoundDetailPage() {
                         ))}
                       </span>
                     )}
-                    {rp.notes && <small>📝 {rp.notes}</small>}
-                    {rp.failure_reason && <small style={{ color: 'var(--ps-red)' }}>⚠️ {rp.failure_reason}</small>}
-                    {rp.delivered_at && <small style={{ color: 'var(--ps-green)' }}>✓ Delivered {formatDatetime(rp.delivered_at)}</small>}
-                    {rp.signature_data && <small>✍️ Signature captured</small>}
+                    {rp.notes && <small>{rp.notes}</small>}
+                    {rp.failure_reason && <small style={{ color: 'var(--ps-error)' }}>Reason: {rp.failure_reason}</small>}
+                    {rp.delivered_at && <small style={{ color: 'var(--ps-success)' }}>✓ Delivered {formatDatetime(rp.delivered_at)}</small>}
+                    {rp.signature_data && <small>Signature captured</small>}
                     {rp.delivery_method && (
                       <small>
                         {DELIVERY_METHOD_LABELS[rp.delivery_method]}
@@ -483,9 +492,9 @@ export function DeliveryRoundDetailPage() {
       </div>
       <div className="ps-card" style={{ padding: 'var(--ps-space-md)' }}>
         <div style={{ fontSize: 'var(--ps-font-sm)', display: 'flex', flexDirection: 'column', gap: 'var(--ps-space-xs)' }}>
-          <div>📋 Created: {formatDatetime(round.created_at)}</div>
-          {round.started_at && <div>🚀 Started: {formatDatetime(round.started_at)}</div>}
-          {round.completed_at && <div>✅ Completed: {formatDatetime(round.completed_at)}</div>}
+          <div>Created: {formatDatetime(round.created_at)}</div>
+          {round.started_at && <div>Started: {formatDatetime(round.started_at)}</div>}
+          {round.completed_at && <div>Completed: {formatDatetime(round.completed_at)}</div>}
         </div>
       </div>
 

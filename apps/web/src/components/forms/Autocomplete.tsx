@@ -4,6 +4,7 @@
 // ============================================
 
 import { useEffect, useRef, useState, useCallback } from 'react'
+import { Loader2 } from 'lucide-react'
 
 interface AutocompleteProps<T> {
   value: string
@@ -108,7 +109,8 @@ export function Autocomplete<T>({
       {show && (suggestions.length > 0 || loading || (addNewLabel && value.trim().length >= minChars)) && (
         <div className="autocomplete-dropdown">
           {loading && suggestions.length === 0 && (
-            <div className="autocomplete-item" style={{ cursor: 'default', color: 'var(--ps-mist)' }}>
+            <div className="autocomplete-item" role="status" style={{ cursor: 'default', color: 'var(--ps-slate)', display: 'flex', alignItems: 'center', gap: 'var(--ps-space-sm)' }}>
+              <Loader2 size={16} strokeWidth={1.75} aria-hidden="true" style={{ animation: 'spin 0.8s linear infinite' }} />
               Searching…
             </div>
           )}

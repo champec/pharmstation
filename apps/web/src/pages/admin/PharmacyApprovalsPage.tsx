@@ -2,6 +2,8 @@ import { useCallback, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { getUserClient } from '@pharmstation/supabase-client'
 import type { OrganisationAddress } from '@pharmstation/types'
+import { Modal } from '../../components/Modal'
+import { confirmDialog, promptDialog } from '../../components/ui/dialog'
 
 // PharmStation platform admins check each self-registered pharmacy against the
 // GPhC premises register before it can use network messaging or list itself
@@ -31,6 +33,105 @@ function formatAddress(a: OrganisationAddress | null) {
   return [a.line_1, a.line_2, a.city, a.postcode].filter(Boolean).join(', ') || 'No address'
 }
 
+type LinkRow = {
+  org_id: string
+  org_name: string
+  org_postcode: string | null
+  org_gphc: string | null
+  org_verification: string | null
+  pharmacy_id: number
+  pharmacy_name: string
+  pharmacy_ods: string
+  pharmacy_postcode: string | null
+  pharmacy_city: string | null
+  is_verified: boolean
+  linked_at: string
+}
+
+// Pharmacy Network links whose postcode/ODS didn't match the NHS record.
+// They stay off the network until an admin confirms the account really is
+// that pharmacy. Disputes ("This is ours") arrive in the support inbox.
+function PendingNetworkLinks() {
+  const [rows, setRows] = useState<LinkRow[]>([])
+  const [error, setError] = useState<string | null>(null)
+  const [busy, setBusy] = useState<string | null>(null)
+  const [pending, setPending] = useState<{ row: LinkRow; approve: boolean } | null>(null)
+
+  const load = useCallback(async () => {
+    const { data, error } = await getUserClient().rpc('ps_admin_list_network_links', { p_pending_only: true })
+    if (error) setError(error.message)
+    else { setError(null); setRows((data ?? []) as LinkRow[]) }
+  }, [])
+
+  useEffect(() => { load() }, [load])
+
+  const review = async (row: LinkRow, approve: boolean) => {
+    setPending(null)
+    setBusy(row.org_id)
+    const { error } = await getUserClient().rpc('ps_admin_review_network_link', { p_org_id: row.org_id, p_approve: approve })
+    setBusy(null)
+    if (error) setError(error.message)
+    else load()
+  }
+
+  if (!error && rows.length === 0) return null
+
+  return (
+    <section style={{ marginBottom: 'var(--ps-space-lg)' }}>
+      <h2 style={{ fontSize: '1.1rem', margin: '0 0 var(--ps-space-sm)' }}>Network links to check</h2>
+      <p className="text-muted" style={{ margin: '0 0 var(--ps-space-sm)', fontSize: 'var(--ps-font-sm)' }}>
+        These accounts linked an NHS pharmacy whose postcode doesn&rsquo;t match their own address.
+      </p>
+      {error && <div className="ps-alert ps-alert-error" style={{ marginBottom: 'var(--ps-space-sm)' }}>{error}</div>}
+      {rows.map((row) => (
+        <div key={row.org_id} className="ps-card" style={{ marginBottom: 'var(--ps-space-sm)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 'var(--ps-space-md)', flexWrap: 'wrap' }}>
+            <div style={{ minWidth: 0, fontSize: 'var(--ps-font-sm)' }}>
+              <div><strong>{row.org_name}</strong> · postcode {row.org_postcode ?? 'none'} · GPhC {row.org_gphc ?? 'not given'} · {row.org_verification}</div>
+              <div style={{ color: 'var(--ps-slate)' }}>
+                wants to be {row.pharmacy_name} ({row.pharmacy_ods}) · {[row.pharmacy_city, row.pharmacy_postcode].filter(Boolean).join(' ')}
+                {' '}· linked {new Date(row.linked_at).toLocaleDateString('en-GB')}
+              </div>
+            </div>
+            <div style={{ display: 'flex', gap: 'var(--ps-space-xs, 4px)', alignItems: 'center' }}>
+              <button className="ps-btn ps-btn-ghost ps-btn-sm" disabled={busy === row.org_id} onClick={() => setPending({ row, approve: false })}>Remove link</button>
+              <button className="ps-btn ps-btn-primary ps-btn-sm" disabled={busy === row.org_id} onClick={() => setPending({ row, approve: true })}>Confirm</button>
+            </div>
+          </div>
+        </div>
+      ))}
+
+      <Modal
+        isOpen={!!pending}
+        onClose={() => setPending(null)}
+        title={pending?.approve ? 'Confirm this network link?' : 'Remove this network link?'}
+        width="480px"
+      >
+        {pending && (
+          <>
+            <p style={{ marginTop: 0 }}>
+              {pending.approve ? (
+                <>Confirm <strong>{pending.row.org_name}</strong> is <strong>{pending.row.pharmacy_name}</strong> ({pending.row.pharmacy_ods}, {pending.row.pharmacy_postcode ?? 'no postcode'}). Only do this after the GPhC register entry for premises {pending.row.org_gphc ?? '(none given)'} shows this address.</>
+              ) : (
+                <>Remove <strong>{pending.row.org_name}</strong>&rsquo;s link to <strong>{pending.row.pharmacy_name}</strong>. They can link the right pharmacy afterwards.</>
+              )}
+            </p>
+            <div style={{ display: 'flex', gap: 'var(--ps-space-sm)', justifyContent: 'flex-end' }}>
+              <button className="ps-btn ps-btn-secondary" onClick={() => setPending(null)}>Cancel</button>
+              <button
+                className={`ps-btn ${pending.approve ? 'ps-btn-primary' : 'ps-btn-danger'}`}
+                onClick={() => review(pending.row, pending.approve)}
+              >
+                {pending.approve ? 'Confirm link' : 'Remove link'}
+              </button>
+            </div>
+          </>
+        )}
+      </Modal>
+    </section>
+  )
+}
+
 export function PharmacyApprovalsPage() {
   const navigate = useNavigate()
   const [filter, setFilter] = useState<(typeof STATUSES)[number]>('pending')
@@ -38,6 +139,8 @@ export function PharmacyApprovalsPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [busyId, setBusyId] = useState<string | null>(null)
+  // Pharmacies where Genie may see patient data (off by default; admins only).
+  const [geniePatientData, setGeniePatientData] = useState<Set<string>>(new Set())
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -48,6 +151,12 @@ export function PharmacyApprovalsPage() {
       setRows([])
     } else {
       setRows((data ?? []) as Row[])
+      const { data: genie } = await getUserClient().rpc('ps_admin_list_genie_patient_data')
+      setGeniePatientData(new Set(
+        ((genie ?? []) as { organisation_id: string; genie_patient_data: boolean }[])
+          .filter((g) => g.genie_patient_data)
+          .map((g) => g.organisation_id),
+      ))
     }
     setLoading(false)
   }, [filter])
@@ -56,11 +165,11 @@ export function PharmacyApprovalsPage() {
 
   const setStatus = async (row: Row, status: Row['verification_status']) => {
     let note: string | null = null
-    if (status === 'verified' && !window.confirm(
+    if (status === 'verified' && !await confirmDialog(
       `Verify ${row.name}?\n\nOnly do this after finding premises ${row.gphc_premises_number ?? '(none given)'} on the GPhC register with a matching name and address, and checking the owner is connected to it.`,
     )) return
     if (status === 'rejected') {
-      note = window.prompt('Reason (shown to the pharmacy):', 'We couldn’t match these details to the GPhC register.')
+      note = await promptDialog('Reason (shown to the pharmacy):', 'We couldn’t match these details to the GPhC register.')
       if (note === null) return
     }
     setBusyId(row.id)
@@ -72,6 +181,26 @@ export function PharmacyApprovalsPage() {
     else load()
   }
 
+  const toggleGeniePatientData = async (row: Row) => {
+    const enable = !geniePatientData.has(row.id)
+    if (enable && !await confirmDialog(
+      `Let Genie see patient data for ${row.name}?\n\nPatient and prescriber names from their registers will be sent to the AI provider (zero data retention). Only do this once the DPIA and privacy notice cover it.`,
+    )) return
+    setBusyId(row.id)
+    const { error } = await getUserClient().rpc('ps_admin_set_genie_patient_data', { p_org_id: row.id, p_enabled: enable })
+    setBusyId(null)
+    if (error) {
+      setError(error.message)
+      return
+    }
+    setGeniePatientData((prev) => {
+      const next = new Set(prev)
+      if (enable) next.add(row.id)
+      else next.delete(row.id)
+      return next
+    })
+  }
+
   return (
     <div>
       <div className="page-header">
@@ -80,13 +209,15 @@ export function PharmacyApprovalsPage() {
           <span className="separator">/</span>
           <span>Verify pharmacies</span>
         </div>
-        <h1>🏥 Verify pharmacies</h1>
+        <h1>Verify pharmacies</h1>
         <p style={{ color: 'var(--ps-slate)', marginTop: '4px' }}>
           Find each premises number on the{' '}
           <a href="https://www.pharmacyregulation.org/registers" target="_blank" rel="noopener noreferrer">GPhC register</a>{' '}
           and check the name and address match before verifying.
         </p>
       </div>
+
+      <PendingNetworkLinks />
 
       <div style={{ display: 'flex', gap: 'var(--ps-space-sm)', marginBottom: 'var(--ps-space-md)', flexWrap: 'wrap' }}>
         {STATUSES.map((s) => (
@@ -139,6 +270,16 @@ export function PharmacyApprovalsPage() {
               {row.verification_status !== 'pending' && (
                 <button className="ps-btn ps-btn-ghost ps-btn-sm" disabled={busyId === row.id} onClick={() => setStatus(row, 'pending')}>
                   Back to pending
+                </button>
+              )}
+              {row.verification_status === 'verified' && (
+                <button
+                  className="ps-btn ps-btn-ghost ps-btn-sm"
+                  disabled={busyId === row.id}
+                  onClick={() => toggleGeniePatientData(row)}
+                  title="Whether Genie may see patient names for this pharmacy"
+                >
+                  Genie patient data: {geniePatientData.has(row.id) ? 'On' : 'Off'}
                 </button>
               )}
             </div>

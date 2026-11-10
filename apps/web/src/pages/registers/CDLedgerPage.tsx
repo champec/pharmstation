@@ -10,7 +10,10 @@ import { createColumnHelper, type ColumnDef, type Row } from '@tanstack/react-ta
 import { getUserClient } from '@pharmstation/supabase-client'
 import { useAuthStore, useRegisterStore } from '@pharmstation/core'
 import type { RegisterEntry, RegisterLedger, CDDrug, KnownContact, EntryAnnotation } from '@pharmstation/types'
-import { ukToday } from '@pharmstation/types'
+import { cdQty, cdUnit, ukToday } from '@pharmstation/types'
+import { Download, Lock } from 'lucide-react'
+import { EmptyState } from '../../components/ui/EmptyState'
+import { PageHeader } from '../../components/ui/PageHeader'
 import { RegisterTable, type RowMerge } from '../../components/table/RegisterTable'
 import { Drawer } from '../../components/Drawer'
 import { CDEntryForm } from '../../components/forms/CDEntryForm'
@@ -35,6 +38,7 @@ import {
   schedule6Params,
   type CollectorType,
 } from '../../utils/cdRegisterExport'
+import { CircleCheck, MessageSquare, Pencil } from 'lucide-react'
 
 const columnHelper = createColumnHelper<RegisterEntry>()
 
@@ -354,7 +358,7 @@ export function CDLedgerPage() {
           if (row.entry_type === 'balance_check') {
             return (
               <div className="bc-entry-stamp" title={row.notes ?? ''}>
-                <span className="bc-entry-stamp-icon">✅</span>
+                <span className="bc-entry-stamp-icon"><CircleCheck size={16} strokeWidth={1.75} aria-hidden="true" /></span>
                 <span className="bc-entry-stamp-text">
                   {row.notes ?? 'Balance checked and verified'}
                 </span>
@@ -487,7 +491,7 @@ export function CDLedgerPage() {
       }),
       columnHelper.accessor('running_balance', {
         header: 'Balance',
-        size: 70,
+        size: 90,
         cell: (info) => (
           <strong style={{ fontFamily: 'var(--ps-font-mono)' }}>{info.getValue() ?? '—'}</strong>
         ),
@@ -538,7 +542,7 @@ export function CDLedgerPage() {
             title={allCommentsExpanded ? 'Close all comments' : 'Expand all comments'}
             aria-label={allCommentsExpanded ? 'Close all comments' : 'Expand all comments'}
           >
-            💬
+            <MessageSquare size={16} strokeWidth={1.75} aria-hidden="true" />
           </button>
         ),
         size: 48,
@@ -553,7 +557,6 @@ export function CDLedgerPage() {
               onClick={() => toggleAnnotations(row.id)}
               title={count > 0 ? `${count} note${count === 1 ? '' : 's'} — click to view` : 'Add a note to this entry'}
             >
-              💬
               {count > 0 && <span className="annotation-count">{count}</span>}
             </button>
           )
@@ -1124,7 +1127,7 @@ export function CDLedgerPage() {
           title="Edit details"
           onClick={() => openEditContactModal(type, contact)}
         >
-          ✎
+          <Pencil size={16} aria-hidden="true" />
         </button>
         <button
           type="button"
@@ -1382,7 +1385,6 @@ export function CDLedgerPage() {
             title="Add a note or mark part supply for this entry (optional)"
             disabled={!entryMode}
           >
-            💬
             {(provNote.trim() !== '' || provPartSupply || provPartLink !== 'none' || provCollector !== '') && <span className="prov-extras-dot" />}
           </button>
           {provExtrasOpen && entryMode && (
@@ -1421,7 +1423,7 @@ export function CDLedgerPage() {
                   /* This patient has an outstanding part supply — offer to link this entry to it */
                   <div className="prov-part-link">
                     <span className="prov-extras-label">
-                      ⏳ Part supply owed — entry #{linkedOutstanding.entry_number}
+                      Part supply owed — entry #{linkedOutstanding.entry_number}
                       {' '}({new Date(linkedOutstanding.date_of_transaction).toLocaleDateString('en-GB')}
                       {linkedOutstanding.quantity_deducted ? `, -${linkedOutstanding.quantity_deducted}` : ''})
                     </span>
@@ -1450,7 +1452,7 @@ export function CDLedgerPage() {
                         checked={provPartLink === 'continues'}
                         onChange={() => setProvPartLink('continues')}
                       />
-                      <span>⏳ Further part supply</span>
+                      <span>Further part supply</span>
                     </label>
                   </div>
                 ) : (
@@ -1460,7 +1462,7 @@ export function CDLedgerPage() {
                       checked={provPartSupply}
                       onChange={(e) => setProvPartSupply(e.target.checked)}
                     />
-                    <span>⏳ Part supply — balance owed</span>
+                    <span>Part supply — balance owed</span>
                   </label>
                 )
               )}
@@ -1478,63 +1480,51 @@ export function CDLedgerPage() {
     </tr>
   ) : null
 
+  if (!canRead) {
+    return (
+      <div>
+        <PageHeader
+          breadcrumbs={[{ label: 'Dashboard', to: '/' }, { label: 'Registers', to: '/registers' }, { label: 'CD Register' }]}
+          title="CD Register"
+        />
+        <EmptyState icon={Lock} title="You can't view the CD register">
+          Your role doesn't include CD register access. Ask the pharmacy owner or manager to give you access in Settings, Team.
+        </EmptyState>
+      </div>
+    )
+  }
+
   return (
     <div>
-      {/* Breadcrumbs */}
-      <div className="page-header">
-        <div className="breadcrumbs">
-          <a href="/" onClick={(e) => { e.preventDefault(); navigate('/') }}>Dashboard</a>
-          <span className="separator">/</span>
-          <a href="/registers" onClick={(e) => { e.preventDefault(); navigate('/registers') }}>Registers</a>
-          <span className="separator">/</span>
-          <a href="/registers/cd" onClick={(e) => { e.preventDefault(); navigate('/registers/cd') }}>CD Register</a>
-          <span className="separator">/</span>
-          <span>{drug?.drug_brand ?? 'Loading...'}</span>
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--ps-space-md)' }}>
-          <div>
-            <h1>📋 {drug?.drug_brand ?? 'Loading...'}</h1>
-            {drug && (
-              <p style={{ color: 'var(--ps-slate)', fontSize: 'var(--ps-font-sm)', marginTop: '2px' }}>
-                {drug.drug_form} — {drug.drug_strength} — {drug.drug_class} — {drug.drug_type}
-              </p>
-            )}
-          </div>
-          <div style={{ display: 'flex', gap: 'var(--ps-space-sm)', alignItems: 'center', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+      <PageHeader
+        breadcrumbs={[
+          { label: 'Dashboard', to: '/' },
+          { label: 'Registers', to: '/registers' },
+          { label: 'CD Register', to: '/registers/cd' },
+          { label: drug?.drug_brand ?? 'Loading…' },
+        ]}
+        title={drug?.drug_brand ?? 'Loading…'}
+        subtitle={drug ? [drug.drug_class, drug.drug_strength, drug.drug_form, drug.drug_type].filter(Boolean).join(' · ') : undefined}
+        actions={
+          <>
             {activeLedger && (
-              <div className="ledger-balance-badge">
+              <div className="ledger-balance-badge" aria-label={`Balance ${cdQty(activeLedger.current_balance, drug?.drug_form)}`}>
                 <span>Balance</span>
-                <strong>{activeLedger.current_balance}</strong>
+                <strong>{cdQty(activeLedger.current_balance, drug?.drug_form)}</strong>
               </div>
             )}
-            {/* Direction indicator based on current entry mode */}
             {entryMode && (
               <span className={`entry-direction-badge ${entryMode === 'in' ? 'entry-in' : 'entry-out'}`}>
-                {entryMode === 'in' ? '📥 IN' : '📤 OUT'}
+                {entryMode === 'in' ? 'IN' : 'OUT'}
               </span>
             )}
-            <button
-              className="ps-btn ps-btn-ghost"
-              onClick={openBalanceCheck}
-              disabled={!activeLedger || !canWrite}
-              title="Quick balance check for this register"
-            >
-              📋 Balance Check
-            </button>
-            <button
-              className="ps-btn ps-btn-ghost"
-              onClick={() => navigate('/registers/scan')}
-              title="Scan a prescription or invoice with AI"
-            >
-              📸 Scan
-            </button>
             <button
               className="ps-btn ps-btn-ghost"
               onClick={handlePrintLedger}
               disabled={!activeLedger || entriesLoading}
               title="Print or save this register as a PDF"
             >
-              🖨️ Print / PDF
+              Print / PDF
             </button>
             <button
               className="ps-btn ps-btn-ghost"
@@ -1542,36 +1532,38 @@ export function CDLedgerPage() {
               disabled={!activeLedger || entriesLoading}
               title="Download every entry in this register as a CSV spreadsheet"
             >
-              ⬇ CSV
+              <Download size={16} strokeWidth={1.75} aria-hidden="true" /> CSV
             </button>
             <button
-              className="ps-btn ps-btn-success"
+              className="ps-btn ps-btn-secondary"
+              onClick={openBalanceCheck}
+              disabled={!activeLedger || !canWrite}
+              title="Count the stock and check it against this register"
+            >
+              Balance check
+            </button>
+            <button
+              className="ps-btn ps-btn-secondary"
               onClick={() => openDrawer('in')}
               disabled={!activeLedger || !canWrite}
-              title="Open full IN form"
+              title="Record stock received (full form)"
             >
-              📥 Full IN
+              Receive (IN)
             </button>
             <button
               className="ps-btn ps-btn-primary"
               onClick={() => openDrawer('out')}
               disabled={!activeLedger || !canWrite}
-              title="Open full OUT form"
+              title="Record a supply (full form)"
             >
-              📤 Full OUT
+              Supply (OUT)
             </button>
-          </div>
-        </div>
-      </div>
+          </>
+        }
+      />
 
       {exportError && (
         <div className="auth-error" style={{ marginBottom: 'var(--ps-space-md)' }}>{exportError}</div>
-      )}
-
-      {!canRead && (
-        <div className="auth-error" style={{ marginBottom: 'var(--ps-space-md)' }}>
-          Your role can't view the CD register. Ask the pharmacy owner to give you CD register access.
-        </div>
       )}
 
       {canRead && !canWrite && ledgerFound && (
@@ -1589,7 +1581,7 @@ export function CDLedgerPage() {
                 Add it with the stock you hold now. The opening balance is written as the first, signed line of the register.
               </p>
               <div style={{ display: 'flex', gap: 'var(--ps-space-sm)', alignItems: 'center', flexWrap: 'wrap' }}>
-                <label htmlFor="cd-opening-balance">Opening balance</label>
+                <label htmlFor="cd-opening-balance">Opening balance ({cdUnit(drug.drug_form)})</label>
                 <input
                   id="cd-opening-balance"
                   className="ps-input"
@@ -1629,7 +1621,7 @@ export function CDLedgerPage() {
           onClick={() => setShowPartSupplyOnly((v) => !v)}
           title="Show only entries with an outstanding part supply (balance owed)"
         >
-          ⏳ Outstanding Part Supplies{outstandingPartCount > 0 ? ` (${outstandingPartCount})` : ''}
+          Outstanding Part Supplies{outstandingPartCount > 0 ? ` (${outstandingPartCount})` : ''}
         </button>
       </div>
 
@@ -1640,7 +1632,7 @@ export function CDLedgerPage() {
         loading={entriesLoading}
         emptyMessage={
           showPartSupplyOnly
-            ? 'No outstanding part supplies. 🎉'
+            ? 'No outstanding part supplies.'
             : 'No entries yet. Start by entering a supplier (IN) or patient (OUT) in the row below.'
         }
         globalFilter={searchFilter}
@@ -1665,7 +1657,7 @@ export function CDLedgerPage() {
             span: 5,       // Supplier → Patient → Prescriber → ID → Amount
             content: (
               <div className="bc-entry-stamp">
-                <span className="bc-entry-stamp-icon">✅</span>
+                <span className="bc-entry-stamp-icon"><CircleCheck size={16} strokeWidth={1.75} aria-hidden="true" /></span>
                 <span className="bc-entry-stamp-text">
                   {r.notes ?? 'Balance checked and verified'}{adjText}
                 </span>
@@ -1685,7 +1677,7 @@ export function CDLedgerPage() {
       <Drawer
         isOpen={drawerOpen}
         onClose={() => setDrawerOpen(false)}
-        title={entryDirection === 'in' ? '📥 Receive Stock IN' : '📤 Supply Stock OUT'}
+        title={entryDirection === 'in' ? 'Receive Stock IN' : 'Supply Stock OUT'}
         width="560px"
       >
         <CDEntryForm
@@ -1739,7 +1731,7 @@ export function CDLedgerPage() {
       <Modal
         isOpen={bcModalOpen}
         onClose={() => setBcModalOpen(false)}
-        title="📋 Balance Check"
+        title="Balance Check"
         width="460px"
       >
         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--ps-space-md)' }}>
@@ -1752,7 +1744,7 @@ export function CDLedgerPage() {
             <div style={{ marginTop: 'var(--ps-space-sm)', display: 'flex', alignItems: 'center', gap: 'var(--ps-space-sm)' }}>
               <span style={{ color: 'var(--ps-slate)', fontSize: 'var(--ps-font-sm)' }}>Register balance:</span>
               <strong style={{ fontFamily: 'var(--ps-font-mono)', fontSize: 'var(--ps-font-lg)' }}>
-                {activeLedger?.current_balance ?? 0}
+                {cdQty(activeLedger?.current_balance ?? 0, drug?.drug_form)}
               </strong>
             </div>
           </div>
@@ -1760,7 +1752,7 @@ export function CDLedgerPage() {
           {bcDone ? (
             /* Success state */
             <div style={{ textAlign: 'center', padding: 'var(--ps-space-lg) 0' }}>
-              <div style={{ fontSize: '48px', marginBottom: 'var(--ps-space-sm)' }}>✅</div>
+              <span className="ps-empty-icon success" aria-hidden="true"><CircleCheck size={26} strokeWidth={1.75} /></span>
               <p style={{ fontWeight: 600, fontSize: 'var(--ps-font-md)' }}>Balance check recorded</p>
               <p style={{ color: 'var(--ps-slate)', fontSize: 'var(--ps-font-sm)', marginTop: '4px' }}>
                 Entry added to the register.
@@ -1807,7 +1799,7 @@ export function CDLedgerPage() {
                           setBcAdjAmount(String(parseFloat(bcCount) - (activeLedger?.current_balance ?? 0)))
                         }}
                       >
-                        🔧 Adjust balance to match count
+                        Adjust balance to match count
                       </button>
                     </div>
                   )}

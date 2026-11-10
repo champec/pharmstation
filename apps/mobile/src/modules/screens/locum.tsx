@@ -27,6 +27,8 @@ import {
 } from '@/stores/locum-store'
 import { palette, radius } from '@/theme/palette'
 import { useAuthStore } from '@/stores/auth-store'
+import { LocumProfileScreen, saveShiftAlert } from '@/modules/screens/locum-profile'
+import { EmptyState as SharedEmptyState } from '@/components/ui/EmptyState'
 
 const ACCENT = '#6D28D9'
 const ACCENT_TINT = '#F1EAFE'
@@ -101,6 +103,22 @@ function FindShiftsScreen() {
     })
   }, [dateFilter, eligibleOnly, minimumRate, query, shifts])
 
+  const createAlert = () => {
+    const parts = [query.trim(), minimumRate ? `£${minimumRate}+/hr` : '', dateFilter === 'week' ? 'Next 7 days' : dateFilter === 'weekend' ? 'Weekends' : ''].filter(Boolean)
+    const name = parts.join(', ') || 'All shifts'
+    Alert.alert('Alert me about new shifts?', `We'll send a notification to this phone when a new shift matches: ${name}${eligibleOnly ? ', eligible only' : ''}. Manage alerts in the Profile tab.`, [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Create alert', onPress: async () => {
+        try {
+          await saveShiftAlert({ name, query: query.trim() || null, minimum_rate: minimumRate, date_filter: dateFilter, eligible_only: eligibleOnly })
+          Alert.alert('Alert created', 'You will be notified when a matching shift is posted.')
+        } catch (e) {
+          Alert.alert('Could not create the alert', e instanceof Error ? e.message : 'Try again.')
+        }
+      } },
+    ])
+  }
+
   return (
     <ScrollView style={styles.screen} contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled" refreshControl={<RefreshControl refreshing={loading} onRefresh={refresh} tintColor={ACCENT} />}>
       <View style={styles.hero}>
@@ -131,14 +149,20 @@ function FindShiftsScreen() {
           <Ionicons name="shield-checkmark-outline" size={18} color={palette.warning} />
           <Text style={styles.complianceText}>
             {compliance === 'rejected'
-              ? 'Your compliance documents were not approved. Update them on pharmstation.co.uk and we will review them again.'
+              ? 'Your compliance documents were not approved. Update them in the Profile tab and we will review them again.'
               : 'Your compliance documents are being reviewed. You can browse now and book once you are approved.'}
             {compliance === 'rejected' && complianceNotes ? `\n\nReason: ${complianceNotes}` : ''}
           </Text>
         </View>
       ) : null}
       <ErrorBanner message={error} />
-      <View style={styles.resultRow}><Text style={styles.sectionTitle}>Available shifts</Text><Text style={styles.resultCount}>{visible.length} found</Text></View>
+      <View style={styles.resultRow}>
+        <Text style={styles.sectionTitle}>Available shifts</Text>
+        <Pressable onPress={createAlert} style={styles.alertButton} accessibilityLabel="Alert me about shifts like these">
+          <Ionicons name="notifications-outline" size={15} color={ACCENT} /><Text style={styles.alertButtonText}>Alert me</Text>
+        </Pressable>
+        <Text style={styles.resultCount}>{visible.length} found</Text>
+      </View>
       {loading && shifts.length === 0 ? <LoadingState /> : null}
       {!loading && visible.length === 0 ? <EmptyState icon="search-outline" title="No matching shifts" text="Try widening your filters or check again soon." /> : null}
       {visible.map((shift) => <ShiftCard key={shift.id} shift={shift} eligibility={eligibilityFor(shift)} />)}
@@ -288,19 +312,29 @@ function BookingCard({ booking }: { booking: LocumBooking }) {
   if (!booking.shift) return null
   const isToday = booking.shift.date === TODAY
   const canWithdraw = ['pending', 'approved'].includes(booking.status) && booking.shift.date >= TODAY && !booking.sign_in
+  const confirmClockOut = () => {
+    const shift = booking.shift!
+    const now = new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/London', hour12: false })
+    const end = timeLabel(shift.end_time)
+    const early = shift.end_time > shift.start_time && shift.date === TODAY && now < end
+    Alert.alert('Clock out of this shift?', `It started at ${timeLabel(shift.start_time)} and ends at ${end}.${early ? `\n\nIt's ${now}, before the end of the shift. The pharmacy will be asked to confirm your hours.` : ''}`, [
+      { text: 'Stay clocked in', style: 'cancel' },
+      { text: 'Clock out', style: early ? 'destructive' : 'default', onPress: () => void clockOut(booking) },
+    ])
+  }
   const confirmWithdraw = () => Alert.alert(booking.status === 'pending' ? 'Withdraw request?' : 'Cancel booking?', 'This action will be visible to the pharmacy.', [{ text: 'Keep it', style: 'cancel' }, { text: 'Withdraw', style: 'destructive', onPress: () => void withdraw(booking.id) }])
 
   return (
     <View style={styles.bookingCard}>
-      <View style={styles.between}><Text style={styles.bookingDate}>{dateLabel(booking.shift.date, true)}</Text><StatusPill label={booking.status === 'approved' ? 'Confirmed' : booking.status === 'pending' ? 'Requested' : booking.status.replace('_', ' ')} tone={booking.status === 'approved' || booking.status === 'completed' ? 'success' : booking.status === 'pending' ? 'warning' : 'neutral'} /></View>
+      <View style={styles.between}><Text style={styles.bookingDate}>{dateLabel(booking.shift.date, true)}</Text><StatusPill label={({ approved: 'Confirmed', pending: 'Requested', completed: 'Worked', cancelled: 'Cancelled', rejected: 'Not successful', no_show: 'No-show' } as Record<string, string>)[booking.status] ?? booking.status} tone={booking.status === 'approved' || booking.status === 'completed' ? 'success' : booking.status === 'pending' ? 'warning' : 'neutral'} /></View>
       <Text style={styles.bookingOrg}>{booking.shift.org_name}</Text>
       <View style={styles.bookingFacts}><Fact icon="time-outline" text={`${timeLabel(booking.shift.start_time)} - ${timeLabel(booking.shift.end_time)}`} /><Fact icon="cash-outline" text={`${money(shiftTotal(booking.shift))} estimated`} /></View>
       {booking.shift.org_address ? <Fact icon="location-outline" text={booking.shift.org_address} /> : null}
-      {booking.sign_in ? <View style={styles.clockStatus}><Ionicons name="radio-button-on" size={14} color={booking.sign_in.signed_out_at ? palette.textMuted : palette.success} /><Text style={styles.clockText}>{booking.sign_in.signed_out_at ? `Shift recorded · ${((booking.sign_in.duration_minutes ?? 0) / 60).toFixed(1)}h` : `Clocked in at ${new Date(booking.sign_in.signed_in_at).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}`}</Text></View> : null}
+      {booking.sign_in ? <View style={styles.clockStatus}><Ionicons name="radio-button-on" size={14} color={booking.sign_in.signed_out_at ? palette.textMuted : palette.success} /><Text style={styles.clockText}>{booking.sign_in.signed_out_at ? `Clocked out · ${((booking.sign_in.duration_minutes ?? 0) / 60).toFixed(1)}h${booking.status === 'approved' ? ' · awaiting confirmation' : ''}` : `Clocked in at ${new Date(booking.sign_in.signed_in_at).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}`}</Text></View> : null}
       <View style={styles.bookingActions}>
         {canWithdraw ? <Pressable onPress={confirmWithdraw} style={styles.secondaryAction}><Text style={styles.secondaryActionText}>{booking.status === 'pending' ? 'Withdraw request' : 'Cancel booking'}</Text></Pressable> : null}
         {booking.status === 'approved' && isToday && !booking.sign_in ? <Pressable onPress={() => void clockIn(booking)} disabled={actionId === booking.id} style={styles.clockButton}><Ionicons name="log-in-outline" size={18} color={palette.textInverse} /><Text style={styles.clockButtonText}>Clock in</Text></Pressable> : null}
-        {booking.status === 'approved' && isToday && booking.sign_in && !booking.sign_in.signed_out_at ? <Pressable onPress={() => void clockOut(booking)} disabled={actionId === booking.id} style={styles.clockButton}><Ionicons name="log-out-outline" size={18} color={palette.textInverse} /><Text style={styles.clockButtonText}>Clock out</Text></Pressable> : null}
+        {booking.status === 'approved' && booking.sign_in && !booking.sign_in.signed_out_at ? <Pressable onPress={confirmClockOut} disabled={actionId === booking.id} style={styles.clockButton}><Ionicons name="log-out-outline" size={18} color={palette.textInverse} /><Text style={styles.clockButtonText}>Clock out</Text></Pressable> : null}
       </View>
     </View>
   )
@@ -317,7 +351,7 @@ function EarningsScreen() {
     <ScrollView style={styles.screen} contentContainerStyle={styles.scrollContent} refreshControl={<RefreshControl refreshing={loading} onRefresh={refresh} tintColor={ACCENT} />}>
       <View style={styles.earningsHero}><Text style={styles.earningsLabel}>ESTIMATED SHIFT EARNINGS</Text><Text style={styles.earningsValue}>{money(total)}</Text><Text style={styles.earningsMeta}>{completed.length} completed shifts · {hours.toFixed(1)} hours</Text></View>
       <View style={styles.statGrid}><Stat label="Average shift" value={completed.length ? money(total / completed.length) : '£0.00'} icon="trending-up-outline" /><Stat label="Average rate" value={hours ? `${money(total / hours)}/hr` : '£0.00/hr'} icon="speedometer-outline" /></View>
-      <View style={styles.infoBanner}><Ionicons name="information-circle-outline" size={19} color={palette.brandDark} /><Text style={styles.infoText}>Final invoice and payment amounts may differ from estimates after recorded hours and platform fees are applied.</Text></View>
+      <View style={styles.infoBanner}><Ionicons name="information-circle-outline" size={19} color={palette.brandDark} /><Text style={styles.infoText}>Amounts use the booked hours at the agreed rate. The pharmacy pays you directly, so send them your invoice. Weekly timesheets are on the website under Timesheets.</Text></View>
       <Text style={styles.sectionTitle}>Completed work</Text>
       {completed.length === 0 ? <EmptyState icon="receipt-outline" title="No completed shifts" text="Your earnings history will build as shifts are completed." /> : null}
       {completed.map((booking) => booking.shift ? <View key={booking.id} style={styles.earningRow}><View style={styles.earningIcon}><Ionicons name="checkmark" size={18} color={palette.success} /></View><View style={styles.eventCopy}><Text style={styles.eventOrg}>{booking.shift.org_name}</Text><Text style={styles.metaText}>{dateLabel(booking.shift.date)} · {shiftHours(booking.shift).toFixed(1)}h</Text></View><Text style={styles.earningAmount}>{money(shiftTotal(booking.shift))}</Text></View> : null)}
@@ -330,7 +364,7 @@ function ScreenHeader({ title, subtitle, loading, onRefresh }: { title: string; 
 }
 
 function FilterChip({ label, active, onPress, icon }: { label: string; active: boolean; onPress: () => void; icon?: keyof typeof Ionicons.glyphMap }) {
-  return <Pressable onPress={onPress} style={[styles.filterChip, active && styles.filterChipActive]}>{icon ? <Ionicons name={icon} size={15} color={active ? ACCENT : palette.textMuted} /> : null}<Text style={[styles.filterText, active && styles.filterTextActive]}>{label}</Text></Pressable>
+  return <Pressable onPress={onPress} style={[styles.filterChip, active && styles.filterChipActive]}>{icon ? <Ionicons name={icon} size={15} color={active ? palette.brand : palette.textMuted} /> : null}<Text style={[styles.filterText, active && styles.filterTextActive]}>{label}</Text></Pressable>
 }
 
 function SegmentedControl({ options, value, onChange }: { options: string[]; value: string; onChange: (value: string) => void }) {
@@ -362,7 +396,7 @@ function LoadingState() {
 }
 
 function EmptyState({ icon, title, text }: { icon: keyof typeof Ionicons.glyphMap; title: string; text: string }) {
-  return <View style={styles.empty}><View style={styles.emptyIcon}><Ionicons name={icon} size={25} color={ACCENT} /></View><Text style={styles.emptyTitle}>{title}</Text><Text style={styles.emptyText}>{text}</Text></View>
+  return <SharedEmptyState icon={icon} title={title} text={text} color={ACCENT} />
 }
 
 const calendarTheme = {
@@ -385,24 +419,27 @@ export const locumScreens: Record<string, ComponentType> = {
   calendar: CalendarScreen,
   bookings: BookingsScreen,
   earnings: EarningsScreen,
+  profile: LocumProfileScreen,
 }
 
 const styles = StyleSheet.create({
   screen: { flex: 1 },
+  alertButton: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 10, paddingVertical: 6, borderRadius: radius.pill, backgroundColor: ACCENT_TINT, marginLeft: 'auto', marginRight: 8 },
+  alertButtonText: { color: ACCENT, fontWeight: '700', fontSize: 13 },
   scrollContent: { paddingBottom: 28, gap: 12 },
-  hero: { backgroundColor: '#17142B', borderRadius: radius.lg, padding: 18, flexDirection: 'row', alignItems: 'center', marginBottom: 2 },
+  hero: { backgroundColor: palette.brand, borderRadius: radius.lg, padding: 18, flexDirection: 'row', alignItems: 'center', marginBottom: 2 },
   heroCopy: { flex: 1 },
-  eyebrow: { color: '#C4B5FD', fontSize: 10, fontWeight: '800', letterSpacing: 0 },
+  eyebrow: { color: 'rgba(255,255,255,0.82)', fontSize: 10, fontWeight: '800', letterSpacing: 0 },
   heroTitle: { color: '#FFFFFF', fontSize: 24, fontWeight: '800', marginTop: 5 },
-  heroText: { color: '#C7C4D7', fontSize: 13, marginTop: 4 },
+  heroText: { color: 'rgba(255,255,255,0.82)', fontSize: 13, marginTop: 4 },
   heroIcon: { width: 48, height: 48, borderRadius: radius.md, backgroundColor: '#EEE9FF', alignItems: 'center', justifyContent: 'center' },
   searchBox: { height: 48, borderRadius: radius.md, backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.border, paddingHorizontal: 13, flexDirection: 'row', alignItems: 'center', gap: 9 },
   searchInput: { flex: 1, color: palette.text, fontSize: 15, paddingVertical: 0 },
   filters: { gap: 8, paddingVertical: 2 },
   filterChip: { height: 36, borderRadius: radius.pill, borderWidth: 1, borderColor: palette.border, backgroundColor: palette.surface, paddingHorizontal: 12, flexDirection: 'row', gap: 5, alignItems: 'center' },
-  filterChipActive: { borderColor: '#C4B5FD', backgroundColor: ACCENT_TINT },
+  filterChipActive: { borderColor: palette.brand, backgroundColor: palette.brandTint },
   filterText: { color: palette.textMuted, fontSize: 12, fontWeight: '700' },
-  filterTextActive: { color: ACCENT },
+  filterTextActive: { color: palette.brandDark },
   resultRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 2 },
   sectionTitle: { fontSize: 18, fontWeight: '800', color: palette.text },
   resultCount: { color: palette.textMuted, fontSize: 12, fontWeight: '600' },
@@ -440,7 +477,7 @@ const styles = StyleSheet.create({
   requirementText: { color: palette.textMuted, fontSize: 12, flex: 1 },
   cardActions: { borderTopWidth: 1, borderTopColor: palette.border, padding: 10, flexDirection: 'row', gap: 8 },
   iconAction: { width: 42, height: 40, borderRadius: radius.sm, backgroundColor: '#F1F5F9', alignItems: 'center', justifyContent: 'center' },
-  primaryAction: { height: 40, borderRadius: radius.sm, backgroundColor: ACCENT, flex: 1, flexDirection: 'row', gap: 7, alignItems: 'center', justifyContent: 'center' },
+  primaryAction: { height: 40, borderRadius: radius.sm, backgroundColor: palette.brand, flex: 1, flexDirection: 'row', gap: 7, alignItems: 'center', justifyContent: 'center' },
   actionDisabled: { backgroundColor: '#A8A3B3' },
   primaryActionText: { color: palette.textInverse, fontSize: 13, fontWeight: '800' },
   calendarHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingBottom: 12 },
@@ -474,10 +511,10 @@ const styles = StyleSheet.create({
   secondaryActionText: { color: palette.textMuted, fontSize: 12, fontWeight: '700' },
   clockButton: { height: 38, borderRadius: radius.sm, backgroundColor: palette.success, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center', gap: 6 },
   clockButtonText: { color: palette.textInverse, fontSize: 12, fontWeight: '800' },
-  earningsHero: { backgroundColor: '#17142B', borderRadius: radius.lg, padding: 20 },
-  earningsLabel: { color: '#C4B5FD', fontSize: 10, fontWeight: '800' },
+  earningsHero: { backgroundColor: palette.brand, borderRadius: radius.lg, padding: 20 },
+  earningsLabel: { color: 'rgba(255,255,255,0.82)', fontSize: 10, fontWeight: '800' },
   earningsValue: { color: '#FFFFFF', fontSize: 36, fontWeight: '800', marginTop: 5 },
-  earningsMeta: { color: '#C7C4D7', fontSize: 12, marginTop: 3 },
+  earningsMeta: { color: 'rgba(255,255,255,0.82)', fontSize: 12, marginTop: 3 },
   statGrid: { flexDirection: 'row', gap: 10 },
   stat: { flex: 1, minHeight: 112, backgroundColor: palette.surface, borderRadius: radius.md, borderWidth: 1, borderColor: palette.border, padding: 13 },
   statIcon: { width: 32, height: 32, borderRadius: radius.sm, backgroundColor: ACCENT_TINT, alignItems: 'center', justifyContent: 'center' },

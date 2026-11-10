@@ -9,9 +9,12 @@ import { UserLoginPage } from './pages/auth/UserLoginPage'
 import { ForgotPasswordPage } from './pages/auth/ForgotPasswordPage'
 import { ResetPasswordPage } from './pages/auth/ResetPasswordPage'
 import { PersonalLoginPage } from './pages/auth/PersonalLoginPage'
+import { PersonalSignupPage } from './pages/auth/PersonalSignupPage'
 import { PersonalProfilePage } from './pages/PersonalProfilePage'
 import { LocumApprovalsPage } from './pages/admin/LocumApprovalsPage'
 import { AnnouncementsPage } from './pages/admin/AnnouncementsPage'
+import { SupportInboxPage } from './pages/admin/SupportInboxPage'
+import { MonitoringPage } from './pages/admin/MonitoringPage'
 import { PrescriberApprovalsPage } from './pages/peps/PrescriberApprovalsPage'
 import { PharmacySignupPage } from './pages/onboarding/PharmacySignupPage'
 import { OwnerSetupPage } from './pages/onboarding/OwnerSetupPage'
@@ -24,6 +27,8 @@ import { CDLedgerPage } from './pages/registers/CDLedgerPage'
 import { RPLogPage } from './pages/registers/RPLogPage'
 import { ReturnsPage } from './pages/registers/ReturnsPage'
 import { SettingsPage } from './pages/SettingsPage'
+import { OversightPage } from './pages/oversight/OversightPage'
+import { ActivityLogPage, PlatformActivityLogPage } from './pages/oversight/ActivityLogPage'
 import { RPCertificatePage } from './pages/public/RPCertificatePage'
 import { ScanQueuePage } from './pages/registers/ScanQueuePage'
 // Expansion — Services
@@ -110,8 +115,12 @@ import { ContactPage } from './pages/public/ContactPage'
 import { PublicPharmacyMapPage } from './pages/public/PublicPharmacyMapPage'
 import { PrivacyNoticePage } from './pages/public/PrivacyNoticePage'
 import { LandingPage } from './pages/public/LandingPage'
+import { PatientHubPage } from './pages/public/PatientHubPage'
+import { PublicShopProductPage } from './pages/public/PublicShopProductPage'
 import { ModernShopHomePage } from './pages/public/ModernShopHomePage'
 import { ShopPaymentResultPage } from './pages/public/ShopPaymentResultPage'
+import { ShopOrderTrackingPage } from './pages/public/ShopOrderTrackingPage'
+import { ShopTermsPage } from './pages/public/ShopTermsPage'
 import { PublicShopOrgPage } from './pages/public/PublicShopOrgPage'
 import { ShopProductsPage } from './pages/shop/ShopProductsPage'
 import { ShopOrdersPage } from './pages/shop/ShopOrdersPage'
@@ -134,6 +143,7 @@ import { LocumShiftsBrowsePage } from './pages/locum/LocumShiftsBrowsePage'
 import { LocumBookingsPage } from './pages/locum/LocumBookingsPage'
 import { LocumProfilePage } from './pages/locum/LocumProfilePage'
 import { LocumInvoicesPage } from './pages/locum/LocumInvoicesPage'
+import { LocumTimesheetsPage } from './pages/locum/LocumTimesheetsPage'
 import { LocumSOPsPage } from './pages/locum/LocumSOPsPage'
 // PEPS — Private Electronic Prescription Service
 import { PEPSQueuePage } from './pages/peps/PEPSQueuePage'
@@ -150,6 +160,7 @@ import { ShiftDetailPage } from './pages/shifts/ShiftDetailPage'
 import { ShiftLocumDirectoryPage } from './pages/shifts/ShiftLocumDirectoryPage'
 import { ShiftSOPsPage } from './pages/shifts/ShiftSOPsPage'
 import { ShiftPaymentsPage } from './pages/shifts/ShiftPaymentsPage'
+import { ShiftTimesheetsPage } from './pages/shifts/ShiftTimesheetsPage'
 // Care home management
 import { CareHomeDashboardPage } from './pages/care-homes/CareHomeDashboardPage'
 import { CareHomeManagePage } from './pages/care-homes/CareHomeManagePage'
@@ -160,6 +171,13 @@ import { CareHomeResidentPage } from './pages/care-homes/CareHomeResidentPage'
 import { CareHomeMarChartPage } from './pages/care-homes/CareHomeMarChartPage'
 import { CareHomeSupplyBatchPage } from './pages/care-homes/CareHomeSupplyBatchPage'
 import { CareHomePrescriptionRequestPage } from './pages/care-homes/CareHomePrescriptionRequestPage'
+import { CareHomeGuard } from './pages/care-homes/CareHomeGuard'
+
+/** Care home logins have no pharmacy dashboard; send them to their workspace. */
+function HomeRoute() {
+  const organisationType = useAuthStore((s) => s.organisation?.organisation_type)
+  return organisationType === 'carehome' ? <Navigate to="/care-homes" replace /> : <DashboardPage />
+}
 // Pharmacy outreach CRM
 import { PharmacyOutreachPage } from './pages/outreach/PharmacyOutreachPage'
 
@@ -195,6 +213,7 @@ export function App() {
       {/* Public routes — no auth required */}
       {/* Visitors who aren't signed in to a pharmacy get the landing page at "/" instead of the login redirect */}
       {!isOrgLoggedIn && <Route path="/" element={<LandingPage />} />}
+      <Route path="/pharmacies" element={<PatientHubPage />} />
       <Route path="/rp" element={<RPCertificatePage />} />
       <Route path="/maps" element={<PublicPharmacyMapPage />} />
       <Route path="/consult/:consultationId" element={<PatientVideoPage />} />
@@ -205,8 +224,12 @@ export function App() {
       <Route path="/book/:orgSlug/payment-result" element={<PaymentResultPage />} />
       <Route path="/booking/manage/:token" element={<ManageBookingPage />} />
       <Route path="/shop" element={<ModernShopHomePage />} />
+      <Route path="/shop/order" element={<ShopOrderTrackingPage />} />
+      <Route path="/shop/order/:orderNumber" element={<ShopOrderTrackingPage />} />
+      <Route path="/shop/terms" element={<ShopTermsPage />} />
       <Route path="/shop/:orgSlug" element={<PublicShopOrgPage />} />
       <Route path="/shop/:orgSlug/payment-result" element={<ShopPaymentResultPage />} />
+      <Route path="/shop/:orgSlug/:productSlug" element={<PublicShopProductPage />} />
       <Route path="/about" element={<AboutPage />} />
       <Route path="/contact" element={<ContactPage />} />
       <Route path="/privacy" element={<PrivacyNoticePage />} />
@@ -247,6 +270,7 @@ export function App() {
         <Route path="/locum/bookings" element={<LocumBookingsPage />} />
         <Route path="/locum/profile" element={<LocumProfilePage />} />
         <Route path="/locum/invoices" element={<LocumInvoicesPage />} />
+        <Route path="/locum/timesheets" element={<LocumTimesheetsPage />} />
         <Route path="/locum/sops" element={<LocumSOPsPage />} />
       </Route>
 
@@ -288,7 +312,11 @@ export function App() {
         {/* Personal (individual-tier) login — bypasses org entirely */}
         <Route
           path="/me/login"
-          element={isUserLoggedIn ? <Navigate to="/me" replace /> : <PersonalLoginPage />}
+          element={isUserLoggedIn ? <Navigate to={locumProfile ? '/locum/dashboard' : '/me'} replace /> : <PersonalLoginPage />}
+        />
+        <Route
+          path="/me/signup"
+          element={isUserLoggedIn ? <Navigate to="/me" replace /> : <PersonalSignupPage />}
         />
       </Route>
 
@@ -304,6 +332,18 @@ export function App() {
       <Route
         path="/me/admin/locums"
         element={isUserLoggedIn ? <LocumApprovalsPage /> : <Navigate to="/me/login" replace />}
+      />
+      <Route
+        path="/me/admin/support"
+        element={isUserLoggedIn ? <SupportInboxPage /> : <Navigate to="/me/login" replace />}
+      />
+      <Route
+        path="/me/admin/activity"
+        element={isUserLoggedIn ? <PlatformActivityLogPage /> : <Navigate to="/me/login" replace />}
+      />
+      <Route
+        path="/me/admin/monitoring"
+        element={isUserLoggedIn ? <MonitoringPage /> : <Navigate to="/me/login" replace />}
       />
       <Route
         path="/me/admin/announcements"
@@ -340,13 +380,15 @@ export function App() {
           )
         }
       >
-        <Route path="/" element={<DashboardPage />} />
+        <Route path="/" element={<HomeRoute />} />
         <Route path="/registers" element={<RegistersPage />} />
         <Route path="/registers/cd" element={<CDRegisterPage />} />
         <Route path="/registers/cd/:drugId" element={<CDLedgerPage />} />
         <Route path="/registers/scan" element={<ScanQueuePage />} />
         <Route path="/registers/rp" element={<RPLogPage />} />
         <Route path="/registers/returns" element={<ReturnsPage />} />
+        <Route path="/oversight" element={<OversightPage />} />
+        <Route path="/oversight/activity" element={<ActivityLogPage />} />
         <Route path="/settings" element={<SettingsPage />} />
         <Route path="/outreach" element={<PharmacyOutreachPage />} />
         <Route path="/patient-safety" element={<PatientSafetyPage />} />
@@ -456,9 +498,11 @@ export function App() {
         <Route path="/shifts/locums" element={<ShiftLocumDirectoryPage />} />
         <Route path="/shifts/sops" element={<ShiftSOPsPage />} />
         <Route path="/shifts/payments" element={<ShiftPaymentsPage />} />
+        <Route path="/shifts/timesheets" element={<ShiftTimesheetsPage />} />
         <Route path="/shifts/:id" element={<ShiftDetailPage />} />
 
         {/* Care home management */}
+        <Route element={<CareHomeGuard />}>
         <Route path="/care-homes" element={<CareHomeDashboardPage />} />
         <Route path="/care-homes/manage" element={<CareHomeManagePage />} />
         <Route path="/care-homes/manage/:linkId" element={<CareHomeManagePage />} />
@@ -470,6 +514,7 @@ export function App() {
         <Route path="/care-homes/:linkId/supplies/:batchId" element={<CareHomeSupplyBatchPage />} />
         <Route path="/care-homes/supplies/:batchId" element={<CareHomeSupplyBatchPage />} />
         <Route path="/care-homes/:linkId/prescriptions/:requestId" element={<CareHomePrescriptionRequestPage />} />
+        </Route>
       </Route>
 
       {/* Catch all */}

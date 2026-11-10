@@ -15,7 +15,7 @@ import type {
   BalanceCheckItem,
   BalanceCheckStatus,
 } from '@pharmstation/types'
-import { ukToday } from '@pharmstation/types'
+import { cdQty, ukToday } from '@pharmstation/types'
 import { Modal } from '../Modal'
 
 // ============================================
@@ -602,7 +602,7 @@ export function BalanceCheckModal({ isOpen, onClose }: BalanceCheckModalProps) {
   // Render
   // ============================================
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="📋 CD Balance Check" width="960px">
+    <Modal isOpen={isOpen} onClose={onClose} title="CD Balance Check" width="960px">
       <div className="bc-modal">
         {loading ? (
           <p style={{ color: 'var(--ps-slate)' }}>Loading registers...</p>
@@ -616,10 +616,10 @@ export function BalanceCheckModal({ isOpen, onClose }: BalanceCheckModalProps) {
 
             <div className="bc-landing-actions">
               <button className="ps-btn ps-btn-primary bc-start-btn" onClick={startSession}>
-                ✅ Start New Balance Check
+                Start New Balance Check
               </button>
               <button className="ps-btn ps-btn-ghost" onClick={handlePrint}>
-                🖨️ Print Check List
+                Print Check List
               </button>
               {pastSessions.some((s) => s.status === 'in_progress') && (
                 <button
@@ -642,7 +642,7 @@ export function BalanceCheckModal({ isOpen, onClose }: BalanceCheckModalProps) {
                   className="bc-history-toggle"
                   onClick={() => setShowHistory(!showHistory)}
                 >
-                  📜 Past Balance Checks ({pastSessions.length})
+                  Past Balance Checks ({pastSessions.length})
                   <span>{showHistory ? '▲' : '▼'}</span>
                 </button>
               </div>
@@ -659,7 +659,7 @@ export function BalanceCheckModal({ isOpen, onClose }: BalanceCheckModalProps) {
                     <div key={r.drug_id} className="bc-preview-item">
                       <span className="bc-preview-name">{r.drug_brand}</span>
                       <span className="bc-preview-detail">
-                        {r.drug_strength} — Bal: {r.ledger?.current_balance ?? 0}
+                        {r.drug_strength} — Bal: {cdQty(r.ledger?.current_balance ?? 0, r.drug_form)}
                       </span>
                     </div>
                   ))}
@@ -753,7 +753,7 @@ export function BalanceCheckModal({ isOpen, onClose }: BalanceCheckModalProps) {
                 </div>
                 <div style={{ marginLeft: 'auto', display: 'flex', gap: '8px' }}>
                   <button className="ps-btn ps-btn-ghost ps-btn-sm" onClick={handlePrint}>
-                    🖨️ Print
+                    Print
                   </button>
                   {(() => {
                     const pendingWithCounts = registers.filter((r) => {
@@ -772,8 +772,8 @@ export function BalanceCheckModal({ isOpen, onClose }: BalanceCheckModalProps) {
                         {completing
                           ? `Processing ${pendingWithCounts} items...`
                           : pendingWithCounts > 0
-                          ? `✅ Complete Check (${pendingWithCounts}/${totalPending + (sessionStats?.checked ?? 0)} entered)`
-                          : '✅ Complete Check'}
+                          ? `Complete Check (${pendingWithCounts}/${totalPending + (sessionStats?.checked ?? 0)} entered)`
+                          : 'Complete Check'}
                       </button>
                     )
                   })()}
@@ -826,7 +826,7 @@ export function BalanceCheckModal({ isOpen, onClose }: BalanceCheckModalProps) {
                 onClick={() => setSortBy(sortBy === 'name' ? 'lastCheck' : 'name')}
                 title={sortBy === 'name' ? 'Sort by last check' : 'Sort by name'}
               >
-                {sortBy === 'name' ? '🔤 Name' : '🕐 Last Check'}
+                {sortBy === 'name' ? 'Name' : 'Last Check'}
               </button>
             </div>
 
@@ -994,7 +994,7 @@ function BalanceCheckRow({
       case 'adjusted':
         return <span className="ps-badge ps-badge-amber">↕ Adjusted</span>
       case 'pending_reconciliation':
-        return <span className="ps-badge ps-badge-red">⏳ Pending</span>
+        return <span className="ps-badge ps-badge-red">Pending</span>
       default:
         return <span className="ps-badge">—</span>
     }
@@ -1026,7 +1026,7 @@ function BalanceCheckRow({
         </td>
         <td className="bc-col-num">
           <strong style={{ fontFamily: 'var(--ps-font-mono)' }}>
-            {item.expected_balance}
+            {cdQty(item.expected_balance, register.drug_form)}
           </strong>
         </td>
         <td className="bc-col-num">
@@ -1097,7 +1097,7 @@ function BalanceCheckRow({
           <td colSpan={6}>
             <div className="bc-adjustment">
               <span className="bc-adjustment-label">
-                {isLiquid ? '💧 Liquid adjustment:' : '⚠️ Discrepancy adjustment:'}
+                {isLiquid ? 'Liquid adjustment:' : '⚠️ Discrepancy adjustment:'}
               </span>
               <input
                 type="number"

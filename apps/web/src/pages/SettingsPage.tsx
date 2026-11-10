@@ -10,6 +10,8 @@ import { GeneralSettingsTab } from './settings/GeneralSettingsTab'
 import { AppointmentSettingsTab } from './settings/AppointmentSettingsTab'
 import { SignInActivityCard } from '../components/account/SignInActivityCard'
 import { canManageBilling } from '../lib/billing'
+import { PageHeader } from '../components/ui'
+import { Circle, CircleCheck } from 'lucide-react'
 
 type Tab = 'general' | 'team' | 'ai' | 'messaging' | 'alerts' | 'appointments' | 'nhs' | 'payments' | 'billing'
 
@@ -23,26 +25,27 @@ export function SettingsPage() {
 
   return (
     <div>
-      <div className="page-header">
-        <h1>⚙ Settings</h1>
-      </div>
+      <PageHeader title="Settings" subtitle="Pharmacy details, your team, messaging, bookings and billing." />
 
       {/* Tab bar */}
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--ps-space-sm)', marginBottom: 'var(--ps-space-lg)', borderBottom: '2px solid var(--ps-mist)', paddingBottom: 'var(--ps-space-sm)' }}>
+      <div className="ps-tabs" role="tablist" aria-label="Settings sections">
         {([
           { key: 'general' as Tab, label: 'General' },
-          { key: 'team' as Tab, label: '👥 Team' },
-          { key: 'ai' as Tab, label: '✨ AI' },
-          { key: 'messaging' as Tab, label: '📨 Messaging' },
-          { key: 'alerts' as Tab, label: '🔔 Alerts' },
-          { key: 'appointments' as Tab, label: '📅 Bookings' },
-          { key: 'nhs' as Tab, label: '🏥 NHS' },
-          { key: 'payments' as Tab, label: '💳 Payments' },
-          { key: 'billing' as Tab, label: '⭐ Plan & billing' },
+          { key: 'team' as Tab, label: 'Team' },
+          { key: 'ai' as Tab, label: 'AI' },
+          { key: 'messaging' as Tab, label: 'Messaging' },
+          { key: 'alerts' as Tab, label: 'Alerts' },
+          { key: 'appointments' as Tab, label: 'Bookings' },
+          { key: 'nhs' as Tab, label: 'NHS' },
+          { key: 'payments' as Tab, label: 'Payments' },
+          { key: 'billing' as Tab, label: 'Plan & billing' },
         ]).map((t) => (
           <button
             key={t.key}
-            className={`ps-btn ${tab === t.key ? 'ps-btn-primary' : 'ps-btn-ghost'}`}
+            type="button"
+            role="tab"
+            aria-selected={tab === t.key}
+            className={`ps-tab${tab === t.key ? ' active' : ''}`}
             onClick={() => setTab(t.key)}
           >
             {t.label}
@@ -281,9 +284,9 @@ function PaymentsSettingsTab() {
 
   const badge = (s: ConnectStatus['status']) => {
     switch (s) {
-      case 'active': return <span className="ps-badge ps-badge-green">✅ Active — payments route to your bank</span>
-      case 'pending': return <span className="ps-badge ps-badge-amber">⏳ Pending — verification in progress</span>
-      case 'restricted': return <span className="ps-badge ps-badge-red">⚠️ Restricted — action needed</span>
+      case 'active': return <span className="ps-badge ps-badge-green">Active: payments go to your bank</span>
+      case 'pending': return <span className="ps-badge ps-badge-amber">Pending: Stripe is checking your details</span>
+      case 'restricted': return <span className="ps-badge ps-badge-red">Restricted: action needed</span>
       default: return <span className="ps-badge">Not set up</span>
     }
   }
@@ -322,17 +325,18 @@ function PaymentsSettingsTab() {
                   disabled={starting || !canManage}
                   title={canManage ? undefined : 'Only the pharmacy owner, or staff they give billing access, can set up payouts.'}
                 >
-                  {starting ? 'Redirecting to Stripe…' : status?.status === 'not_onboarded' ? '🚀 Set up payments' : '▶ Continue setup'}
+                  {starting ? 'Redirecting to Stripe…' : status?.status === 'not_onboarded' ? 'Set up payments' : 'Continue setup'}
                 </button>
               )}
               <button className="ps-btn ps-btn-secondary" onClick={fetchStatus} disabled={loading}>
-                🔄 Refresh status
+                Refresh status
               </button>
             </div>
 
             {!canManage && status?.status !== 'active' && (
               <p style={{ color: 'var(--ps-slate)', fontSize: 'var(--ps-font-sm)', marginTop: 'var(--ps-space-md)', marginBottom: 0 }}>
-                Only the pharmacy owner, or staff they give billing access, can set up payouts. Sign in with your own staff account to do it.
+                Only the pharmacy owner, or staff they give billing access, can set up payouts.
+                {!membership && ' Sign in with your own staff account to do it.'}
               </p>
             )}
 
@@ -462,7 +466,7 @@ function NHSSettingsTab() {
               />
               <div>
                 <div style={{ fontWeight: 600, textTransform: 'capitalize' }}>
-                  {env === 'staging' ? '🧪 Staging' : '🚀 Production'}
+                  {env === 'staging' ? 'Staging' : 'Production'}
                 </div>
                 <div style={{ fontSize: '0.8rem', color: 'var(--ps-slate)' }}>
                   {env === 'staging'
@@ -498,7 +502,7 @@ function NHSSettingsTab() {
           <span style={{ fontWeight: 600 }}>
             {settings.ipWhitelistRegistered
               ? '✓ IP address registered with NHSBSA'
-              : '⏳ Pending — IP registration with NHSBSA is not yet confirmed'}
+              : 'Pending — IP registration with NHSBSA is not yet confirmed'}
           </span>
         </div>
       </div>
@@ -516,7 +520,7 @@ function NHSSettingsTab() {
           ].map((item, i) => (
             <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 'var(--ps-space-sm)', fontSize: '0.9rem' }}>
               <span style={{ color: item.done ? 'var(--ps-success)' : 'var(--ps-slate)', fontSize: '1.1rem' }}>
-                {item.done ? '✅' : '⬜'}
+                {item.done ? <CircleCheck size={18} aria-label="Done" /> : <Circle size={18} aria-label="Not done" />}
               </span>
               <span style={{ color: item.done ? 'var(--ps-midnight)' : 'var(--ps-slate)' }}>{item.label}</span>
             </div>

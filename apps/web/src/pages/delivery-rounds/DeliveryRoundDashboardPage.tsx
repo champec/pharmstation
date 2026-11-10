@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuthStore, useDeliveryRoundStore } from '@pharmstation/core'
 import type { DeliveryRound, DeliveryRoundStatus } from '@pharmstation/types'
+import { Truck } from 'lucide-react'
 
 // Kanban columns mapped onto the delivery-round lifecycle, mirroring the
 // care-home groups board so the two modules feel like one system.
@@ -32,6 +33,18 @@ function formatDate(value: string | null) {
     : 'No date set'
 }
 
+function todayIso() {
+  const d = new Date()
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
+/** A round is overdue when its date has passed and it is not finished. */
+function isOverdue(round: DeliveryRound) {
+  return !!round.scheduled_date
+    && ['draft', 'scheduled', 'in_progress'].includes(round.status)
+    && round.scheduled_date < todayIso()
+}
+
 function formatTime(value: string | null) {
   return value ? value.slice(0, 5) : ''
 }
@@ -39,7 +52,7 @@ function formatTime(value: string | null) {
 export function DeliveryRoundDashboardPage() {
   const navigate = useNavigate()
   const { organisation } = useAuthStore()
-  const { rounds, redeliveryQueue, loading, error, fetchRounds, fetchRedeliveryQueue, clearError } = useDeliveryRoundStore()
+  const { rounds, redeliveryQueue, availableDrivers, loading, error, fetchRounds, fetchRedeliveryQueue, fetchAvailableDrivers, clearError } = useDeliveryRoundStore()
 
   const [search, setSearch] = useState('')
   const [showCompleted, setShowCompleted] = useState(false)
@@ -48,7 +61,8 @@ export function DeliveryRoundDashboardPage() {
     if (!organisation?.id) return
     fetchRounds(organisation.id)
     fetchRedeliveryQueue(organisation.id)
-  }, [organisation?.id, fetchRounds, fetchRedeliveryQueue])
+    fetchAvailableDrivers(organisation.id)
+  }, [organisation?.id, fetchRounds, fetchRedeliveryQueue, fetchAvailableDrivers])
 
   useEffect(() => { load() }, [load])
 
@@ -60,12 +74,17 @@ export function DeliveryRoundDashboardPage() {
         (round.title && round.title.toLowerCase().includes(q)) || round.id.includes(q),
       )
     }
+    if (!showCompleted) list = list.filter((round) => round.status !== 'completed')
     return list
-  }, [rounds, search])
+  }, [rounds, search, showCompleted])
+
+  const overdueCount = visibleRounds.filter(isOverdue).length
 
   const renderCard = (round: DeliveryRound) => {
     const patientCount = round.patients?.length ?? 0
-    const driverName = (round.driver as { user_profile?: { full_name?: string } } | null)?.user_profile?.full_name
+    const driverName = round.driver_id
+      ? (availableDrivers.find((d) => d.id === round.driver_id)?.full_name ?? 'assigned')
+      : null
     return (
       <button
         key={round.id}
@@ -83,12 +102,13 @@ export function DeliveryRoundDashboardPage() {
           <span>{patientCount} patient{patientCount === 1 ? '' : 's'}</span>
           {round.care_home_batch_id && <span>Care home</span>}
         </div>
-        <small className="care-home-group-card-batch">
+        <small className="care-home-group-card-batch" style={isOverdue(round) ? { color: 'var(--ps-error)', fontWeight: 600 } : undefined}>
+          {isOverdue(round) && 'Overdue · '}
           {formatDate(round.scheduled_date)}
           {round.scheduled_time_start && ` · ${formatTime(round.scheduled_time_start)}`}
           {round.scheduled_time_end && `–${formatTime(round.scheduled_time_end)}`}
         </small>
-        {driverName && <small className="care-home-group-card-time">🚗 {driverName}</small>}
+        <small className="care-home-group-card-time">{driverName ? `Driver: ${driverName}` : 'No driver yet'}</small>
       </button>
     )
   }
@@ -112,7 +132,7 @@ export function DeliveryRoundDashboardPage() {
           <div className="care-home-header-actions care-home-no-print">
             {redeliveryQueue.length > 0 && (
               <button className="ps-btn ps-btn-secondary" type="button" onClick={() => navigate('/deliveries/redelivery')}>
-                ⚠️ Redelivery queue ({redeliveryQueue.length})
+                Redelivery queue ({redeliveryQueue.length})
               </button>
             )}
             <button className="ps-btn ps-btn-secondary" type="button" onClick={() => navigate('/deliveries/templates')}>
@@ -144,14 +164,17 @@ export function DeliveryRoundDashboardPage() {
           <input type="checkbox" checked={showCompleted} onChange={(e) => setShowCompleted(e.target.checked)} />
           Show completed
         </label>
-        <span className="care-home-filter-count">{visibleRounds.length} active</span>
+        <span className="care-home-filter-count">
+          {visibleRounds.length} {showCompleted ? 'shown' : 'active'}
+          {overdueCount > 0 && <strong style={{ color: 'var(--ps-error)', marginLeft: 8 }}>{overdueCount} overdue</strong>}
+        </span>
       </div>
 
       {loading && rounds.length === 0 ? (
         <div className="care-home-loading">Loading deliveries...</div>
       ) : rounds.length === 0 ? (
         <section className="care-home-empty">
-          <p className="care-home-empty-mark" aria-hidden="true">🚚</p>
+          <span className="ps-empty-icon" aria-hidden="true"><Truck size={26} strokeWidth={1.75} /></span>
           <h2>No deliveries yet</h2>
           <p>Create your first delivery to plan a route and pack medicines for your patients.</p>
           <button className="ps-btn ps-btn-primary" type="button" onClick={() => navigate('/deliveries/new')}>+ New delivery</button>

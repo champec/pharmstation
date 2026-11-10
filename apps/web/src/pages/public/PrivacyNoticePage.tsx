@@ -330,9 +330,10 @@ export function PrivacyNoticePage() {
               13. Cookies and analytics
             </h2>
             <p style={{ margin: 0, color: 'var(--ps-slate)' }}>
-              PharmStation uses essential cookies only, required for authentication and session management.
-              We do not use tracking cookies, advertising cookies, or third-party analytics. No personal
-              data is shared with analytics or advertising providers.
+              PharmStation uses essential cookies for sign-in and session management. On patient booking and
+              shop pages we may ask to set one Google Ads cookie, used only to measure whether an advert led
+              to a booking or order. It is off unless you choose Accept. We never share your name, contact
+              details, health answers or the service you booked with advertising providers.
             </p>
           </section>
 

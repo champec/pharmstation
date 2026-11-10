@@ -8,6 +8,7 @@
 // ============================================
 
 import { getUserClient } from '@pharmstation/supabase-client'
+import { ukDate } from '../pages/logs/logUtils'
 import type { RegisterEntry, RegisterLedger, RpAbsence } from '@pharmstation/types'
 
 export interface RpSession {
@@ -92,6 +93,25 @@ export function minutesBetween(from: string, to: string | null | undefined, now 
   return Math.max(0, Math.round((end - new Date(from).getTime()) / 60000))
 }
 
+/** A session left open too long: over 12 hours, or over 8 hours across midnight (UK).
+ *  Mirrors ps_rp_is_stale on the server, which refuses a take over from one. */
+export function isStaleSession(signedInAt: string | null | undefined, now = Date.now()): boolean {
+  if (!signedInAt) return false
+  const mins = minutesBetween(signedInAt, null, now)
+  if (mins > 12 * 60) return true
+  return mins > 8 * 60 && ukDate(new Date(signedInAt)) < ukDate(new Date(now))
+}
+
+/** "Mon 9 Nov, 17:56" style label for when a session started. */
+export function formatSince(ts: string): string {
+  const d = new Date(ts)
+  const sameDay = ukDate(d) === ukDate()
+  const time = d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/London' })
+  if (sameDay) return time
+  const day = d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'Europe/London' })
+  return `${day}, ${time}`
+}
+
 export function formatDuration(minutes: number): string {
   const h = Math.floor(minutes / 60)
   const m = minutes % 60
@@ -102,6 +122,7 @@ export function formatDuration(minutes: number): string {
 /** Database errors turned into plain English. */
 export function rpErrorMessage(err: unknown): string {
   const msg = err instanceof Error ? err.message : typeof err === 'object' && err && 'message' in err ? String((err as { message: unknown }).message) : String(err)
+  if (msg.startsWith('RP_STALE:')) return msg.replace('RP_STALE:', '').trim()
   if (msg.startsWith('RP_ON_DUTY:')) return msg.replace('RP_ON_DUTY:', '').trim() + '.'
   if (msg.includes('CONFLICT')) return 'Someone else updated the RP log at the same moment. Please try again.'
   if (/permission/i.test(msg) && /rp/i.test(msg)) return 'Only pharmacists can sign the RP log.'
@@ -195,34 +216,43 @@ export async function rpLedger(organisationId: string): Promise<RegisterLedger> 
   return data as RegisterLedger
 }
 
-/** A correction to an RP session (or a late record of a session). */
-export async function rpWriteRecord(params: {
-  ledger: RegisterLedger
-  correctsRootId?: string | null
-  reason?: string | null
-  date: string
-  pharmacistName: string
-  gphcNumber: string
+/** A missed session, recorded afterwards in the signed-in pharmacist's own name. */
+export async function rpRecordLate(params: {
+  organisationId: string
+  signedInAt: string
+  signedOutAt: string
+  reason: string
+  notes: string | null
+}): Promise<RegisterEntry> {
+  const { data, error } = await getUserClient().rpc('ps_rp_record_late', {
+    p_organisation_id: params.organisationId,
+    p_signed_in_at: params.signedInAt,
+    p_signed_out_at: params.signedOutAt,
+    p_reason: params.reason,
+    p_notes: params.notes,
+  })
+  if (error) throw new Error(error.message)
+  return data as RegisterEntry
+}
+
+/** A correction to an RP session. The original record is kept. */
+export async function rpCorrect(params: {
+  entryId: string
   signedInAt: string
   signedOutAt: string | null
+  pharmacistName: string
+  gphcNumber: string
   notes: string | null
-  authorisedBy?: string | null
+  reason: string
 }): Promise<RegisterEntry> {
-  const isCorrection = !!params.correctsRootId
-  const { data, error } = await getUserClient().rpc('ps_make_register_entry', {
-    p_ledger_id: params.ledger.id,
-    p_register_type: 'RP',
-    p_entry_type: isCorrection ? 'correction' : 'normal',
-    p_date_of_transaction: params.date,
-    p_notes: params.notes,
-    p_source: 'manual',
-    p_corrects_entry_id: params.correctsRootId ?? null,
-    p_correction_reason: isCorrection ? params.reason : null,
-    p_authorised_by: params.authorisedBy ?? null,
+  const { data, error } = await getUserClient().rpc('ps_rp_correct', {
+    p_entry_id: params.entryId,
+    p_signed_in_at: params.signedInAt,
+    p_signed_out_at: params.signedOutAt,
     p_pharmacist_name: params.pharmacistName,
     p_gphc_number: params.gphcNumber,
-    p_rp_signed_in_at: params.signedInAt,
-    p_rp_signed_out_at: params.signedOutAt,
+    p_notes: params.notes,
+    p_reason: params.reason,
   })
   if (error) throw new Error(error.message)
   return data as RegisterEntry
