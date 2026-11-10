@@ -16,6 +16,7 @@ import { breadcrumbs, pharmacyJsonLd } from '../../seo/structuredData'
 import { confirmDialog } from '../../components/ui/dialog'
 import { AudienceSwitch } from '../../components/public/AudienceSwitch'
 import { slugMap } from '../../lib/publicDirectory'
+import { trackConversion } from '../../lib/adTracking'
 
 const formatPrice = (pence: number) => `£${(pence / 100).toFixed(2)}`
 /** Most of one product a customer can put in the basket: stock, capped by the pharmacy's per-order limit. */
@@ -209,6 +210,7 @@ export function PublicShopOrgPage() {
         window.location.assign(url)
         return
       }
+      trackConversion('purchase', { id: result.order_id })
       setConsultationAnswered(responses.length > 0)
       setConfirmation(result)
       setCheckoutOpen(false)
