@@ -12,6 +12,8 @@ interface NavItem {
   label: string
   /** Extra pathname patterns that should highlight this item (e.g. detail routes). */
   match?: RegExp
+  /** Open in a new browser tab (public pages such as Resources and Help). */
+  newTab?: boolean
 }
 
 interface NavSection {
@@ -138,8 +140,8 @@ const menuSections: NavSection[] = [
     items: [
       { to: '/notes', icon: StickyNote, label: 'Notes' },
       { to: '/sops', icon: BookOpenCheck, label: 'SOPs' },
-      { to: '/resources', icon: FolderOpen, label: 'Resources' },
-      { to: '/contact', icon: LifeBuoy, label: 'Help & support' },
+      { to: '/resources', icon: FolderOpen, label: 'Resources', newTab: true },
+      { to: '/contact', icon: LifeBuoy, label: 'Help & support', newTab: true },
     ],
   },
   {
@@ -356,6 +358,7 @@ export function SideNav() {
                       key={item.to}
                       to={item.to}
                       className={() => `side-nav-item ${item.to === activeTo ? 'active' : ''}`}
+                      {...(item.newTab ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
                     >
                       {(!isExpanded || !section.expandable) && (
                         <span className="side-nav-item-icon"><item.icon size={18} strokeWidth={1.75} aria-hidden="true" /></span>
