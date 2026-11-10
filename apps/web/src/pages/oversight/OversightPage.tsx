@@ -152,7 +152,9 @@ export function OversightPage() {
           <section className="ps-card oversight-activity">
             <div className="oversight-activity-head">
               <h2><Activity size={18} aria-hidden="true" /> Recent activity</h2>
-              <span className="oversight-muted">Last 7 days{data ? ` · updated ${fmtTime(data.generated_at)}` : ''}</span>
+              <span className="oversight-muted">
+                Last 7 days{data ? ` · updated ${fmtTime(data.generated_at)}` : ''} · <Link to="/oversight/activity">Full activity log</Link>
+              </span>
             </div>
             <div className="oversight-chips" role="group" aria-label="Module">
               <button className={`oversight-chip${moduleFilter === 'all' ? ' active' : ''}`} onClick={() => setModuleFilter('all')}>Everything</button>

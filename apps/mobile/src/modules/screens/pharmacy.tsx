@@ -6,11 +6,13 @@ import { cdRegisterScreen } from './cd-register'
 import { HandoverScreen } from './handover'
 import { LogsScreen } from './logs'
 import { OversightScreen } from './oversight'
+import { ActivityLogScreen } from './activity-log'
 import { RpLogScreen } from './rp-log'
 import { TeamScreen } from './team'
 
 export const pharmacyScreens: Record<string, ComponentType> = {
   oversight: OversightScreen,
+  activity: ActivityLogScreen,
   'cd-register': cdRegisterScreen,
   'rp-log': RpLogScreen,
   handover: HandoverScreen,

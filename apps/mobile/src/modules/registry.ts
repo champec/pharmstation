@@ -220,6 +220,13 @@ export const MODULES: MobileModule[] = [
         blurb: 'Alerts and activity across every pharmacy you manage',
       },
       {
+        id: 'activity',
+        title: 'Activity',
+        icon: 'time-outline',
+        visible: (ctx) => has(ctx.permissions, 'view_audit'),
+        blurb: 'Searchable log of who did what, when and where',
+      },
+      {
         id: 'cd-register',
         title: 'CD Register',
         icon: 'lock-closed-outline',

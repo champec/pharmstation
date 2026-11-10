@@ -15188,3 +15188,21 @@ a.modern-shop-product-image, a.modern-shop-product-name { color: var(--ms-ink); 
   .oversight-metrics { grid-template-columns: repeat(2, 1fr); }
   .stats-grid .oversight-stat-sub { display: none; }
 }
+
+/* Activity log (owners / managers, platform admins) */
+.activity-filters { display: flex; flex-wrap: wrap; gap: var(--ps-space-md); padding: var(--ps-space-md); margin-bottom: var(--ps-space-md); border-radius: 12px; }
+.activity-filters label { display: flex; flex-direction: column; gap: 4px; font-size: var(--ps-font-xs); color: var(--ps-slate); min-width: 150px; }
+.activity-filters .activity-search { flex: 1 1 240px; }
+.activity-search-box { position: relative; display: block; }
+.activity-search-box svg { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: var(--ps-slate); }
+.activity-search-box input { padding-left: 32px; width: 100%; }
+.activity-table-wrap { padding: 0; border-radius: 12px; overflow-x: auto; }
+.activity-table { width: 100%; border-collapse: collapse; font-size: var(--ps-font-sm); }
+.activity-table th { text-align: left; font-size: var(--ps-font-xs); color: var(--ps-slate); font-weight: 600; padding: var(--ps-space-sm) var(--ps-space-md); border-bottom: 1px solid var(--ps-mist); white-space: nowrap; }
+.activity-table td { padding: var(--ps-space-sm) var(--ps-space-md); border-bottom: 1px solid var(--ps-off-white); color: var(--ps-midnight); vertical-align: top; }
+.activity-when { white-space: nowrap; color: var(--ps-slate); font-variant-numeric: tabular-nums; }
+.activity-detail { color: var(--ps-slate); min-width: 200px; }
+.activity-foot { display: flex; justify-content: space-between; align-items: center; padding: var(--ps-space-md); }
+@media (max-width: 800px) {
+  .activity-filters label { min-width: calc(50% - var(--ps-space-md)); flex: 1 1 calc(50% - var(--ps-space-md)); }
+}

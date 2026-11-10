@@ -28,6 +28,7 @@ import { RPLogPage } from './pages/registers/RPLogPage'
 import { ReturnsPage } from './pages/registers/ReturnsPage'
 import { SettingsPage } from './pages/SettingsPage'
 import { OversightPage } from './pages/oversight/OversightPage'
+import { ActivityLogPage, PlatformActivityLogPage } from './pages/oversight/ActivityLogPage'
 import { RPCertificatePage } from './pages/public/RPCertificatePage'
 import { ScanQueuePage } from './pages/registers/ScanQueuePage'
 // Expansion — Services
@@ -337,6 +338,10 @@ export function App() {
         element={isUserLoggedIn ? <SupportInboxPage /> : <Navigate to="/me/login" replace />}
       />
       <Route
+        path="/me/admin/activity"
+        element={isUserLoggedIn ? <PlatformActivityLogPage /> : <Navigate to="/me/login" replace />}
+      />
+      <Route
         path="/me/admin/monitoring"
         element={isUserLoggedIn ? <MonitoringPage /> : <Navigate to="/me/login" replace />}
       />
@@ -383,6 +388,7 @@ export function App() {
         <Route path="/registers/rp" element={<RPLogPage />} />
         <Route path="/registers/returns" element={<ReturnsPage />} />
         <Route path="/oversight" element={<OversightPage />} />
+        <Route path="/oversight/activity" element={<ActivityLogPage />} />
         <Route path="/settings" element={<SettingsPage />} />
         <Route path="/outreach" element={<PharmacyOutreachPage />} />
         <Route path="/patient-safety" element={<PatientSafetyPage />} />

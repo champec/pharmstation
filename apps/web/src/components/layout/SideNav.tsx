@@ -27,6 +27,7 @@ const menuSections: NavSection[] = [
     items: [
       { to: '/', icon: LayoutDashboard, label: 'Dashboard' },
       { to: '/oversight', icon: Activity, label: 'Oversight' },
+      { to: '/oversight/activity', icon: History, label: 'Activity log' },
     ],
   },
   {
@@ -244,7 +245,7 @@ export function SideNav() {
   const canOversee = permissions?.view_audit === true && !isCareHomeOrg
   const visibleSections = useMemo(() => menuSections
     .map((section) => section.title === '' && !canOversee
-      ? { ...section, items: section.items.filter((item) => item.to !== '/oversight') }
+      ? { ...section, items: section.items.filter((item) => !item.to.startsWith('/oversight')) }
       : section)
     .filter((section) => {
       if (isCareHomeOrg) return section.title === '' || section.title === 'Care Homes'
