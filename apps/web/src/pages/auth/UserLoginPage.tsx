@@ -132,7 +132,7 @@ export function UserLoginPage() {
                   const until = shiftPassUntil(organisation?.id, staffEmail)
                   return until ? (
                     <span className="saved-staff-hint">
-                      No code needed until {until.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      No code needed until {until.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false })}
                     </span>
                   ) : null
                 })()}
