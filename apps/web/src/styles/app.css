@@ -15147,3 +15147,44 @@ a.patient-shop-store-product-media { text-decoration: none; }
 .patient-shop-store-product-copy h3 a:hover { color: var(--shop-green); text-decoration: underline; }
 a.modern-shop-product-image, a.modern-shop-product-name { color: var(--ms-ink); text-decoration: none; }
 .modern-shop .shop-product-primary { color: #fff; }
+
+/* ============================================
+   Oversight dashboard (owners / managers)
+   ============================================ */
+.oversight-chips { display: flex; gap: var(--ps-space-sm); overflow-x: auto; padding-bottom: var(--ps-space-xs); margin-bottom: var(--ps-space-md); }
+.oversight-chip { flex: 0 0 auto; border: 1px solid var(--ps-mist); background: var(--ps-white); color: var(--ps-midnight); border-radius: 999px; padding: 6px 14px; font-size: var(--ps-font-sm); cursor: pointer; white-space: nowrap; }
+.oversight-chip.active { background: var(--ps-deep-blue); border-color: var(--ps-deep-blue); color: var(--ps-white); }
+.oversight-stat-sub { margin-top: var(--ps-space-xs); font-size: var(--ps-font-xs); color: var(--ps-slate); }
+.oversight-muted { font-size: var(--ps-font-xs); color: var(--ps-slate); }
+.oversight-error { color: var(--ps-error); padding: var(--ps-space-md); margin-bottom: var(--ps-space-md); }
+.oversight-orgs { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: var(--ps-space-md); margin-bottom: var(--ps-space-xl); }
+.oversight-org { padding: var(--ps-space-lg); border-radius: 12px; border-left: 4px solid var(--ps-success); display: flex; flex-direction: column; gap: var(--ps-space-sm); }
+.oversight-org-warning { border-left-color: var(--ps-warning); }
+.oversight-org-error { border-left-color: var(--ps-error); }
+.oversight-org-head { display: flex; justify-content: space-between; align-items: flex-start; gap: var(--ps-space-sm); }
+.oversight-org-head h2 { margin: 0; font-size: var(--ps-font-lg); color: var(--ps-midnight); }
+.oversight-rp { margin: 0; color: var(--ps-midnight); font-size: var(--ps-font-sm); }
+.oversight-metrics { display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--ps-space-sm); margin: 0; }
+.oversight-metrics div { background: var(--ps-off-white); border-radius: 8px; padding: var(--ps-space-sm); }
+.oversight-metrics dt { font-size: 11px; color: var(--ps-slate); line-height: 1.2; }
+.oversight-metrics dd { margin: 2px 0 0; font-weight: 700; color: var(--ps-midnight); }
+.oversight-alerts { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: var(--ps-space-xs); }
+.oversight-alert { display: flex; align-items: center; gap: var(--ps-space-sm); font-size: var(--ps-font-sm); color: var(--ps-midnight); }
+.oversight-alert svg { flex: 0 0 auto; }
+.oversight-alert-warning svg { color: var(--ps-warning); }
+.oversight-alert-error svg { color: var(--ps-error); }
+.oversight-alert-info svg { color: var(--ps-info); }
+.oversight-alert-link { margin-left: auto; font-size: var(--ps-font-xs); color: var(--ps-deep-blue); }
+.oversight-allclear { display: flex; align-items: center; gap: var(--ps-space-sm); margin: 0; font-size: var(--ps-font-sm); color: var(--ps-success); }
+.oversight-activity { padding: var(--ps-space-lg); border-radius: 12px; }
+.oversight-activity-head { display: flex; justify-content: space-between; align-items: baseline; gap: var(--ps-space-sm); flex-wrap: wrap; margin-bottom: var(--ps-space-md); }
+.oversight-activity-head h2 { display: flex; align-items: center; gap: var(--ps-space-sm); margin: 0; font-size: var(--ps-font-lg); }
+.oversight-feed { list-style: none; padding: 0; margin: 0; }
+.oversight-feed li { display: flex; align-items: center; gap: var(--ps-space-sm); padding: var(--ps-space-sm) 0; border-top: 1px solid var(--ps-off-white); font-size: var(--ps-font-sm); flex-wrap: wrap; }
+.oversight-feed-time { width: 96px; flex: 0 0 auto; color: var(--ps-slate); font-variant-numeric: tabular-nums; }
+.oversight-feed-text { flex: 1 1 200px; color: var(--ps-midnight); }
+@media (max-width: 800px) {
+  .oversight-orgs { grid-template-columns: 1fr; }
+  .oversight-metrics { grid-template-columns: repeat(2, 1fr); }
+  .stats-grid .oversight-stat-sub { display: none; }
+}

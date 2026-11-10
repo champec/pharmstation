@@ -5,6 +5,7 @@ import { getUserClient } from '@pharmstation/supabase-client'
 import type { Organisation, Service, AppointmentSlot } from '@pharmstation/types'
 import { orgSlugOrIdFilter } from '../../lib/orgSlugFilter'
 import { PublicFooter } from '../../components/public/PublicFooter'
+import { formatAddress } from '../../lib/publicDirectory'
 import { AudienceSwitch } from '../../components/public/AudienceSwitch'
 import { findBySlug, parseEwkbPoint, slugMap } from '../../lib/publicDirectory'
 import { usePageMeta, useStructuredData } from '../../seo/RouteMeta'
@@ -142,7 +143,7 @@ export function PublicServicePage() {
       <main className="booking-appointment-main">
         <button type="button" className="booking-back" onClick={() => navigate(`/book/${slug}`)}>← Services at {org?.name || 'pharmacy'}</button>
         <section className="booking-appointment-layout">
-          <aside className="booking-service-summary"><span className="booking-eyebrow">Your selection</span><h1>{service?.name}</h1><p>{service?.description}</p><dl><div><dt>Pharmacy</dt><dd>{org?.name}</dd></div><div><dt>Duration</dt><dd>{service?.duration_minutes} minutes</dd></div>{service?.is_chargeable && service.price_pence != null && service.price_pence > 0 && <div><dt>Price</dt><dd>£{(service.price_pence / 100).toFixed(2)} · paid online</dd></div>}</dl></aside>
+          <aside className="booking-service-summary"><span className="booking-eyebrow">Your selection</span><h1>{service?.name}</h1><p>{service?.description}</p><dl><div><dt>Pharmacy</dt><dd>{org?.name}{org?.address ? <><br /><small>{formatAddress(org.address as any)}</small></> : null}{(org as any)?.gphc_premises_number ? <><br /><small>GPhC registered premises {(org as any).gphc_premises_number}</small></> : null}</dd></div><div><dt>Duration</dt><dd>{service?.duration_minutes} minutes</dd></div>{service?.is_chargeable && service.price_pence != null && service.price_pence > 0 && <div><dt>Price</dt><dd>£{(service.price_pence / 100).toFixed(2)} · paid online</dd></div>}</dl></aside>
           <section className="booking-slot-picker">
             <header><span className="booking-eyebrow">Step 2 of 3</span><h2>Choose your appointment</h2><p>Only dates with free times are shown. Choose a date, then a time.</p></header>
             <div className="booking-date-field booking-date-strip">

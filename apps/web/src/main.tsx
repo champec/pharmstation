@@ -5,6 +5,7 @@ import { App } from './App'
 import { RouteMeta } from './seo/RouteMeta'
 import { DialogHost } from './components/ui/dialog'
 import { AppErrorBoundary, RouteTracker } from './components/Monitoring'
+import { AdConsentBanner } from './components/public/AdConsentBanner'
 import { initSupabase } from '@pharmstation/supabase-client'
 import '@pharmstation/ui/src/styles/globals.css'
 import './styles/app.css'
@@ -24,6 +25,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
         <RouteTracker />
         <App />
         <DialogHost />
+        <AdConsentBanner />
       </BrowserRouter>
     </AppErrorBoundary>
   </React.StrictMode>,

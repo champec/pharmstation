@@ -6,6 +6,7 @@ import { usePatientStore } from '@pharmstation/core'
 import type { Organisation, Service, AppointmentSlot, ServiceForm, ServiceFormField } from '@pharmstation/types'
 import { orgSlugOrIdFilter } from '../../lib/orgSlugFilter'
 import { PublicFooter } from '../../components/public/PublicFooter'
+import { trackConversion } from '../../lib/adTracking'
 import { Turnstile, turnstileEnabled } from '../../components/public/Turnstile'
 
 // Anonymous visitors may only read these columns (column grants on ps_organisations).
@@ -148,6 +149,7 @@ export function PublicBookingConfirmPage() {
         return
       }
 
+      trackConversion('booking', { id: booking.appointment_id as string })
       setSubmitted(true)
     } catch (e: any) {
       setError(e.message || 'Failed to create booking.')
