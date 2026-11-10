@@ -215,7 +215,7 @@ export default function UserLoginScreen() {
           <Text style={styles.subtitle}>
             {emailedTo
               ? `We’ve emailed a 6-digit code to ${emailedTo}. It lasts 10 minutes. Entering it turns off two-step sign-in so you can set it up again.`
-              : 'This account has two-step sign-in, so every new sign-in needs a code as well as your password. If this phone holds your code, tap “Use the code on this phone”. Otherwise type the 6-digit code from your authenticator app.'}
+              : 'This account has two-step sign-in, so every new sign-in needs a code as well as your password. If this phone holds your code, tap “Use the code on this phone”. Otherwise type the 6-digit code from Google Authenticator or your other authenticator app.'}
           </Text>
         </View>
         <View style={styles.form}>

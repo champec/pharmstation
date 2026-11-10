@@ -55,6 +55,12 @@ export function initSupabase(config: SupabaseConfig) {
   return { orgClient: _orgClient, userClient: _userClient }
 }
 
+/** The URL and anon key the clients were made with. */
+export function getSupabaseConfig(): SupabaseConfig {
+  if (!_config) throw new Error('Supabase not initialized. Call initSupabase() first.')
+  return _config
+}
+
 let _authRedirectType: string | null = null
 
 /** Remove auth tokens from the URL hash (so they don't sit in history) and
@@ -346,3 +352,4 @@ export * from './mfa'
 
 // Account self-service and sign-in activity
 export * from './account'
+export * from './shift-pass'

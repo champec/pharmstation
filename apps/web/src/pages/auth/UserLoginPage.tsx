@@ -1,7 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuthStore } from '@pharmstation/core'
-import { logAuthEvent, orgNeedsOwner } from '@pharmstation/supabase-client'
+import { logAuthEvent, orgNeedsOwner, shiftPassUntil } from '@pharmstation/supabase-client'
 import { IDLE_SIGNOUT_FLAG } from '../../components/IdleLock'
 import { MfaCodeForm } from '../../components/mfa/MfaCodeForm'
 import { PasswordInput } from '../../components/PasswordInput'
@@ -128,6 +128,14 @@ export function UserLoginPage() {
                 onClick={() => handleStaffSelect(staffEmail)}
               >
                 {staffEmail}
+                {(() => {
+                  const until = shiftPassUntil(organisation?.id, staffEmail)
+                  return until ? (
+                    <span className="saved-staff-hint">
+                      No code needed until {until.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    </span>
+                  ) : null
+                })()}
               </button>
             ))}
           </div>
