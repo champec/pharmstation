@@ -1,3 +1,4 @@
+import '../_shared/monitoring.ts' // platform error tracking (see _shared/monitoring.ts)
 // ============================================
 // PharmStation Edge Function: sms-works
 // All SMS Works (https://thesmsworks.co.uk) outbound SMS interactions.

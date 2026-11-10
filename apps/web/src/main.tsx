@@ -4,6 +4,7 @@ import { BrowserRouter } from 'react-router-dom'
 import { App } from './App'
 import { RouteMeta } from './seo/RouteMeta'
 import { DialogHost } from './components/ui/dialog'
+import { AppErrorBoundary, RouteTracker } from './components/Monitoring'
 import { initSupabase } from '@pharmstation/supabase-client'
 import '@pharmstation/ui/src/styles/globals.css'
 import './styles/app.css'
@@ -17,10 +18,13 @@ initSupabase({
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
-    <BrowserRouter>
-      <RouteMeta />
-      <App />
-      <DialogHost />
-    </BrowserRouter>
+    <AppErrorBoundary>
+      <BrowserRouter>
+        <RouteMeta />
+        <RouteTracker />
+        <App />
+        <DialogHost />
+      </BrowserRouter>
+    </AppErrorBoundary>
   </React.StrictMode>,
 )

@@ -1,3 +1,4 @@
+import '../_shared/monitoring.ts' // platform error tracking (see _shared/monitoring.ts)
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 const DAILY_API_BASE = 'https://api.daily.co/v1'

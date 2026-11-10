@@ -1,3 +1,4 @@
+import '../_shared/monitoring.ts' // platform error tracking (see _shared/monitoring.ts)
 // ============================================================
 // PharmStation Edge Function: stripe-billing
 // Platform subscriptions: pharmacies paying PharmStation for a plan.

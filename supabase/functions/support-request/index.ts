@@ -1,3 +1,4 @@
+import '../_shared/monitoring.ts' // platform error tracking (see _shared/monitoring.ts)
 // ============================================
 // support-request — public contact form and in-app help form
 // Saves a ticket in ps_support_tickets and forwards it by email (Resend)

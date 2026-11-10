@@ -40,8 +40,15 @@ function sitemap(): Plugin {
   }
 }
 
+// Release tag for error reports (Monitoring page): Vercel commit, else build date.
+const release = process.env.VITE_APP_RELEASE
+  || (process.env.VERCEL_GIT_COMMIT_SHA ? `web-${process.env.VERCEL_GIT_COMMIT_SHA.slice(0, 7)}` : `web-${new Date().toISOString().slice(0, 10)}`)
+
 export default defineConfig({
   plugins: [react(), sitemap()],
+  define: {
+    'import.meta.env.VITE_APP_RELEASE': JSON.stringify(release),
+  },
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),

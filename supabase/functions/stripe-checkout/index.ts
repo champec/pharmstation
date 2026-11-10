@@ -1,3 +1,4 @@
+import '../_shared/monitoring.ts' // platform error tracking (see _shared/monitoring.ts)
 // ============================================
 // PharmStation Edge Function: stripe-checkout
 // Creates Stripe Checkout Sessions for patient payments (Phase 1).

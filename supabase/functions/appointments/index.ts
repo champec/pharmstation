@@ -1,3 +1,4 @@
+import '../_shared/monitoring.ts' // platform error tracking (see _shared/monitoring.ts)
 // ============================================
 // PharmStation Edge Function: appointments
 // Patient-facing booking actions. Deploy with verify_jwt = false: guests

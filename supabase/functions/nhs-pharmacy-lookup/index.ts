@@ -1,3 +1,4 @@
+import '../_shared/monitoring.ts' // platform error tracking (see _shared/monitoring.ts)
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 
 const NHS_API_URL = 'https://api.nhs.uk/service-search?api-version=2';

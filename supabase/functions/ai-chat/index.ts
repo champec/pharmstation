@@ -1,3 +1,4 @@
+import '../_shared/monitoring.ts' // platform error tracking (see _shared/monitoring.ts)
 // ============================================
 // PharmStation Edge Function: ai-chat (Genie)
 // Streams Genie answers (SSE) from an approved model on OpenRouter.

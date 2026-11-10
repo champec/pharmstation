@@ -1,3 +1,4 @@
+import '../_shared/monitoring.ts' // platform error tracking (see _shared/monitoring.ts)
 // ============================================================
 // stripe-connect (v5)
 // Stripe Connect Express onboarding for PharmStation entities.

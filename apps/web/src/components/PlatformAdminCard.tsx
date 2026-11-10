@@ -72,6 +72,9 @@ export function PlatformAdminCard() {
         <Link to="/me/admin/support" className="ps-btn ps-btn-secondary ps-btn-sm" style={{ marginLeft: '0.5rem' }}>
           Support inbox
         </Link>
+        <Link to="/me/admin/monitoring" className="ps-btn ps-btn-secondary ps-btn-sm" style={{ marginLeft: '0.5rem' }}>
+          Monitoring
+        </Link>
 
         <h3 style={{ margin: '1.25rem 0 0.5rem', fontSize: '1rem' }}>Account deletion requests</h3>
         {error && <div className="ps-alert ps-alert-error" style={{ marginBottom: '0.5rem' }}>{error}</div>}
