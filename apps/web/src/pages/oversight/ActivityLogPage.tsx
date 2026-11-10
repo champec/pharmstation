@@ -26,6 +26,9 @@ export const ACTIVITY_MODULES: Record<string, string> = {
   deliveries: 'Deliveries', sops: 'SOPs', shop: 'Shop', safety: 'Patient safety', nhs111: 'NHS 111', staff: 'Staff and sign-ins',
 }
 
+/** Platform admins only, off by default: usage and error events from monitoring. */
+const MONITOR_MODULES: Record<string, string> = { pageviews: 'Page views', errors: 'Errors' }
+const LABELS: Record<string, string> = { ...ACTIVITY_MODULES, ...MONITOR_MODULES }
 const PAGE = 200
 const isoDay = (d: Date) => d.toLocaleDateString('en-CA', { timeZone: 'Europe/London' })
 const fmt = (iso: string) => new Date(iso).toLocaleString('en-GB', {
@@ -45,6 +48,8 @@ export function ActivityLogPage({ platform = false }: { platform?: boolean }) {
   const [orgId, setOrgId] = useState('')
   const [userId, setUserId] = useState('')
   const [module, setModule] = useState('')
+  const [source, setSource] = useState('')
+  const isMonitor = module in MONITOR_MODULES
   const [searchInput, setSearchInput] = useState('')
   const [search, setSearch] = useState('')
 
@@ -69,10 +74,11 @@ export function ActivityLogPage({ platform = false }: { platform?: boolean }) {
       p_limit: limit,
       p_offset: offset,
       p_platform: platform,
+      p_source: isMonitor && source ? source : null,
     })
     if (err) throw err
     return (data ?? []) as ActivityRow[]
-  }, [from, to, orgId, userId, module, search, platform])
+  }, [from, to, orgId, userId, module, search, platform, isMonitor, source])
 
   useEffect(() => {
     let live = true
@@ -104,7 +110,7 @@ export function ActivityLogPage({ platform = false }: { platform?: boolean }) {
       const esc = (v: string | null) => `"${(v ?? '').replace(/"/g, '""')}"`
       const lines = [
         ['When', 'Pharmacy', 'Module', 'Action', 'Person', 'Details'].join(','),
-        ...all.map((r) => [fmt(r.at), r.org_name, ACTIVITY_MODULES[r.module] ?? r.module, r.action, r.actor_name, r.detail].map(esc).join(',')),
+        ...all.map((r) => [fmt(r.at), r.org_name, LABELS[r.module] ?? r.module, r.action, r.actor_name, r.detail].map(esc).join(',')),
       ]
       const blob = new Blob([lines.join('\r\n')], { type: 'text/csv;charset=utf-8' })
       const a = document.createElement('a')
@@ -120,7 +126,7 @@ export function ActivityLogPage({ platform = false }: { platform?: boolean }) {
   }
 
   const filtered = !!(orgId || userId || module || search)
-  const clear = () => { setOrgId(''); setUserId(''); setModule(''); setSearchInput(''); setSearch('') }
+  const clear = () => { setSource(''); setOrgId(''); setUserId(''); setModule(''); setSearchInput(''); setSearch('') }
   const multiOrg = (scope?.organisations.length ?? 0) > 1
 
   return (
@@ -170,8 +176,24 @@ export function ActivityLogPage({ platform = false }: { platform?: boolean }) {
           <select className="ps-input" value={module} onChange={(e) => setModule(e.target.value)}>
             <option value="">All modules</option>
             {Object.entries(ACTIVITY_MODULES).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+            {platform && (
+              <optgroup label="Monitoring">
+                {Object.entries(MONITOR_MODULES).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+              </optgroup>
+            )}
           </select>
         </label>
+        {platform && isMonitor && (
+          <label>
+            <span>Platform</span>
+            <select className="ps-input" value={source} onChange={(e) => setSource(e.target.value)}>
+              <option value="">Web, app and server</option>
+              <option value="web">Web</option>
+              <option value="mobile">App</option>
+              {module === 'errors' && <option value="edge">Server</option>}
+            </select>
+          </label>
+        )}
         <label className="activity-search">
           <span>Search</span>
           <span className="activity-search-box">
@@ -213,7 +235,7 @@ export function ActivityLogPage({ platform = false }: { platform?: boolean }) {
                 <tr key={`${r.record_id}-${r.at}-${i}`}>
                   <td className="activity-when">{fmt(r.at)}</td>
                   {(multiOrg || platform) && <td>{r.org_name}</td>}
-                  <td><span className="ps-badge ps-badge-blue">{ACTIVITY_MODULES[r.module] ?? r.module}</span></td>
+                  <td><span className="ps-badge ps-badge-blue">{LABELS[r.module] ?? r.module}</span></td>
                   <td>{r.action}</td>
                   <td>{r.actor_name}</td>
                   <td className="activity-detail">{r.detail}</td>
