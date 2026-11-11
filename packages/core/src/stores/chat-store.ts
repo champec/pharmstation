@@ -342,7 +342,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
       const body: Record<string, unknown> = {
         organisation_id: organisationId,
         message,
-        attachments: attachments ?? [],
+        attachments: (attachments ?? []).map(({ preview_url: _preview, ...a }) => a),
       }
 
       if (activeConversationId) {

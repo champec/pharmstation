@@ -5,6 +5,7 @@ import {
   ActivityIndicator,
   Alert,
   FlatList,
+  Image,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -17,11 +18,14 @@ import {
 } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
 import { SafeAreaView } from 'react-native-safe-area-context'
+import * as ImagePicker from 'expo-image-picker'
 
 import { useAuthStore } from '@/stores/auth-store'
 import {
+  uploadGenieAttachment,
   useGenieStore,
   type GenieAction,
+  type GenieAttachment,
   type GenieMessage,
   type GeniePageContext,
   type GenieToolCall,
@@ -238,8 +242,26 @@ function Bubble({ m, onRetry, actions }: { m: GenieMessage; onRetry: () => void;
   if (m.role === 'user') {
     return (
       <View style={[styles.row, styles.rowUser]}>
-        <View style={[styles.bubble, styles.bubbleUser]}>
-          <Text style={styles.userText}>{m.content}</Text>
+        <View style={styles.userColumn}>
+          {m.attachments?.length ? (
+            <View style={styles.sentFiles}>
+              {m.attachments.map((a, i) =>
+                a.localUri && a.type === 'image' ? (
+                  <Image key={i} source={{ uri: a.localUri }} style={styles.sentImage} accessibilityLabel={a.name} />
+                ) : (
+                  <View key={i} style={styles.sentFile}>
+                    <Ionicons name={a.type === 'pdf' ? 'document-text-outline' : 'image-outline'} size={16} color={palette.textMuted} />
+                    <Text style={styles.sentFileText} numberOfLines={1}>{a.name}</Text>
+                  </View>
+                ),
+              )}
+            </View>
+          ) : null}
+          {m.content ? (
+            <View style={[styles.bubble, styles.bubbleUser]}>
+              <Text style={styles.userText}>{m.content}</Text>
+            </View>
+          ) : null}
         </View>
       </View>
     )
@@ -379,10 +401,50 @@ export function GenieChat({
   const usedUpMessage = `Your pharmacy has used all ${usage?.limit ?? ''} Genie questions for this month. They reset on ${resetDate}.`
   const showUsedUp = () => Alert.alert('Monthly Genie allowance used', usedUpMessage)
 
+  type Pending = { id: string; uri: string; status: 'uploading' | 'ready'; attachment?: GenieAttachment }
+  const [files, setFiles] = useState<Pending[]>([])
+  const [fileError, setFileError] = useState<string | null>(null)
+  const uploading = files.some((f) => f.status === 'uploading')
+  const ready = files.filter((f) => f.attachment).map((f) => f.attachment as GenieAttachment)
+
+  const pick = async (fromCamera: boolean) => {
+    setFileError(null)
+    const perm = fromCamera
+      ? await ImagePicker.requestCameraPermissionsAsync()
+      : await ImagePicker.requestMediaLibraryPermissionsAsync()
+    if (!perm.granted) {
+      Alert.alert('Permission needed', fromCamera ? 'Allow camera access to take a photo for Genie.' : 'Allow photo access to attach a picture for Genie.')
+      return
+    }
+    const result = fromCamera
+      ? await ImagePicker.launchCameraAsync({ mediaTypes: ['images'], quality: 0.7 })
+      : await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.7, allowsMultipleSelection: true, selectionLimit: 4 - files.length })
+    if (result.canceled) return
+    for (const asset of result.assets.slice(0, 4 - files.length)) {
+      const id = `${Date.now()}-${Math.random()}`
+      setFiles((prev) => [...prev, { id, uri: asset.uri, status: 'uploading' }])
+      uploadGenieAttachment(asset)
+        .then((attachment) => setFiles((prev) => prev.map((f) => (f.id === id ? { ...f, status: 'ready', attachment } : f))))
+        .catch((e: Error) => {
+          setFiles((prev) => prev.filter((f) => f.id !== id))
+          setFileError(e.message || 'The photo could not be attached.')
+        })
+    }
+  }
+
+  const chooseAttachment = () =>
+    Alert.alert('Add a photo for Genie', patientDataOn ? undefined : 'Patient details are off for Genie. Avoid photos showing patient names or addresses.', [
+      { text: 'Take a photo', onPress: () => void pick(true) },
+      { text: 'Choose from photos', onPress: () => void pick(false) },
+      { text: 'Cancel', style: 'cancel' },
+    ])
+
   const submit = (text: string) => {
-    if (!orgId || !text.trim() || isStreaming || usedUp) return
+    if (!orgId || (!text.trim() && ready.length === 0) || uploading || isStreaming || usedUp) return
     setInput('')
-    void send(orgId, text, context)
+    setFiles([])
+    setFileError(null)
+    void send(orgId, text, context, ready)
   }
 
   const retry = () => {
@@ -503,7 +565,37 @@ export function GenieChat({
             <Text style={styles.usedUpText}>{usedUpMessage}</Text>
           </View>
         ) : null}
+        {files.length ? (
+          <View style={styles.pendingFiles}>
+            {files.map((f) => (
+              <View key={f.id} style={styles.pendingFile}>
+                <Image source={{ uri: f.uri }} style={[styles.pendingImage, f.status === 'uploading' && styles.sendDisabled]} />
+                {f.status === 'uploading' ? (
+                  <ActivityIndicator style={StyleSheet.absoluteFill} color={COLOR} />
+                ) : null}
+                <Pressable
+                  style={styles.pendingRemove}
+                  onPress={() => setFiles((prev) => prev.filter((x) => x.id !== f.id))}
+                  hitSlop={8}
+                  accessibilityLabel="Remove photo"
+                >
+                  <Ionicons name="close" size={12} color={palette.textInverse} />
+                </Pressable>
+              </View>
+            ))}
+          </View>
+        ) : null}
+        {fileError ? <Text style={styles.fileError}>{fileError}</Text> : null}
         <View style={styles.inputRow}>
+          <Pressable
+            style={[styles.attach, (isStreaming || usedUp || files.length >= 4) && styles.sendDisabled]}
+            onPress={chooseAttachment}
+            disabled={isStreaming || usedUp || files.length >= 4}
+            accessibilityLabel="Attach a photo"
+            hitSlop={6}
+          >
+            <Ionicons name="camera-outline" size={22} color={COLOR} />
+          </Pressable>
           <TextInput
             style={styles.input}
             value={input}
@@ -520,9 +612,9 @@ export function GenieChat({
             </Pressable>
           ) : (
             <Pressable
-              style={[styles.send, (!input.trim() || usedUp) && styles.sendDisabled]}
+              style={[styles.send, ((!input.trim() && ready.length === 0) || uploading || usedUp) && styles.sendDisabled]}
               onPress={() => submit(input)}
-              disabled={!input.trim() || usedUp}
+              disabled={(!input.trim() && ready.length === 0) || uploading || usedUp}
               accessibilityLabel="Send"
             >
               <Ionicons name="arrow-up" size={20} color={palette.textInverse} />
@@ -697,6 +789,38 @@ const styles = StyleSheet.create({
   usedUp: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, paddingVertical: 6 },
   usedUpText: { flex: 1, fontSize: 13, lineHeight: 18, color: palette.text },
   closeButton: { padding: 2, marginLeft: 2 },
+  attach: { width: 42, height: 42, alignItems: 'center', justifyContent: 'center' },
+  pendingFiles: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, paddingTop: 2 },
+  pendingFile: { width: 56, height: 56 },
+  pendingImage: { width: 56, height: 56, borderRadius: radius.sm, backgroundColor: palette.bg },
+  pendingRemove: {
+    position: 'absolute',
+    top: -6,
+    right: -6,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: palette.text,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  fileError: { fontSize: 12, color: palette.danger },
+  userColumn: { maxWidth: '86%', alignItems: 'flex-end', gap: 4 },
+  sentFiles: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, justifyContent: 'flex-end' },
+  sentImage: { width: 140, height: 140, borderRadius: radius.md, backgroundColor: palette.bg },
+  sentFile: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    maxWidth: 220,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: palette.border,
+    backgroundColor: palette.surface,
+  },
+  sentFileText: { fontSize: 13, color: palette.text, flexShrink: 1 },
   contextChip: {
     flexDirection: 'row',
     alignItems: 'center',

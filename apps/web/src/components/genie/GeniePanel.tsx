@@ -7,9 +7,10 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
-import { CircleCheck, Eye, History, Lock, Minus, Sparkles, SquarePen, Trash2, User, Wrench } from 'lucide-react'
+import { CircleCheck, Eye, FileText, History, Lock, Minus, Paperclip, Sparkles, SquarePen, Trash2, User, Wrench, X } from 'lucide-react'
 import { PLANS, useAuthStore, useChatStore, useSubscriptionStore } from '@pharmstation/core'
-import type { ChatMessage, GenieAction, GeniePageContext } from '@pharmstation/types'
+import type { ChatAttachment, ChatMessage, GenieAction, GeniePageContext } from '@pharmstation/types'
+import { AttachmentError, GENIE_ACCEPT, GENIE_MAX_FILES, genieAttachmentLink, uploadGenieAttachment } from './genieAttachments'
 import { PLANS_ENFORCED } from '../../lib/billing'
 import { JumpToLatest, useAutoGrow, useStickToBottom } from '../chat/chat'
 import { Markdown } from '../chat/Markdown'
@@ -45,7 +46,7 @@ export function GeniePanel() {
   } = useChatStore()
   const location = useLocation()
 
-  const { organisation, userSession } = useAuthStore()
+  const { organisation, userSession, activeUser } = useAuthStore()
   const planLoaded = useSubscriptionStore((s) => s.loaded)
   const plan = useSubscriptionStore((s) => s.plan)
   // Plan gate (only once billing is enforced). Before that every pharmacy gets the Essential allowance.
@@ -57,6 +58,33 @@ export function GeniePanel() {
     : Math.max(PLANS[plan].genieMonthlyMessages, PLANS.essential.genieMonthlyMessages)
   const [inputValue, setInputValue] = useState('')
   const inputRef = useRef<HTMLTextAreaElement>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const [files, setFiles] = useState<PendingFile[]>([])
+  const [fileError, setFileError] = useState<string | null>(null)
+  const [dragging, setDragging] = useState(false)
+  const uploading = files.some((f) => f.status === 'uploading')
+  const readyAttachments = files.filter((f) => f.attachment).map((f) => f.attachment as ChatAttachment)
+
+  const addFiles = (list: FileList | File[]) => {
+    const userId = activeUser?.id
+    if (!userId) return
+    setFileError(null)
+    const incoming = Array.from(list).slice(0, Math.max(0, GENIE_MAX_FILES - files.length))
+    if (list.length > incoming.length) setFileError(`You can attach up to ${GENIE_MAX_FILES} files to one question.`)
+    for (const file of incoming) {
+      const id = crypto.randomUUID()
+      const previewUrl = file.type.startsWith('image/') ? URL.createObjectURL(file) : undefined
+      setFiles((prev) => [...prev, { id, name: file.name, previewUrl, status: 'uploading' }])
+      uploadGenieAttachment(file, userId)
+        .then((attachment) =>
+          setFiles((prev) => prev.map((f) => (f.id === id ? { ...f, status: 'ready', attachment: { ...attachment, preview_url: previewUrl } } : f))))
+        .catch((err) => {
+          setFiles((prev) => prev.filter((f) => f.id !== id))
+          setFileError(err instanceof AttachmentError ? err.message : `"${file.name}" could not be attached.`)
+        })
+    }
+  }
+  const removeFile = (id: string) => setFiles((prev) => prev.filter((f) => f.id !== id))
 
   const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
 
@@ -88,10 +116,14 @@ export function GeniePanel() {
   }, [isOpen, activeConversationId])
 
   const sendText = async (text: string) => {
-    if (!text || isStreaming || locked || !organisation?.id || !userSession?.access_token) return
+    const attachments = readyAttachments
+    if ((!text && attachments.length === 0) || uploading || isStreaming || locked || !organisation?.id || !userSession?.access_token) return
+    setFiles([])
+    setFileError(null)
     await sendMessage({
       organisationId: organisation.id,
       message: text,
+      attachments,
       supabaseUrl,
       accessToken: userSession.access_token,
       pageContext: readPageContext(location.pathname),
@@ -116,7 +148,7 @@ export function GeniePanel() {
 
   const handleSend = async () => {
     const text = inputValue.trim()
-    if (!text) return
+    if (!text && readyAttachments.length === 0) return
     setInputValue('')
     await sendText(text)
   }
@@ -156,7 +188,26 @@ export function GeniePanel() {
   }
 
   return (
-    <div className="genie-panel" role="dialog" aria-label="Genie assistant">
+    <div
+      className={`genie-panel ${dragging ? 'genie-panel-dragging' : ''}`}
+      role="dialog"
+      aria-label="Genie assistant"
+      onDragOver={(e) => {
+        if (e.dataTransfer.types.includes('Files')) {
+          e.preventDefault()
+          setDragging(true)
+        }
+      }}
+      onDragLeave={(e) => {
+        if (!e.currentTarget.contains(e.relatedTarget as Node)) setDragging(false)
+      }}
+      onDrop={(e) => {
+        if (!e.dataTransfer.files.length) return
+        e.preventDefault()
+        setDragging(false)
+        if (!locked && !usedUp) addFiles(e.dataTransfer.files)
+      }}
+    >
       {/* Header */}
       <div className="genie-header">
         <div className="genie-header-left">
@@ -249,8 +300,9 @@ export function GeniePanel() {
               <h3>Hello! I'm Genie</h3>
               <p>
                 Your pharmacy assistant. Ask about your CD register, RP log, team,
-                locum shifts and appointments. I can also set up shifts and manage
-                appointments for you. You confirm every change.
+                locum shifts and appointments, or attach a photo or PDF (an invoice,
+                a label, a document) to ask about it. I can also set up shifts and
+                manage appointments for you. You confirm every change.
               </p>
               {!patientDataOn && (
                 <p className="genie-privacy-note">
@@ -338,8 +390,53 @@ export function GeniePanel() {
             <span>Using this page: {pageTitle}</span>
           </div>
         )}
+        {files.length > 0 && (
+          <div className="genie-attach-list">
+            {files.map((f) => (
+              <div key={f.id} className={`genie-attach-chip ${f.status === 'uploading' ? 'uploading' : ''}`}>
+                {f.previewUrl ? <img src={f.previewUrl} alt="" /> : <FileText size={16} strokeWidth={1.75} aria-hidden="true" />}
+                <span className="genie-attach-name">{f.status === 'uploading' ? 'Uploading…' : f.name}</span>
+                <button type="button" onClick={() => removeFile(f.id)} aria-label={`Remove ${f.name}`} title="Remove">
+                  <X size={14} strokeWidth={1.75} aria-hidden="true" />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+        {files.length > 0 && !patientDataOn && (
+          <div className="genie-attach-note">Patient details are off for Genie. Avoid files showing patient names or addresses.</div>
+        )}
+        {fileError && <div className="genie-attach-error" role="alert">{fileError}</div>}
         <div className="genie-input-wrapper">
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept={GENIE_ACCEPT}
+            multiple
+            hidden
+            onChange={(e) => {
+              if (e.target.files) addFiles(e.target.files)
+              e.target.value = ''
+            }}
+          />
+          <button
+            type="button"
+            className="genie-attach-btn"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={isStreaming || locked || usedUp || files.length >= GENIE_MAX_FILES}
+            aria-label="Attach a photo or PDF"
+            title="Attach a photo or PDF"
+          >
+            <Paperclip size={16} strokeWidth={1.75} aria-hidden="true" />
+          </button>
           <textarea
+            onPaste={(e) => {
+              const pasted = Array.from(e.clipboardData.files)
+              if (pasted.length) {
+                e.preventDefault()
+                addFiles(pasted)
+              }
+            }}
             ref={inputRef}
             className="genie-input"
             placeholder={usedUp ? 'Monthly Genie allowance used' : 'Ask Genie anything...'}
@@ -353,7 +450,7 @@ export function GeniePanel() {
             className="genie-send-btn"
             aria-label="Send"
             onClick={handleSend}
-            disabled={!inputValue.trim() || isStreaming || locked || usedUp}
+            disabled={(!inputValue.trim() && readyAttachments.length === 0) || uploading || isStreaming || locked || usedUp}
           >
             <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path fill="currentColor" d="M3.4 20.4 21 12 3.4 3.6 3.4 10l12.6 2-12.6 2z" /></svg>
           </button>
@@ -374,6 +471,43 @@ export function GeniePanel() {
 // ============================================
 // Sub-components
 // ============================================
+
+type PendingFile = {
+  id: string
+  name: string
+  previewUrl?: string
+  status: 'uploading' | 'ready'
+  attachment?: ChatAttachment
+}
+
+/** A file sent with a question: a thumbnail (images) or a name (PDFs); opens in a new tab. */
+function SentAttachment({ attachment }: { attachment: ChatAttachment }) {
+  const [thumb, setThumb] = useState<string | null>(attachment.preview_url ?? null)
+  useEffect(() => {
+    if (thumb || attachment.type !== 'image') return
+    let cancelled = false
+    void genieAttachmentLink(attachment.url).then((link) => {
+      if (!cancelled && link) setThumb(link)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [attachment.url, attachment.type, thumb])
+  const open = async () => {
+    const link = await genieAttachmentLink(attachment.url)
+    if (link) window.open(link, '_blank', 'noopener,noreferrer')
+  }
+  return (
+    <button type="button" className="genie-sent-file" onClick={open} title={`Open ${attachment.name}`}>
+      {thumb ? <img src={thumb} alt={attachment.name} /> : (
+        <>
+          <FileText size={16} strokeWidth={1.75} aria-hidden="true" />
+          <span>{attachment.name}</span>
+        </>
+      )}
+    </button>
+  )
+}
 
 function ActionCard({
   action,
@@ -453,9 +587,16 @@ function MessageBubble({
     <div className={`genie-message genie-message-${message.role} ${isError ? 'error' : ''}`}>
       {!isUser && <div className="genie-message-avatar"><Sparkles size={16} strokeWidth={1.75} aria-hidden="true" /></div>}
       <div className="genie-message-content">
-        <div className="genie-message-text">
-          {isUser ? message.content : <Markdown text={message.content ?? ''} />}
-        </div>
+        {message.attachments && message.attachments.length > 0 && (
+          <div className="genie-message-files">
+            {message.attachments.map((a, i) => <SentAttachment key={i} attachment={a} />)}
+          </div>
+        )}
+        {(message.content || !isUser) && (
+          <div className="genie-message-text">
+            {isUser ? message.content : <Markdown text={message.content ?? ''} />}
+          </div>
+        )}
         {message.tool_calls && (message.tool_calls as { id: string; name: string }[]).length > 0 && (
           <div className="genie-tool-calls">
             {(message.tool_calls as { id: string; name: string }[]).map((tc) => (

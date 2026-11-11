@@ -15294,3 +15294,67 @@ a.modern-shop-product-image, a.modern-shop-product-name { color: var(--ms-ink); 
   gap: var(--ps-space-sm);
   margin-bottom: var(--ps-space-md);
 }
+
+/* Genie attachments */
+.genie-attach-btn {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: var(--ps-radius-full);
+  background: transparent;
+  color: var(--ps-slate);
+  cursor: pointer;
+}
+.genie-attach-btn:hover:not(:disabled) { background: var(--ps-off-white); color: var(--ps-deep-blue); }
+.genie-attach-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.genie-attach-list { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 6px; }
+.genie-attach-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 180px;
+  padding: 4px 4px 4px 6px;
+  border: 1px solid var(--ps-mist);
+  border-radius: 8px;
+  background: var(--ps-white);
+  font-size: var(--ps-font-xs);
+  color: var(--ps-midnight);
+}
+.genie-attach-chip.uploading { opacity: 0.6; }
+.genie-attach-chip img { width: 28px; height: 28px; object-fit: cover; border-radius: 4px; }
+.genie-attach-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.genie-attach-chip button {
+  display: inline-flex;
+  border: none;
+  background: transparent;
+  color: var(--ps-slate);
+  cursor: pointer;
+  padding: 2px;
+  border-radius: 4px;
+}
+.genie-attach-chip button:hover { background: var(--ps-off-white); }
+.genie-attach-note { margin-bottom: 6px; font-size: var(--ps-font-xs); color: var(--ps-slate); }
+.genie-attach-error { margin-bottom: 6px; font-size: var(--ps-font-xs); color: var(--ps-error); }
+.genie-panel-dragging { outline: 2px dashed var(--ps-electric-cyan); outline-offset: -6px; }
+.genie-message-files { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 4px; justify-content: flex-end; }
+.genie-sent-file {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 220px;
+  padding: 0;
+  border: 1px solid var(--ps-mist);
+  border-radius: 10px;
+  background: var(--ps-white);
+  color: var(--ps-midnight);
+  font-size: var(--ps-font-xs);
+  overflow: hidden;
+  cursor: pointer;
+}
+.genie-sent-file img { display: block; max-width: 220px; max-height: 160px; object-fit: cover; }
+.genie-sent-file span { padding: 8px 10px 8px 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.genie-sent-file svg { margin-left: 10px; flex-shrink: 0; }

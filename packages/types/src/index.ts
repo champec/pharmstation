@@ -734,10 +734,13 @@ export type MessageStatus = 'pending' | 'streaming' | 'completed' | 'error'
 
 export interface ChatAttachment {
   type: 'image' | 'pdf' | 'file'
+  /** Storage path in the genie-attachments bucket ({user_id}/...). */
   url: string
   name: string
   size?: number
   mime_type?: string
+  /** Local preview while the chat is open (never saved). */
+  preview_url?: string
 }
 
 export interface ToolCall {

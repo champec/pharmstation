@@ -30,10 +30,53 @@ export interface GenieToolCall {
   name: string
 }
 
+/** A photo or PDF sent with a question (stored in the genie-attachments bucket). */
+export interface GenieAttachment {
+  type: 'image' | 'pdf'
+  /** Storage path: {user_id}/... */
+  url: string
+  name: string
+  size?: number
+  mime_type: string
+  /** Local file for the thumbnail while the chat is open (never sent). */
+  localUri?: string
+}
+
+const ATTACHMENT_MIME = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'application/pdf']
+
+/** Uploads a picked photo to the user's own folder. Throws a friendly message on failure. */
+export async function uploadGenieAttachment(asset: {
+  uri: string
+  mimeType?: string | null
+  fileName?: string | null
+  fileSize?: number | null
+}): Promise<GenieAttachment> {
+  const userId = useAuthStore.getState().userSession?.user?.id
+  if (!userId) throw new Error('Your session has ended. Please sign in again.')
+  const mime = asset.mimeType || 'image/jpeg'
+  if (!ATTACHMENT_MIME.includes(mime)) throw new Error('That file type can’t be attached. Use a photo (JPEG or PNG) or a PDF.')
+  if (asset.fileSize && asset.fileSize > 10 * 1024 * 1024) throw new Error('That file is over 10 MB. Choose a smaller one.')
+  const ext = mime === 'application/pdf' ? 'pdf' : mime.split('/')[1].replace('jpeg', 'jpg')
+  const path = `${userId}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`
+  const bytes = await (await fetch(asset.uri)).arrayBuffer()
+  if (bytes.byteLength > 10 * 1024 * 1024) throw new Error('That file is over 10 MB. Choose a smaller one.')
+  const { error } = await userClient.storage.from('genie-attachments').upload(path, bytes, { contentType: mime, upsert: false })
+  if (error) throw new Error('The file could not be uploaded. Please try again.')
+  return {
+    type: mime === 'application/pdf' ? 'pdf' : 'image',
+    url: path,
+    name: asset.fileName || (mime === 'application/pdf' ? 'Document.pdf' : 'Photo'),
+    size: bytes.byteLength,
+    mime_type: mime,
+    localUri: asset.uri,
+  }
+}
+
 export interface GenieMessage {
   id: string
   role: 'user' | 'assistant'
   content: string
+  attachments?: GenieAttachment[]
   status: 'completed' | 'error'
   error?: string | null
   toolCalls: GenieToolCall[]
@@ -102,7 +145,7 @@ interface GenieState {
   openConversation: (id: string) => Promise<void>
   newConversation: () => void
   deleteConversation: (id: string) => Promise<void>
-  send: (orgId: string, text: string, context?: GeniePageContext | null) => Promise<void>
+  send: (orgId: string, text: string, context?: GeniePageContext | null, attachments?: GenieAttachment[]) => Promise<void>
   decideAction: (actionId: string, decision: 'confirm' | 'cancel') => Promise<void>
   stop: () => void
   reset: () => void
@@ -124,6 +167,7 @@ function rowToMessage(row: {
   status: string
   error_message: string | null
   tool_calls: { id: string; name: string }[] | null
+  attachments?: GenieAttachment[] | null
   created_at: string
 }): GenieMessage {
   return {
@@ -133,6 +177,7 @@ function rowToMessage(row: {
     status: row.status === 'error' ? 'error' : 'completed',
     error: row.error_message,
     toolCalls: (row.tool_calls ?? []).map((t) => ({ id: t.id, name: t.name })),
+    attachments: row.attachments ?? [],
     created_at: row.created_at,
   }
 }
@@ -211,7 +256,7 @@ export const useGenieStore = create<GenieState>((set, get) => ({
     const [{ data, error }, { data: actions }] = await Promise.all([
       userClient
         .from('ps_chat_messages')
-        .select('id, role, content, status, error_message, tool_calls, created_at')
+        .select('id, role, content, status, error_message, tool_calls, attachments, created_at')
         .eq('conversation_id', id)
         .in('role', ['user', 'assistant'])
         .order('created_at', { ascending: true }),
@@ -250,9 +295,9 @@ export const useGenieStore = create<GenieState>((set, get) => ({
     if (get().activeConversationId === id) get().newConversation()
   },
 
-  send: async (orgId, text, context) => {
+  send: async (orgId, text, context, attachments = []) => {
     const message = text.trim()
-    if (!message || get().isStreaming) return
+    if ((!message && attachments.length === 0) || get().isStreaming) return
     const token = useAuthStore.getState().userSession?.access_token
     if (!token) {
       set({ lastError: 'Your session has ended. Please sign in again.' })
@@ -265,7 +310,7 @@ export const useGenieStore = create<GenieState>((set, get) => ({
     set({
       messages: [
         ...get().messages,
-        { id: `local-${Date.now()}`, role: 'user', content: message, status: 'completed', toolCalls: [], created_at: now },
+        { id: `local-${Date.now()}`, role: 'user', content: message, attachments, status: 'completed', toolCalls: [], created_at: now },
       ],
       isStreaming: true,
       streamingContent: '',
@@ -303,6 +348,7 @@ export const useGenieStore = create<GenieState>((set, get) => ({
           message,
           ...(startedIn ? { conversation_id: startedIn } : {}),
           ...(context ? { page_context: context } : {}),
+          ...(attachments.length ? { attachments: attachments.map(({ localUri: _local, ...a }) => a) } : {}),
         }),
         signal: abort.signal,
       })
