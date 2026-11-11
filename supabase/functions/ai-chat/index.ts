@@ -85,6 +85,129 @@ function safeProviderError(status: number): string {
   return 'The AI service could not complete this request.'
 }
 
+// ============================================
+// Patient-detail masking for attached files (patient data switched off)
+// ============================================
+
+const MASK = '[patient details hidden]'
+const PROVIDER = { zdr: true, data_collection: 'deny', order: ['google-vertex/europe', 'amazon-bedrock/eu-west-1'] }
+
+/**
+ * Removes known patient identifiers from streamed text. Holds back a short tail so an
+ * identifier split across two chunks is still caught.
+ */
+class Redactor {
+  private pending = ''
+  private readonly pattern: RegExp | null
+  private readonly hold: number
+
+  constructor(terms: string[]) {
+    const clean = [...new Set(terms.map((t) => t.trim()).filter((t) => t.length >= 3))].sort((a, b) => b.length - a.length)
+    const escaped = clean.map((t) => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\s+/g, '\\s+'))
+    this.pattern = escaped.length ? new RegExp(`(?<![\\p{L}\\d])(?:${escaped.join('|')})(?![\\p{L}\\d])`, 'giu') : null
+    this.hold = clean.reduce((m, t) => Math.max(m, t.length), 0) + 2
+  }
+
+  get active() {
+    return this.pattern !== null
+  }
+
+  mask(text: string): string {
+    return this.pattern ? text.replace(this.pattern, MASK) : text
+  }
+
+  /** Returns text that is safe to send now. */
+  push(delta: string): string {
+    if (!this.pattern) return delta
+    this.pending += delta
+    // Only text followed by at least `hold` more characters is final: by then any
+    // identifier starting in it is complete and its next character is known.
+    let cut = this.pending.length - this.hold
+    if (cut <= 0) return ''
+    for (const m of this.pending.matchAll(this.pattern)) {
+      const start = m.index ?? 0
+      if (start < cut && start + m[0].length > cut) cut = start
+    }
+    const out = this.mask(this.pending.slice(0, cut))
+    this.pending = this.pending.slice(cut)
+    return out
+  }
+
+  flush(): string {
+    const out = this.mask(this.pending)
+    this.pending = ''
+    return out
+  }
+}
+
+/** Expands identifiers into the forms they may be written in (each name part, date styles). */
+function identifierVariants(found: string[]): string[] {
+  const out: string[] = []
+  const skip = new Set(['mr', 'mrs', 'ms', 'miss', 'dr', 'the', 'and', 'road', 'street', 'lane', 'avenue', 'close', 'drive', 'patient', 'nhs'])
+  for (const raw of found) {
+    const v = raw.trim()
+    if (v.length < 3) continue
+    out.push(v)
+    for (const word of v.split(/[\s,]+/)) {
+      if (word.length >= 3 && !skip.has(word.toLowerCase()) && /\p{L}/u.test(word)) out.push(word)
+    }
+    const date = v.match(/^(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{2,4})$/)
+    if (date) {
+      const [, d, m, y] = date
+      const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
+      const month = months[Number(m) - 1]
+      const year = y.length === 2 ? `19${y}` : y
+      if (month) out.push(`${Number(d)} ${month} ${year}`, `${Number(d)} ${month.slice(0, 3)} ${year}`, `${d}/${m}/${y}`, `${year}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`)
+    }
+    const digits = v.replace(/\s+/g, '')
+    if (/^\d{10}$/.test(digits)) out.push(digits, `${digits.slice(0, 3)} ${digits.slice(3, 6)} ${digits.slice(6)}`)
+  }
+  return out
+}
+
+/** Asks the model (not streamed) which patient identifiers appear in the files. */
+async function findPatientIdentifiers(
+  apiKey: string,
+  model: string,
+  parts: ContentPart[],
+  signal: AbortSignal,
+): Promise<{ terms: string[]; inputTokens: number; outputTokens: number }> {
+  const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}`, 'X-Title': 'PharmStation Genie' },
+    body: JSON.stringify({
+      model,
+      max_tokens: 400,
+      temperature: 0,
+      provider: PROVIDER,
+      messages: [
+        {
+          role: 'system',
+          content: 'You find patient identifiers in pharmacy documents so they can be hidden. Reply with JSON only: {"identifiers": [..]}. Include every patient (not prescriber, not pharmacy) full name exactly as written, date of birth exactly as written, each address line and postcode, phone numbers, email addresses and NHS numbers. If there are none, reply {"identifiers": []}.',
+        },
+        { role: 'user', content: [{ type: 'text', text: 'List the patient identifiers in these files.' }, ...parts] },
+      ],
+    }),
+    signal,
+  })
+  if (!response.ok) throw new Error('Genie could not check the file for patient details. Please try again.')
+  const body = await response.json()
+  const text: string = body.choices?.[0]?.message?.content ?? ''
+  const match = text.match(/\{[\s\S]*\}/)
+  let found: string[] = []
+  try {
+    const parsed = JSON.parse(match ? match[0] : text)
+    if (Array.isArray(parsed.identifiers)) found = parsed.identifiers.filter((x: unknown) => typeof x === 'string').slice(0, 40)
+  } catch {
+    found = []
+  }
+  return {
+    terms: identifierVariants(found),
+    inputTokens: body.usage?.prompt_tokens ?? 0,
+    outputTokens: body.usage?.completion_tokens ?? 0,
+  }
+}
+
 async function streamOpenRouterRound(
   apiKey: string,
   model: string,
@@ -92,6 +215,7 @@ async function streamOpenRouterRound(
   tools: unknown[],
   writer: WritableStreamDefaultWriter<Uint8Array>,
   signal: AbortSignal,
+  redactor?: Redactor,
 ): Promise<StreamRound> {
   const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
     method: 'POST',
@@ -111,11 +235,7 @@ async function streamOpenRouterRound(
       temperature: 0.2,
       // Only route to providers with zero data retention that do not train on
       // prompts, preferring EU-hosted endpoints.
-      provider: {
-        zdr: true,
-        data_collection: 'deny',
-        order: ['google-vertex/europe', 'amazon-bedrock/eu-west-1'],
-      },
+      provider: PROVIDER,
     }),
     signal,
   })
@@ -154,8 +274,11 @@ async function streamOpenRouterRound(
 
     const delta = parsed.choices?.[0]?.delta
     if (typeof delta?.content === 'string' && delta.content) {
-      content += delta.content
-      await sendEvent(writer, { type: 'text_delta', content: delta.content })
+      const safe = redactor ? redactor.push(delta.content) : delta.content
+      if (safe) {
+        content += safe
+        await sendEvent(writer, { type: 'text_delta', content: safe })
+      }
     }
 
     for (const part of delta?.tool_calls ?? []) {
@@ -197,6 +320,14 @@ async function streamOpenRouterRound(
   }
   buffer += decoder.decode()
   if (buffer.trim()) await processLine(buffer.trim())
+
+  if (redactor) {
+    const tail = redactor.flush()
+    if (tail) {
+      content += tail
+      await sendEvent(writer, { type: 'text_delta', content: tail })
+    }
+  }
 
   for (const call of toolCalls.values()) {
     await sendEvent(writer, { type: 'tool_call_end', tool_call_id: call.id })
@@ -1067,8 +1198,16 @@ Deno.serve(async (req) => {
         }
 
         // This question's files go to the model as images / PDF documents.
+        let redactor: Redactor | undefined
         if (attachments.length) {
           const parts = await attachmentParts(supabaseAdmin, attachments)
+          if (!patientData) {
+            // Patient data is off: find the identifiers first, then mask them in the answer.
+            const found = await findPatientIdentifiers(apiKey, modelRecord.model_id, parts, upstream.signal)
+            inputTokens += found.inputTokens
+            outputTokens += found.outputTokens
+            redactor = new Redactor(found.terms)
+          }
           const current = [...messages].reverse().find((m) => m.role === 'user')
           if (current) {
             current.content = [
@@ -1115,7 +1254,7 @@ Deno.serve(async (req) => {
         }
 
         for (let roundNumber = 0; roundNumber < MAX_TOOL_ROUNDS; roundNumber += 1) {
-          const round = await streamOpenRouterRound(apiKey, modelRecord.model_id, messages, tools, writer, upstream.signal)
+          const round = await streamOpenRouterRound(apiKey, modelRecord.model_id, messages, tools, writer, upstream.signal, redactor)
           fullContent += round.content
           inputTokens += round.inputTokens
           outputTokens += round.outputTokens
