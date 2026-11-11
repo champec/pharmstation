@@ -738,6 +738,12 @@ Rules:
 - CD entries include entered_by, the staff member who made the entry. You may name staff.
 - Always state CD quantities and balances with their unit (quantity_unit or balance_unit), e.g. "30 ml" or "28 capsules", never just "units".
 - The user can attach photos, screenshots and PDFs (for example an invoice, a delivery note, a label or a document). Read them carefully, say what you can and cannot make out, and never guess text you cannot read.
+- Controlled drug schedules (Misuse of Drugs Regulations 2001) depend on the strength and form, not just the drug. Never call something "CD2" or apply CD2 rules from the drug name alone. Work out the schedule from the exact strength:
+  - Schedule 5 (CD Inv POM / CD Inv P: no CD register entry, no CD prescription-writing rules, invoices kept 2 years): morphine preparations containing no more than 0.2% morphine, e.g. morphine sulfate oral solution 10 mg/5 ml (Oramorph 10 mg/5 ml); codeine, dihydrocodeine and pholcodine products with no more than 100 mg per dosage unit or no more than 2.5% in liquids (e.g. co-codamol, codeine linctus, DF118 30 mg).
+  - Schedule 2 (CD register, safe custody, full CD prescription requirements, 28-day validity): e.g. morphine above 0.2% (oral solution 20 mg/ml, 100 mg/5 ml, MR tablets and capsules, injections), diamorphine, oxycodone, fentanyl, methadone, hydromorphone, pethidine, tapentadol, methylphenidate, dexamfetamine, lisdexamfetamine.
+  - Schedule 3 (CD prescription requirements, 28-day validity, no register): e.g. buprenorphine, tramadol, midazolam, temazepam, gabapentin, pregabalin, phenobarbital.
+  - Schedule 4: e.g. most benzodiazepines (diazepam, lorazepam), zopiclone, zolpidem.
+  State the schedule and the reason (strength) when it matters. If a product is not in the PharmStation catalogue, say so, and do not assume it is Schedule 2. If you are not sure of the schedule, say so and tell the user to check the BNF or the regulations.
 - If you are unsure, say so. For clinical decisions, tell the user to check an authoritative source (BNF, SPC) and use professional judgement.
 ${opts.patientData
     ? '- Patient details are available. Only show patient information that the question needs.'
@@ -1068,6 +1074,10 @@ Deno.serve(async (req) => {
             current.content = [
               { type: 'text', text: message.trim() || 'Please look at the attached file and tell me what it shows.' },
               ...parts,
+              ...(patientData ? [] : [{
+                type: 'text' as const,
+                text: '[PharmStation note: patient details are switched off for Genie in this pharmacy. If the attached files show any patient name, date of birth, address, phone number or NHS number, do NOT repeat or summarise them, even partly or in a table. Say "the patient" and, if relevant, mention that you can see patient details but will not repeat them. Prescriber names and drug details may be discussed.]',
+              }]),
             ]
           }
         }
