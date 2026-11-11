@@ -45,9 +45,14 @@ function json(status: number, body: Record<string, unknown>) {
 // OpenRouter streaming client
 // ============================================
 
+type ContentPart =
+  | { type: 'text'; text: string }
+  | { type: 'image_url'; image_url: { url: string } }
+  | { type: 'file'; file: { filename: string; file_data: string } }
+
 type OpenRouterMessage = {
   role: 'system' | 'user' | 'assistant' | 'tool'
-  content: string | null
+  content: string | null | ContentPart[]
   tool_call_id?: string
   tool_calls?: OpenRouterToolCall[]
 }
@@ -597,13 +602,78 @@ type HistoryRow = {
   role: string
   content: string | null
   tool_calls: SavedToolCall[] | null
+  attachments?: StoredAttachment[] | null
+}
+
+// ============================================
+// Attachments (images and PDFs in the genie-attachments bucket)
+// ============================================
+
+type StoredAttachment = { type: 'image' | 'pdf'; url: string; name: string; size?: number; mime_type?: string }
+
+const ATTACHMENT_MIME = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'application/pdf']
+const MAX_ATTACHMENTS = 4
+const MAX_ATTACHMENT_BYTES = 10 * 1024 * 1024
+const MAX_TOTAL_ATTACHMENT_BYTES = 20 * 1024 * 1024
+
+/** Keeps only attachments the caller uploaded to their own folder. */
+function readAttachments(value: unknown, userId: string): StoredAttachment[] {
+  if (!Array.isArray(value)) return []
+  const out: StoredAttachment[] = []
+  for (const raw of value.slice(0, MAX_ATTACHMENTS)) {
+    if (!raw || typeof raw !== 'object') continue
+    const a = raw as Record<string, unknown>
+    const path = typeof a.url === 'string' ? a.url : typeof a.path === 'string' ? a.path : ''
+    const mime = typeof a.mime_type === 'string' ? a.mime_type : ''
+    if (!path.startsWith(`${userId}/`) || path.includes('..') || path.length > 300) continue
+    if (!ATTACHMENT_MIME.includes(mime)) continue
+    out.push({
+      type: mime === 'application/pdf' ? 'pdf' : 'image',
+      url: path,
+      name: (typeof a.name === 'string' ? a.name : 'attachment').replace(/[\u0000-\u001f]/g, '').slice(0, 120) || 'attachment',
+      size: typeof a.size === 'number' ? a.size : undefined,
+      mime_type: mime,
+    })
+  }
+  return out
+}
+
+function toBase64(bytes: Uint8Array): string {
+  let binary = ''
+  const chunk = 0x8000
+  for (let i = 0; i < bytes.length; i += chunk) binary += String.fromCharCode(...bytes.subarray(i, i + chunk))
+  return btoa(binary)
+}
+
+/** Downloads the attachments and turns them into model content parts. */
+async function attachmentParts(supabaseAdmin: Db, attachments: StoredAttachment[]): Promise<ContentPart[]> {
+  const parts: ContentPart[] = []
+  let total = 0
+  for (const a of attachments) {
+    const { data, error } = await supabaseAdmin.storage.from('genie-attachments').download(a.url)
+    if (error || !data) throw new Error(`Genie could not open the attachment "${a.name}". Please attach it again.`)
+    const bytes = new Uint8Array(await data.arrayBuffer())
+    total += bytes.length
+    if (bytes.length > MAX_ATTACHMENT_BYTES || total > MAX_TOTAL_ATTACHMENT_BYTES) {
+      throw new Error('Genie attachments are too large. Attach up to 4 files, 10 MB each.')
+    }
+    const dataUrl = `data:${a.mime_type};base64,${toBase64(bytes)}`
+    parts.push(a.type === 'pdf'
+      ? { type: 'file', file: { filename: a.name, file_data: dataUrl } }
+      : { type: 'image_url', image_url: { url: dataUrl } })
+  }
+  return parts
 }
 
 function historyToMessages(rows: HistoryRow[], replayToolResults: boolean): OpenRouterMessage[] {
   const out: OpenRouterMessage[] = []
   for (const row of rows) {
     if (row.role === 'user') {
-      out.push({ role: 'user', content: row.content ?? '' })
+      // Earlier files are named, not re-sent, to keep each question small.
+      const files = Array.isArray(row.attachments) && row.attachments.length
+        ? `\n[Attached earlier: ${row.attachments.map((a) => a.name).join(', ')}]`
+        : ''
+      out.push({ role: 'user', content: (row.content ?? '') + files })
       continue
     }
     if (row.role !== 'assistant') continue
@@ -667,10 +737,11 @@ Rules:
 - Write dates the UK way ("9 Nov 2026") and times in 24-hour UK local time ("14:06"). Tool results are already in UK local time; never convert them or call them UTC.
 - CD entries include entered_by, the staff member who made the entry. You may name staff.
 - Always state CD quantities and balances with their unit (quantity_unit or balance_unit), e.g. "30 ml" or "28 capsules", never just "units".
+- The user can attach photos, screenshots and PDFs (for example an invoice, a delivery note, a label or a document). Read them carefully, say what you can and cannot make out, and never guess text you cannot read.
 - If you are unsure, say so. For clinical decisions, tell the user to check an authoritative source (BNF, SPC) and use professional judgement.
 ${opts.patientData
     ? '- Patient details are available. Only show patient information that the question needs.'
-    : '- Patient details are switched off for Genie in this pharmacy. You cannot see patient or prescriber names. Do not ask the user to type patient details; if they need them, tell them to open the register in PharmStation.'}${opts.page ? `
+    : '- Patient details are switched off for Genie in this pharmacy. You cannot see patient or prescriber names. Do not ask the user to type patient details; if they need them, tell them to open the register in PharmStation. If an attached file shows patient names, addresses, dates of birth or NHS numbers, do not repeat them; refer to "the patient" instead.'}${opts.page ? `
 
 The user is looking at this PharmStation page right now: "${opts.page.title}" (${opts.page.path}).${opts.page.details ? ` On screen: ${opts.page.details}` : ''}
 Use it as context: "this shift", "this page" or "here" means what they are looking at. Ids in the path (after /shifts/ or /appointments/) can be used with your tools.` : ''}${opts.recentActions.length ? `
@@ -788,11 +859,11 @@ Deno.serve(async (req) => {
     const conversationIdInput = typeof body.conversation_id === 'string' ? body.conversation_id : null
     const organisationId = typeof body.organisation_id === 'string' ? body.organisation_id : ''
     const message = typeof body.message === 'string' ? body.message : ''
-    const attachments = Array.isArray(body.attachments) ? body.attachments.slice(0, 10) : []
+    const attachments = readAttachments(body.attachments, user.id)
     const requestedModelId = typeof body.model_id === 'string' ? body.model_id : null
     const pageContext = readPageContext(body.page_context)
 
-    if (!organisationId || !message.trim()) return json(400, { error: 'Missing organisation_id or message' })
+    if (!organisationId || (!message.trim() && attachments.length === 0)) return json(400, { error: 'Missing organisation_id or message' })
     if (message.length > 20000) return json(400, { error: 'Message is too long' })
 
     // Membership (staff accounts only)
@@ -904,7 +975,7 @@ Deno.serve(async (req) => {
         .insert({
           organisation_id: organisationId,
           user_id: user.id,
-          title: message.trim().slice(0, 80) + (message.trim().length > 80 ? '...' : ''),
+          title: (message.trim() || `Attachment: ${attachments[0]?.name ?? 'file'}`).slice(0, 80) + (message.trim().length > 80 ? '...' : ''),
           model_id: modelRecord.id,
         })
         .select('id')
@@ -921,7 +992,7 @@ Deno.serve(async (req) => {
     const { error: userMessageError } = await supabaseAdmin.from('ps_chat_messages').insert({
       conversation_id: convId,
       role: 'user',
-      content: message.trim(),
+      content: message.trim() || null,
       attachments,
       status: 'completed',
     })
@@ -933,7 +1004,7 @@ Deno.serve(async (req) => {
     // Newest messages first, then back into time order.
     const { data: historyDesc } = await supabaseAdmin
       .from('ps_chat_messages')
-      .select('role, content, tool_calls, created_at')
+      .select('role, content, tool_calls, attachments, created_at')
       .eq('conversation_id', convId)
       .in('role', ['user', 'assistant'])
       .neq('status', 'error')
@@ -987,6 +1058,18 @@ Deno.serve(async (req) => {
       try {
         if (isNewConversation) {
           await sendEvent(writer, { type: 'conversation_created', conversation_id: convId })
+        }
+
+        // This question's files go to the model as images / PDF documents.
+        if (attachments.length) {
+          const parts = await attachmentParts(supabaseAdmin, attachments)
+          const current = [...messages].reverse().find((m) => m.role === 'user')
+          if (current) {
+            current.content = [
+              { type: 'text', text: message.trim() || 'Please look at the attached file and tell me what it shows.' },
+              ...parts,
+            ]
+          }
         }
 
         let fullContent = ''
