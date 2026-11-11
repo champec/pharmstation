@@ -12,6 +12,7 @@ import {
   MAX_ABSENCE_MINUTES,
   buildSessions,
   formatDuration,
+  formatSince,
   isSignOutRecord,
   loadRpData,
   minutesBetween,
@@ -455,7 +456,11 @@ export function RPLogPage() {
               {(isToday || d === addDays(today, -1)) && <span className="log-muted">{formatDay(d, { day: 'numeric', month: 'short' })}</span>}
             </h2>
             {list.length === 0 && (
-              <div className="rp-empty-day">{isToday ? 'No RP has signed in yet today.' : 'No RP recorded.'}</div>
+              <div className="rp-empty-day">
+                {isToday && openSession?.current.rp_signed_in_at
+                  ? `${openSession.current.pharmacist_name} is still on duty, signed in ${formatSince(openSession.current.rp_signed_in_at)}.`
+                  : isToday ? 'No RP has signed in yet today.' : 'No RP recorded.'}
+              </div>
             )}
             {list.map((s) => {
               const c = s.current

@@ -13,6 +13,7 @@ import {
   MAX_ABSENCE_MINUTES,
   buildSessions,
   formatDuration,
+  formatSince,
   loadRpData,
   minutesBetween,
   rpErrorMessage,
@@ -71,10 +72,13 @@ export function RpLogScreen() {
   }, [sessions, orgCreated])
 
   // Collapse runs of empty days into one line.
-  const rows: ({ kind: 'day'; date: string; sessions: RpSession[] } | { kind: 'gap'; from: string; to: string })[] = []
+  const rows: ({ kind: 'day'; date: string; sessions: RpSession[] } | { kind: 'gap'; from: string; to: string } | { kind: 'carry'; session: RpSession })[] = []
+  const open = sessions.find((s) => s.isOpen) ?? null
   for (const d of days) {
     const last = rows[rows.length - 1]
     if (d.sessions.length) rows.push({ kind: 'day', ...d })
+    // Today with nobody new, but an RP still on duty from an earlier day.
+    else if (d.date === ukDate() && open?.current.rp_signed_in_at) rows.push({ kind: 'carry', session: open })
     else if (last?.kind === 'gap') last.to = d.date
     else rows.push({ kind: 'gap', from: d.date, to: d.date })
   }
@@ -90,7 +94,14 @@ export function RpLogScreen() {
       {error ? <Text style={styles.error}>{error}</Text> : null}
 
       {rows.map((r) =>
-        r.kind === 'gap' ? (
+        r.kind === 'carry' ? (
+          <View key="carry" style={styles.day}>
+            <Text style={styles.dayTitle}>Today</Text>
+            <Text style={styles.carry}>
+              {r.session.current.pharmacist_name} is still on duty, signed in {formatSince(r.session.current.rp_signed_in_at!)}.
+            </Text>
+          </View>
+        ) : r.kind === 'gap' ? (
           <Text key={`gap-${r.from}`} style={styles.gap}>
             {r.from === r.to ? relativeDay(r.from) : `${relativeDay(r.to)} – ${relativeDay(r.from)}`} · no RP recorded
           </Text>
@@ -146,6 +157,7 @@ const styles = StyleSheet.create({
   content: { padding: 16, gap: 12, paddingBottom: 40 },
   section: { fontSize: 13, fontWeight: '800', letterSpacing: 0.6, color: palette.textMuted, marginTop: 8, textTransform: 'uppercase' },
   error: { color: palette.danger, fontSize: 14 },
+  carry: { fontSize: 14, color: palette.text, paddingHorizontal: 4 },
   gap: { fontSize: 13, color: palette.textMuted, paddingHorizontal: 4, fontStyle: 'italic' },
   day: { gap: 8 },
   dayTitle: { fontSize: 15, fontWeight: '800', color: palette.text, paddingHorizontal: 4 },
