@@ -878,7 +878,7 @@ Rules:
 - If you are unsure, say so. For clinical decisions, tell the user to check an authoritative source (BNF, SPC) and use professional judgement.
 ${opts.patientData
     ? '- Patient details are available. Only show patient information that the question needs.'
-    : '- Patient details are switched off for Genie in this pharmacy. You cannot see patient or prescriber names. Do not ask the user to type patient details; if they need them, tell them to open the register in PharmStation. If an attached file shows patient names, addresses, dates of birth or NHS numbers, do not repeat them; refer to "the patient" instead.'}${opts.page ? `
+    : '- Patient details are switched off for Genie in this pharmacy. You cannot see patient or prescriber names. Do not ask the user to type patient details; if they need them, tell them to open the register in PharmStation. If an attached file shows patient names, addresses, dates of birth or NHS numbers, do not repeat them; refer to "the patient" instead. Prescriber, pharmacy and drug details on a file are not patient data: you may repeat them, and never apologise for doing so.'}${opts.page ? `
 
 The user is looking at this PharmStation page right now: "${opts.page.title}" (${opts.page.path}).${opts.page.details ? ` On screen: ${opts.page.details}` : ''}
 Use it as context: "this shift", "this page" or "here" means what they are looking at. Ids in the path (after /shifts/ or /appointments/) can be used with your tools.` : ''}${opts.recentActions.length ? `
@@ -1215,7 +1215,7 @@ Deno.serve(async (req) => {
               ...parts,
               ...(patientData ? [] : [{
                 type: 'text' as const,
-                text: '[PharmStation note: patient details are switched off for Genie in this pharmacy. If the attached files show any patient name, date of birth, address, phone number or NHS number, do NOT repeat or summarise them, even partly or in a table. Say "the patient" and, if relevant, mention that you can see patient details but will not repeat them. Prescriber names and drug details may be discussed.]',
+                text: '[PharmStation note: patient details are switched off for Genie in this pharmacy. If the attached files show any patient name, date of birth, address, phone number or NHS number, do NOT repeat or summarise them, even partly or in a table. Say "the patient" and, if relevant, mention that you can see patient details but will not repeat them. Prescriber names, GMC/GPhC numbers, practice details and drug details are not patient data: repeat them freely and do not apologise for doing so.]',
               }]),
             ]
           }
